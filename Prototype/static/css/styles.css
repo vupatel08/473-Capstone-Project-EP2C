@@ -1,0 +1,123 @@
+:root {
+  --bg: #0b0f14;
+  --panel: #121822;
+  --panel2: #0f141d;
+  --muted: #96a0b5;
+  --text: #e5edf5;
+  --accent: #5ea0ff;
+  --border: #1f2a3a;
+  --vscode-hover: #1b2636;
+  --vscode-active: #1f2b3c;
+  --github-code-bg: #0d1117;  /* GitHub dark */
+  --github-code-border: #30363d;
+}
+
+* { box-sizing: border-box; }
+body {
+  margin: 0;
+  font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, Noto Sans, Helvetica, Arial;
+  background: var(--bg);
+  color: var(--text);
+}
+a { color: var(--accent); text-decoration: none; }
+h1 { margin-top: 0; }
+
+/* Top bar */
+.topbar {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: .75rem 1rem; background: var(--panel); border-bottom: 1px solid var(--border);
+  position: sticky; top: 0; z-index: 10;
+}
+
+/* Layout */
+.layout { display: grid; grid-template-columns: 280px 1fr 45%; height: calc(100vh - 56px); }
+
+/* === VS Code-like Explorer === */
+.sidebar {
+  background: var(--panel); border-right: 1px solid var(--border); overflow: auto;
+}
+.explorer-header {
+  font-size: 11px; letter-spacing: 1px; color: var(--muted);
+  padding: 10px 12px; border-bottom: 1px solid var(--border);
+}
+.workspace-title {
+  padding: 8px 12px; font-weight: 600; color: #cfd8e3;
+}
+.vscode-tree {
+  list-style: none; padding: 6px 6px 12px 6px; margin: 0;
+}
+.vscode-item { margin: 0; }
+.vscode-row {
+  width: 100%; display: grid; grid-template-columns: 16px 16px 1fr;
+  gap: 8px; align-items: center;
+  padding: 6px 8px; border-radius: 6px; border: 1px solid transparent;
+  background: transparent; color: var(--text); cursor: pointer;
+  font-size: 14px; text-align: left;
+}
+.vscode-row:hover { background: var(--vscode-hover); }
+.vscode-row.active { background: var(--vscode-active); border-color: var(--border); }
+.vscode-item.folder > .vscode-row .twisty { color: #98a6bd; }
+.vscode-children {
+  list-style: none; margin: 0; padding: 0 0 0 20px; display: none;
+}
+.vscode-item.folder.open > .vscode-children { display: block; }
+
+/* Icons */
+.icon svg { display: block; color: #8fb3ff; }
+.vscode-item.file .icon svg { color: #9fb0c9; }
+
+/* === Code pane styled like GitHub === */
+.code-pane { padding: 0; background: var(--panel2); display: grid; grid-template-rows: auto 1fr; }
+.code-toolbar {
+  display: flex; gap: 8px; align-items: center; padding: 8px 12px; border-bottom: 1px solid var(--border);
+  background: var(--panel);
+}
+.file-chip {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+  font-size: 12px; padding: 4px 8px; border: 1px solid var(--border); border-radius: 6px; background: var(--panel2);
+}
+.toolbar-spacer { flex: 1; }
+.toolbar-btn {
+  padding: 6px 10px; border: 1px solid var(--border); border-radius: 6px; background: var(--panel2);
+  color: var(--text); cursor: pointer; font-size: 12px;
+}
+.toolbar-btn:hover { border-color: var(--accent); }
+
+.code-frame {
+  padding: 12px;
+}
+pre {
+  margin: 0; background: var(--github-code-bg); border: 1px solid var(--github-code-border);
+  border-radius: 8px; overflow: auto; padding: 12px 16px;
+}
+
+/* Line numbers plugin tweaks (GitHub-like) */
+.hljs-ln-numbers {
+  text-align: right; color: #6e7681; border-right: 1px solid var(--github-code-border);
+  vertical-align: top; padding-right: 12px; user-select: none;
+}
+.hljs-ln-code { padding-left: 12px; }
+
+/* === PDF pane === */
+.pdf-pane { border-left: 1px solid var(--border); background: #0b0f14; display: grid; }
+#pdfFrame { width: 100%; height: 100%; }
+
+/* Upload page (unchanged, for completeness) */
+.container { max-width: 720px; margin: 4rem auto; padding: 0 1rem; }
+.muted { color: var(--muted); }
+.field { margin: 1rem 0; display: grid; gap: .5rem; }
+input[type=file], select, button {
+  padding: .75rem .85rem;
+  background: var(--panel);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: .6rem;
+}
+button.primary {
+  background: linear-gradient(180deg, #4b83ff, #2563eb);
+  border: none;
+  color: white;
+  font-weight: 600;
+  cursor: pointer;
+}
+.flash { margin-top: 1rem; padding: 0; list-style: none; color: #ffb4b4; }
