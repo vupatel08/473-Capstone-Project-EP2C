@@ -4,9 +4,5 @@ Flask==3.0.3
 # File uploads & parsing
 Werkzeug==3.0.3   # Flask dependency, pinned for stability
 
-# PDF handling (optional, if you later parse PDF content server-side)
-pdfminer.six==20231228
-PyMuPDF==1.24.2
-
 # Utilities
 python-dotenv==1.0.1  # load secrets/config from .env
