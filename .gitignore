@@ -1,0 +1,52 @@
+# --- Python ---
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.so
+*.egg
+*.egg-info/
+dist/
+build/
+.eggs/
+
+# Virtual environments
+.venv/
+venv/
+ENV/
+env/
+
+# --- Flask uploads/logs ---
+instance/
+uploads/
+static/uploads/
+*.log
+
+# --- Node / JS (if frontend grows) ---
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnp.*
+.pnp.js
+.next/
+out/
+
+# --- IDE / Editor ---
+.vscode/
+.idea/
+*.swp
+.DS_Store
+Thumbs.db
+
+# --- Testing ---
+.coverage
+.tox/
+.pytest_cache/
+htmlcov/
+
+# --- Misc ---
+*.zip
+*.tar.gz
+*.bak
+*.tmp
