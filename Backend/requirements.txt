@@ -1,0 +1,11 @@
+# HuggingFace API
+gradio_client==0.2.1
+
+# MinerU API
+mineru[core]  # This installs the core dependencies for MinerU
+uvicorn  # uvicorn is often required for serving the model and API
+torch  
+
+# Additional dependencies
+transformers  # For working with HuggingFace models
+datasets  # For handling datasets (for fine-tuning)
