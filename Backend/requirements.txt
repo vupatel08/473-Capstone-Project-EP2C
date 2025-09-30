@@ -1,0 +1,17 @@
+# HuggingFace API and LLM dependencies
+transformers==4.28.1          # HuggingFace transformers library for model loading and inference
+torch==1.13.1                 # PyTorch for running the models
+huggingface_hub==0.13.2       # HuggingFace Hub for model downloading and authentication
+python-dotenv==0.19.2         # To load environment variables from .env (for HuggingFace token)
+accelerate==0.17.1            # For efficient distributed training/inference
+
+# MinerU dependencies
+mineru[core]==0.0.1           # MinerU core for scraping papers (with all dependencies)
+uvicorn==0.18.2               # ASGI server for MinerU or API serving
+
+# Gradio 
+gradio==3.3.0                 
+
+# Other utilities
+datasets==2.10.1              # HuggingFace dataset library for managing datasets
+requests==2.28.1              # For handling HTTP requests

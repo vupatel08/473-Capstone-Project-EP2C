@@ -50,3 +50,4 @@ htmlcov/
 *.tar.gz
 *.bak
 *.tmp
+.env

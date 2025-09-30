@@ -12,8 +12,6 @@ EP2C (Explainable Paper-to-Code) aims to close this gap by:
 - Offering new evaluation metrics that measure not only code correctness, but also explainability and usability.
 
 
----
-
 ## System Pipeline
 1. Paper Parsing – Extract metadata & structure (title, abstract, methods, equations, figures).
 2. Dataset/Code Search – Query HuggingFace API for existing repos/datasets.
@@ -24,7 +22,6 @@ EP2C (Explainable Paper-to-Code) aims to close this gap by:
 7. UI Integration – Paper/code side-by-side with clickable traceability.
 8. Exporting – Download as .zip or push to GitHub.
 
----
 
 ## Project Timeline
 - Month 1: Initial setup + MVP (Flask prototype, pipeline design, dataset collection).
