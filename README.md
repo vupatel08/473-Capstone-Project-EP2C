@@ -31,3 +31,15 @@ EP2C (Explainable Paper-to-Code) aims to close this gap by:
 - Month 2: Complete MVP + evaluation (UI integration, debugging, testing).
 - Final Weeks: Case studies, benchmarking, polish UI, and deliverables.
 - Planned completion: December 2025
+
+---
+
+## Running the Prototype
+1. Clone the repository: `git clone https://github.com/vupatel08/473-Capstone-Project-EP2C.git`
+2. Navigate into the correct directory: `cd 473-Capstone-Project-EP2C/prototype`
+3. Set up a virtual environment:
+- For macOS/Linux: `python3 -m venv .venv` and then run `source .venv/bin/activate`
+- For Windows: `python -m venv .venv` and then run `.\.venv\Scripts\activate`
+4. Install dependencies: `pip install -r requirements.txt`
+5. Run the app: `python app.py`
+6. Visit `http://localhost:5000` to try it out!
