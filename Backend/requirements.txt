@@ -9,8 +9,8 @@ accelerate==0.17.1            # For efficient distributed training/inference
 mineru[core]==0.0.1           # MinerU core for scraping papers (with all dependencies)
 uvicorn==0.18.2               # ASGI server for MinerU or API serving
 
-# Gradio for web-based UI (if you want a UI to interact with models)
-gradio==3.3.0                 # For building interactive UIs with models (optional)
+# Gradio 
+gradio==3.3.0                 
 
 # Other utilities
 datasets==2.10.1              # HuggingFace dataset library for managing datasets
