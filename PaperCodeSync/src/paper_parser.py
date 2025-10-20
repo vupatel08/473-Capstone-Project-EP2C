@@ -2,6 +2,22 @@
 # [{id, heading_path, page_start, page_end, text}]
 
 
+# Okay so switching to GROBID was a bit of a pain
+# First I had to install Docker Desktop on my Windows machine
+# Then I had to confirm that it was working for WSL2
+# Next I had to pull the GROBID Docker image and run it:
+# docker run --rm --init --ulimit core=0 -p 8070:8070 grobid/grobid:0.8.2-crf
+# After that I had to open a new CLI and run:
+# curl -sS -X POST \
+#   -F "input=@ExampleResearchPaper.pdf;type=application/pdf" \
+#   http://localhost:8070/api/processFulltextDocument \
+#   -o ExampleResearchPaper.tei.xml
+
+# IT WORKED!
+
+
+### Parse research paper into structured JSON using Docling
+""" 
 from docling.document_converter import DocumentConverter
 import json
 import sys
@@ -24,7 +40,5 @@ def parse_paper(source_path: str):
 
 
 parse_paper("https://arxiv.org/pdf/2206.01062")
+"""
 
-
-# okay so this sort of worked? not really sure how to get the sections out of this
-# need to look at the docling docs more closely or just switch to GROBID directly
