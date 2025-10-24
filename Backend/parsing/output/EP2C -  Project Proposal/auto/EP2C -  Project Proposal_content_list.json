@@ -1,0 +1,731 @@
+[
+    {
+        "type": "text",
+        "text": "1. Background Review ",
+        "text_level": 1,
+        "bbox": [
+            102,
+            108,
+            300,
+            125
+        ],
+        "page_idx": 1
+    },
+    {
+        "type": "text",
+        "text": "Reproducibility has become one of the biggest challenges in machine learning research. Every year, thousands of new ML papers are published, but many do not release complete code or provide enough technical details to rebuild their experiments. As a result, reproducing these results is slow, frustrating, and often impossible without guesswork. ",
+        "bbox": [
+            114,
+            126,
+            867,
+            194
+        ],
+        "page_idx": 1
+    },
+    {
+        "type": "text",
+        "text": "This lack of reproducibility is a problem because it slows down research progress, makes it harder for students to learn from real examples, and creates a gap between what is described in papers and what can actually be used in practice. Current tools that try to solve this problem only check if the code runs and do not explain why the code looks the way it does, what information is missing, or how specific code relates to the paper. Because of this, even if code is generated, researchers and students are left without guidance on how to fix errors or fully reproduce results. A system that can generate code and explain it would help close this gap and make ML research more accessible, transparent, and trustworthy. ",
+        "bbox": [
+            114,
+            195,
+            879,
+            334
+        ],
+        "page_idx": 1
+    },
+    {
+        "type": "text",
+        "text": "The goal of EP2C is to generate both a repository and an explanation layer. This explanation layer links code files and functions back to sections of the paper, highlights missing datasets or hyperparameters, and generates a user guide with next steps. We will also define new evaluation metrics (static pass rate, guidance quality, and failure explainability) to measure the usefulness of these explanations. The project combines existing parsing tools (MinerU, Grobid), open-source code models (CodeLlama, StarCoder), and smaller fine-tuned models for explanation generation. ",
+        "bbox": [
+            114,
+            335,
+            877,
+            457
+        ],
+        "page_idx": 1
+    },
+    {
+        "type": "text",
+        "text": "2. Related Work ",
+        "text_level": 1,
+        "bbox": [
+            101,
+            474,
+            250,
+            491
+        ],
+        "page_idx": 1
+    },
+    {
+        "type": "text",
+        "text": "AutoP2C introduced a multimodal, multi-agent system that extracts information from text, figures, and tables, then iteratively debugs code until it runs. Paper2Code, also known as PaperCoder, takes a top-down planning approach where LLMs first design a repository blueprint and then generate code to fill it. Both projects introduced benchmarks such as PaperBench and Paper2CodeBench to evaluate performance using replication scores and structural completeness. While these systems show that paper-to-code generation is possible, they primarily measure execution success and do not provide explanations or guidance for human users. The lack of explainability in paper-to-code is what our project is trying to address. ",
+        "bbox": [
+            114,
+            491,
+            879,
+            648
+        ],
+        "page_idx": 1
+    },
+    {
+        "type": "text",
+        "text": "○ AutoP2C: https://arxiv.org/pdf/2504.20115   \n○ Paper2Code: https://arxiv.org/pdf/2504.17192 ",
+        "bbox": [
+            137,
+            651,
+            529,
+            688
+        ],
+        "page_idx": 1
+    },
+    {
+        "type": "text",
+        "text": "3. System Pipeline ",
+        "text_level": 1,
+        "bbox": [
+            101,
+            704,
+            266,
+            722
+        ],
+        "page_idx": 1
+    },
+    {
+        "type": "text",
+        "text": "Our EP2C pipeline ensures a comprehensive, user-friendly process for converting academic papers into reproducible, executable code with an additional layer of explainability. By combining parsing, code generation, debugging, and explainability into a seamless flow, EP2C provides a unique solution that not only makes research papers more reproducible, but also helps users understand and utilize the code. ",
+        "bbox": [
+            114,
+            722,
+            880,
+            808
+        ],
+        "page_idx": 1
+    },
+    {
+        "type": "text",
+        "text": "a. Paper Parsing: Use MinerU? Gorbid? ",
+        "bbox": [
+            135,
+            809,
+            465,
+            825
+        ],
+        "page_idx": 1
+    },
+    {
+        "type": "text",
+        "text": "i. The user uploads the paper in their desired format (PDF, LaTeX, JSON, etc.) ii. Extract metadata such as the title, authors, abstract, DOI, keywords, etc. iii. Output structured metadata (most likely in JSON format) with textual content split by sections (abstract, introduction, methods, etc.) ",
+        "bbox": [
+            165,
+            827,
+            870,
+            896
+        ],
+        "page_idx": 1
+    },
+    {
+        "type": "text",
+        "text": "b. Dataset/Code Search: ",
+        "bbox": [
+            137,
+            90,
+            339,
+            107
+        ],
+        "page_idx": 2
+    },
+    {
+        "type": "text",
+        "text": "i. Via HuggingFace’s API, check if the paper already has a publicly available code repository and any datasets 1. If no datasets are found, notify the user and provide steps on how they can obtain a dataset themselves 2. If there is a dataset, use it / have it readily available for use within the code 3. If there is a code repository already, the use it as a starting point and expand beyond with explanations ",
+        "bbox": [
+            160,
+            108,
+            859,
+            229
+        ],
+        "page_idx": 2
+    },
+    {
+        "type": "text",
+        "text": "c. System Architecture Creation: ",
+        "bbox": [
+            135,
+            231,
+            408,
+            247
+        ],
+        "page_idx": 2
+    },
+    {
+        "type": "text",
+        "text": "i. The first parsing step was brief in order to get quick metadata to use in the second step, this parsing step goes much further in the breakdown and analysis of the provided paper   \nii. Go through all content in order to understand the structure of the proposed model/algorithm / whatever the paper proposes (such as an equation for math/physics papers)   \niii. Analyze any and all figures, diagrams, tables, etc., that need to be incorporated into the code   \niv. Ultimately output a blueprint for the code generation step ",
+        "bbox": [
+            169,
+            248,
+            872,
+            405
+        ],
+        "page_idx": 2
+    },
+    {
+        "type": "text",
+        "text": "d. Code Generation: ",
+        "bbox": [
+            137,
+            405,
+            307,
+            421
+        ],
+        "page_idx": 2
+    },
+    {
+        "type": "text",
+        "text": "i. Feed the blueprint generated from the prior step into a fine-tuned LLM along with paper details to guide the code generation   \nii. The user is able to choose the programming language and set the complexity of the generated code (basic vs full-featured version) which will influence the level of detail in the generated code   \niii. The LLM will generate modular, dependency-aware code including code for dataset reading and handling/transformation (assuming a dataset is found or provided), code for defining the machine learning model, code for training loops, loss functions, evaluation and finally any unit tests or tests scripts that may be required. 1. Note although this was talked about with ML papers in mind, this will include support for any type of paper within the field (such as mathematics or physics, which will obviously be less intense) ",
+        "bbox": [
+            168,
+            422,
+            880,
+            630
+        ],
+        "page_idx": 2
+    },
+    {
+        "type": "text",
+        "text": "iv. By the end of this step, we have an executable code repository in the user-choosen language ",
+        "bbox": [
+            161,
+            631,
+            870,
+            665
+        ],
+        "page_idx": 2
+    },
+    {
+        "type": "text",
+        "text": "e. Iterative Evaluation (Debugging): ",
+        "bbox": [
+            135,
+            666,
+            434,
+            683
+        ],
+        "page_idx": 2
+    },
+    {
+        "type": "text",
+        "text": "i. Run basic tests on the generated code to check for any errors   \nii. Next, ensure proper code style/syntax via linting tools   \niii. Ensure all imports and external dependencies are correctly handled 1. If the user has any missing/incorrect ones, provide detailed explanations on how to fix it   \niv. Iteratively fix any issues that come up, and rerun these tests after each fix to ensure no new bugs pop up and all code runs as expected   \nv. By the end of this step, we have a fully working and debugged code repository ",
+        "bbox": [
+            166,
+            684,
+            872,
+            821
+        ],
+        "page_idx": 2
+    },
+    {
+        "type": "text",
+        "text": "f. Into the UI we go: ",
+        "bbox": [
+            138,
+            824,
+            312,
+            839
+        ],
+        "page_idx": 2
+    },
+    {
+        "type": "text",
+        "text": "i. The UI will display the paper on one side and the generated code on the other (with one of the far sides having the file hierarchy) to allow users to see the code side-by-side with highlighted sections corresponding to parts of the paper ",
+        "bbox": [
+            178,
+            840,
+            877,
+            892
+        ],
+        "page_idx": 2
+    },
+    {
+        "type": "text",
+        "text": "1. Note: this needs to be fleshed out, but we might have to implement some sort of semantic matching algorithm to actually match corresponding parts of the paper to the code   \n2. The goal is for when the user clicks on a code snippet the corresponding section in the paper will be highlighted (vice versa) showing the traceability ",
+        "bbox": [
+            230,
+            90,
+            872,
+            178
+        ],
+        "page_idx": 3
+    },
+    {
+        "type": "text",
+        "text": "g. Exporting: ",
+        "bbox": [
+            137,
+            179,
+            253,
+            195
+        ],
+        "page_idx": 3
+    },
+    {
+        "type": "text",
+        "text": "i. Users will have the option to download the generated code repository as a compressed .zip file 1. This still needs to be checked out to see if it’s worth, but users can also choose to authenticate themselves and push the generated code directly into their GitHub ",
+        "bbox": [
+            178,
+            195,
+            883,
+            281
+        ],
+        "page_idx": 3
+    },
+    {
+        "type": "text",
+        "text": "4. Evaluation ",
+        "bbox": [
+            99,
+            300,
+            217,
+            315
+        ],
+        "page_idx": 3
+    },
+    {
+        "type": "text",
+        "text": "EP2C will build on existing evaluation methodologies while also introducing new, explainability-focused benchmarks to assess the quality and usefulness of our auto-generated explanations. EP2C aims to offer a holistic approach to evaluating the usefulness of our auto-generated code repositories. ",
+        "bbox": [
+            114,
+            318,
+            851,
+            386
+        ],
+        "page_idx": 3
+    },
+    {
+        "type": "text",
+        "text": "a. Functional Evaluation Metrics: ",
+        "bbox": [
+            135,
+            387,
+            413,
+            404
+        ],
+        "page_idx": 3
+    },
+    {
+        "type": "text",
+        "text": "i. We plan to employ similar evaluation metrics used by AutoP2C and Paper2Code, to grade our own implementation   \nii. Replication Score: 1. Measures how closely the generated code replicates the results within the paper 2. Compare the experimental results obtained from the generated code with the original results in the paper ",
+        "bbox": [
+            173,
+            405,
+            879,
+            526
+        ],
+        "page_idx": 3
+    },
+    {
+        "type": "text",
+        "text": "iii. Structural Completeness: ",
+        "bbox": [
+            166,
+            527,
+            419,
+            542
+        ],
+        "page_idx": 3
+    },
+    {
+        "type": "text",
+        "text": "1. Measures how accurately the generated code follows the implementation presented in the paper   \n2. Compare the structure of the generated code with the corresponding descriptions found in the paper ",
+        "bbox": [
+            232,
+            545,
+            839,
+            613
+        ],
+        "page_idx": 3
+    },
+    {
+        "type": "text",
+        "text": "iv. Error Rate: ",
+        "bbox": [
+            169,
+            614,
+            308,
+            630
+        ],
+        "page_idx": 3
+    },
+    {
+        "type": "text",
+        "text": "1. Track number of errors (syntax, logic, etc.) in the generated code 2. Run simple tests to detect broken dependencies, logical errors, and syntax errors after the code generation. ",
+        "bbox": [
+            232,
+            631,
+            846,
+            683
+        ],
+        "page_idx": 3
+    },
+    {
+        "type": "text",
+        "text": "b. Explainability Evaluation Metrics: ",
+        "bbox": [
+            135,
+            684,
+            441,
+            700
+        ],
+        "page_idx": 3
+    },
+    {
+        "type": "text",
+        "text": "i. The critical difference between EP2C and existing models is the addition of an explanation layer. To evaluate this, we introduce new metrics to focus on the quality of said explanations   \nii. Static Pass Rate: 1. Measures how often the generated code passes all tests without requiring any changes; our code implements an iterative evaluation phase at the end of the pipeline for debugging, so this metric tracks how often we get close to a perfect score without needing changes 2. Run a test suite against our generated code (final step in the pipeline) and measure the percentage of tests that pass without needing a fix ",
+        "bbox": [
+            166,
+            702,
+            877,
+            875
+        ],
+        "page_idx": 3
+    },
+    {
+        "type": "text",
+        "text": "iii. Guide Quality: ",
+        "bbox": [
+            166,
+            875,
+            338,
+            892
+        ],
+        "page_idx": 3
+    },
+    {
+        "type": "text",
+        "text": "1. Measures the clarity and usefulness of the generated explanations including comments, readme files, etc.   \n2. Given enough time, we can potentially assess this through human evaluation, but given the short amount of time we have, we will most likely use LLMs to assess the relevance of the generated explanations and how comprehensive they are   \n3. We want to score specifically on clarity (how well the code is explained), how actionable instructions are (if there are any needed), and on completeness to confirm all relevant details are covered such as dependencies and edge cases ",
+        "bbox": [
+            228,
+            90,
+            879,
+            263
+        ],
+        "page_idx": 4
+    },
+    {
+        "type": "text",
+        "text": "iv. Alignment Accuracy: ",
+        "bbox": [
+            169,
+            266,
+            390,
+            282
+        ],
+        "page_idx": 4
+    },
+    {
+        "type": "text",
+        "text": "1. Measures how accurately the generated code aligns with the paper’s content   \n2. This mainly compares the code-paper traceability (the highlighted matching portions from code to paper) a. This is if we have enough time ",
+        "bbox": [
+            232,
+            284,
+            864,
+            353
+        ],
+        "page_idx": 4
+    },
+    {
+        "type": "text",
+        "text": "5. ",
+        "bbox": [
+            99,
+            369,
+            117,
+            385
+        ],
+        "page_idx": 4
+    },
+    {
+        "type": "text",
+        "text": "a. Choosing the Right LLM Model: ",
+        "bbox": [
+            133,
+            387,
+            429,
+            405
+        ],
+        "page_idx": 4
+    },
+    {
+        "type": "text",
+        "text": "i. CodeLlama has shown great promise for coding tasks (especially in python) and is highly optimized for this.   \nii. StarCoder is also designed specifically for code generation and works particularly well for tasks where high accuracy and domain-specific knowledge is important   \niii. GPT-4o is a strong general-purpose LLM ",
+        "bbox": [
+            171,
+            405,
+            870,
+            491
+        ],
+        "page_idx": 4
+    },
+    {
+        "type": "text",
+        "text": "b. Fine-Tuning Strategy: ",
+        "bbox": [
+            137,
+            492,
+            341,
+            508
+        ],
+        "page_idx": 4
+    },
+    {
+        "type": "text",
+        "text": "i. Fine-tuning will mainly focus on papers that already have corresponding code (from HuggingFace, GitHub, etc.). The papers themselves will serve as the input text and the code they generate will be the target output.   \nii. We plan on using a supervised learning approach where the input is the academic paper (with sections like methods, models, algorithms, etc.) and the output will be the generated code repositories. Using instruction-based fine-tuning, we plan to make the model more adept at understanding complex algorithms and translating them into code. ",
+        "bbox": [
+            156,
+            510,
+            882,
+            647
+        ],
+        "page_idx": 4
+    },
+    {
+        "type": "text",
+        "text": "c. Multiple Fine-Tuned Models: ",
+        "bbox": [
+            137,
+            648,
+            400,
+            665
+        ],
+        "page_idx": 4
+    },
+    {
+        "type": "text",
+        "text": "i. Given the numerous tasks we have within EP2C (code generation, explanation generation, debugging, etc), we may fine-tune separate models for each task   \nii. For instance we can fine-tune CodeLlama for our code generation, but then fine-tune a different model, like GPT-4o, that focuses on generating our human-readable explanations. ",
+        "bbox": [
+            173,
+            666,
+            839,
+            752
+        ],
+        "page_idx": 4
+    },
+    {
+        "type": "text",
+        "text": "d. Creating the UI: ",
+        "bbox": [
+            137,
+            753,
+            295,
+            770
+        ],
+        "page_idx": 4
+    },
+    {
+        "type": "text",
+        "text": "i. Aside from all the API work, pipeline integration setup, fine-tuning, evaluating and testing our system, we still have to create the actual application to host and display our work.   \nii. This will need to be either a standalone application or a web-application, with considerations of how complex/simple we want it to be 1. Mainly in regards to the tech stack, if we want to host this, if we want a database, etc. ",
+        "bbox": [
+            151,
+            770,
+            877,
+            892
+        ],
+        "page_idx": 4
+    },
+    {
+        "type": "text",
+        "text": "e. Third-Party API Integration: ",
+        "bbox": [
+            137,
+            90,
+            393,
+            108
+        ],
+        "page_idx": 5
+    },
+    {
+        "type": "text",
+        "text": "i. We need to utilize the HuggingFace API to search for relevant datasets and code related to the user-uploaded papers (as outlined in step 2 of the pipeline)   \nii. We might need to also work with the GitHub API if we want to allow users to export their code repositories into auto-generated repositories within their GitHub ",
+        "bbox": [
+            173,
+            108,
+            861,
+            178
+        ],
+        "page_idx": 5
+    },
+    {
+        "type": "text",
+        "text": "6. Project Timeline ",
+        "bbox": [
+            101,
+            195,
+            264,
+            212
+        ],
+        "page_idx": 5
+    },
+    {
+        "type": "text",
+        "text": "a. Month 1: Initial $\\mathrm { \\ s e t u p + M V P }$ Development i. Divide work based on each member’s strengths/interests ii. Gather academic papers for the dataset to fine-tune our LLM models iii. Begin fine-tuning LLM models iv. Set up the HuggingFace API as it’s a crucial part of the pipeline v. Design the wireframe of the UI, quickly select a tech stack, and create the UI b. Month 2: Complete MVP $^ +$ Testing/Evaluation ",
+        "bbox": [
+            135,
+            213,
+            517,
+            229
+        ],
+        "page_idx": 5
+    },
+    {
+        "type": "text",
+        "text": "",
+        "bbox": [
+            169,
+            231,
+            831,
+            316
+        ],
+        "page_idx": 5
+    },
+    {
+        "type": "text",
+        "text": "",
+        "bbox": [
+            135,
+            318,
+            540,
+            334
+        ],
+        "page_idx": 5
+    },
+    {
+        "type": "text",
+        "text": "i. Complete UI and integrate our pipeline within the backend of the UI   \nii. Run through several rounds of testing to ensure the app works as intended 1. Given enough time, conduct UAT (user acceptance testing) and implement feedback ",
+        "bbox": [
+            171,
+            335,
+            852,
+            404
+        ],
+        "page_idx": 5
+    },
+    {
+        "type": "text",
+        "text": "iii. Begin evaluating and testing the system’s performance based on our proposed benchmarks ",
+        "bbox": [
+            161,
+            405,
+            839,
+            438
+        ],
+        "page_idx": 5
+    },
+    {
+        "type": "text",
+        "text": "c. Remaining Time ",
+        "bbox": [
+            137,
+            440,
+            302,
+            457
+        ],
+        "page_idx": 5
+    },
+    {
+        "type": "text",
+        "text": "i. Conduct final rounds of testing   \nii. Address any bugs or issues   \niii. Refine UI for better usability and performance   \niv. Prepare case studies that showcase the effectiveness of the system in comparison to what’s out there currently   \nv. Write the final project documentation and prepare deliverables ",
+        "bbox": [
+            168,
+            458,
+            877,
+            563
+        ],
+        "page_idx": 5
+    },
+    {
+        "type": "text",
+        "text": "7. Team Coordination ",
+        "bbox": [
+            102,
+            579,
+            284,
+            595
+        ],
+        "page_idx": 5
+    },
+    {
+        "type": "text",
+        "text": "a. Given this project is complex across multiple domains (machine learning, backend, frontend, etc.), we plan on placing communication on the forefront. We plan on trying our best to commit to weekly meetings to discuss progress, blockers, and align on next steps.   \nb. We have also talked about using project management tools like Trello or organizing our tasks and assigning ourselves deadlines.   \nc. We commit to using our group slack channel for any official forms of documentation sending/receiving, and our group chat within iMessages for quick messages ",
+        "bbox": [
+            125,
+            597,
+            877,
+            719
+        ],
+        "page_idx": 5
+    },
+    {
+        "type": "text",
+        "text": "d. Tasks at a high level: ",
+        "bbox": [
+            137,
+            719,
+            333,
+            734
+        ],
+        "page_idx": 5
+    },
+    {
+        "type": "text",
+        "text": "i. Gather academic papers with code for fine-tuning   \nii. Fine-tune LLM model for code generation   \niii. Fine-tune LLM model for explanation generation   \niv. Integrate HuggingFace API   \nv. Design and develop frontend UI   \nvi. Implement paper parsing and blueprint generation   \nvii. Implement the iterative debugging/evaluation system   \nviii. Implement code-paper matching   \nix. Build export functionality for downloading generated code as .zip files ",
+        "bbox": [
+            165,
+            736,
+            777,
+            893
+        ],
+        "page_idx": 5
+    },
+    {
+        "type": "text",
+        "text": "1. Potentially build out the GitHub repository exporting feature too, which is its own beast ",
+        "bbox": [
+            232,
+            90,
+            872,
+            125
+        ],
+        "page_idx": 6
+    },
+    {
+        "type": "text",
+        "text": "x. Integrate frontend with backend to display generated code and explanations in the UI   \nxi. Conduct functional and usability testing   \nxii. Create and manage custom evaluation metrics   \nxiii. Develop case studies using real papers for evaluation 1. If given enough time, conduct UAT and gather user feedback   \nxiv. Write project documentation and final academic paper ",
+        "bbox": [
+            156,
+            126,
+            866,
+            248
+        ],
+        "page_idx": 6
+    },
+    {
+        "type": "text",
+        "text": "8. Deliverables ",
+        "bbox": [
+            99,
+            265,
+            232,
+            281
+        ],
+        "page_idx": 6
+    },
+    {
+        "type": "text",
+        "text": "a. An EP2C web application or standalone application (depending on our final choice) that allows users to upload research papers, generated code, and view the code with explanations side by side   \nb. Fine-tuned LLM models for code generation and explanation generation.   \nc. A comprehensive evaluation report that includes the performance of EP2C based on the existing metrics and our new ones; this will include comparisons to the existing systems like AutoP2C and Paper2Code; this will also include our actual benchmark results   \nd. An open-source GitHub repository containing the code for the entire project including who contributed to what   \ne. A final academic paper outlining all our work including the system architecture, technical challenges, implementation details, a description of our pipeline and evaluation methodology, etc. ",
+        "bbox": [
+            133,
+            284,
+            869,
+            492
+        ],
+        "page_idx": 6
+    }
+]
