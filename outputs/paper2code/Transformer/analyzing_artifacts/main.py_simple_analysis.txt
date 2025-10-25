@@ -1,0 +1,99 @@
+# main.py – Logic Analysis
+
+This entry‐point script orchestrates the entire experiment workflow. Below is a step‐by‐step logic analysis detailing the structure and flow of main.py, ensuring alignment with the paper’s methodology, experimental setup, and our project design.
+
+──────────────────────────────
+1. Load and Parse Configuration
+
+• Read the configuration file (config.yaml) to extract all experiment parameters.
+  – Training hyperparameters (optimizer settings, warmup_steps, learning rate schedule, train steps for base and big models).
+  – Model hyperparameters (number of layers, d_model, d_ff, number of heads, dropout rate, label smoothing).
+  – Dataset details for translation (WMT 2014 En–De and En–Fr) and parsing (WSJ and semi‐supervised), including tokenization method and vocabulary sizes.
+  – Inference parameters (beam search settings: beam size, length penalty, and max_output_length formulas).
+  – The configuration is central; all subsequent module initializations must reference these values to be compliant with the replication plan.
+  
+──────────────────────────────
+2. Initialize the Dataset Loader
+
+• Instantiate the DatasetLoader class with the parsed configuration dictionary.
+  – Call DatasetLoader.__init__(config) to initialize dataset parameters (tokenization method – e.g., BPE for En–De or word-piece for En–Fr, batch sizes, and vocabulary sizes for parsing).
+  – Invoke load_data() to obtain a dictionary containing the training, validation, and test splits.
+  – Ensure that the batching strategy groups sentence pairs by similar sequence lengths (approximately 25,000 tokens per source and target side) as specified.
+  
+──────────────────────────────
+3. Instantiate the Transformer Model
+
+• Determine which model variant to run (e.g., base_model or big_model) from the configuration.
+  – Extract model parameters (num_layers, d_model, d_ff, num_heads, dropout, and label_smoothing) from config.hyperparameters.
+  – Instantiate TransformerModel with these parameters via TransformerModel.__init__(params).
+  – Confirm that the model instantiation includes the encoder and decoder stacks as outlined:
+    o Each encoder/decoder layer implements multi-head self-attention (with correct scaling, head dimensions as d_model/num_heads) and a position-wise feed-forward network.
+    o Positional encodings (sinusoidal) are added to the input embeddings, multiplied by √(d_model), and residual connections plus layer normalization are applied.
+  
+──────────────────────────────
+4. Set Up the Trainer
+
+• Create a Trainer instance by passing the instantiated TransformerModel, the training and validation data (from DatasetLoader), and the full configuration.
+  – Trainer.__init__(model, {train_data, val_data}, config) will:
+    o Initialize the Adam optimizer with parameters β1=0.9, β2=0.98, and epsilon=1e-9.
+    o Set up the custom learning rate scheduler using the schedule formula:
+      lr = d_model^(-0.5) * min(step_num^(-0.5), step_num * warmup_steps^(-1.5))
+    o Incorporate dropout and label smoothing as specified.
+    o Manage checkpoint saving and eventual checkpoint averaging (using helper functions from utils.py).
+  
+──────────────────────────────
+5. Begin Training
+
+• Trigger the training loop by calling Trainer.train().
+  – The training loop will run for a total number of steps determined from config (either base_train_steps or big_train_steps).
+  – During each step, the Trainer calls the model’s forward() method with appropriate input tensors along with source and target masks.
+  – Logging of training metrics, learning rate changes, and periodic validation performance (e.g., BLEU on validation data) will occur.
+  – The Trainer is responsible for saving checkpoints at regular intervals (e.g., every 10 minutes), averaging the final checkpoints as per the paper’s protocol.
+  
+──────────────────────────────
+6. Evaluate the Trained Model
+
+• After training completion, instantiate the Evaluation class with the trained TransformerModel, test dataset, and configuration.
+  – Use Evaluation.__init__(model, {test_data}, config) to set up evaluation parameters.
+  – For translation experiments:
+    o Beam search is configured with beam_size=4, length_penalty=0.6, and max_output_length computed as “input_length + 50.”
+  – For parsing experiments:
+    o Beam search parameters are set to beam_size=21, length_penalty=0.3, and max_output_length as “input_length + 300.”
+  – Call Evaluation.evaluate() to:
+    o Run the model in inference mode using beam search (the Evaluation module internally calls model.forward() with generated masks).
+    o Calculate the BLEU score (via sacreBLEU) for translation tasks or F1 score for parsing tasks.
+    o Gather and return evaluation metrics in a structured dictionary.
+  
+──────────────────────────────
+7. Final Reporting and Clean-Up
+
+• Collect the evaluation metrics and print/log a final report.
+  – Display the BLEU/F1 scores along with any additional metrics.
+  – Optionally, log attention distributions if further interpretability analysis is desired.
+  
+──────────────────────────────
+8. Program Flow and Error Handling
+
+• The overall program call flow corresponds to:
+  App (main.py) → DatasetLoader.load_data() → TransformerModel initialization →
+  Trainer.train() (calls TransformerModel.forward()) → Evaluation.evaluate() (calls TransformerModel.forward()).
+• Ensure that each module is only used through its specified public interface (per the design's class diagram).
+• Implement proper error checks for:
+  – Configuration file parsing errors.
+  – Data loading issues (e.g., missing datasets or tokenization failures).
+  – Consistency between dataset tokenization outputs and model expected input dimensions.
+• Consider including command-line argument parsing to allow overriding configuration values (e.g., selecting translation vs. parsing experiment or choosing base vs. big model variant), although the default behavior follows the config.yaml parameters.
+  
+──────────────────────────────
+Summary
+
+Main.py is responsible for coordinating:
+  • Reading configuration parameters.
+  • Loading and preprocessing datasets via DatasetLoader.
+  • Instantiating the Transformer model matching the paper’s architecture.
+  • Running the training loop with a Trainer that implements the Adam optimizer and custom learning rate scheduling.
+  • Conducting inference and evaluation via Evaluation using beam search and metric calculations (BLEU/F1).
+  
+This consolidated process ensures reproducibility and fidelity to the “Attention Is All You Need” paper, aligning with our modular design and configuration-driven implementation.
+
+End of Logic Analysis.

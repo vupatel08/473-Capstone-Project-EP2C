@@ -1,0 +1,187 @@
+Below is a detailed roadmap that – if followed systematically – will help you re‐implement the Transformer as described in the “Attention Is All You Need” paper and reproduce its key experiments. This plan is organized into major components: understanding the model methodology, data preparation, training setup, evaluation/inference, and implementation considerations. Note that while most details are clearly described in the paper, a few choices (such as tokenization implementation or checkpoint scheduling details) will require you to choose sensible defaults or follow practices common in recent literature.
+
+────────────────────────────────────────
+1. OVERVIEW & OBJECTIVES
+
+• Goal: Reproduce the Transformer model for sequence transduction.  
+  – Implement both the base and “big” variants for machine translation experiments (WMT 2014 English–German and English–French) and a 4-layer variant for English constituency parsing.  
+  – Mimic the architecture, training procedures, hyperparameters, and evaluation protocols detailed in the paper.
+
+• Experimental targets:  
+  – For translation, achieve BLEU scores roughly similar to 27–28 (base) and around 28.4 BLEU (big) on En–De and ~41.8 BLEU on En–Fr.  
+  – For parsing, obtain competitive F1 scores on WSJ (e.g., ~91–93 F1), matching the reported results.
+
+────────────────────────────────────────
+2. MODEL METHODOLOGY & ARCHITECTURE IMPLEMENTATION
+
+A. Input Representations & Embeddings  
+  • Map both the source and target tokens into continuous vectors of dimension d_model.  
+  • Share the same weight matrix between input embeddings and the pre-softmax linear transformation.  
+  • Multiply the embedding weights by √(d_model) to scale them before adding positional encodings.
+
+B. Positional Encoding  
+  • Use sinusoidal positional encodings that are added to the input embeddings.  
+  • For position pos and dimension index i, compute:
+    – PE(pos, 2i) = sin(pos / 10000^(2i/d_model))
+    – PE(pos, 2i+1) = cos(pos / 10000^(2i/d_model))
+  • (Note: The paper also experimented with learned positional embeddings but recommends sinusoids for extrapolation.)
+
+C. Encoder Stack (6 Layers for Translation Models)  
+  • Each encoder layer has two sub-layers:  
+    1. Multi-head self-attention mechanism.  
+    2. Point-wise feed-forward network.
+  • Each sub-layer uses a residual connection followed by layer normalization.
+  • All outputs (sub-layers and embedding layers) use dimension d_model (typically 512 for the base model).
+
+D. Decoder Stack (6 Layers for Translation Models)  
+  • In addition to the two sub-layers from the encoder, add a third sub-layer that performs multi-head attention over the encoder’s outputs.  
+  • The decoder’s self-attention sub-layer is modified with masking so that positions can only attend to earlier positions (to preserve auto-regressive generation).  
+  • Use residual connections and layer normalization after each sub-layer.
+
+E. Multi-Head Attention Details  
+  • Instead of a single attention operation, project the inputs (queries Q, keys K, and values V) into h = 8 different subspaces.  
+  • For each head, set:  
+    – d_k = d_v = d_model/h (e.g., 64 when d_model = 512).
+  • Compute scaled dot-product attention:
+    – For each head: Attention(Q, K, V) = softmax((Q·Kᵀ) / √(d_k)) · V.
+  • Concatenate the h head outputs and apply a final linear projection to return to dimension d_model.
+
+F. Feed-Forward Network  
+  • Each layer includes a position-wise (applied identically at every position) fully connected network with two linear transformations and a ReLU in between.  
+  • For the base model: use inner-layer dimension d_ff = 2048, input/output dimension = d_model (512).
+
+G. Regularization  
+  • Apply dropout at multiple points:  
+    – On the output of every sub-layer (before adding the residual and applying LayerNorm).  
+    – On the summed inputs (embeddings + positional encodings).  
+  • For the base model, use dropout probability p_drop = 0.1; note that for the big model (e.g., English–French experiments) slight rate changes (e.g., 0.1 instead of 0.3) are specified.
+
+────────────────────────────────────────
+3. DATA PREPARATION & EXPERIMENTAL SETTING
+
+A. Machine Translation Experiments  
+  1. WMT 2014 English–German  
+    – Dataset: ~4.5 million sentence pairs.  
+    – Tokenization: Use byte-pair encoding (BPE) with a shared vocabulary of approximately 37,000 tokens.
+  2. WMT 2014 English–French  
+    – Dataset: ~36 million sentence pairs.  
+    – Tokenization: Use word-piece segmentation with a vocabulary size of 32,000 tokens.
+
+  • Batching Strategy:  
+    – Group sentence pairs by approximate sequence length.
+    – Each training batch should contain roughly 25,000 source tokens and 25,000 target tokens.
+
+B. Constituency Parsing Experiments  
+  • Dataset: The Wall Street Journal (WSJ) portion of the Penn Treebank (~40K sentences) for supervised experiments.  
+  • For semi-supervised experiments, also incorporate a large corpus (e.g., the high-confidence/BerkeleyParser corpus with ~17M sentences).  
+  • Vocabulary:  
+    – Use a 16K vocabulary for WSJ-only training and a 32K vocabulary for the semi-supervised setup.
+  • Model Variant:  
+    – Implement a 4-layer Transformer with d_model = 1024 (scaling up dimensions as per the paper).
+  • Inference modifications:  
+    – Maximum output length: set to (input length + 300).  
+    – Beam search with a beam size of 21 and a length penalty of α = 0.3.
+
+────────────────────────────────────────
+4. TRAINING SETUP & HYPERPARAMETERS
+
+A. Optimizer and Learning Rate Schedule  
+  • Use the Adam optimizer with parameters:  
+    – β1 = 0.9, β2 = 0.98, and ϵ = 1e-9.
+  • Learning Rate Schedule:  
+    – Vary the learning rate according to:
+     lr = d_model^(-0.5) * min(step_num^(-0.5), step_num * warmup_steps^(-1.5))
+    – Set warmup_steps = 4000.
+  • This schedule starts with a linear increase (warmup phase) and then decays proportionally to the inverse square root of the step number.
+
+B. Regularization Techniques  
+  • Residual Dropout: Apply dropout as described on each sub-layer output prior to residual addition.  
+  • Label Smoothing: Use a smoothing factor ϵ_ls = 0.1 to soften the target distribution, which helps improve BLEU at the expense of perplexity.
+
+C. Training Duration and Batch Setup  
+  1. Hardware: Training should be done on a machine with 8 NVIDIA P100 GPUs.  
+  2. Base Model Training:  
+    – Train for 100,000 steps (~12 hours of training).  
+    – Checkpoint frequency: Save checkpoints (for example, every 10 minutes) and average the last 5 checkpoints for inference.  
+  3. Big Model Training:  
+    – Train for 300,000 steps (~3.5 days).  
+    – Average the last 20 checkpoints for final model performance.
+
+D. Batching and Data Handling  
+  • Make sure the batching is “dynamic” (group sentences by similar lengths) so that each batch contains approximately 25,000 tokens on each side.  
+  • This is important for stable training speed and GPU utilization.
+
+────────────────────────────────────────
+5. INFERENCE AND EVALUATION PROTOCOLS
+
+A. Translation Inference  
+  • Use beam search decoding with:  
+    – Beam size = 4  
+    – Length penalty α = 0.6  
+    – Maximum output length set to (input length + 50), but include early termination logic to exit when the end-of-sentence token is reached.
+  • Evaluate using BLEU score:  
+    – For WMT 2014 En–De, expect results near 28.4 BLEU (big model).  
+    – For WMT 2014 En–Fr, aim for around 41.8 BLEU.
+
+B. Constituency Parsing Inference  
+  • Use beam search with:  
+    – Beam size = 21  
+    – Length penalty α = 0.3  
+    – Maximum output length = input length + 300  
+  • Evaluate the parser using the F1 score on the corresponding test sections of the WSJ.
+
+C. Additional Metrics  
+  • Monitor training perplexity (note that label smoothing will inflate perplexity but is beneficial for final BLEU and F1 scores).  
+  • Optionally log additional statistics such as attention distributions for interpretability.
+
+────────────────────────────────────────
+6. IMPLEMENTATION ROADMAP
+
+A. Code Structure & Modules  
+  1. Data Preprocessing Module  
+    – Scripts to download, tokenize, and batch datasets (for both translation and parsing).  
+    – Implement BPE/word-piece tokenization as per the datasets’ requirements.
+  2. Model Definition Module  
+    – Implement the Transformer block(s), including encoder, decoder, multi-head attention, and feed-forward layers.  
+    – Code the positional encoding function (sinusoidal) and make provisions for optional learned positional embeddings.  
+    – Incorporate residual connections and layer normalization.  
+  3. Training Loop  
+    – Set up the training loop using the chosen framework (e.g., TensorFlow or PyTorch).  
+    – Integrate the Adam optimizer with your custom learning rate schedule.  
+    – Include dropout, label smoothing, and checkpoint saving.  
+  4. Inference and Evaluation Scripts  
+    – Implement beam search decoding per the specified parameters.  
+    – Calculate BLEU scores (using standard libraries) for machine translation.  
+    – Evaluate parsing performance using F1 (may require external evaluation scripts for WSJ).
+
+B. Development Strategy  
+  • Start by building a “toy” version on a small dataset to verify that all components (attention, residuals, positional encoding, decoding) are working as expected.  
+  • Gradually scale to full datasets and multi-GPU training.  
+  • Implement logging for training curves (learning rate, loss, BLEU/F1 on dev sets) to help with debugging and hyperparameter tuning.  
+  • Experiment with checkpoint averaging strategies as described.
+
+C. Experiment Variations  
+  • Once the baseline is established, consider replicating some ablations (e.g., single-head attention, changing d_k dimensions, or replacing sinusoidal encodings with learned embeddings) as explored in Table 3 of the paper.  
+  • Document and compare these variations with the baseline to verify reproducibility.
+
+────────────────────────────────────────
+7. OPEN QUESTIONS & CLARIFICATIONS
+
+• Tokenization Details:  
+  – The paper mentions BPE and word-piece segmentation. Choose an open-source implementation and verify vocabulary sizes (37K for En–De and 32K for En–Fr).
+
+• Checkpoint Averaging:  
+  – The exact interval for checkpoint saving and the method for averaging (simple weight averaging) is not fully specified; follow practices from recent literature or Tensor2Tensor guidelines.
+
+• Hardware & Parallelization:  
+  – Confirm that your multi-GPU training framework can efficiently broadcast model updates (if using data parallelism), matching the reported step times.
+
+• Constituency Parsing Details:  
+  – Some aspects (data cleaning, bracket representation) might be less detailed in the paper. You may need to review additional parsing papers for best practices in formatting the parsing task for seq2seq training.
+
+────────────────────────────────────────
+8. CONCLUSION
+
+This comprehensive plan covers the Transformer’s detailed model architecture, data handling, training procedures, hyperparameters, and evaluation strategies as described in the paper. Although certain implementation details (such as exact tokenization or checkpoint averaging protocols) are not fully explicit, following common practices in the literature along with the guidelines above should put you on strong footing for reproducing the results. Once you’ve confirmed that each module performs as expected on smaller examples, you can scale the training to full datasets and multi-GPU setups.
+
+By following this roadmap, you’ll be well prepared to start writing the final code with a strong understanding of the experiments and methodologies to reproduce the results of “Attention Is All You Need.”
