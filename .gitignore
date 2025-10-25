@@ -15,6 +15,7 @@ build/
 venv/
 ENV/
 env/
+*env/
 
 # --- Flask uploads/logs ---
 instance/
