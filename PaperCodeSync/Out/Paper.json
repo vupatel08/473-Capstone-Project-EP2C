@@ -3807,7 +3807,7 @@
     }
   ],
   "source": {
-    "tei_path": "/home/mehdi/CMSC473/473-Capstone-Project-EP2C/PaperCodeSync/ExampleResearchPaper.tei.xml",
+    "tei_path": "/home/mehdi/CMSC473/473-Capstone-Project-EP2C/PaperCodeSync/Paper.tei.xml",
     "tei_flavor": "GROBID-TEI"
   },
   "schema_version": "ep2c.paper.v1"
