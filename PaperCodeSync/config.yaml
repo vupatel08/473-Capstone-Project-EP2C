@@ -16,16 +16,29 @@ utils:
   c_like:
     # upward scan limit for slashes/JSDoc, which imapcts the doc size
     max_leading_lines: 12
-
 chunks:
-  knob1: value1
-  knob2: value2
-  knob3: value3
-symbols:
-  knob1: value1
-  knob2: value2
-  knob3: value3
-map:
-  knob1: value1
-  knob2: value2
-  knob3: value3
+  # max <div> nesting to descend into
+  section_depth_limit: 3           
+  # skip sections with titles matching this regex
+  excluded_section_titles_regex: "(acknowledg(e)?ments?|references|funding|appendix|supplement)"
+  excluded_section_types: ["references"] # TEI @type values to skip (case-insensitive)
+  # include <list>/<item> as paragraph chunks
+  include_lists_as_paragraphs: true
+  # drop very short paragraphs/items
+  paragraph_min_chars: 20               
+  # collect paragraph-level biblio refs
+  include_citations: true                
+  # prefer back-matter listBibl over header
+  prefer_back_list_for_refs: true        
+  # media capture
+  include_figures: true
+  include_tables: true
+  include_equations: true
+  # include <graphic url=...>
+  figure_include_graphic_url: true       
+  # hard cap per table (prevents huge JSON)
+  table_max_rows: 100                    
+  # decide to ignore xml:id/id and always generate 
+  force_generate_ids: false          
+  # decide to ignore title when building paper_id
+  prefer_filename_for_paper_id: false    
