@@ -1,33 +1,9 @@
-from __future__ import annotations
 import json
-import math
 import os
-import re
 from collections import Counter
 from dataclasses import dataclass
 from typing import List, Dict, Tuple, Optional
-
-def _normalize(text: str) -> str:
-    return (text or "").strip()
-
-def _safe_join_terms(terms: List[str]) -> str:
-    return " ".join(t for t in terms if t)
-
-def _min_max_norm(values: List[float]) -> List[float]:
-    if not values:
-        return values
-    vmin, vmax = min(values), max(values)
-    if math.isclose(vmin, vmax):
-        return [0.0 for _ in values] 
-    return [(v - vmin) / (vmax - vmin) for v in values]
-
-TOKEN_RE = re.compile(r"[A-Za-z0-9_]+")
-
-def _tokenize(text: str) -> List[str]:
-    if not text:
-        return []
-    # note: i decided to use regex bc split() wasn't working well
-    return [t.lower() for t in TOKEN_RE.findall(text)]
+from utils.common import normalize_text, safe_join_terms, min_max_norm, tokenize, load_json, save_jsonl
 
 class OverlapIndex:
     def __init__(self, method: str = "bm25"):
@@ -42,7 +18,7 @@ class OverlapIndex:
 
     def fit(self, chunk_ids: List[str], chunk_texts: List[str]) -> "OverlapIndex":
         self._ids = list(chunk_ids)
-        self._docs = [_normalize(t) for t in chunk_texts]
+        self._docs = [normalize_text(t) for t in chunk_texts]
 
         if self.method == "bm25":
             try:
@@ -61,7 +37,7 @@ class OverlapIndex:
         return self
 
     def query(self, query_text: str, top_k: int = 10) -> List[Tuple[str, float]]:
-        qt = _normalize(query_text)
+        qt = normalize_text(query_text)
         if not qt:
             return []
         if self.method == "bm25" and self._bm25 is not None:
@@ -86,7 +62,7 @@ class SemanticIndex:
 
     def fit(self, chunk_ids: List[str], chunk_texts: List[str]) -> "SemanticIndex":
         self._ids = list(chunk_ids)
-        texts = [_normalize(t) for t in chunk_texts]
+        texts = [normalize_text(t) for t in chunk_texts]
         self._ensure_model()
         self._chunk_vecs = self._model.encode(texts, normalize_embeddings=True, show_progress_bar=False)
         return self
@@ -97,7 +73,7 @@ class SemanticIndex:
             self._model = SentenceTransformer(self.model_name)
 
     def query(self, query_text: str, top_k: int = 10) -> List[Tuple[str, float]]:
-        qt = _normalize(query_text)
+        qt = normalize_text(query_text)
         if not qt:
             return []
         self._ensure_model()
@@ -128,8 +104,8 @@ def combine_scores(
     overlap_scores = [o_map.get(cid, 0.0) for cid in all_ids]
     semantic_scores = [s_map.get(cid, 0.0) for cid in all_ids]
 
-    overlap_norm = _min_max_norm(overlap_scores)
-    semantic_norm = _min_max_norm(semantic_scores)
+    overlap_norm = min_max_norm(overlap_scores)
+    semantic_norm = min_max_norm(semantic_scores)
 
     combined = [
         CombinedMatch(
@@ -173,7 +149,7 @@ def build_and_match(
 
     results = []
     for sym in symbols:
-        query_text = _safe_join_terms(sym.bow_terms) or sym.full_text or sym.name
+        query_text = safe_join_terms(sym.bow_terms) or sym.full_text or sym.name
         o_top = ovl.query(query_text, top_k=top_k)
         s_query = sym.full_text or query_text
         s_top = sem.query(s_query, top_k=top_k)
@@ -210,28 +186,18 @@ def build_and_match(
     return results
 
 
-def load_json(path: str):
-    with open(path, "r", encoding="utf-8") as f:
-        return json.load(f)
-
-def save_jsonl(rows: List[Dict], path: str):
-    with open(path, "w", encoding="utf-8") as f:
-        for r in rows:
-            f.write(json.dumps(r, ensure_ascii=False) + "\n")
-
-
 def _mk_bow_terms(sym_obj: dict, max_terms: int = 20) -> List[str]:
     name = sym_obj.get("name") or ""
     identifiers = sym_obj.get("identifiers") or []
     doc = sym_obj.get("docstring") or ""
     txt = sym_obj.get("text") or ""
 
-    seeds = []
+    seeds: List[str] = []
     for ident in identifiers:
-        seeds.extend(_tokenize(ident))
-    seeds.extend(_tokenize(name))
-    seeds.extend(_tokenize(doc))
-    seeds.extend(_tokenize(" ".join(txt.split()[:200])))
+        seeds.extend(tokenize(ident))
+    seeds.extend(tokenize(name))
+    seeds.extend(tokenize(doc))
+    seeds.extend(tokenize(" ".join(txt.split()[:200])))
 
     # note: i had to filter out common words like "the," etc. bc they were messing up the results
     stop = {
@@ -241,11 +207,10 @@ def _mk_bow_terms(sym_obj: dict, max_terms: int = 20) -> List[str]:
     }
     toks = [t for t in seeds if len(t) > 2 and t not in stop]
     if not toks:
-        toks = _tokenize(name) or ["symbol"]
+        toks = tokenize(name) or ["symbol"]
 
     counts = Counter(toks)
     return [w for w, _ in counts.most_common(max_terms)]
-
 
 def _to_symbols(objs: List[Dict]) -> List[Symbol]:
     out: List[Symbol] = []
@@ -299,6 +264,8 @@ def load_chunks_flexible(path: str) -> List[Chunk]:
         return _paper_to_chunks(obj)
 
     raise ValueError(f"Unrecognized chunks format in {path!r}")
+
+
 if __name__ == "__main__":
     import argparse
 
