@@ -1,4 +1,12 @@
 import re
+from utils.parse_config import load_config
+
+# Load the YAML config
+config = load_config("../config.yaml")
+
+PY_MAX_LINES = config['utils']['python']['max_leading_lines']
+PY_STOP_ON_BLANK = config['utils']['python']['stop_on_blank_line']
+C_MAX_LINES = config['utils']['c_like']['max_leading_lines']
 
 def leading_hash_comments_python(src: bytes, node) -> str:
     start_row = node.start_point[0]
@@ -6,18 +14,28 @@ def leading_hash_comments_python(src: bytes, node) -> str:
     lines = text.splitlines()
     i = start_row - 1
     buf = []
-    while i >= 0:
+    scanned = 0
+
+    while i >= 0 and scanned < PY_MAX_LINES:
         line = lines[i]
         if not line.strip():
-            if buf: break
-            i -= 1; continue
+            if PY_STOP_ON_BLANK and buf:
+                break
+            i -= 1; scanned += 1
+            continue
         if re.match(r"^\s*#", line):
-            buf.append(re.sub(r"^\s*#\s?", "", line)); i -= 1; continue
+            buf.append(re.sub(r"^\s*#\s?", "", line))
+            i -= 1; scanned += 1
+            continue
         break
     return "\n".join(reversed(buf)).strip()
 
 def leading_docblock_or_slashes(src: bytes, node) -> str:
     pre = src[: node.start_byte].decode("utf-8", "ignore")
+    pre_lines = pre.splitlines()
+    if len(pre_lines) > C_MAX_LINES:
+        pre = "\n".join(pre_lines[-C_MAX_LINES:])
+
     m = re.search(r"/\*\*[\s\S]*?\*/\s*$", pre)
     if m:
         inner = re.sub(r"^/\*\*|\*/$", "", m.group(0), flags=re.DOTALL).strip()

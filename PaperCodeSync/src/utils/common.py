@@ -2,10 +2,20 @@ from __future__ import annotations
 import hashlib, json, re, os
 from pathlib import Path
 from typing import Iterable, List, Any
+from utils.parse_config import load_config
 
-_TOKEN_RE = re.compile(r"[A-Za-z0-9_]+")
+# Load the YAML config once
+config = load_config("../config.yaml")
 
-def slugify(text: str, maxlen: int = 80) -> str:
+# Pull config knobs
+TOKEN_PATTERN = config['utils']["token_pattern"]
+SLUGIFY_MAXLEN = config['utils']["slugify_maxlen"]
+ID_TRUNCATE = config['utils']["id_truncate"]
+
+# Compile regex pattern from config
+_TOKEN_RE = re.compile(TOKEN_PATTERN)
+
+def slugify(text: str, maxlen: int = SLUGIFY_MAXLEN) -> str:
     if not text:
         return ""
     s = re.sub(r"[^a-z0-9]+", "-", text.strip().lower())
@@ -20,7 +30,7 @@ def sha1_id(*parts: str, prefix: str = "") -> str:
     for p in parts:
         if p:
             h.update(p.encode("utf-8")); h.update(b"\x00")
-    base = h.hexdigest()[:12]
+    base = h.hexdigest()[:ID_TRUNCATE]
     return f"{prefix}{base}" if prefix else base
 
 def uniq_sorted(xs: Iterable[str]) -> List[str]:
@@ -68,5 +78,4 @@ def posix_path(p: str | os.PathLike) -> str:
     return Path(p).as_posix()
 
 def slice_text(src: bytes, node) -> bytes:
-    # Tree-sitter-agnostic; safe to use anywhere we have node byte spans
     return src[node.start_byte: node.end_byte]
