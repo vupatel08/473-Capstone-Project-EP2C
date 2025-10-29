@@ -3,7 +3,7 @@ from pathlib import Path
 from typing import Iterable, List, Any
 from utils.parse_config import load_config
 
-config = load_config("../../config.yaml")
+config = load_config("../config.yaml")
 utils = config['utils']
 
 SLUGIFY_MAXLEN = utils["slugify_maxlen"]

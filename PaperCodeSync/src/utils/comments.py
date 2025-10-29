@@ -1,7 +1,7 @@
 import re
 from utils.parse_config import load_config
 
-config = load_config("../../config.yaml")
+config = load_config("../config.yaml")
 utils = config['utils']
 
 PY_MAX_LINES = utils['python']['max_leading_lines']
