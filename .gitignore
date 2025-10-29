@@ -51,4 +51,5 @@ htmlcov/
 *.tar.gz
 *.bak
 *.tmp
-.envoutputs/autop2c/process.png
+.env
+outputs/autop2c/process.png
