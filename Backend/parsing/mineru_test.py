@@ -112,7 +112,7 @@ def _process_output(
         model_output=None,
         is_pipeline=True
 ):
-    """处理输出文件"""
+    
     if f_draw_layout_bbox:
         draw_layout_bbox(pdf_info, pdf_bytes, local_md_dir, f"{pdf_file_name}_layout.pdf")
 
