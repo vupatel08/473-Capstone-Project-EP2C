@@ -1,1 +1,31 @@
-# This will include the adjustable knobs for configuring the pipeline
+utils:
+  # changes what counts as a "token", which affects the identifiers/terms collected
+  # from symbols and docs, which ultimately can shift TF-IDF/BM25 vocab and embedding text
+  token_pattern: "[A-Za-z0-9_]+" 
+  # changes paper_id and any slug outputs that propagate to filenames/keys
+  slugify_maxlen: 80
+  # changes all emitted IDs (stable but different length), which flow into symbols/chunks/matches
+  id_truncate: 12         
+  python:
+    # how far upward we scan for # blocks before a symbol, which creates longer windows and
+    # can pull in more doc text leading to different docstring, identifiers and BoW, leading to different matches
+    max_leading_lines: 12
+    # stop scanning on the first blank line, which can merge separated comment islands 
+    # into one docstring (bigger docs)
+    stop_on_blank_line: true
+  c_like:
+    # upward scan limit for slashes/JSDoc, which imapcts the doc size
+    max_leading_lines: 12
+
+chunks:
+  knob1: value1
+  knob2: value2
+  knob3: value3
+symbols:
+  knob1: value1
+  knob2: value2
+  knob3: value3
+map:
+  knob1: value1
+  knob2: value2
+  knob3: value3
