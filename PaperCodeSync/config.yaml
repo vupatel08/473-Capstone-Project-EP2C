@@ -42,3 +42,39 @@ chunks:
   force_generate_ids: false          
   # decide to ignore title when building paper_id
   prefer_filename_for_paper_id: false    
+symbols:
+  # Skip directories/files
+  exclude_dirs:
+    - ".git"
+    - "node_modules"
+    - "dist"
+    - "build"
+    - "out"
+    - "cmake-build-debug"
+    - "cmake-build-release"
+    - "__pycache__"
+    - ".venv"
+    - "venv"
+    - ".mypy_cache"
+    - ".pytest_cache"
+  # e.g. "(^|/)tests?/|/vendor/|\\.min\\.(js|css)$"
+  file_exclude_regex: ""   
+  # include code span text in output
+  keep_text_span: true          
+  # cap text length per symbol (if keep_text_span=true)
+  text_max_chars: 4000          
+  # skip very large files (=2MB)
+  max_file_bytes: 2000000       
+  # Control which symbol kinds are emitted
+  include_symbol_kinds: ["function", "method", "class", "constructor", "interface", "enum", "struct"]
+  # How to build Python docstrings
+  # "both" = triple-quoted + leading #
+  # "only_docstring" = just triple-quoted
+  # "only_leading" = just leading #
+  python_doc_merge_strategy: "both"
+  # Module-level span emission defaults
+  emit_module_span_default: false
+  module_header_capture: true
+  module_header_max_lines: 80
+  # Filesystem traversal
+  follow_symlinks: false
