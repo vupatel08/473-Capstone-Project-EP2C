@@ -1,0 +1,213 @@
+"""trainer.py
+
+This module defines the Trainer class that implements the GAN training loop.
+It takes a GANModel instance (which encapsulates both the Generator and Discriminator),
+a tuple of DataLoaders (train and test), and a configuration dictionary (loaded from config.yaml).
+The training loop follows the adversarial training procedure described in the GAN paper,
+updating the Discriminator using both real and fake samples and then updating the Generator.
+Reproducibility is ensured by using explicit configuration values, setting the computation device,
+and saving checkpoints at the end of each epoch.
+"""
+
+import os
+import logging
+from typing import Tuple, Any, Dict
+
+import torch
+import torch.nn as nn
+import torch.optim as optim
+from tqdm import tqdm
+
+
+class Trainer:
+    """Trainer class implements the GAN training loop.
+
+    Attributes:
+        model (Any): An instance of GANModel containing methods to build Generator and Discriminator.
+        train_loader (torch.utils.data.DataLoader): DataLoader for training data.
+        test_loader (torch.utils.data.DataLoader): DataLoader for testing data.
+        config (Dict[str, Any]): Configuration dictionary loaded from config.yaml.
+        device (torch.device): The computation device (CPU or GPU).
+        learning_rate (float): Learning rate for the optimizers.
+        epochs (int): Number of training epochs.
+        beta1 (float): Beta1 hyperparameter for the Adam optimizer.
+        noise_dim (int): Dimensionality of the noise vector used for the Generator.
+        generator (nn.Module): The Generator network.
+        discriminator (nn.Module): The Discriminator network.
+        criterion (nn.Module): The Binary Cross Entropy loss function.
+        optimizer_d (torch.optim.Optimizer): Adam optimizer for the Discriminator.
+        optimizer_g (torch.optim.Optimizer): Adam optimizer for the Generator.
+        checkpoint_dir (str): Directory path to save model checkpoints.
+        fixed_noise (torch.Tensor): Fixed noise vector for qualitative evaluation.
+        logger (logging.Logger): Logger for recording training progress.
+    """
+
+    def __init__(
+        self,
+        model: Any,
+        data: Tuple[torch.utils.data.DataLoader, torch.utils.data.DataLoader],
+        config: Dict[str, Any]
+    ) -> None:
+        """
+        Initializes the Trainer with the GAN model, data loaders, and configuration parameters.
+
+        Args:
+            model (Any): An instance of GANModel.
+            data (Tuple[DataLoader, DataLoader]): A tuple containing (train_loader, test_loader).
+            config (Dict[str, Any]): Configuration dictionary with training hyperparameters.
+        """
+        # Save model, data loaders and configuration
+        self.model: Any = model
+        self.train_loader, self.test_loader = data
+        self.config: Dict[str, Any] = config if config is not None else {}
+
+        # Set computation device (GPU if available, otherwise CPU)
+        self.device: torch.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
+        # Extract training hyperparameters from config with default values
+        training_config: Dict[str, Any] = self.config.get("training", {})
+        self.learning_rate: float = training_config.get("learning_rate", 0.0002)
+        self.epochs: int = training_config.get("epochs", 100)
+        optimizer_config: Dict[str, Any] = training_config.get("optimizer", {})
+        self.beta1: float = optimizer_config.get("beta1", 0.5)
+
+        # Define the dimension of the noise vector (defaulting to 100)
+        self.noise_dim: int = 100
+
+        # Build Generator and Discriminator using the model instance and move them to the device
+        self.generator: nn.Module = self.model.build_generator().to(self.device)
+        self.discriminator: nn.Module = self.model.build_discriminator().to(self.device)
+
+        # Define the binary cross entropy loss function for both networks
+        self.criterion: nn.Module = nn.BCELoss()
+
+        # Set up Adam optimizers for the Discriminator and Generator
+        self.optimizer_d: optim.Optimizer = optim.Adam(
+            self.discriminator.parameters(),
+            lr=self.learning_rate,
+            betas=(self.beta1, 0.999)
+        )
+        self.optimizer_g: optim.Optimizer = optim.Adam(
+            self.generator.parameters(),
+            lr=self.learning_rate,
+            betas=(self.beta1, 0.999)
+        )
+
+        # Prepare checkpoint directory; default to "./checkpoints" if not specified
+        self.checkpoint_dir: str = training_config.get("checkpoint_dir", "./checkpoints")
+        if not os.path.exists(self.checkpoint_dir):
+            os.makedirs(self.checkpoint_dir)
+
+        # Create a fixed noise vector for qualitative evaluation (e.g., 16 samples)
+        self.fixed_noise: torch.Tensor = torch.randn(16, self.noise_dim, device=self.device)
+
+        # Set up logging for training progress
+        logging.basicConfig(
+            level=logging.INFO,
+            format="%(asctime)s [%(levelname)s] %(message)s",
+            datefmt="%Y-%m-%d %H:%M:%S"
+        )
+        self.logger: logging.Logger = logging.getLogger("Trainer")
+        self.logger.info("Trainer initialized on device: %s", self.device)
+
+    def train(self) -> None:
+        """Executes the GAN training loop over a number of epochs.
+
+        For each epoch, iterates over the training DataLoader, updates the Discriminator
+        using both real and fake samples, then updates the Generator. Progress is monitored
+        with tqdm, and the model state is checkpointed at the end of each epoch.
+        """
+        # Set models to training mode
+        self.generator.train()
+        self.discriminator.train()
+
+        for epoch in range(self.epochs):
+            d_loss_epoch: float = 0.0
+            g_loss_epoch: float = 0.0
+            num_batches: int = 0
+
+            progress_bar = tqdm(self.train_loader, desc=f"Epoch {epoch+1}/{self.epochs}")
+
+            for real_images, _ in progress_bar:
+                batch_size: int = real_images.size(0)
+                real_images = real_images.to(self.device)
+
+                # Create target labels for real images: tensor of ones with shape (batch_size, 1)
+                real_labels: torch.Tensor = torch.ones(batch_size, 1, device=self.device)
+
+                # ---------------------
+                # Train Discriminator
+                # ---------------------
+                self.optimizer_d.zero_grad()
+                # Forward pass real images through discriminator
+                outputs_real: torch.Tensor = self.discriminator(real_images)
+                d_loss_real: torch.Tensor = self.criterion(outputs_real, real_labels)
+
+                # Sample noise and generate fake images via the Generator
+                noise: torch.Tensor = torch.randn(batch_size, self.noise_dim, device=self.device)
+                fake_images: torch.Tensor = self.generator(noise)
+                # Create target labels for fake images: tensor of zeros with shape (batch_size, 1)
+                fake_labels: torch.Tensor = torch.zeros(batch_size, 1, device=self.device)
+                # Forward pass fake images (detach to avoid affecting generator gradients)
+                outputs_fake: torch.Tensor = self.discriminator(fake_images.detach())
+                d_loss_fake: torch.Tensor = self.criterion(outputs_fake, fake_labels)
+
+                # Total Discriminator loss: sum of real and fake losses
+                d_loss: torch.Tensor = d_loss_real + d_loss_fake
+                d_loss.backward()
+                self.optimizer_d.step()
+
+                # ---------------------
+                # Train Generator
+                # ---------------------
+                self.optimizer_g.zero_grad()
+                # Resample noise for generator update to ensure fresh samples
+                noise_gen: torch.Tensor = torch.randn(batch_size, self.noise_dim, device=self.device)
+                fake_images_gen: torch.Tensor = self.generator(noise_gen)
+                # For generator loss, target is zeros: minimizing log(1 - D(G(z)))
+                fake_labels_gen: torch.Tensor = torch.zeros(batch_size, 1, device=self.device)
+                outputs_fake_gen: torch.Tensor = self.discriminator(fake_images_gen)
+                g_loss: torch.Tensor = self.criterion(outputs_fake_gen, fake_labels_gen)
+                g_loss.backward()
+                self.optimizer_g.step()
+
+                # Accumulate losses for logging
+                d_loss_epoch += d_loss.item()
+                g_loss_epoch += g_loss.item()
+                num_batches += 1
+
+                # Update progress bar with current losses
+                progress_bar.set_postfix({
+                    "D_loss": f"{d_loss.item():.4f}",
+                    "G_loss": f"{g_loss.item():.4f}"
+                })
+
+            # Compute average losses for the epoch
+            avg_d_loss: float = d_loss_epoch / num_batches if num_batches > 0 else 0.0
+            avg_g_loss: float = g_loss_epoch / num_batches if num_batches > 0 else 0.0
+            self.logger.info(
+                "Epoch [%d/%d] - Avg Discriminator Loss: %.4f, Avg Generator Loss: %.4f",
+                epoch + 1, self.epochs, avg_d_loss, avg_g_loss
+            )
+
+            # Save model checkpoint at the end of the epoch
+            self._save_checkpoint(epoch)
+
+    def _save_checkpoint(self, epoch: int) -> None:
+        """
+        Saves the model checkpoint for the current epoch, including state dictionaries of
+        the Generator, Discriminator, and their respective optimizers.
+
+        Args:
+            epoch (int): The current epoch number.
+        """
+        checkpoint_path: str = os.path.join(self.checkpoint_dir, f"gan_epoch_{epoch+1}.pth")
+        checkpoint: Dict[str, Any] = {
+            "epoch": epoch + 1,
+            "generator_state_dict": self.generator.state_dict(),
+            "discriminator_state_dict": self.discriminator.state_dict(),
+            "optimizer_g_state_dict": self.optimizer_g.state_dict(),
+            "optimizer_d_state_dict": self.optimizer_d.state_dict(),
+        }
+        torch.save(checkpoint, checkpoint_path)
+        self.logger.info("Checkpoint saved at %s", checkpoint_path)

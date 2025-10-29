@@ -1,0 +1,351 @@
+```python
+"""model.py
+This module implements the Transformer model architecture as described in "Attention Is All You Need".
+It includes all core components:
+  - PositionalEncoding: Computes sinusoidal positional encodings.
+  - MultiHeadAttention: Implements multi-head scaled dot-product attention.
+  - PositionWiseFeedForward: Implements the two-layer feed-forward network.
+  - EncoderLayer and DecoderLayer: Single layers for the encoder and decoder stacks.
+  - Encoder and Decoder: Stacks of the respective layers.
+  - TransformerModel: The full encoder-decoder model with shared token embeddings and final projection.
+  
+All hyperparameters and configurations are read from the configuration dictionary (derived from config.yaml).
+"""
+
+import math
+from typing import Optional
+
+import torch
+import torch.nn as nn
+import torch.nn.functional as F
+
+
+class PositionalEncoding(nn.Module):
+    """
+    Implements the sinusoidal positional encoding.
+    Precomputes a positional encoding lookup table up to a maximum length.
+    """
+    def __init__(self, d_model: int, dropout: float = 0.1, max_len: int = 5000) -> None:
+        super(PositionalEncoding, self).__init__()
+        self.dropout: nn.Dropout = nn.Dropout(p=dropout)
+
+        # Create constant 'pe' matrix with values dependent on
+        # pos and i
+        pe: torch.Tensor = torch.zeros(max_len, d_model)
+        position: torch.Tensor = torch.arange(0, max_len, dtype=torch.float).unsqueeze(1)  # shape: (max_len, 1)
+        div_term: torch.Tensor = torch.exp(torch.arange(0, d_model, 2, dtype=torch.float) *
+                                             -(math.log(10000.0) / d_model))
+        # Apply sin to even indices and cos to odd indices
+        pe[:, 0::2] = torch.sin(position * div_term)   # even indices
+        pe[:, 1::2] = torch.cos(position * div_term)   # odd indices
+        pe = pe.unsqueeze(0)  # shape: (1, max_len, d_model)
+        # Register as buffer (not a parameter, but persistent)
+        self.register_buffer('pe', pe)
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        """
+        Args:
+            x: Tensor of shape (batch_size, seq_len, d_model)
+        Returns:
+            Tensor of shape (batch_size, seq_len, d_model) after adding positional encoding.
+        """
+        seq_len: int = x.size(1)
+        x = x + self.pe[:, :seq_len]
+        return self.dropout(x)
+
+
+class MultiHeadAttention(nn.Module):
+    """
+    Implements multi-head scaled dot-product attention.
+    Projects inputs into queries, keys, and values, computes attention, and then recombines results.
+    """
+    def __init__(self, d_model: int, num_heads: int, dropout: float = 0.1) -> None:
+        super(MultiHeadAttention, self).__init__()
+        assert d_model % num_heads == 0, "d_model must be divisible by num_heads"
+        self.d_model: int = d_model
+        self.num_heads: int = num_heads
+        self.d_k: int = d_model // num_heads
+
+        self.linear_q: nn.Linear = nn.Linear(d_model, d_model)
+        self.linear_k: nn.Linear = nn.Linear(d_model, d_model)
+        self.linear_v: nn.Linear = nn.Linear(d_model, d_model)
+        self.linear_out: nn.Linear = nn.Linear(d_model, d_model)
+        self.dropout: nn.Dropout = nn.Dropout(p=dropout)
+
+    def forward(self, query: torch.Tensor, key: torch.Tensor, value: torch.Tensor,
+                mask: Optional[torch.Tensor] = None) -> torch.Tensor:
+        """
+        Args:
+            query: Tensor of shape (batch_size, query_len, d_model)
+            key: Tensor of shape (batch_size, key_len, d_model)
+            value: Tensor of shape (batch_size, value_len, d_model)
+            mask: Optional tensor of shape (batch_size, seq_len) where True indicates valid positions.
+                  The mask is applied on the key side.
+        Returns:
+            Tensor of shape (batch_size, query_len, d_model) after attention.
+        """
+        batch_size: int = query.size(0)
+
+        # Linear projections
+        q: torch.Tensor = self.linear_q(query)  # (batch, query_len, d_model)
+        k: torch.Tensor = self.linear_k(key)      # (batch, key_len, d_model)
+        v: torch.Tensor = self.linear_v(value)    # (batch, value_len, d_model)
+
+        # Reshape and transpose: split d_model into (num_heads, d_k)
+        # New shape: (batch, num_heads, seq_len, d_k)
+        def transform(x: torch.Tensor) -> torch.Tensor:
+            return x.view(batch_size, -1, self.num_heads, self.d_k).transpose(1, 2)
+
+        q = transform(q)
+        k = transform(k)
+        v = transform(v)
+
+        # Scaled dot-product attention
+        # scores shape: (batch, num_heads, query_len, key_len)
+        scores: torch.Tensor = torch.matmul(q, k.transpose(-2, -1)) / math.sqrt(self.d_k)
+
+        if mask is not None:
+            # Assume mask shape: (batch, key_len)
+            # Expand mask to (batch, 1, 1, key_len) for broadcasting over heads and query length.
+            mask_expanded: torch.Tensor = mask.unsqueeze(1).unsqueeze(2)  # shape: (batch, 1, 1, key_len)
+            scores = scores.masked_fill(~mask_expanded, float('-1e9'))
+
+        attn: torch.Tensor = F.softmax(scores, dim=-1)
+        attn = self.dropout(attn)
+        x: torch.Tensor = torch.matmul(attn, v)  # (batch, num_heads, query_len, d_k)
+        # Concatenate heads: transpose and reshape back to (batch, query_len, d_model)
+        x = x.transpose(1, 2).contiguous().view(batch_size, -1, self.d_model)
+        return self.linear_out(x)  # Final linear projection
+
+
+class PositionWiseFeedForward(nn.Module):
+    """
+    Implements position-wise feed-forward network.
+    Consists of two linear transformations with a ReLU activation in between.
+    """
+    def __init__(self, d_model: int, d_ff: int, dropout: float = 0.1) -> None:
+        super(PositionWiseFeedForward, self).__init__()
+        self.linear1: nn.Linear = nn.Linear(d_model, d_ff)
+        self.linear2: nn.Linear = nn.Linear(d_ff, d_model)
+        self.dropout: nn.Dropout = nn.Dropout(p=dropout)
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        """
+        Args:
+            x: Tensor of shape (batch_size, seq_len, d_model)
+        Returns:
+            Tensor of shape (batch_size, seq_len, d_model) after feed-forward transformation.
+        """
+        return self.linear2(self.dropout(F.relu(self.linear1(x))))
+
+
+class EncoderLayer(nn.Module):
+    """
+    Implements a single encoder layer.
+    Each layer contains a multi-head self-attention sub-layer and a position-wise feed-forward sub-layer,
+    each followed by dropout, residual connection, and layer normalization.
+    """
+    def __init__(self, d_model: int, d_ff: int, num_heads: int, dropout: float = 0.1) -> None:
+        super(EncoderLayer, self).__init__()
+        self.self_attn: MultiHeadAttention = MultiHeadAttention(d_model, num_heads, dropout)
+        self.ff: PositionWiseFeedForward = PositionWiseFeedForward(d_model, d_ff, dropout)
+        self.norm1: nn.LayerNorm = nn.LayerNorm(d_model)
+        self.norm2: nn.LayerNorm = nn.LayerNorm(d_model)
+        self.dropout: nn.Dropout = nn.Dropout(p=dropout)
+
+    def forward(self, x: torch.Tensor, mask: Optional[torch.Tensor] = None) -> torch.Tensor:
+        """
+        Args:
+            x: Tensor of shape (batch_size, seq_len, d_model)
+            mask: Optional tensor for attending over padding positions (batch_size, seq_len)
+        Returns:
+            Tensor of shape (batch_size, seq_len, d_model)
+        """
+        # Self-attention sub-layer with residual connection and layer normalization.
+        attn_out: torch.Tensor = self.self_attn(x, x, x, mask)
+        x = self.norm1(x + self.dropout(attn_out))
+        # Feed-forward sub-layer with residual connection and layer normalization.
+        ff_out: torch.Tensor = self.ff(x)
+        x = self.norm2(x + self.dropout(ff_out))
+        return x
+
+
+class Encoder(nn.Module):
+    """
+    Stacks multiple EncoderLayer modules.
+    """
+    def __init__(self, num_layers: int, d_model: int, num_heads: int, d_ff: int, dropout: float = 0.1) -> None:
+        super(Encoder, self).__init__()
+        self.layers: nn.ModuleList = nn.ModuleList(
+            [EncoderLayer(d_model, d_ff, num_heads, dropout) for _ in range(num_layers)]
+        )
+        self.norm: nn.LayerNorm = nn.LayerNorm(d_model)
+
+    def forward(self, x: torch.Tensor, mask: Optional[torch.Tensor] = None) -> torch.Tensor:
+        """
+        Args:
+            x: Tensor of shape (batch_size, seq_len, d_model)
+            mask: Optional mask tensor for self-attention.
+        Returns:
+            Processed tensor of shape (batch_size, seq_len, d_model)
+        """
+        for layer in self.layers:
+            x = layer(x, mask)
+        return self.norm(x)
+
+
+class DecoderLayer(nn.Module):
+    """
+    Implements a single decoder layer.
+    Each layer contains:
+      1. A self-attention sub-layer (with causal masking).
+      2. An encoder-decoder attention sub-layer.
+      3. A position-wise feed-forward sub-layer.
+    Each sub-layer includes residual connections and layer normalization.
+    """
+    def __init__(self, d_model: int, d_ff: int, num_heads: int, dropout: float = 0.1) -> None:
+        super(DecoderLayer, self).__init__()
+        self.self_attn: MultiHeadAttention = MultiHeadAttention(d_model, num_heads, dropout)
+        self.cross_attn: MultiHeadAttention = MultiHeadAttention(d_model, num_heads, dropout)
+        self.ff: PositionWiseFeedForward = PositionWiseFeedForward(d_model, d_ff, dropout)
+        self.norm1: nn.LayerNorm = nn.LayerNorm(d_model)
+        self.norm2: nn.LayerNorm = nn.LayerNorm(d_model)
+        self.norm3: nn.LayerNorm = nn.LayerNorm(d_model)
+        self.dropout: nn.Dropout = nn.Dropout(p=dropout)
+
+    def forward(self, x: torch.Tensor, memory: torch.Tensor,
+                src_mask: Optional[torch.Tensor] = None,
+                tgt_mask: Optional[torch.Tensor] = None) -> torch.Tensor:
+        """
+        Args:
+            x: Decoder input tensor of shape (batch_size, tgt_seq_len, d_model)
+            memory: Encoder output tensor of shape (batch_size, src_seq_len, d_model)
+            src_mask: Mask for the encoder output (batch_size, src_seq_len)
+            tgt_mask: Mask for the decoder self-attention (batch_size, tgt_seq_len)
+        Returns:
+            Tensor of shape (batch_size, tgt_seq_len, d_model)
+        """
+        # Self-attention in the decoder
+        self_attn_out: torch.Tensor = self.self_attn(x, x, x, tgt_mask)
+        x = self.norm1(x + self.dropout(self_attn_out))
+        # Encoder-decoder (cross) attention: queries come from decoder, keys/values from encoder output.
+        cross_attn_out: torch.Tensor = self.cross_attn(x, memory, memory, src_mask)
+        x = self.norm2(x + self.dropout(cross_attn_out))
+        # Feed-forward network sub-layer.
+        ff_out: torch.Tensor = self.ff(x)
+        x = self.norm3(x + self.dropout(ff_out))
+        return x
+
+
+class Decoder(nn.Module):
+    """
+    Stacks multiple DecoderLayer modules.
+    """
+    def __init__(self, num_layers: int, d_model: int, num_heads: int, d_ff: int, dropout: float = 0.1) -> None:
+        super(Decoder, self).__init__()
+        self.layers: nn.ModuleList = nn.ModuleList(
+            [DecoderLayer(d_model, d_ff, num_heads, dropout) for _ in range(num_layers)]
+        )
+        self.norm: nn.LayerNorm = nn.LayerNorm(d_model)
+
+    def forward(self, x: torch.Tensor, memory: torch.Tensor,
+                src_mask: Optional[torch.Tensor] = None,
+                tgt_mask: Optional[torch.Tensor] = None) -> torch.Tensor:
+        """
+        Args:
+            x: Decoder input tensor of shape (batch_size, tgt_seq_len, d_model)
+            memory: Encoder outputs of shape (batch_size, src_seq_len, d_model)
+            src_mask: Source mask tensor (batch_size, src_seq_len)
+            tgt_mask: Target mask tensor (batch_size, tgt_seq_len)
+        Returns:
+            Processed tensor of shape (batch_size, tgt_seq_len, d_model)
+        """
+        for layer in self.layers:
+            x = layer(x, memory, src_mask, tgt_mask)
+        return self.norm(x)
+
+
+class TransformerModel(nn.Module):
+    """
+    Implements the complete Transformer model with encoder and decoder stacks.
+    It includes:
+      - Shared token embeddings (for source and target)
+      - Sinusoidal positional encoding
+      - Encoder stack
+      - Decoder stack
+      - Final linear projection (whose weights are tied with the token embedding)
+    
+    The forward() method takes:
+      src: Source tokens tensor (batch_size, src_seq_len)
+      tgt: Target tokens tensor (batch_size, tgt_seq_len)
+      src_mask: Mask tensor for source (batch_size, src_seq_len)
+      tgt_mask: Mask tensor for target (batch_size, tgt_seq_len)
+    
+    Returns:
+      Logits over the vocabulary of shape (batch_size, tgt_seq_len, vocab_size)
+    """
+    def __init__(self, params: dict) -> None:
+        """
+        Initializes the TransformerModel.
+        Expected keys in params:
+          - num_layers (int): Number of encoder/decoder layers.
+          - d_model (int): Embedding dimension.
+          - d_ff (int): Feed-forward network inner layer dimension.
+          - num_heads (int): Number of attention heads.
+          - dropout (float): Dropout rate.
+          - vocab_size (int): Size of the vocabulary (shared for source and target).
+        Default values are provided if keys are missing.
+        """
+        super(TransformerModel, self).__init__()
+        # Extract hyperparameters with defaults
+        self.num_layers: int = params.get("num_layers", 6)
+        self.d_model: int = params.get("d_model", 512)
+        self.d_ff: int = params.get("d_ff", 2048)
+        self.num_heads: int = params.get("num_heads", 8)
+        self.dropout_rate: float = params.get("dropout", 0.1)
+        self.vocab_size: int = params.get("vocab_size", 37000)
+
+        # Shared token embedding layer
+        self.embedding: nn.Embedding = nn.Embedding(self.vocab_size, self.d_model)
+        # Positional Encoding layer
+        self.pos_encoding: PositionalEncoding = PositionalEncoding(self.d_model, dropout=self.dropout_rate)
+
+        # Encoder and Decoder stacks
+        self.encoder: Encoder = Encoder(self.num_layers, self.d_model, self.num_heads, self.d_ff, self.dropout_rate)
+        self.decoder: Decoder = Decoder(self.num_layers, self.d_model, self.num_heads, self.d_ff, self.dropout_rate)
+
+        # Final linear layer to project decoder outputs to vocabulary logits
+        self.fc_out: nn.Linear = nn.Linear(self.d_model, self.vocab_size, bias=False)
+        # Tie the weights of the final projection with the embedding layer as per the paper.
+        self.fc_out.weight = self.embedding.weight
+
+    def forward(self, src: torch.Tensor, tgt: torch.Tensor,
+                src_mask: Optional[torch.Tensor] = None,
+                tgt_mask: Optional[torch.Tensor] = None) -> torch.Tensor:
+        """
+        Args:
+            src: Source token indices of shape (batch_size, src_seq_len)
+            tgt: Target token indices of shape (batch_size, tgt_seq_len)
+            src_mask: Optional mask for source (batch_size, src_seq_len), where True indicates valid tokens.
+            tgt_mask: Optional mask for target (batch_size, tgt_seq_len), where True indicates valid tokens.
+        Returns:
+            Logits tensor of shape (batch_size, tgt_seq_len, vocab_size)
+        """
+        # Embed source tokens and scale by sqrt(d_model)
+        src_emb: torch.Tensor = self.embedding(src) * math.sqrt(self.d_model)
+        # Add positional encodings
+        src_emb = self.pos_encoding(src_emb)
+        # Process through encoder stack
+        memory: torch.Tensor = self.encoder(src_emb, src_mask)
+
+        # Embed target tokens and scale by sqrt(d_model)
+        tgt_emb: torch.Tensor = self.embedding(tgt) * math.sqrt(self.d_model)
+        # Add positional encodings
+        tgt_emb = self.pos_encoding(tgt_emb)
+        # Process through decoder stack with attention to encoder outputs
+        decoder_out: torch.Tensor = self.decoder(tgt_emb, memory, src_mask, tgt_mask)
+
+        # Project decoder outputs to logits over the vocabulary
+        logits: torch.Tensor = self.fc_out(decoder_out)
+        return logits
+```

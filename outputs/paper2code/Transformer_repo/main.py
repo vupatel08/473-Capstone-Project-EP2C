@@ -1,0 +1,113 @@
+"""main.py
+This is the entry-point script for running the Transformer experiments according to
+"Attention Is All You Need". It reads the configuration, loads datasets, instantiates the model,
+sets up training via the Trainer, and finally evaluates the trained model using Evaluation.
+All configuration parameters are read from config.yaml.
+"""
+
+import argparse
+import sys
+import os
+import logging
+from typing import Dict, Any
+
+# Import modules from the project
+from dataset_loader import DatasetLoader
+from model import TransformerModel
+from trainer import Trainer
+from evaluation import Evaluation
+from utils import parse_config, pretty_print_config, setup_logger
+
+
+def main() -> None:
+    """Main function to coordinate the training and evaluation workflow."""
+    # Set up argument parser for configuration override options.
+    parser: argparse.ArgumentParser = argparse.ArgumentParser(
+        description="Transformer Experiment Runner: reproduces experiments from 'Attention Is All You Need'."
+    )
+    parser.add_argument(
+        "--config",
+        type=str,
+        default="config.yaml",
+        help="Path to the YAML configuration file (default: config.yaml)"
+    )
+    parser.add_argument(
+        "--variant",
+        type=str,
+        choices=["base", "big"],
+        default="base",
+        help="Model variant to run: 'base' for base model or 'big' for big model (default: base)"
+    )
+    args: argparse.Namespace = parser.parse_args()
+
+    # Parse the configuration file.
+    try:
+        config: Dict[str, Any] = parse_config(args.config)
+    except Exception as error:
+        print(f"Error parsing configuration file: {error}", file=sys.stderr)
+        sys.exit(1)
+
+    # Optionally print the full configuration.
+    pretty_print_config(config)
+
+    # Set up logging.
+    logger: logging.Logger = setup_logger()
+    logger.info("Starting Transformer experiment.")
+
+    # Initialize the DatasetLoader with the parsed configuration.
+    logger.info("Initializing dataset loader.")
+    dataset_loader: DatasetLoader = DatasetLoader(config)
+    data: Dict[str, Any] = dataset_loader.load_data()
+    logger.info("Data loading complete.")
+
+    # Select model hyperparameters based on the chosen variant.
+    # The configuration provides both "base_model" and "big_model" hyperparameters.
+    hyperparams: Dict[str, Any] = config.get("hyperparameters", {})
+    if args.variant == "big":
+        model_params: Dict[str, Any] = hyperparams.get("big_model", {})
+        logger.info("Selected model variant: big_model")
+    else:
+        model_params = hyperparams.get("base_model", {})
+        logger.info("Selected model variant: base_model")
+
+    # Ensure that a vocabulary size is provided. If not, set a default based on dataset.
+    if "vocab_size" not in model_params:
+        translation_config: Dict[str, Any] = config.get("dataset", {}).get("translation", {})
+        if "en_de" in translation_config:
+            model_params["vocab_size"] = 37000
+        elif "en_fr" in translation_config:
+            model_params["vocab_size"] = 32000
+        else:
+            model_params["vocab_size"] = 37000
+        logger.info(f"Set default vocab_size to {model_params['vocab_size']}.")
+
+    # Instantiate the Transformer model using the selected hyperparameters.
+    logger.info("Instantiating the Transformer model.")
+    model: TransformerModel = TransformerModel(model_params)
+
+    # Initialize the Trainer with the model, data, and configuration.
+    logger.info("Initializing the Trainer.")
+    trainer: Trainer = Trainer(model, data, config)
+
+    # Begin training.
+    logger.info("Starting training loop.")
+    trainer.train()
+    logger.info("Training complete.")
+
+    # After training, evaluate the trained model.
+    logger.info("Starting model evaluation.")
+    evaluator: Evaluation = Evaluation(model, data, config)
+    evaluation_metrics: Dict[str, float] = evaluator.evaluate()
+
+    # Report final evaluation metrics.
+    logger.info("Final Evaluation Metrics:")
+    for metric_name, metric_value in evaluation_metrics.items():
+        logger.info(f"{metric_name}: {metric_value}")
+
+    print("Final Evaluation Metrics:")
+    for metric_name, metric_value in evaluation_metrics.items():
+        print(f"{metric_name}: {metric_value}")
+
+
+if __name__ == "__main__":
+    main()

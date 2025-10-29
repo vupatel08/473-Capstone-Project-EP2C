@@ -1,0 +1,43 @@
+----------------------------------------
+[Required packages]
+- numpy==1.21.0
+- torch==1.9.0
+- torchtext==0.10.0
+- sacrebleu==2.0.0
+- tqdm==4.62.0
+- sentencepiece==0.1.96
+
+----------------------------------------
+[Required Other language third-party packages]
+- No third-party dependencies required
+
+----------------------------------------
+[Logic Analysis]
+- ['dataset_loader.py', 'Defines the DatasetLoader class which is responsible for loading and preprocessing datasets for both machine translation and constituency parsing. This module will implement tokenization (using SentencePiece or similar for BPE/word-piece), vocabulary creation, batching (grouping sequences of similar lengths), and returns data loaders for training, validation, and testing.']
+- ['model.py', "Contains the TransformerModel class which implements the Transformer architecture from the paper. It includes submodules for:\n  - Encoder and Decoder stacks (with 6 layers for translation and configurable layers for parsing).\n  - MultiHeadAttention module (implements scaled dot-product attention over multiple heads).\n  - Position-wise Feed-Forward Networks.\n  - Positional Encoding module (sine and cosine-based encoding).\nMethods include __init__ for setup and forward for propagation. It will rely on PyTorch's nn.Module and torch functions."]
+- ['trainer.py', "Implements the Trainer class responsible for the training loop. This module will:\n  - Initialize the optimizer (Adam with parameters β1=0.9, β2=0.98, ϵ=1e-9) and learning rate scheduler as per the paper's formula (with warmup_steps=4000).\n  - Handle dropout and label smoothing during training.\n  - Manage checkpoint saving and averaging at specified intervals.\n  - Log training progress, step times, and validation metrics."]
+- ['evaluation.py', 'Defines the Evaluation class which carries out model evaluation using beam search decoding. It includes functions for:\n  - Applying beam search with customizable beam size, length penalty and maximum output length.\n  - Calculating BLEU scores (via sacreBLEU) for translation tasks and F1 scores for parsing tasks.\n  - Reporting final metrics in a structured format.']
+- ['utils.py', 'Contains common utility functions such as the learning rate scheduler, configuration parsers, checkpoint average utility, and logging helpers. These functions enable code reuse across the trainer and evaluation modules.']
+- ['main.py', 'Acts as the entry point for the application. It will parse configuration parameters, initialize the DatasetLoader to load data, instantiate the TransformerModel, create Trainer and Evaluation objects, and orchestrate the entire experiment workflow (training followed by evaluation).']
+
+----------------------------------------
+[Task list]
+- dataset_loader.py
+- model.py
+- utils.py
+- trainer.py
+- evaluation.py
+- main.py
+
+----------------------------------------
+[Full API spec]
+
+
+----------------------------------------
+[Shared Knowledge]
+Shared utilities and configuration parameters (such as hyperparameters, paths to dataset files, tokenization settings, and training schedule details) will be defined in a central configuration file and shared across modules (e.g., through utils.py). Both trainer.py and evaluation.py will share the learning rate scheduler and checkpoint management logic. Data processing in dataset_loader.py must be consistent with the model input requirements in model.py.
+
+----------------------------------------
+[Anything UNCLEAR]
+Clarification is needed regarding the exact tokenization method (BPE vs. word-piece) and library preferences, the hardware configuration specifics for multi-GPU training and checkpoint averaging protocols, as well as any additional hyperparameter tuning details not fully specified in the paper.
+
