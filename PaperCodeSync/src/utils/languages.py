@@ -1,0 +1,17 @@
+EXT_TO_LANG = {
+    ".py": "python",
+    ".js": "javascript",   
+    ".mjs": "javascript",   
+    ".cjs": "javascript",  
+    ".jsx": "javascript",   
+    ".ts": "typescript",   
+    ".tsx": "tsx",       
+    ".java": "java",
+    ".c": "cpp",    
+    ".cc": "cpp",  
+    ".cpp": "cpp", 
+    ".cxx": "cpp", 
+    ".h": "cpp",   
+    ".hh": "cpp",  
+    ".hpp": "cpp",  
+}
