@@ -1,12 +1,12 @@
 import re
 from utils.parse_config import load_config
 
-# Load the YAML config
-config = load_config("../config.yaml")
+config = load_config("../../config.yaml")
+utils = config['utils']
 
-PY_MAX_LINES = config['utils']['python']['max_leading_lines']
-PY_STOP_ON_BLANK = config['utils']['python']['stop_on_blank_line']
-C_MAX_LINES = config['utils']['c_like']['max_leading_lines']
+PY_MAX_LINES = utils['python']['max_leading_lines']
+PY_STOP_ON_BLANK = utils['python']['stop_on_blank_line']
+C_MAX_LINES = utils['c_like']['max_leading_lines']
 
 def leading_hash_comments_python(src: bytes, node) -> str:
     start_row = node.start_point[0]

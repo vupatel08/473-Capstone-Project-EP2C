@@ -1,19 +1,14 @@
-from __future__ import annotations
 import hashlib, json, re, os
 from pathlib import Path
 from typing import Iterable, List, Any
 from utils.parse_config import load_config
 
-# Load the YAML config once
-config = load_config("../config.yaml")
+config = load_config("../../config.yaml")
+utils = config['utils']
 
-# Pull config knobs
-TOKEN_PATTERN = config['utils']["token_pattern"]
-SLUGIFY_MAXLEN = config['utils']["slugify_maxlen"]
-ID_TRUNCATE = config['utils']["id_truncate"]
-
-# Compile regex pattern from config
-_TOKEN_RE = re.compile(TOKEN_PATTERN)
+SLUGIFY_MAXLEN = utils["slugify_maxlen"]
+ID_TRUNCATE = utils["id_truncate"]
+_TOKEN_RE = re.compile(utils["token_pattern"])
 
 def slugify(text: str, maxlen: int = SLUGIFY_MAXLEN) -> str:
     if not text:
