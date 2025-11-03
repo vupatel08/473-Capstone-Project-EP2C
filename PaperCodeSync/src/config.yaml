@@ -6,6 +6,32 @@ utils:
   slugify_maxlen: 80
   # changes all emitted IDs (stable but different length), which flow into symbols/chunks/matches
   id_truncate: 12         
+  text:
+    # used by keep_text(...)
+    min_paragraph_len: 20           
+    # rolling split target
+    chunk_max_chars: 1400           
+    # safety cap if a single block is huge
+    chunk_hard_max_chars: 1600      
+    # how we join lines/blocks before chunking
+    paragraph_join: "\n\n"          
+  markdown:
+    # fenced math delimiter line
+    eq_fence: "$$"                  
+    # headings that trigger references section
+    reference_headings:             
+      - "references"
+      - "bibliography"
+      - "works cited"
+    # keep current behavior of adding alt as [figure]
+    fold_image_alt_into_prose: true 
+  latex:
+    # \alpha X -> \alphaX
+    strip_space_after_commands: true      
+    # \mathrm{R e L U} -> \mathrm{ReLU}
+    collapse_mathrm_inner_spaces: true    
+    # tabs/dupe spaces -> single space
+    collapse_multi_spaces: true           
   python:
     # how far upward we scan for # blocks before a symbol, which creates longer windows and
     # can pull in more doc text leading to different docstring, identifiers and BoW, leading to different matches
