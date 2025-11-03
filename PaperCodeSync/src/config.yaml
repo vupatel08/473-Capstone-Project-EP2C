@@ -43,31 +43,29 @@ utils:
     # upward scan limit for slashes/JSDoc, which imapcts the doc size
     max_leading_lines: 12
 chunks:
-  # max <div> nesting to descend into
-  section_depth_limit: 3           
-  # skip sections with titles matching this regex
-  excluded_section_titles_regex: "(acknowledg(e)?ments?|references|funding|appendix|supplement)"
-  excluded_section_types: ["references"] # TEI @type values to skip (case-insensitive)
-  # include <list>/<item> as paragraph chunks
-  include_lists_as_paragraphs: true
-  # drop very short paragraphs/items
-  paragraph_min_chars: 20               
-  # collect paragraph-level biblio refs
-  include_citations: true                
-  # prefer back-matter listBibl over header
-  prefer_back_list_for_refs: true        
-  # media capture
-  include_figures: true
-  include_tables: true
+  # Where to take the paper title from 
+  title_source: "h1_first"          
+  # Which headings become sections (controls section boundaries and counts)
+  min_heading_level: 1              
+  max_heading_level: 6
+  # Skip sections by title (regex, case-insensitive)
+  exclude_section_titles_regex: "(acknowledg(e)?ments?|references|funding|appendix|supplement)"
+  # Drop sections that end up empty (no paragraphs/figures/equations)
+  keep_empty_sections: false
+  # toggle off to omit references[] altogether
+  collect_references: true           
   include_equations: true
-  # include <graphic url=...>
-  figure_include_graphic_url: true       
-  # hard cap per table (prevents huge JSON)
-  table_max_rows: 100                    
-  # decide to ignore xml:id/id and always generate 
-  force_generate_ids: false          
-  # decide to ignore title when building paper_id
-  prefer_filename_for_paper_id: false    
+  # injects `[eq:<id>]` anchors into paragraph text
+  inline_equation_anchors: true      
+  include_images: true
+  # prefix when folding captions into prose
+  figure_caption_prefix: "[figure] " 
+  # true = also keep image src in figures[]
+  figure_include_src: false          
+  # short paragraphs are dropped before chunking
+  paragraph_min_chars: 20            
+  # join consecutive blocks before chunking
+  join_paragraphs_across_blocks: true  
 symbols:
   # Skip directories/files
   exclude_dirs:
