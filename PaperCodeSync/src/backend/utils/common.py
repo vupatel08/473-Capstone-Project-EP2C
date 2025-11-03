@@ -1,14 +1,20 @@
 import hashlib, json, re, os
 from pathlib import Path
-from typing import Iterable, List, Any
+from typing import Iterable, List, Any, Optional
 from utils.parse_config import load_config
 
 config = load_config("../config.yaml")
-utils = config['utils']
+utils  = config.get("utils", {})
 
-SLUGIFY_MAXLEN = utils["slugify_maxlen"]
-ID_TRUNCATE = utils["id_truncate"]
-_TOKEN_RE = re.compile(utils["token_pattern"])
+SLUGIFY_MAXLEN = int(utils.get("slugify_maxlen", 80))
+ID_TRUNCATE    = int(utils.get("id_truncate", 12))
+_TOKEN_RE      = re.compile(utils.get("token_pattern", r"[A-Za-z0-9_]+"))
+
+_TEXT          = utils.get("text", {})
+PARA_MIN_LEN   = int(_TEXT.get("min_paragraph_len", 20))
+CHUNK_MAX      = int(_TEXT.get("chunk_max_chars", 1400))
+CHUNK_HARD_MAX = int(_TEXT.get("chunk_hard_max_chars", max(CHUNK_MAX, 1600)))
+PARA_JOIN      = str(_TEXT.get("paragraph_join", "\n\n"))
 
 def slugify(text: str, maxlen: int = SLUGIFY_MAXLEN) -> str:
     if not text:
@@ -17,22 +23,54 @@ def slugify(text: str, maxlen: int = SLUGIFY_MAXLEN) -> str:
     s = re.sub(r"-{2,}", "-", s).strip("-")
     return (s or "untitled")[:maxlen]
 
-def sha1_prefix(s: str, n: int = 12) -> str:
+def sha1_prefix(s: str, n: int = ID_TRUNCATE) -> str:
     return hashlib.sha1(s.encode("utf-8")).hexdigest()[:n]
 
-def keep_text(s: str, min_len: int = 20) -> bool:
-    return bool(s and len(s.strip()) >= min_len)
+def keep_text(s: str, min_len: Optional[int] = None) -> bool:
+    if min_len is None:
+        min_len = PARA_MIN_LEN
+    return bool(s and len(s.strip()) >= int(min_len))
 
-def split_into_chunks(text: str, max_chars: int) -> List[str]:
-    out, cur, cur_len = [], [], 0
-    for block in text.split("\n\n"):
-        if cur and (cur_len + len(block) > max_chars):
-            out.append("\n\n".join(cur))
+def split_into_chunks(
+    text: str,
+    max_chars: Optional[int] = None,
+    joiner: Optional[str] = None,
+    hard_max: Optional[int] = None,
+) -> List[str]:
+    if max_chars is None:
+        max_chars = CHUNK_MAX
+    if hard_max is None:
+        hard_max = CHUNK_HARD_MAX
+    if joiner is None:
+        joiner = PARA_JOIN
+
+    out: List[str] = []
+    cur: List[str] = []
+    cur_len = 0
+    jlen = len(joiner)
+
+    def flush_cur():
+        nonlocal cur, cur_len
+        if cur:
+            out.append(joiner.join(cur))
             cur, cur_len = [], 0
+
+    for block in text.split(joiner):
+        if len(block) > hard_max:
+            flush_cur()
+            start = 0
+            while start < len(block):
+                out.append(block[start : start + hard_max])
+                start += hard_max
+            continue
+
+        projected = cur_len + (jlen if cur else 0) + len(block)
+        if cur and projected > max_chars:
+            flush_cur()
         cur.append(block)
-        cur_len += len(block) + 2
-    if cur:
-        out.append("\n\n".join(cur))
+        cur_len = (cur_len + (jlen if cur_len else 0) + len(block)) if cur_len else len(block)
+
+    flush_cur()
     return out
 
 def sha1_hex(b: bytes) -> str:
