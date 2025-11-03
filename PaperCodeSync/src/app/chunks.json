@@ -1,5 +1,5 @@
 {
-  "paper_id": "test",
+  "paper_id": "paper",
   "metadata": {
     "title": "FireRedTTS-2: Towards Long Conversational Speech Generation for Podcast and Chatbot",
     "doi": null,
@@ -66,7 +66,12 @@
           "citations": []
         }
       ],
-      "figures": [],
+      "figures": [
+        {
+          "id": "fig-da39a3ee5e6b",
+          "caption": ""
+        }
+      ],
       "tables": [],
       "equations": []
     },
@@ -153,7 +158,12 @@
           "citations": []
         }
       ],
-      "figures": [],
+      "figures": [
+        {
+          "id": "fig-da39a3ee5e6b",
+          "caption": ""
+        }
+      ],
       "tables": [],
       "equations": []
     },
@@ -168,16 +178,12 @@
           "citations": []
         }
       ],
-      "figures": [],
-      "tables": [],
-      "equations": []
-    },
-    {
-      "id": "sec1-20f45aa0113b",
-      "title": "4 Results",
-      "type": null,
-      "paragraphs": [],
-      "figures": [],
+      "figures": [
+        {
+          "id": "fig-da39a3ee5e6b",
+          "caption": ""
+        }
+      ],
       "tables": [],
       "equations": []
     },
@@ -237,7 +243,12 @@
           "citations": []
         }
       ],
-      "figures": [],
+      "figures": [
+        {
+          "id": "fig-da39a3ee5e6b",
+          "caption": ""
+        }
+      ],
       "tables": [],
       "equations": []
     }
@@ -262,7 +273,14 @@
       "page": null,
       "section": "1 Introduction",
       "title": null,
-      "text": "Large language model (LLM) based text-to-speech (TTS) systems can generate natural-sounding speech with zero-shot voice cloning and are widely used for monologue applications like video dubbing. These systems typically follow one of two modeling paradigms: an autoregressive, decoderonly transformer that predicts speech tokens[1–7], or a non-autoregressive flow-matching model that produces mel-spectrograms directly from text[8, 9]. While these monologue TTS systems can be adapted to dialogue generation by segmenting dialogue text and synthesizing each fragment independently[10–12], this strategy ignores preceding text and speech context, leading to a loss of conversational coherence.\nRecent works have extended TTS system to two-speaker dialogue generation, which can be grouped into three categories based on how text and speech are organized across turns: (1) splitting the dialogue text into two parallel channels and synthesizing a single mixed speech track containing both voices, which can naturally handles overlapping speech and generate interjections effects[13, 14]; (2) concatenating the dialogue text in chronological order with each utterance prefixed by a speaker label, which likewise produces a mixed speech track[15–20]; and (3) interleaving the text and speech of each utterance[21]. Approaches (1) and (2) require the complete dialogue text before synthesis and yield a single inseparable mixed speech, limiting their suitability for interactive scenarios such as chat, whereas (3) supports flexible sentence-by-sentence generation, suitable for both interactive chat and podcast production.\nIn this work, we present FireRedTTS-2, a long-form, streaming TTS system for multi-speaker dialogue and podcast generation that delivers stable, natural speech, reliable speaker switching, and context-aware prosody. A new streaming $1 2 . 5 \\mathrm { H z }$ speech tokenizer accelerates training and inference, lengthens the effective dialogue context, encodes richer semantics to stabilize text-to-token modeling and supports high-fidelity streaming generation for real-time applications. We adopt an interleaved text–speech format by concatenating speaker-labeled text with speech tokens in chronological order, and model it with a dual-transformer architecture: a large decoder-only network predicts tokens at the first layer, while a smaller network refines the subsequent layers. Experimental results show that FireRedTTS-2 integrates seamlessly with chat frameworks and, with minimal fine-tuning, produces emotionally expressive speech guided by implicit context. In podcast generation, it surpasses the state of the art systems including MoonCast[15], ZipVoice-Dialogue[18], and MOSS-TTSD[19] in objective intelligibility, speaker-turn reliability, and perceived naturalness, while maintaining prosody consistent with long-range context."
+      "text": "Large language model (LLM) based text-to-speech (TTS) systems can generate natural-sounding speech with zero-shot voice cloning and are widely used for monologue applications like video dubbing. These systems typically follow one of two modeling paradigms: an autoregressive, decoderonly transformer that predicts speech tokens[1–7], or a non-autoregressive flow-matching model that produces mel-spectrograms directly from text[8, 9]. While these monologue TTS systems can be adapted to dialogue generation by segmenting dialogue text and synthesizing each fragment independently[10–12], this strategy ignores preceding text and speech context, leading to a loss of conversational coherence.\nRecent works have extended TTS system to two-speaker dialogue generation, which can be grouped into three categories based on how text and speech are organized across turns: (1) splitting the dialogue text into two parallel channels and synthesizing a single mixed speech track containing both voices, which can naturally handles overlapping speech and generate interjections effects[13, 14]; (2) concatenating the dialogue text in chronological order with each utterance prefixed by a speaker label, which likewise produces a mixed speech track[15–20]; and (3) interleaving the text and speech of each utterance[21]. Approaches (1) and (2) require the complete dialogue text before synthesis and yield a single inseparable mixed speech, limiting their suitability for interactive scenarios such as chat, whereas (3) supports flexible sentence-by-sentence generation, suitable for both interactive chat and p"
+    },
+    {
+      "id": "chk-46a62c64aff0",
+      "page": null,
+      "section": "1 Introduction",
+      "title": null,
+      "text": "odcast production.\nIn this work, we present FireRedTTS-2, a long-form, streaming TTS system for multi-speaker dialogue and podcast generation that delivers stable, natural speech, reliable speaker switching, and context-aware prosody. A new streaming $1 2 . 5 \\mathrm { H z }$ speech tokenizer accelerates training and inference, lengthens the effective dialogue context, encodes richer semantics to stabilize text-to-token modeling and supports high-fidelity streaming generation for real-time applications. We adopt an interleaved text–speech format by concatenating speaker-labeled text with speech tokens in chronological order, and model it with a dual-transformer architecture: a large decoder-only network predicts tokens at the first layer, while a smaller network refines the subsequent layers. Experimental results show that FireRedTTS-2 integrates seamlessly with chat frameworks and, with minimal fine-tuning, produces emotionally expressive speech guided by implicit context. In podcast generation, it surpasses the state of the art systems including MoonCast[15], ZipVoice-Dialogue[18], and MOSS-TTSD[19] in objective intelligibility, speaker-turn reliability, and perceived naturalness, while maintaining prosody consistent with long-range context."
     },
     {
       "id": "chk-638c7b029a6c",
@@ -276,14 +294,28 @@
       "page": null,
       "section": "2.1 Speech Tokenizer",
       "title": null,
-      "text": "We design our speech tokenizer to enhance dialogue modeling, with a focus on long, multi-speaker speech sequence. To make such sequences tractable, we reduce the frame rate to $1 2 . 5 \\mathrm { H z }$ , half that of most open-source tokenizers[3–5, 22–24]. We further employ semantic injection and supervision to simplify text-to-token modeling, which has been shown to improve synthesis stability[19, 22–25]. In addition, the tokenizer supports high-fidelity streaming generation for real-time applications.\nAs illustrated in Figure 1(a), our speech tokenizer employs a pretrained Whisper[26] encoder to extract semantic features from the 16kHz input speech. These semantic features are encoded by an adapter and then concatenated with acoustic features from a trainable acoustic encoder structurally identical to the Whisper encoder. The combined features undergo 4 times downsampling from $5 0 \\mathrm { H z }$ to $1 2 . 5 \\mathrm { H z }$ and are discretized by a residual vector quantizer (RVQ)[27] with 16 layers, each containing 2048 code entries. The quantized features are upsampled to $5 0 \\mathrm { H z }$ and fed to a semantic decoder to predict the original semantic features derived from the pretrained Whisper encoder. The same upsampled features are also used by a Vocos[28]-based acoustic decoder to reconstruct the waveform. Depending on the reception fields of its inner convolution and attention layers, the acoustic decoder can be implemented as either streaming or non-streaming.\nTo balance generalization capability and speech quality, we train our speech tokenizer in two stages similar to[19]. First, the acoustic decoder is implemented as non-streaming and optimized to predict 16kHz speech. We use approximately $5 0 0 \\mathrm { k }$ hours of speech data and train the model for $3 2 0 \\mathrm { k }$ steps on 32 H800 GPUs, with each sample randomly cropped to 6 seconds. For the final $3 5 \\mathrm { k }$ steps, we incorporate the perceptual loss[23, 29] to further improve semantic details. In the second stage, we freeze the encoding part and replace the acoustic decoder with a fully streaming variant that predicts 24kHz speech. We continue to train the speech tokenizer on a subset of 60k hours high-fidelity speech data for 80k steps."
+      "text": "We design our speech tokenizer to enhance dialogue modeling, with a focus on long, multi-speaker speech sequence. To make such sequences tractable, we reduce the frame rate to $1 2 . 5 \\mathrm { H z }$ , half that of most open-source tokenizers[3–5, 22–24]. We further employ semantic injection and supervision to simplify text-to-token modeling, which has been shown to improve synthesis stability[19, 22–25]. In addition, the tokenizer supports high-fidelity streaming generation for real-time applications.\nAs illustrated in Figure 1(a), our speech tokenizer employs a pretrained Whisper[26] encoder to extract semantic features from the 16kHz input speech. These semantic features are encoded by an adapter and then concatenated with acoustic features from a trainable acoustic encoder structurally identical to the Whisper encoder. The combined features undergo 4 times downsampling from $5 0 \\mathrm { H z }$ to $1 2 . 5 \\mathrm { H z }$ and are discretized by a residual vector quantizer (RVQ)[27] with 16 layers, each containing 2048 code entries. The quantized features are upsampled to $5 0 \\mathrm { H z }$ and fed to a semantic decoder to predict the original semantic features derived from the pretrained Whisper encoder. The same upsampled features are also used by a Vocos[28]-based acoustic decoder to reconstruct the waveform. Depending on the reception fields of its inner convolution and attention layers, the acoustic decoder can be implemented as either streaming or non-streaming.\nTo balance generalization capability and speech quality, we train our speech tokenizer in two sta"
+    },
+    {
+      "id": "chk-5278eb27656c",
+      "page": null,
+      "section": "2.1 Speech Tokenizer",
+      "title": null,
+      "text": "ges similar to[19]. First, the acoustic decoder is implemented as non-streaming and optimized to predict 16kHz speech. We use approximately $5 0 0 \\mathrm { k }$ hours of speech data and train the model for $3 2 0 \\mathrm { k }$ steps on 32 H800 GPUs, with each sample randomly cropped to 6 seconds. For the final $3 5 \\mathrm { k }$ steps, we incorporate the perceptual loss[23, 29] to further improve semantic details. In the second stage, we freeze the encoding part and replace the acoustic decoder with a fully streaming variant that predicts 24kHz speech. We continue to train the speech tokenizer on a subset of 60k hours high-fidelity speech data for 80k steps."
     },
     {
       "id": "chk-2be6bc576f5c",
       "page": null,
       "section": "2.2 Text-to-Speech Model",
       "title": null,
-      "text": "Building on the new speech tokenizer, we employ a dual-transformer architecture akin to [21, 25] that operates on a text–speech interleaved sequence, enabling flexible sentence-bysentence generation and reducing first-packet latency. As illustrated in Figure 1(b), each dialogue text is prefixed with a speaker tag (e.g., \"[S1]\") and concatenated with its corresponding speech tokens; these segments are then joined in temporal order to form sequences such as \"[S1]<text><audio>[S2]<text><audio>[S3]<text><audio>...\". Existing approaches[16, 17, 19] model multi-layer speech tokens using the delay-pattern[30]: for $N$ token layers, the $i ^ { \\mathrm { t h } }$ layer is shifted $i - 1$ timesteps to the right, and $N$ prediction heads predict these shifted layers in parallel. This design has two main drawbacks: first, at each timestep the model has only partial access to the speech tokens from previous steps due to the rightward shifts, weakening contextual conditioning; second, obtaining the complete set of $N$ layer tokens for the first timestep requires $N$ autoregressive steps, resulting in high latency. To overcome these issues, we adopt a dual-transformer architecture comprising a backbone transformer that processes the text–speech interleaved sequence and predicts the first-layer tokens, and a smaller decoder transformer that generates remaining token layers. Both transformers are based on Qwen2.5[31] structure. At each timestep, the decoder consumes both the predicted first layer token and the backbone’s hidden states, which provide complete contextual information. Comparing with the delay-pattern, it requires one auto-regressive inference step of the backbone transformer and $N - 1$ steps of the smaller decoder, reducing computation and first-packet latency. Moreover, our speech tokenizer produces high-fidelity speech in a streaming manner without requiring separate token-to-speech modules, simplifying the overall system.\nThe text-to-speech model is optimized with the following loss function:"
+      "text": "Building on the new speech tokenizer, we employ a dual-transformer architecture akin to [21, 25] that operates on a text–speech interleaved sequence, enabling flexible sentence-bysentence generation and reducing first-packet latency. As illustrated in Figure 1(b), each dialogue text is prefixed with a speaker tag (e.g., \"[S1]\") and concatenated with its corresponding speech tokens; these segments are then joined in temporal order to form sequences such as \"[S1]<text><audio>[S2]<text><audio>[S3]<text><audio>...\". Existing approaches[16, 17, 19] model multi-layer speech tokens using the delay-pattern[30]: for $N$ token layers, the $i ^ { \\mathrm { t h } }$ layer is shifted $i - 1$ timesteps to the right, and $N$ prediction heads predict these shifted layers in parallel. This design has two main drawbacks: first, at each timestep the model has only partial access to the speech tokens from previous steps due to the rightward shifts, weakening contextual conditioning; second, obtaining the complete set of $N$ layer tokens for the first timestep requires $N$ autoregressive steps, resulting in high latency. To overcome these issues, we adopt a dual-transformer architecture comprising a backbone transformer that processes the text–speech interleaved sequence and predicts the first-layer tokens, and a smaller decoder transformer that generates remaining token layers. Both transformers are based on Qwen2.5[31] structure. At each timestep, the decoder consumes both the predicted first layer token and the backbone’s hidden states, which provide complete contextual information. Comparin"
+    },
+    {
+      "id": "chk-8525dd8a11e7",
+      "page": null,
+      "section": "2.2 Text-to-Speech Model",
+      "title": null,
+      "text": "g with the delay-pattern, it requires one auto-regressive inference step of the backbone transformer and $N - 1$ steps of the smaller decoder, reducing computation and first-packet latency. Moreover, our speech tokenizer produces high-fidelity speech in a streaming manner without requiring separate token-to-speech modules, simplifying the overall system.\nThe text-to-speech model is optimized with the following loss function:"
     },
     {
       "id": "chk-43df846b2ab2",
@@ -325,14 +357,28 @@
       "page": null,
       "section": "4.1 Speech Tokenizer Evaluation",
       "title": null,
-      "text": "We evaluate our speech tokenizer on intelligibility, speaker similarity, and speech quality of the reconstructed speech using the LibriSpeech test-clean set, which contains 2,620 utterances at $1 6 \\mathrm { k H z }$ . Speech intelligibility is measured by word error rate (WER) using a HuBERT-based automatic speech recognition (ASR) system3. Speech quality is assessed with speaker similarity (SPK-SIM) computed by the WavLM-Large model 4, Short-Time Objective Intelligibility (STOI), Perceptual Evaluation of Speech Quality (PESQ), and UTMOS 5. We compare our speech tokenizer with other methods that likewise incorporate semantic injection and supervision, including XY-Tokenizer[19], XCodec2[23], SpeechTokenizer[24], and Mimi[25]; results are reported in Table 1.\n<table><tr><td>Models</td><td>BPS</td><td>Frame Rate</td><td>WER↓</td><td>SPK SIM</td><td>STOI↑</td><td>PESQ↑ WB</td><td>PESQ↑ NB</td><td>UT</td></tr><tr><td>Ground Truth</td><td>-</td><td>-</td><td>1.96</td><td>-</td><td>1.00</td><td>4.64</td><td>4.55</td><td>4.09</td></tr><tr><td>Xcodec2</td><td>800</td><td>50</td><td>2.46</td><td>0.82</td><td>0.92</td><td>2.43</td><td>3.04</td><td>4.13</td></tr><tr><td>XY-Tokneizer</td><td>1000</td><td>12.5</td><td>-</td><td>0.83</td><td>0.91</td><td>2.41</td><td>3.00</td><td>-</td></tr><tr><td>SpeechTokenizer</td><td>2000</td><td>50</td><td>2.86</td><td>0.66</td><td>0.88</td><td>1.92</td><td>2.38</td><td>3.56</td></tr><tr><td>Mimi</td><td>2200</td><td>12.5</td><td>2.26</td><td>0.87</td><td>0.94</td><td>2.88</td><td>3.42</td><td>3.87</td></tr><tr><td>Ours</td><td>2200</td><td>12.5</td><td>2.16</td><td>0.87</td><td>0.94</td><td>2.73</td><td>3.28</td><td>3.88</td></tr></table>\nTable 1: Comparison between different speech tokenizers. Best results are marked in bold.\nTable 1 shows that our speech tokenizer achieves the highest intelligibility, which we attribute to the semantic injection with explicit supervision. It also ranks first or second on speaker similarity and speech quality metrics, even at a $1 2 . 5 \\mathrm { H z }$ frame rate, thanks to a larger quantizer that reduces quantization error and a Vocos[28]-based acoustic decoder. However, it trails Mimi on the PESQ metrics, likely because Mimi uses a massive, purely English training corpus that more closely matches the test set. It also scores lower on UTMOS than Xcodec2, due to its lower $1 2 . 5 \\mathrm { H z }$ frame rate. Overall, these results verify that our speech tokenizer can produce high-quality speech despite its low $1 2 . 5 \\mathrm { H z }$ frame rate."
+      "text": "We evaluate our speech tokenizer on intelligibility, speaker similarity, and speech quality of the reconstructed speech using the LibriSpeech test-clean set, which contains 2,620 utterances at $1 6 \\mathrm { k H z }$ . Speech intelligibility is measured by word error rate (WER) using a HuBERT-based automatic speech recognition (ASR) system3. Speech quality is assessed with speaker similarity (SPK-SIM) computed by the WavLM-Large model 4, Short-Time Objective Intelligibility (STOI), Perceptual Evaluation of Speech Quality (PESQ), and UTMOS 5. We compare our speech tokenizer with other methods that likewise incorporate semantic injection and supervision, including XY-Tokenizer[19], XCodec2[23], SpeechTokenizer[24], and Mimi[25]; results are reported in Table 1.\n<table><tr><td>Models</td><td>BPS</td><td>Frame Rate</td><td>WER↓</td><td>SPK SIM</td><td>STOI↑</td><td>PESQ↑ WB</td><td>PESQ↑ NB</td><td>UT</td></tr><tr><td>Ground Truth</td><td>-</td><td>-</td><td>1.96</td><td>-</td><td>1.00</td><td>4.64</td><td>4.55</td><td>4.09</td></tr><tr><td>Xcodec2</td><td>800</td><td>50</td><td>2.46</td><td>0.82</td><td>0.92</td><td>2.43</td><td>3.04</td><td>4.13</td></tr><tr><td>XY-Tokneizer</td><td>1000</td><td>12.5</td><td>-</td><td>0.83</td><td>0.91</td><td>2.41</td><td>3.00</td><td>-</td></tr><tr><td>SpeechTokenizer</td><td>2000</td><td>50</td><td>2.86</td><td>0.66</td><td>0.88</td><td>1.92</td><td>2.38</td><td>3.56</td></tr><tr><td>Mimi</td><td>2200</td><td>12.5</td><td>2.26</td><td>0.87</td><td>0.94</td><td>2.88</td><td>3.42</td><td>3.87</td></tr><tr><td>Ours</td><td>2200</td><td>12.5</"
+    },
+    {
+      "id": "chk-d5e13945adf7",
+      "page": null,
+      "section": "4.1 Speech Tokenizer Evaluation",
+      "title": null,
+      "text": "td><td>2.16</td><td>0.87</td><td>0.94</td><td>2.73</td><td>3.28</td><td>3.88</td></tr></table>\nTable 1: Comparison between different speech tokenizers. Best results are marked in bold.\nTable 1 shows that our speech tokenizer achieves the highest intelligibility, which we attribute to the semantic injection with explicit supervision. It also ranks first or second on speaker similarity and speech quality metrics, even at a $1 2 . 5 \\mathrm { H z }$ frame rate, thanks to a larger quantizer that reduces quantization error and a Vocos[28]-based acoustic decoder. However, it trails Mimi on the PESQ metrics, likely because Mimi uses a massive, purely English training corpus that more closely matches the test set. It also scores lower on UTMOS than Xcodec2, due to its lower $1 2 . 5 \\mathrm { H z }$ frame rate. Overall, these results verify that our speech tokenizer can produce high-quality speech despite its low $1 2 . 5 \\mathrm { H z }$ frame rate."
     },
     {
       "id": "chk-1b131fadc09d",
       "page": null,
       "section": "4.2 Voice Cloning Evaluation",
       "title": null,
-      "text": "We evaluate FireRedTTS-2 for voice cloning on the \"Test-ZH\" and \"Test-EN\" sets from the SeedTTS-eval[32] benchmark, using the model after the pretraining stage. We compare it against popular monologue TTS systems, including Seed-TTS[32], F5-TTS[8], MaskedGCT[33], SparkTTS[7], and the CosyVoice series[3–5]. Results are reported in Table 2.\n<table><tr><td rowspan=\"2\">System</td><td rowspan=\"2\">Frame Rate</td><td colspan=\"2\">Test-ZH</td><td colspan=\"2\">Test-EN</td></tr><tr><td>CER ↓</td><td>SIM↑</td><td>WER ↓</td><td>SIM↑</td></tr><tr><td>Human</td><td></td><td>1.26</td><td>0.755</td><td>2.14</td><td>0.734</td></tr><tr><td>Seed-TTS</td><td></td><td>1.12</td><td>0.796</td><td>2.25</td><td>0.762</td></tr><tr><td>F5-TTS</td><td>-</td><td>1.56</td><td>0.741</td><td>1.83</td><td>0.647</td></tr><tr><td>MaskedGCT</td><td>50</td><td>2.27</td><td>0.774</td><td>2.62</td><td>0.714</td></tr><tr><td>SparkTTS</td><td>50</td><td>1.20</td><td>0.672</td><td>1.98</td><td>0.584</td></tr><tr><td>CosyVoice 3-1.5B</td><td>25</td><td>1.12</td><td>0.781</td><td>2.21</td><td>0.720</td></tr><tr><td>FireRedTTS-1S</td><td>25</td><td>1.00</td><td>0.753</td><td>2.20</td><td>0.663</td></tr><tr><td>FireRedTTS-2</td><td>12.5</td><td>1.14</td><td>0.736</td><td>1.95</td><td>0.665</td></tr></table>\nTable 2: The objective evaluation on Seed-TTS test set. Best results are marked in bold.\nOur pretrained FireRedTTS-2 achieves $1 . 1 4 \\%$ CER on Mandarin and $1 . 9 5 \\%$ WER on English, closely matching the best results of $1 . 1 2 \\%$ CER and $1 . 8 3 \\%$ WER. We attribute this to enhanced semantic information in the speech tokens, which strengthens text-to-token modeling. For speaker similarity, it aligns with human recordings in Mandarin but trails in English, likely due to limited voice diversity in the English training data. Moreover, systems such as Seed-TTS inject timbre through dedicated diffusion or flow-matching modules, further boosting similarity. Compared with previous FireRedTTS-1S, it delivers better English WER and speaker similarity, with a slight drop on Mandarin that may stem from the halved frame rate of speech tokenizer. However, as noted in [2], objective metrics cannot faithfully reflect TTS performance due to limited test set coverage and imprecise evaluation tools, and speech with more expressive prosody tends to be rated less intelligible, while plainer ones typically score higher; we therefore place greater weight on the following subjective evaluations."
+      "text": "We evaluate FireRedTTS-2 for voice cloning on the \"Test-ZH\" and \"Test-EN\" sets from the SeedTTS-eval[32] benchmark, using the model after the pretraining stage. We compare it against popular monologue TTS systems, including Seed-TTS[32], F5-TTS[8], MaskedGCT[33], SparkTTS[7], and the CosyVoice series[3–5]. Results are reported in Table 2.\n<table><tr><td rowspan=\"2\">System</td><td rowspan=\"2\">Frame Rate</td><td colspan=\"2\">Test-ZH</td><td colspan=\"2\">Test-EN</td></tr><tr><td>CER ↓</td><td>SIM↑</td><td>WER ↓</td><td>SIM↑</td></tr><tr><td>Human</td><td></td><td>1.26</td><td>0.755</td><td>2.14</td><td>0.734</td></tr><tr><td>Seed-TTS</td><td></td><td>1.12</td><td>0.796</td><td>2.25</td><td>0.762</td></tr><tr><td>F5-TTS</td><td>-</td><td>1.56</td><td>0.741</td><td>1.83</td><td>0.647</td></tr><tr><td>MaskedGCT</td><td>50</td><td>2.27</td><td>0.774</td><td>2.62</td><td>0.714</td></tr><tr><td>SparkTTS</td><td>50</td><td>1.20</td><td>0.672</td><td>1.98</td><td>0.584</td></tr><tr><td>CosyVoice 3-1.5B</td><td>25</td><td>1.12</td><td>0.781</td><td>2.21</td><td>0.720</td></tr><tr><td>FireRedTTS-1S</td><td>25</td><td>1.00</td><td>0.753</td><td>2.20</td><td>0.663</td></tr><tr><td>FireRedTTS-2</td><td>12.5</td><td>1.14</td><td>0.736</td><td>1.95</td><td>0.665</td></tr></table>\nTable 2: The objective evaluation on Seed-TTS test set. Best results are marked in bold.\nOur pretrained FireRedTTS-2 achieves $1 . 1 4 \\%$ CER on Mandarin and $1 . 9 5 \\%$ WER on English, closely matching the best results of $1 . 1 2 \\%$ CER and $1 . 8 3 \\%$ WER. We attribute this to enhanced semantic information in t"
+    },
+    {
+      "id": "chk-704c473011c6",
+      "page": null,
+      "section": "4.2 Voice Cloning Evaluation",
+      "title": null,
+      "text": "he speech tokens, which strengthens text-to-token modeling. For speaker similarity, it aligns with human recordings in Mandarin but trails in English, likely due to limited voice diversity in the English training data. Moreover, systems such as Seed-TTS inject timbre through dedicated diffusion or flow-matching modules, further boosting similarity. Compared with previous FireRedTTS-1S, it delivers better English WER and speaker similarity, with a slight drop on Mandarin that may stem from the halved frame rate of speech tokenizer. However, as noted in [2], objective metrics cannot faithfully reflect TTS performance due to limited test set coverage and imprecise evaluation tools, and speech with more expressive prosody tends to be rated less intelligible, while plainer ones typically score higher; we therefore place greater weight on the following subjective evaluations."
     },
     {
       "id": "chk-378a189fc557",
@@ -346,10 +392,41 @@
       "page": null,
       "section": "4.4 Podcast Generation Evaluation",
       "title": null,
-      "text": "To evaluate zero-shot podcast generation, we curated two two-speaker podcast evaluation sets: dialogue-zh and dialogue-en, containing 100 Mandarin and 115 English dialogues, respectively. Each dialogue test set spans 4 to 10 turns, totaling 1.67 hours for Mandarin and 2.35 hours for English. For each dialogue, we use the first two turns as the prompt and generate the remaining turns with the post-trained FireRedTTS-2 model.\nWe assess the generated dialogues using three objective metrics: intelligibility, speaker similarity, and Mel-cepstral distortion $( \\mathrm { M C D } ) ^ { 6 }$ . For intelligibility, we use Whisper-large- $\\dot { { \\mathbf v } } 3 ^ { 7 }$ to compute word error rate (WER) for English and Paraformer- $\\cdot z \\mathrm { h } ^ { 8 }$ to compute character error rate (CER) for Mandarin. Speaker similarity is measured with the WavLM-Large model9. For subjective evaluation, we conduct a comparative mean opinion score (CMOS) test in which raters choose the more natural synthesized dialogue between FireRedTTS-2 and competing models. We compare against opensource dialogue TTS systems including MoonCast, ZipVoice-Dialog, and MOSS-TTSD10. Because MoonCast, ZipVoice-Dialog, and MOSS-TTSD produce a single mixed-track dialogue containing both voices, we use Pyannote[35, 36] to segment each speaker before evaluation. The results are listed in Table 4.\nTable 4: Objective and subjective evaluation of zero-shot podcast generation.\n<table><tr><td rowspan=\"2\">Model</td><td colspan=\"4\">dialogue-zh</td><td colspan=\"4\">dialogue-en</td></tr><tr><td>CER↓</td><td>SIM↑</td><td>MCD↓</td><td>CMOS↑</td><td>WER↓</td><td>SIM↑</td><td>MCD↓</td><td>CMOS↑</td></tr><tr><td>MoonCast</td><td>3.81</td><td>0.658</td><td>11.37</td><td>-0.21</td><td>3.81</td><td>0.620</td><td>10.96</td><td>-0.21</td></tr><tr><td>ZipVoice-Dialog</td><td>2.93</td><td>0.736</td><td>9.29</td><td>-0.18</td><td>11.71</td><td>0.701</td><td>9.88</td><td>-0.31</td></tr><tr><td>MOSS-TTSD</td><td>3.99</td><td>0.659</td><td>8.32</td><td>-0.16</td><td>5.43</td><td>0.550</td><td>9.25</td><td>-0.13</td></tr><tr><td>FireRedTTS-2</td><td>2.08</td><td>0.753</td><td>7.99</td><td>0.0</td><td>3.16</td><td>0.703</td><td>9.06</td><td>0.0</td></tr></table>\nTable 4 shows that FireRedTTS-2 delivers the most stable synthesis, achieving the lowest WER/CER on dialogue-zh and dialogue-en, suggesting that our lower frame rate and semantically enhanced speech tokenizer enable robust modeling of long speech sequences. It also attains the highest speaker similarity, reflecting strong cross-turn voice cloning and reliable speaker transitions, and the lowest MCD, indicating minimal deviation from ground truth; CMOS results further confirm its contextually coherent naturalness and highlight the effectiveness of the dual-transformer’s context-learning capabilities.\nFigure 4: Subjective preference results between FireRedTTS-2 fine-tuned on two podcast speakers and ground truth recordings. \"Win\": FireRedTTS-2 synthesis is more natural than ground truth dialogue speech; \"Even\": indistinguishable; \"Fail\": ground truth is more natural.\nWe also evaluate the intelligibility and naturalness of the FireRedTTS-2 model fine-tuned on two podcast speakers using the dialogue-zh set. For intelligibility, the fine-tuned model maintains stable synthesis performance and achieves a lower CER of $1 . 6 6 \\%$ than in zero-shot mode. For naturalness, we conduct a subjective test in which raters are asked to choose the more natural sample between"
+      "text": "To evaluate zero-shot podcast generation, we curated two two-speaker podcast evaluation sets: dialogue-zh and dialogue-en, containing 100 Mandarin and 115 English dialogues, respectively. Each dialogue test set spans 4 to 10 turns, totaling 1.67 hours for Mandarin and 2.35 hours for English. For each dialogue, we use the first two turns as the prompt and generate the remaining turns with the post-trained FireRedTTS-2 model.\nWe assess the generated dialogues using three objective metrics: intelligibility, speaker similarity, and Mel-cepstral distortion $( \\mathrm { M C D } ) ^ { 6 }$ . For intelligibility, we use Whisper-large- $\\dot { { \\mathbf v } } 3 ^ { 7 }$ to compute word error rate (WER) for English and Paraformer- $\\cdot z \\mathrm { h } ^ { 8 }$ to compute character error rate (CER) for Mandarin. Speaker similarity is measured with the WavLM-Large model9. For subjective evaluation, we conduct a comparative mean opinion score (CMOS) test in which raters choose the more natural synthesized dialogue between FireRedTTS-2 and competing models. We compare against opensource dialogue TTS systems including MoonCast, ZipVoice-Dialog, and MOSS-TTSD10. Because MoonCast, ZipVoice-Dialog, and MOSS-TTSD produce a single mixed-track dialogue containing both voices, we use Pyannote[35, 36] to segment each speaker before evaluation. The results are listed in Table 4.\nTable 4: Objective and subjective evaluation of zero-shot podcast generation.\n<table><tr><td rowspan=\"2\">Model</td><td colspan=\"4\">dialogue-zh</td><td colspan=\"4\">dialogue-en</td></tr><tr><td>CER↓</td><td>SIM↑</td><td>MC"
+    },
+    {
+      "id": "chk-12407b7899bc",
+      "page": null,
+      "section": "4.4 Podcast Generation Evaluation",
+      "title": null,
+      "text": "D↓</td><td>CMOS↑</td><td>WER↓</td><td>SIM↑</td><td>MCD↓</td><td>CMOS↑</td></tr><tr><td>MoonCast</td><td>3.81</td><td>0.658</td><td>11.37</td><td>-0.21</td><td>3.81</td><td>0.620</td><td>10.96</td><td>-0.21</td></tr><tr><td>ZipVoice-Dialog</td><td>2.93</td><td>0.736</td><td>9.29</td><td>-0.18</td><td>11.71</td><td>0.701</td><td>9.88</td><td>-0.31</td></tr><tr><td>MOSS-TTSD</td><td>3.99</td><td>0.659</td><td>8.32</td><td>-0.16</td><td>5.43</td><td>0.550</td><td>9.25</td><td>-0.13</td></tr><tr><td>FireRedTTS-2</td><td>2.08</td><td>0.753</td><td>7.99</td><td>0.0</td><td>3.16</td><td>0.703</td><td>9.06</td><td>0.0</td></tr></table>\nTable 4 shows that FireRedTTS-2 delivers the most stable synthesis, achieving the lowest WER/CER on dialogue-zh and dialogue-en, suggesting that our lower frame rate and semantically enhanced speech tokenizer enable robust modeling of long speech sequences. It also attains the highest speaker similarity, reflecting strong cross-turn voice cloning and reliable speaker transitions, and the lowest MCD, indicating minimal deviation from ground truth; CMOS results further confirm its contextually coherent naturalness and highlight the effectiveness of the dual-transformer’s context-learning capabilities.\nFigure 4: Subjective preference results between FireRedTTS-2 fine-tuned on two podcast speakers and ground truth recordings. \"Win\": FireRedTTS-2 synthesis is more natural than ground truth dialogue speech; \"Even\": indistinguishable; \"Fail\": ground truth is more natural.\nWe also evaluate the intelligibility and naturalness of the FireRedTTS-2 model fine-tun"
+    },
+    {
+      "id": "chk-709c136198b1",
+      "page": null,
+      "section": "4.4 Podcast Generation Evaluation",
+      "title": null,
+      "text": "ed on two podcast speakers using the dialogue-zh set. For intelligibility, the fine-tuned model maintains stable synthesis performance and achieves a lower CER of $1 . 6 6 \\%$ than in zero-shot mode. For naturalness, we conduct a subjective test in which raters are asked to choose the more natural sample between"
     }
   ],
-  "figures": [],
+  "figures": [
+    {
+      "id": "fig-da39a3ee5e6b",
+      "caption": ""
+    },
+    {
+      "id": "fig-da39a3ee5e6b",
+      "caption": ""
+    },
+    {
+      "id": "fig-da39a3ee5e6b",
+      "caption": ""
+    },
+    {
+      "id": "fig-da39a3ee5e6b",
+      "caption": ""
+    }
+  ],
   "tables": [],
   "equations": [
     {
@@ -361,7 +438,7 @@
   ],
   "references": [],
   "source": {
-    "mineru_markdown_path": "/home/mehdi/CMSC473/473-Capstone-Project-EP2C/PaperCodeSync/src/test.md",
+    "mineru_markdown_path": "/home/mehdi/CMSC473/473-Capstone-Project-EP2C/PaperCodeSync/mineru/out/paper/auto/paper.md",
     "mineru_source": "markdown"
   },
   "schema_version": "ep2c.paper.v1"
