@@ -313,7 +313,7 @@ def build_and_match(
     return rows
 
 
-if __name__ == "__main__":
+def main():
     import argparse
     ap = argparse.ArgumentParser(description="EP2C – Step 3 matcher (config-driven)")
     ap.add_argument("symbols", type=str, help="Path to symbols.json (list of symbols)")
@@ -353,3 +353,6 @@ if __name__ == "__main__":
     out_path = "matches.jsonl"
     save_jsonl(results, out_path)
     print(f"[ok] Wrote {len(results)} rows to {out_path}")
+
+if __name__ == "__main__":
+    main()

@@ -459,7 +459,7 @@ def crawl_repo(root: Path) -> List[SymbolRec]:
     return symbols
 
 
-if __name__ == "__main__":
+def main():
     ap = argparse.ArgumentParser(description="EP2C – Step 2 (Tree-sitter) repo symbol extractor")
     ap.add_argument("root", type=str, help="Path to repository root")
     ap.add_argument("--out", type=str, default="symbols.json", help="Output JSON path")
@@ -517,3 +517,6 @@ if __name__ == "__main__":
     out = [asdict(s) for s in symbols]
     Path(args.out).write_text(json.dumps(out, ensure_ascii=False, indent=2))
     print(f"Wrote {args.out} with {len(symbols)} symbols")
+
+if __name__ == "__main__":
+    main()
