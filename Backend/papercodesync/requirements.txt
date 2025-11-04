@@ -1,0 +1,22 @@
+# Core runtime 
+flask>=3.0.3
+werkzeug>=3.0.3
+jinja2>=3.1.4
+itsdangerous>=2.2.0
+click>=8.1.7
+
+# Data & parsing
+lxml>=5.3.0
+pyyaml>=6.0.2
+tqdm>=4.66.4
+numpy>=1.26.4
+scikit-learn>=1.5.2
+
+# Text similarity & embeddings 
+rank-bm25>=0.2.2
+sentence-transformers>=3.0.1
+torch>=2.2.2
+transformers>=4.43.3
+
+# Code parsing
+tree-sitter>=0.20.4
