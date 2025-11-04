@@ -1,0 +1,520 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>EP2C</title>
+  <link rel="stylesheet" href="/static/css/styles.css">
+
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+
+  <script type="module">
+    import * as pdfjs from "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.7.76/pdf.min.mjs";
+    window.pdfjsLib = pdfjs;
+  </script>
+
+  <script id="files-data" type="application/json">
+    {{ files|tojson|safe }}
+  </script>
+  <script>
+    window.EP2C_ENDPOINTS = {
+      symbols: "{{ symbols_url }}",
+      chunks:  "{{ chunks_url }}",
+      matches: "{{ matches_url }}",
+      pdf:     "{{ pdf_url }}"
+    };
+  </script>
+
+  <style>
+    .layout {
+      display: grid;
+      grid-template-columns: 280px 1fr 1fr; 
+      height: calc(100vh - 56px);
+    }
+    .pdf-pane { border-left: 1px solid var(--border); background: #0b0f14; display: grid; }
+    #pdfScroll { width: 100%; height: 100%; overflow: auto; padding: 8px; }
+    .pdf-page { position: relative; margin: 8px auto; background: #fff; box-shadow: 0 2px 10px rgba(0,0,0,.35); }
+    .pdf-canvas { display: block; width: 100%; height: auto; } 
+    .textLayer { position: absolute; left: 0; top: 0; right: 0; bottom: 0; pointer-events: none; color: transparent; }
+    .textLayer span { position: absolute; transform-origin: 0 0; white-space: pre; line-height: 1; }
+
+    .pdf-flash { position:absolute; inset:0; background: rgba(255,235,0,.18); border:2px solid rgba(255,235,0,.85); pointer-events:none; animation: flashOut 1.2s ease-out forwards; }
+    @keyframes flashOut { from{opacity:1} to{opacity:0} }
+
+    .pdf-snip {
+      position: absolute;
+      border: 3px solid rgba(255,230,0,0.95);
+      background: rgba(255,230,0,0.22);
+      border-radius: 6px;
+      pointer-events: none;
+      animation: snipFade 2.0s ease-out forwards;
+    }
+    @keyframes snipFade {
+      0% { opacity: 1 }
+      80% { opacity: 0.25 }
+      100% { opacity: 0 }
+    }
+  </style>
+</head>
+<body>
+  <header class="topbar">
+    <div>
+      <strong>EP2C</strong> — Repo:
+      <code style="opacity:.85">{{ repo_root or 'unset' }}</code>
+      • Paper: <code style="opacity:.85">{{ paper_path or 'unset' }}</code>
+    </div>
+    <a class="link" href="#" onclick="location.reload()">Reload</a>
+  </header>
+
+  <div class="layout">
+    <aside class="sidebar">
+      <div class="explorer-header">EXPLORER</div>
+      <div class="workspace-title">Repository</div>
+      <ul id="fileTree" class="vscode-tree"></ul>
+    </aside>
+
+    <main class="code-pane">
+      <div class="code-toolbar">
+        <div class="file-chip" id="openFileName">Select a file…</div>
+        <div class="toolbar-spacer"></div>
+      </div>
+
+      <div class="code-frame" id="codeFrame">
+        <div id="codeLines" class="code-lines"></div>
+        <div id="overlayLayer" class="overlay-layer"></div>
+      </div>
+    </main>
+
+    <aside class="pdf-pane">
+      <div id="pdfScroll"></div>
+    </aside>
+  </div>
+
+  <script>
+    const fileList = (() => { try { return JSON.parse(document.getElementById('files-data').textContent) || []; } catch { return []; } })();
+
+    let SYMBOLS = [];
+    let MATCH_MAP = new Map();   
+    let CHUNK_TEXT = new Map();
+
+    const EXT_TO_LANG = {
+      ".py":"python",".js":"javascript",".ts":"typescript",".tsx":"tsx",".jsx":"jsx",
+      ".json":"json",".yml":"yaml",".yaml":"yaml",".md":"markdown",
+      ".cpp":"cpp",".cc":"cpp",".cxx":"cpp",".hpp":"cpp",".h":"c",".c":"c",
+      ".java":"java",".go":"go",".rs":"rust",".rb":"ruby",".php":"php",
+      ".html":"xml",".xml":"xml",".css":"css",".sh":"bash",".txt":"plaintext"
+    };
+    const langFromFilename = name => {
+      const i = name.lastIndexOf(".");
+      if (i < 0) return "plaintext";
+      const ext = name.slice(i).toLowerCase();
+      return EXT_TO_LANG[ext] || "plaintext";
+    };
+
+    function buildTree(list) {
+      const root = {};
+      for (const f of list) {
+        const parts = f.path.split('/');
+        let cur = root;
+        for (let i = 0; i < parts.length; i++) {
+          const part = parts[i];
+          const isFile = i === parts.length - 1;
+          if (!cur[part]) cur[part] = { __children:{}, __isFile:false, __url:null };
+          if (isFile) { cur[part].__isFile = true; cur[part].__url = f.url; }
+          else cur = cur[part].__children;
+        }
+      }
+      return root;
+    }
+    function iconSVG(kind) {
+      if (kind === 'folder') return '<svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M10 4l2 2h8a2 2 0 012 2v1H2V6a2 2 0 012-2h6z"></path><path d="M2 9h22v9a2 2 0 01-2 2H4a2 2 0 01-2-2V9z"></path></svg>';
+      return '<svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M6 2h9l5 5v13a2 2 0 01-2 2H6a2 2 0 01-2-2V4a2 2 0 012-2z"></path></svg>';
+    }
+    function renderTree(container, tree) {
+      const entries = Object.entries(tree).filter(([k]) => !k.startsWith('__'));
+      entries.sort((a,b) => {
+        const A = tree[a[0]], B = tree[b[0]];
+        if (A.__isFile !== B.__isFile) return A.__isFile ? 1 : -1;
+        return a[0].localeCompare(b[0]);
+      });
+      for (const [name,node] of entries) {
+        const li = document.createElement('li');
+        if (node.__isFile) {
+          li.className = 'vscode-item file';
+          li.innerHTML = `
+            <button class="vscode-row" data-url="${node.__url}">
+              <span class="twisty placeholder"></span>
+              <span class="icon">${iconSVG('file')}</span>
+              <span class="label">${name}</span>
+            </button>`;
+        } else {
+          li.className = 'vscode-item folder';
+          li.innerHTML = `
+            <button class="vscode-row" data-toggle="folder">
+              <span class="twisty">▸</span>
+              <span class="icon">${iconSVG('folder')}</span>
+              <span class="label">${name}</span>
+            </button>
+            <ul class="vscode-children"></ul>`;
+          renderTree(li.querySelector('.vscode-children'), node.__children);
+        }
+        container.appendChild(li);
+      }
+    }
+    function setupTree() {
+      const treeRoot = document.getElementById('fileTree');
+      renderTree(treeRoot, buildTree(fileList));
+      treeRoot.querySelectorAll('[data-toggle="folder"]').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const li = btn.closest('.vscode-item.folder');
+          li.classList.toggle('open');
+          btn.querySelector('.twisty').textContent = li.classList.contains('open') ? '▾' : '▸';
+        });
+      });
+      treeRoot.querySelectorAll('.vscode-item.file .vscode-row').forEach(btn => {
+        btn.addEventListener('click', async () => {
+          await loadFile(btn.dataset.url);
+          treeRoot.querySelectorAll('.vscode-row.active').forEach(el => el.classList.remove('active'));
+          btn.classList.add('active');
+        });
+      });
+    }
+
+    function renderCode(container, codeHTML) {
+      const parts = codeHTML.split(/\r?\n/);
+      const digits = String(parts.length).length;
+      const pad = n => String(n).padStart(digits, ' ');
+      const rows = parts.map((line,i) => `
+        <div class="code-line" data-lineno="${i+1}">
+          <span class="ln">${pad(i+1)}</span>
+          <span class="lc">${line || '&nbsp;'}</span>
+        </div>`).join('');
+      container.innerHTML = rows;
+    }
+
+    let currentOverlayState = null;
+
+    async function loadFile(url) {
+      const res = await fetch(url);
+      const text = await res.text();
+
+      const filename = url.split('/').slice(-1)[0];
+      document.getElementById('openFileName').textContent = filename;
+
+      const lang = langFromFilename(filename);
+      let highlighted;
+      try {
+        highlighted = hljs.highlight(text, { language: lang, ignoreIllegals: true }).value;
+      } catch { highlighted = hljs.highlightAuto(text).value; }
+
+      const codeLines = document.getElementById('codeLines');
+      const overlayLayer = document.getElementById('overlayLayer');
+      const frame = document.getElementById('codeFrame');
+
+      renderCode(codeLines, highlighted);
+      overlayLayer.innerHTML = '';
+      currentOverlayState = null;
+
+      const symbolsInFile = SYMBOLS.filter(s => (s.file || '').split('/').pop() === filename);
+      const boxes = [];
+
+      for (const sym of symbolsInFile) {
+        const startEl = codeLines.querySelector(`.code-line[data-lineno="${sym.start_line}"]`);
+        const endEl   = codeLines.querySelector(`.code-line[data-lineno="${sym.end_line}"]`);
+        if (!startEl || !endEl) continue;
+
+        const box = document.createElement('div');
+        box.className = 'symbol-box';
+        box.dataset.symbolId = sym.id;
+
+        const chip = document.createElement('div');
+        chip.className = 'symbol-chip';
+        chip.textContent = sym.name || sym.id;
+        box.appendChild(chip);
+
+        box.addEventListener('click', () => {
+          const bestChunkId = MATCH_MAP.get(sym.id);
+          if (!bestChunkId) return;
+          const t = CHUNK_TEXT.get(bestChunkId) || "";
+          jumpToPDFBySnippet(t);
+        });
+
+        overlayLayer.appendChild(box);
+        boxes.push({ box, startEl, endEl });
+      }
+
+      function positionBoxes() {
+        const frameRect = frame.getBoundingClientRect();
+        for (const { box, startEl, endEl } of boxes) {
+          const a = startEl.getBoundingClientRect();
+          const b = endEl.getBoundingClientRect();
+          const top = (a.top - frameRect.top) + frame.scrollTop;
+          const bottom = (b.bottom - frameRect.top) + frame.scrollTop;
+          const height = Math.max(18, bottom - top);
+          box.style.top = `${top - 2}px`;
+          box.style.height = `${height + 4}px`;
+          box.style.left = `4px`;
+          box.style.right = `4px`;
+        }
+      }
+      positionBoxes();
+      currentOverlayState = { positionBoxes, url };
+
+      frame.removeEventListener('scroll', onFrameScroll);
+      frame.addEventListener('scroll', onFrameScroll, { passive: true });
+      window.removeEventListener('resize', onWindowResize);
+      window.addEventListener('resize', onWindowResize);
+    }
+    function onFrameScroll(){ if (currentOverlayState) currentOverlayState.positionBoxes(); }
+    function onWindowResize(){ if (currentOverlayState) requestAnimationFrame(() => currentOverlayState.positionBoxes()); }
+
+    let PDF_DOC = null;
+    const PDF_PAGES = [];           
+    const PAGE_TEXTS = [];           
+    const PAGE_SPANS = [];           
+    let currentSnipOverlays = [];    
+
+    const compress = s => (s||"").toLowerCase().replace(/[^a-z0-9]+/g,"");
+    const tokenize = s => (s||"")
+      .toLowerCase()
+      .match(/[a-z0-9]{4,}/g) || [];
+
+    function clearSnippetOverlays() {
+      currentSnipOverlays.forEach(el => el.remove());
+      currentSnipOverlays = [];
+    }
+
+    function fitScaleForWidth(vpAt1Width, containerWidth) {
+      const margin = 16;
+      const scale = Math.max(0.25, (containerWidth - margin) / vpAt1Width);
+      return scale;
+    }
+
+    async function renderAllPages(scale) {
+      const container = document.getElementById('pdfScroll');
+      container.innerHTML = "";
+      PDF_PAGES.length = 0;
+      PAGE_TEXTS.length = 0;
+      PAGE_SPANS.length = 0;
+
+      const dpr = window.devicePixelRatio || 1;
+
+      for (let i=1;i<=PDF_DOC.numPages;i++){
+        const page = await PDF_DOC.getPage(i);
+        const vpAt1 = page.getViewport({ scale: 1.0 });
+        const vp = page.getViewport({ scale });
+
+        const pageDiv = document.createElement('div');
+        pageDiv.className = "pdf-page";
+        pageDiv.style.width = vp.width + "px";
+        pageDiv.style.height = vp.height + "px";
+
+        const canvas = document.createElement('canvas');
+        canvas.className = "pdf-canvas";
+        // High-DPI crispness
+        canvas.width = Math.floor(vp.width * dpr);
+        canvas.height = Math.floor(vp.height * dpr);
+        canvas.style.width = vp.width + "px";
+        canvas.style.height = vp.height + "px";
+        const ctx = canvas.getContext('2d');
+        ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+
+        const textDiv = document.createElement('div');
+        textDiv.className = "textLayer";
+
+        pageDiv.appendChild(canvas);
+        pageDiv.appendChild(textDiv);
+        container.appendChild(pageDiv);
+
+        await page.render({ canvasContext: ctx, viewport: vp }).promise;
+
+        const txt = await page.getTextContent();
+        let pageTextConcat = "";
+        const spans = [];
+        txt.items.forEach(item => {
+          pageTextConcat += item.str + " ";
+          const span = document.createElement('span');
+          span.textContent = item.str;
+
+          const t = window.pdfjsLib.Util.transform(
+            window.pdfjsLib.Util.transform(vp.transform, item.transform),
+            [1,0,0,-1,0,0]
+          );
+          const x = t[4], y = t[5], sx = item.width, sy = item.height;
+          span.style.left = x + "px";
+          span.style.top = (y - sy) + "px";
+          span.style.width = sx + "px";
+          span.style.height = sy + "px";
+
+          textDiv.appendChild(span);
+          spans.push({ el: span, textLower: item.str.toLowerCase() });
+        });
+
+        PDF_PAGES.push({ pageDiv, canvas, textDiv, index: i-1, baseWidth: vpAt1.width, scale });
+        PAGE_TEXTS.push(compress(pageTextConcat));
+        PAGE_SPANS.push(spans);
+      }
+    }
+
+    async function loadPDF() {
+      async function waitForPDF(){ while(!(window.pdfjsLib && window.pdfjsLib.getDocument)) await new Promise(r=>setTimeout(r,50)); }
+      await waitForPDF();
+      window.pdfjsLib.GlobalWorkerOptions.workerSrc = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.7.76/pdf.worker.min.mjs";
+
+      const url = EP2C_ENDPOINTS.pdf;
+      PDF_DOC = await window.pdfjsLib.getDocument({ url }).promise;
+
+      const container = document.getElementById('pdfScroll');
+      const firstPage = await PDF_DOC.getPage(1);
+      const vpAt1 = firstPage.getViewport({ scale: 1.0 });
+      const initialScale = fitScaleForWidth(vpAt1.width, container.clientWidth);
+
+      await renderAllPages(initialScale);
+
+      let resizeTimer = null;
+      const ro = new ResizeObserver(() => {
+        clearTimeout(resizeTimer);
+        resizeTimer = setTimeout(async () => {
+          if (!PDF_DOC) return;
+          const cont = document.getElementById('pdfScroll');
+          const fp = await PDF_DOC.getPage(1);
+          const vp1 = fp.getViewport({ scale: 1.0 });
+          const newScale = fitScaleForWidth(vp1.width, cont.clientWidth);
+          clearSnippetOverlays(); 
+          await renderAllPages(newScale);
+        }, 140);
+      });
+      ro.observe(document.querySelector('.pdf-pane'));
+    }
+
+    function flashPage(idx){
+      const { pageDiv } = PDF_PAGES[idx];
+      const f = document.createElement('div');
+      f.className = 'pdf-flash';
+      pageDiv.appendChild(f);
+      setTimeout(()=> f.remove(), 1200);
+    }
+
+    function scrollToPage(idx){
+      const container = document.getElementById('pdfScroll');
+      const { pageDiv } = PDF_PAGES[idx];
+      container.scrollTo({ top: pageDiv.offsetTop - 12, behavior: 'smooth' });
+      flashPage(idx);
+    }
+
+    function makeOverlay(pageIdx, rect) {
+      const { pageDiv } = PDF_PAGES[pageIdx];
+      const o = document.createElement('div');
+      o.className = 'pdf-snip';
+      o.style.left = rect.left + "px";
+      o.style.top = rect.top + "px";
+      o.style.width = rect.width + "px";
+      o.style.height = rect.height + "px";
+      pageDiv.appendChild(o);
+      currentSnipOverlays.push(o);
+      setTimeout(() => { o.remove(); }, 2100);
+    }
+
+    function bboxUnion(b, r) {
+      if (!b) return { ...r };
+      return {
+        left: Math.min(b.left, r.left),
+        top: Math.min(b.top, r.top),
+        right: Math.max(b.right, r.right),
+        bottom: Math.max(b.bottom, r.bottom),
+        get width(){ return this.right - this.left; },
+        get height(){ return this.bottom - this.top; }
+      };
+    }
+
+    function highlightSnippetOnPage(pageIdx, snippet) {
+      clearSnippetOverlays(); 
+
+      const tokens = tokenize(snippet).slice(0, 8); 
+      if (tokens.length === 0) return;
+
+      const spans = PAGE_SPANS[pageIdx] || [];
+      const hits = [];
+      for (const s of spans) {
+        if (tokens.some(t => s.textLower.includes(t))) hits.push(s.el);
+        if (hits.length > 24) break; 
+      }
+      if (hits.length === 0) return;
+
+      let box = null;
+      const take = Math.min(8, hits.length); 
+      for (let i=0;i<take;i++){
+        const r = hits[i].getBoundingClientRect();
+        const pageRect = PDF_PAGES[pageIdx].pageDiv.getBoundingClientRect();
+        const local = { left: r.left - pageRect.left, top: r.top - pageRect.top, right: r.right - pageRect.left, bottom: r.bottom - pageRect.top };
+        box = bboxUnion(box, local);
+      }
+      if (!box) return;
+
+      makeOverlay(pageIdx, { left: box.left, top: box.top, width: box.width, height: box.height });
+    }
+
+    function jumpToPDFBySnippet(snippet){
+      if (!PDF_DOC || PDF_PAGES.length === 0) return;
+      const probe = compress((snippet || "").slice(0, 320));
+      const tryFind = (needle) => PAGE_TEXTS.findIndex(t => t.includes(needle));
+
+      let idx = -1;
+      if (probe) idx = tryFind(probe);
+      if (idx < 0) {
+        const firstSentence = (snippet||"").split(/[.?!]\s/)[0].slice(0, 140);
+        const shortProbe = compress(firstSentence);
+        if (shortProbe.length > 20) idx = tryFind(shortProbe);
+      }
+      if (idx < 0) {
+        const tiny = compress((snippet||"").slice(0, 80));
+        if (tiny.length > 20) idx = tryFind(tiny);
+      }
+      if (idx >= 0) {
+        scrollToPage(idx);
+        highlightSnippetOnPage(idx, snippet);
+      }
+    }
+
+    (async function bootstrapData(){
+      const [symbols, chunks, matches] = await Promise.all([
+        fetch(EP2C_ENDPOINTS.symbols).then(r => r.json()),
+        fetch(EP2C_ENDPOINTS.chunks).then(r => r.json()),
+        fetch(EP2C_ENDPOINTS.matches).then(r => r.text()),
+      ]);
+
+      SYMBOLS = symbols || [];
+
+      if (chunks && chunks.sections) {
+        for (const sec of chunks.sections) {
+          (sec.paragraphs || []).forEach(p => {
+            if (p.id && p.text) CHUNK_TEXT.set(p.id, p.text);
+          });
+        }
+      }
+      if (chunks && chunks.chunks) {
+        chunks.chunks.forEach(c => {
+          if (c.id && c.text) CHUNK_TEXT.set(c.id, c.text);
+        });
+      }
+
+      matches.split(/\r?\n/).forEach(line => {
+        if (!line.trim()) return;
+        try {
+          const obj = JSON.parse(line);
+          if (obj.symbol_id && obj.best && obj.best.chunk_id) {
+            MATCH_MAP.set(obj.symbol_id, obj.best.chunk_id);
+          }
+        } catch(e){ console.warn('Bad JSONL line', line); }
+      });
+
+      setupTree();
+      const first = document.querySelector('.vscode-item.file .vscode-row');
+      if (first) first.click();
+
+      await loadPDF(); 
+    })();
+  </script>
+</body>
+</html>
