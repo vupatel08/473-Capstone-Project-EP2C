@@ -7,7 +7,7 @@ This module generates explanations, links, and documentation to make code explai
 import json
 import re
 from typing import Dict, List, Tuple, Optional
-import openai
+from openai import OpenAI
 import os
 
 
@@ -24,9 +24,10 @@ class ExplanationGenerator:
         Args:
             openai_api_key: OpenAI API key. If None, uses environment variable.
         """
-        if openai_api_key:
-            os.environ["OPENAI_API_KEY"] = openai_api_key
-        openai.api_key = os.getenv("OPENAI_API_KEY")
+        api_key = openai_api_key or os.getenv("OPENAI_API_KEY")
+        if not api_key:
+            raise ValueError("OpenAI API key is required. Set OPENAI_API_KEY environment variable or pass it as argument.")
+        self.client = OpenAI(api_key=api_key)
     
     def generate_traceability_map(
         self,
@@ -207,7 +208,7 @@ Return only the section names/titles, separated by commas.
 """
         
         try:
-            response = openai.ChatCompletion.create(
+            response = self.client.chat.completions.create(
                 model="gpt-4",
                 messages=[
                     {"role": "system", "content": "You are an expert at analyzing code and linking it to paper sections."},

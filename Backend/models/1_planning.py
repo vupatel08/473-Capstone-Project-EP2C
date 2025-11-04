@@ -4,7 +4,20 @@ from tqdm import tqdm
 import argparse
 import os
 import sys
+from pathlib import Path
+from dotenv import load_dotenv
 from utils import print_response, print_log_cost, load_accumulated_cost, save_accumulated_cost
+
+# Load environment variables from .env file
+backend_dir = Path(__file__).parent.parent.resolve()
+project_root = backend_dir.parent
+env_paths = [backend_dir / ".env", project_root / ".env"]
+for env_path in env_paths:
+    if env_path.exists():
+        load_dotenv(env_path)
+        break
+else:
+    load_dotenv()
 
 parser = argparse.ArgumentParser()
 
@@ -17,7 +30,14 @@ parser.add_argument('--output_dir',type=str, default="")
 
 args    = parser.parse_args()
 
-client = OpenAI(api_key = os.environ["OPENAI_API_KEY"])
+# Check for API key
+api_key = os.getenv("OPENAI_API_KEY")
+if not api_key:
+    print("❌ Error: OPENAI_API_KEY not found in environment variables or .env file")
+    print("   Please create a .env file or set OPENAI_API_KEY environment variable")
+    sys.exit(1)
+
+client = OpenAI(api_key=api_key)
 
 paper_name = args.paper_name
 gpt_version = args.gpt_version

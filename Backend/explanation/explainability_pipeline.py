@@ -5,7 +5,21 @@ Main integration script that orchestrates the explanation layer generation.
 
 import json
 import os
+from pathlib import Path
 from typing import Dict, List, Optional
+from dotenv import load_dotenv
+
+# Load environment variables from .env file
+backend_dir = Path(__file__).parent.parent.resolve()
+project_root = backend_dir.parent
+env_paths = [backend_dir / ".env", project_root / ".env"]
+for env_path in env_paths:
+    if env_path.exists():
+        load_dotenv(env_path)
+        break
+else:
+    load_dotenv()
+
 from explanation_generator import ExplanationGenerator
 from readme_generator import READMEGenerator
 from missing_info_detector import MissingInfoDetector

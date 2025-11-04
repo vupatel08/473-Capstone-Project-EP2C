@@ -1,4 +1,0 @@
-*.egg-info
-.vscode/*
-*/**/.DS_Store
-**/__pycache__/

@@ -1,8 +1,0 @@
-# Core web framework
-Flask==3.0.3
-
-# File uploads & parsing
-Werkzeug==3.0.3   # Flask dependency, pinned for stability
-
-# Utilities
-python-dotenv==1.0.1  # load secrets/config from .env

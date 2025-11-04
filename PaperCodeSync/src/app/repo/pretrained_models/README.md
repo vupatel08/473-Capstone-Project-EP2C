@@ -1,1 +1,0 @@
-Put the pre-trained model in this folder.

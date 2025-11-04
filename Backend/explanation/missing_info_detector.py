@@ -83,6 +83,10 @@ class MissingInfoDetector:
         missing = []
         paper_lower = paper_content.lower()
         
+        # Handle empty or None config
+        if not config:
+            return missing
+        
         for param in self.HYPERPARAMETERS:
             # Check if parameter is mentioned in paper
             param_mentioned = any(

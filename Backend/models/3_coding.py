@@ -5,7 +5,21 @@ from tqdm import tqdm
 import re
 import sys
 import copy
+from pathlib import Path
+from dotenv import load_dotenv
 from utils import extract_planning, content_to_json, extract_code_from_content, print_response, print_log_cost, load_accumulated_cost, save_accumulated_cost
+
+# Load environment variables from .env file
+backend_dir = Path(__file__).parent.parent.resolve()
+project_root = backend_dir.parent
+env_paths = [backend_dir / ".env", project_root / ".env"]
+for env_path in env_paths:
+    if env_path.exists():
+        load_dotenv(env_path)
+        break
+else:
+    load_dotenv()
+
 import argparse
 
 parser = argparse.ArgumentParser()
@@ -19,7 +33,15 @@ parser.add_argument('--output_dir',type=str, default="")
 parser.add_argument('--output_repo_dir',type=str, default="")
 
 args    = parser.parse_args()
-client = OpenAI(api_key = os.environ["OPENAI_API_KEY"])
+
+# Check for API key
+api_key = os.getenv("OPENAI_API_KEY")
+if not api_key:
+    print("❌ Error: OPENAI_API_KEY not found in environment variables or .env file")
+    print("   Please create a .env file or set OPENAI_API_KEY environment variable")
+    sys.exit(1)
+
+client = OpenAI(api_key=api_key)
 
 paper_name = args.paper_name
 gpt_version = args.gpt_version
@@ -222,3 +244,69 @@ for todo_idx, todo_file_name in enumerate(tqdm(todo_file_lst)):
         f.write(code)
 
 save_accumulated_cost(f"{output_dir}/accumulated_cost.json", total_accumulated_cost)
+
+# ============================================================================
+# STEP 4: EXPLANATION LAYER GENERATION
+# ============================================================================
+print("\n" + "="*60)
+print("STEP 4: GENERATING EXPLANATION LAYER")
+print("="*60 + "\n")
+
+# Add explanation module to path
+backend_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+explanation_dir = os.path.join(backend_dir, 'explanation')
+if explanation_dir not in sys.path:
+    sys.path.insert(0, explanation_dir)
+
+try:
+    from explainability_pipeline import ExplainabilityPipeline
+    
+    # Prepare paths for explanation layer
+    paper_json_path = pdf_json_path  # Paper JSON from input
+    generated_code_dir = output_repo_dir  # Generated code directory
+    planning_artifacts_path = os.path.join(output_dir, 'planning_trajectories.json')
+    explanation_output_dir = os.path.join(output_dir, 'explanation_layer')
+    config_path = os.path.join(output_dir, 'planning_config.yaml')
+    
+    # Verify required files exist
+    if not os.path.exists(paper_json_path):
+        print(f"⚠️  Warning: Paper JSON not found at {paper_json_path}")
+        print("   Skipping explanation layer generation...")
+    elif not os.path.exists(generated_code_dir):
+        print(f"⚠️  Warning: Generated code directory not found at {generated_code_dir}")
+        print("   Skipping explanation layer generation...")
+    elif not os.path.exists(planning_artifacts_path):
+        print(f"⚠️  Warning: Planning artifacts not found at {planning_artifacts_path}")
+        print("   Skipping explanation layer generation...")
+    else:
+        # Create explanation layer
+        explanation_pipeline = ExplainabilityPipeline()
+        explanation_results = explanation_pipeline.generate_explanation_layer(
+            paper_json_path=paper_json_path,
+            generated_code_dir=generated_code_dir,
+            planning_artifacts_path=planning_artifacts_path,
+            output_dir=explanation_output_dir,
+            config_path=config_path if os.path.exists(config_path) else None
+        )
+        
+        print("\n✅ Explanation layer generated successfully!")
+        print(f"   Output directory: {explanation_output_dir}")
+        print(f"   Traceability map: {explanation_output_dir}/traceability_map.json")
+        print(f"   README: {explanation_output_dir}/README.md")
+        print(f"   Missing info: {explanation_output_dir}/missing_information.json")
+        print(f"   Metrics: {explanation_output_dir}/explainability_metrics.json")
+        
+except ImportError as e:
+    print(f"⚠️  Warning: Could not import explanation pipeline: {e}")
+    print("   Ensure explanation module is properly installed.")
+    print("   Continuing without explanation layer...")
+except Exception as e:
+    print(f"⚠️  Warning: Explanation layer generation failed: {e}")
+    import traceback
+    print("   Error details:")
+    traceback.print_exc()
+    print("   Continuing without explanation layer...")
+
+print("\n" + "="*60)
+print("CODING PHASE COMPLETE")
+print("="*60 + "\n")
