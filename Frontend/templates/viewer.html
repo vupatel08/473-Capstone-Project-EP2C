@@ -73,14 +73,8 @@
 </head>
 <body>
   <header class="topbar">
-    <div>
-      <strong>EP2C</strong> — Repo:
-      <code style="opacity:.85">{{ repo_root or 'unset' }}</code>
-      • Paper: <code style="opacity:.85">{{ paper_path or 'unset' }}</code>
-    </div>
-    <a class="link" href="#" onclick="location.reload()">Reload</a>
+    <a href="{{ url_for('index') }}" class="ep2c-title">EP2C</a>
   </header>
-
   <div class="layout">
     <aside class="sidebar">
       <div class="explorer-header">EXPLORER</div>
