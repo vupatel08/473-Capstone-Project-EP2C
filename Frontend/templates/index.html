@@ -6,87 +6,224 @@
   <title>EP2C — Upload</title>
   <link rel="stylesheet" href="/static/css/styles.css">
   <style>
-    .welcome {
-      max-width: 720px;
-      margin: 48px auto;
-      background: #0f141a;
-      border: 1px solid #1e2630;
-      border-radius: 12px;
-      padding: 28px;
-      box-shadow: 0 8px 30px rgba(0,0,0,.3);
+    :root{
+      --bg:#070b11;
+      --card:#0f141a;
+      --muted:#a8b3c7;
+      --brand:#2a74ff;
+      --brand-2:#7aa3ff;
+      --stroke:#1e2630;
+      --stroke-2:#263041;
+      --text:#e7eef8;
+      --ok:#66d9a3;
     }
-    .welcome h1 { margin: 0 0 8px; font-size: 2rem; text-align: center; letter-spacing: .5px; }
-    .welcome p.muted { margin-top: 0; opacity: .8; text-align: center; }
-    form .row { display: grid; grid-template-columns: 1fr; gap: 16px; margin-top: 16px; }
-    .field label { display:block; margin-bottom: 6px; font-weight: 600; }
-    .field input[type="file"],
-    .field select {
-      width: 100%;
-      background: #0b0f14;
-      border: 1px solid #263041;
-      border-radius: 8px;
-      padding: 10px 12px;
-      color: #e5eef8;
+
+    html,body{height:100%;}
+    /* lock the page to a single viewport to prevent gradient from showing extra space */
+    body{
+      margin:0; color:var(--text); background: var(--bg);
+      background-image:
+        radial-gradient(60rem 30rem at 10% -10%, rgba(42,116,255,.15), transparent),
+        radial-gradient(70rem 35rem at 110% 20%, rgba(122,163,255,.12), transparent),
+        radial-gradient(50rem 40rem at 50% 120%, rgba(102,217,163,.08), transparent);
+      font-family: system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, "Helvetica Neue", Arial, "Noto Sans","Apple Color Emoji","Segoe UI Emoji","Segoe UI Symbol";
+      overflow:hidden;  /* remove scrolling */
     }
-    .actions { margin-top: 20px; display:flex; gap:12px; }
-    .primary {
-      background: #2a74ff;
-      border: none;
-      color: white;
-      padding: 10px 16px;
-      border-radius: 8px;
-      cursor: pointer;
-      font-weight: 600;
+
+    /* page frame */
+    .wrap{
+      max-width:1000px; padding:48px 20px; margin:0 auto;
+      height:100vh; display:flex; flex-direction:column; justify-content:flex-start;
     }
-    .ghost {
-      background: transparent;
-      border: 1px solid #2a74ff;
-      color: #cfe0ff;
-      padding: 10px 16px;
-      border-radius: 8px;
-      cursor: pointer;
-      font-weight: 600;
-      display: none; /* hide cosmetically (kept in DOM) */
+    .hero{
+      display:flex; flex-direction:column; align-items:center; text-align:center; gap:10px; margin-bottom:24px; user-select:none;
     }
-    ul.flash { margin-top:16px; padding-left: 18px; color: #ffbebe; }
+    .logo{
+      width:180px; height:60px; border-radius:16px;
+      background: linear-gradient(135deg, var(--brand), var(--brand-2));
+      display:grid; place-items:center; font-weight:800; letter-spacing:.5px; color:#06122a;
+      box-shadow: 0 10px 30px rgba(42,116,255,.35);
+    }
+    .logo span{ font-size:1.15rem; }
+    .title{font-size:2.2rem; margin:0;}
+    .subtitle{margin:0; color:var(--muted); max-width:720px}
+
+    /* card */
+    .card{
+      margin:22px auto 0;
+      max-width: 1040px;               /* wider card */
+      background: color-mix(in srgb, var(--card) 85%, transparent);
+      border:1px solid var(--stroke);
+      border-radius:20px;
+      padding:-0px 20px;               /* a bit more breathing room */
+      box-shadow: 0 12px 40px rgba(0,0,0,.35), inset 0 1px 0 rgba(255,255,255,.02);
+      backdrop-filter: blur(6px);
+      overflow: visible;                /* remove inner scrollbar completely */
+    }
+
+
+    /* form layout */
+    form .row{display:grid; grid-template-columns: 1fr; gap:18px; margin-top:18px;}
+    @media (min-width:780px){ form .row{grid-template-columns: 2fr 1fr;} }
+
+    .field label{display:block; margin:0 0 8px; font-weight:700;}
+    .muted{color:var(--muted);}
+
+    /* drop zone */
+    .drop{
+      display:grid; place-items:center; text-align:center;
+      background:#0b0f14; border:1px dashed var(--stroke-2); border-radius:12px; min-height:140px;
+      padding:16px; transition:border-color .2s, background .2s, transform .08s ease;
+      cursor:pointer;
+    }
+    .drop:hover{border-color:var(--brand); background:#0b111a;}
+    .drop:active{transform:scale(.997)}
+    .drop .big{font-weight:700;}
+    .drop small{display:block; margin-top:8px; color:var(--muted)}
+    .types{display:flex; gap:8px; justify-content:center; flex-wrap:wrap; margin-top:10px}
+    .pill{
+      border:1px solid var(--stroke-2); border-radius:999px; padding:4px 8px; font-size:.85rem; color:var(--muted);
+    }
+
+    /* inputs */
+    .hidden-input{position:absolute; width:1px; height:1px; padding:0; margin:-1px; overflow:hidden; clip:rect(0 0 0 0); border:0;}
+    select{
+      width:100%; background:#0b0f14; border:1px solid var(--stroke-2); color:var(--text);
+      border-radius:12px; padding:12px; appearance:none;
+    }
+
+    /* actions */
+    .actions{margin-top:22px; display:flex; gap:12px; justify-content:center}
+    .primary{
+      background:linear-gradient(180deg, var(--brand), #1e5fe0); border:1px solid #1c55c8;
+      color:white; padding:12px 18px; border-radius:12px; cursor:pointer; font-weight:800;
+      box-shadow: 0 8px 22px rgba(42,116,255,.35);
+      transition: transform .06s ease, box-shadow .15s ease, filter .15s ease;
+    }
+    .primary:hover{filter:brightness(1.05); box-shadow: 0 10px 30px rgba(42,116,255,.45);}
+    .primary:active{transform: translateY(1px)}
+    .ghost{display:none;}
+
+    /* helper list */
+    .benefits{display:grid; grid-template-columns: 1fr; gap:12px; margin:20px 0 0}
+    @media (min-width:700px){ .benefits{grid-template-columns: repeat(3,1fr);} }
+    .benefit{
+      border:1px solid var(--stroke); border-radius:12px; padding:12px;
+      background:rgba(255,255,255,.02); text-align:left;
+    }
+    .benefit b{display:block; margin-bottom:4px}
+    ul.flash{margin-top:16px; padding-left:18px; color:#ffbebe;}
+
+    /* chosen file hint */
+    .file-name{margin-top:8px; color:var(--ok); font-weight:700; font-size:.95rem; text-align:center}
+
+    /* trademark footer */
+    .tm{
+      position:fixed; left:14px; bottom:12px; color:var(--muted); font-size:.85rem;
+      opacity:.9; user-select:none;
+    }
   </style>
 </head>
 <body>
-  <div class="welcome">
-    <h1>EP2C</h1>
-    <p class="muted">Upload your paper and choose your target language to reproduce the paper in.</p>
+  <div class="wrap">
+    <div class="hero">
+      <div class="logo"><span>Paper → Code</span></div>
+      <h1 class="title">EP2C</h1>
+      <p class="subtitle">Turn research papers into reproducible, linked code. Upload your paper and pick a target language!</p>
+    </div>
 
-    <form id="uploadForm" action="/upload" method="post" enctype="multipart/form-data">
-      <div class="row">
-        <div class="field">
-          <label for="paper">Paper (.pdf, .latex, .md, .json)</label>
-          <input id="paper" name="paper" type="file" accept=".pdf,.latex,.md,.json" required>
+    <div class="card">
+      <form id="uploadForm" action="/upload" method="post" enctype="multipart/form-data">
+        <div class="row">
+          <div class="field">
+            <label for="paper">Paper</label>
+            <label class="drop" for="paper" id="dropLabel">
+              <div>
+                <div class="big">Drag & drop your file here</div>
+                <small>or click to choose</small>
+                <div class="types">
+                  <span class="pill">.pdf</span>
+                  <span class="pill">.latex</span>
+                  <span class="pill">.md</span>
+                  <span class="pill">.json</span>
+                </div>
+              </div>
+            </label>
+            <input id="paper" class="hidden-input" name="paper" type="file" accept=".pdf,.latex,.md,.json" required>
+            <div id="fileName" class="file-name" hidden></div>
+          </div>
+
+          <div class="field">
+            <label for="language">Language</label>
+            <select id="language" name="language" required>
+              <option value="">— Select —</option>
+              {% for lang in languages %}
+              <option value="{{ lang }}">{{ lang }}</option>
+              {% endfor %}
+            </select>
+
+            <div class="benefits">
+              <div class="benefit">
+                <b>Reproducible</b>
+                <span class="muted">Sync symbols to paper chunks for traceable results and one-click jumps.</span>
+              </div>
+              <div class="benefit">
+                <b>Explainable</b>
+                <span class="muted">Human-readable explanations, non-coders can follow the logic.</span>
+              </div>
+              <div class="benefit">
+                <b>Multilingual</b>
+                <span class="muted">Choose the language that fits your stack.</span>
+              </div>
+            </div>
+          </div>
         </div>
 
-        <div class="field">
-          <label for="language">Language</label>
-          <select id="language" name="language" required>
-            <option value="">-- Select --</option>
-            {% for lang in languages %}
-            <option value="{{ lang }}">{{ lang }}</option>
-            {% endfor %}
-          </select>
+        <div class="actions">
+          <button type="submit" class="primary">Continue</button>
+          <a class="ghost" href="/skip">Skip upload — use default paper</a>
         </div>
-      </div>
+      </form>
 
-      <div class="actions">
-        <button type="submit" class="primary">Continue</button>
-        <a class="ghost" href="/skip">Skip upload — use default paper</a>
-      </div>
-    </form>
-
-    {% with messages = get_flashed_messages() %}
-      {% if messages %}
-        <ul class="flash">
-          {% for message in messages %}<li>{{ message }}</li>{% endfor %}
-        </ul>
-      {% endif %}
-    {% endwith %}
+      {% with messages = get_flashed_messages() %}
+        {% if messages %}
+          <ul class="flash">
+            {% for message in messages %}<li>{{ message }}</li>{% endfor %}
+          </ul>
+        {% endif %}
+      {% endwith %}
+    </div>
   </div>
+
+  <div class="tm">© 2025 CMSC473 EP2C Team™</div>
+
+  <script>
+    (function(){
+      const input = document.getElementById('paper');
+      const label = document.getElementById('dropLabel');
+      const fileName = document.getElementById('fileName');
+
+      label.addEventListener('dragover', e => { e.preventDefault(); label.style.borderColor = getComputedStyle(document.documentElement).getPropertyValue('--brand'); });
+      label.addEventListener('dragleave', () => { label.style.borderColor = 'var(--stroke-2)'; });
+      label.addEventListener('drop', e => {
+        e.preventDefault();
+        if (e.dataTransfer.files && e.dataTransfer.files[0]) {
+          input.files = e.dataTransfer.files;
+          input.dispatchEvent(new Event('change', {bubbles:true}));
+        }
+        label.style.borderColor = 'var(--stroke-2)';
+      });
+
+      input.addEventListener('change', () => {
+        const f = input.files && input.files[0];
+        if (f) {
+          fileName.textContent = f.name;
+          fileName.hidden = false;
+        } else {
+          fileName.hidden = true;
+        }
+      });
+    })();
+  </script>
 </body>
 </html>
