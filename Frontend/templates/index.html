@@ -15,8 +15,8 @@
       padding: 28px;
       box-shadow: 0 8px 30px rgba(0,0,0,.3);
     }
-    .welcome h1 { margin: 0 0 8px; }
-    .welcome p.muted { margin-top: 0; opacity: .8; }
+    .welcome h1 { margin: 0 0 8px; font-size: 2rem; text-align: center; letter-spacing: .5px; }
+    .welcome p.muted { margin-top: 0; opacity: .8; text-align: center; }
     form .row { display: grid; grid-template-columns: 1fr; gap: 16px; margin-top: 16px; }
     .field label { display:block; margin-bottom: 6px; font-weight: 600; }
     .field input[type="file"],
@@ -46,20 +46,21 @@
       border-radius: 8px;
       cursor: pointer;
       font-weight: 600;
+      display: none; /* hide cosmetically (kept in DOM) */
     }
     ul.flash { margin-top:16px; padding-left: 18px; color: #ffbebe; }
   </style>
 </head>
 <body>
   <div class="welcome">
-    <h1>EP2C — Start</h1>
-    <p class="muted">Upload a paper (PDF) and choose your target language. We’ll take you to the viewer.</p>
+    <h1>EP2C</h1>
+    <p class="muted">Upload your paper and choose your target language to reproduce the paper in.</p>
 
     <form id="uploadForm" action="/upload" method="post" enctype="multipart/form-data">
       <div class="row">
         <div class="field">
-          <label for="paper">Paper (PDF)</label>
-          <input id="paper" name="paper" type="file" accept="application/pdf" required>
+          <label for="paper">Paper (.pdf, .latex, .md, .json)</label>
+          <input id="paper" name="paper" type="file" accept=".pdf,.latex,.md,.json" required>
         </div>
 
         <div class="field">

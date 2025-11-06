@@ -89,10 +89,9 @@ def upload():
     file.save(save_path)
 
     # === TODO: integrate full pipeline ===
-    return redirect(url_for("viewer", filename=unique_name, language=language))
 
-@app.route("/skip", methods=["POST", "GET"])
-def skip_pipeline_route():
+
+
     if pcs_pipeline is None:
         flash("Backend driver not available. Ensure pcs_pipeline is importable.")
         print("[EP2C] pcs_pipeline not importable.", flush=True)
@@ -114,7 +113,9 @@ def skip_pipeline_route():
         flash("Backend output missing — ensure PaperCodeSync generated chunks/symbols/matches.")
         return redirect(url_for("index"))
 
-    return redirect(url_for("viewer"))
+
+    return redirect(url_for("viewer", filename=unique_name, language=language))
+    
 
 @app.route("/viewer", methods=["GET"])
 def viewer():
