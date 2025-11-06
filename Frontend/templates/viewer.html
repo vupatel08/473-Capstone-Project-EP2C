@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>EP2C</title>
+  <title>EP2C Viewer</title>
   <link rel="stylesheet" href="/static/css/styles.css">
 
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css">
@@ -26,47 +26,131 @@
     };
   </script>
 
-  <style>
-    .layout {
-      display: grid;
-      grid-template-columns: 280px 1fr 1fr; 
-      height: calc(100vh - 56px);
-    }
-    .pdf-pane { border-left: 1px solid var(--border); background: #0b0f14; display: grid; }
-    #pdfScroll { width: 100%; height: 100%; overflow: auto; padding: 8px; }
-    .pdf-page { position: relative; margin: 8px auto; background: #fff; box-shadow: 0 2px 10px rgba(0,0,0,.35); }
-    .pdf-canvas { display: block; width: 100%; height: auto; } 
-    .textLayer { position: absolute; left: 0; top: 0; right: 0; bottom: 0; pointer-events: none; color: transparent; }
-    .textLayer span { position: absolute; transform-origin: 0 0; white-space: pre; line-height: 1; }
+<style>
+  :root{
+    --bg:#070b11;
+    --card:#0f141a;
+    --muted:#a8b3c7;
+    --brand:#2a74ff;
+    --brand-2:#7aa3ff;
+    --stroke:#1e2630;
+    --stroke-2:#263041;
+    --text:#e7eef8;
+    --ok:#66d9a3;
+    --border: #1e2630;
+  }
 
-    .pdf-flash { position:absolute; inset:0; background: rgba(255,235,0,.18); border:2px solid rgba(255,235,0,.85); pointer-events:none; animation: flashOut 1.2s ease-out forwards; }
-    @keyframes flashOut { from{opacity:1} to{opacity:0} }
+  html, body { height:100%; overflow:hidden; }
+  body{
+    margin:0; color:var(--text); background: var(--bg);
+    background-image:
+      radial-gradient(60rem 30rem at 10% -10%, rgba(42,116,255,.15), transparent),
+      radial-gradient(70rem 35rem at 110% 20%, rgba(122,163,255,.12), transparent),
+      radial-gradient(50rem 40rem at 50% 120%, rgba(102,217,163,.08), transparent);
+    font-family: system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, "Helvetica Neue", Arial, "Noto Sans";
+  }
 
-    .pdf-snip {
-      position: absolute;
-      border: 3px solid rgba(255,230,0,0.95);
-      background: rgba(255,230,0,0.22);
-      border-radius: 6px;
-      pointer-events: none;
-      animation: snipFade 2.0s ease-out forwards;
-    }
-    @keyframes snipFade {
-      0% { opacity: 1 }
-      80% { opacity: 0.25 }
-      100% { opacity: 0 }
-    }
-  </style>
+  .topbar{
+    display:flex; align-items:center; justify-content:center;
+    height:56px; background:#0b0f14; border-bottom:1px solid var(--stroke);
+    position:sticky; top:0; z-index:10;
+  }
+  .ep2c-title{
+    font-size:1.6rem; font-weight:800; color:#fff; text-decoration:none; letter-spacing:.5px;
+  }
+  .ep2c-title:hover{ color:#ffdb4d; }
+
+  .layout {
+    display: grid;
+    grid-template-columns: 280px 1fr 1fr;
+    height: calc(100vh - 56px);
+    overflow: hidden;
+  }
+
+  .sidebar, .code-pane, .pdf-pane { min-height:0; min-width:0; }
+
+  .sidebar{
+    background: color-mix(in srgb, var(--card) 86%, transparent);
+    border-right:1px solid var(--stroke);
+  }
+  .explorer-header{
+    padding:12px 14px; font-weight:800; letter-spacing:.5px; color:#cbd7ea;
+    border-bottom:1px solid var(--stroke);
+    background: #0e131a;
+  }
+  .workspace-title{ padding:10px 14px; color:var(--muted); font-weight:600; }
+
+  .code-pane{
+    display:grid; grid-template-rows:auto 1fr; min-width:0;
+    background: color-mix(in srgb, var(--card) 82%, transparent);
+    border-right:1px solid var(--stroke);
+  }
+  .code-toolbar{
+    display:flex; align-items:center; gap:10px;
+    padding:10px 12px; border-bottom:1px solid var(--stroke);
+    background:#0e131a;
+  }
+  .file-chip{
+    padding:6px 10px; border:1px solid var(--stroke-2); border-radius:999px;
+    background:#0b0f14; color:#cfe0ff; font-weight:700; font-size:.9rem;
+  }
+  .toolbar-spacer{ flex:1 }
+
+  .code-frame{ height:100%; overflow:auto; position:relative; }
+  .code-frame .lc{ white-space:pre; }
+
+  .pdf-pane {
+    border-left: 1px solid var(--stroke);
+    background: #0b0f14;
+    display: grid;
+  }
+  #pdfScroll { width: 100%; height: 100%; overflow: auto; padding: 8px; }
+  .pdf-page {
+    position: relative;
+    margin: 8px auto;
+    background: #fff;
+    box-shadow: 0 8px 26px rgba(0,0,0,.35);
+    border-radius: 6px;
+  }
+  .pdf-canvas { display: block; width: 100%; height: auto; border-radius:6px; }
+  .textLayer { position: absolute; left: 0; top: 0; right: 0; bottom: 0; pointer-events: none; color: transparent; }
+  .textLayer span { position: absolute; transform-origin: 0 0; white-space: pre; line-height: 1; }
+
+  .pdf-flash { position:absolute; inset:0; background: rgba(255,235,0,.18); border:2px solid rgba(255,235,0,.85); pointer-events:none; animation: flashOut 1.2s ease-out forwards; }
+  @keyframes flashOut { from{opacity:1} to{opacity:0} }
+
+  .pdf-snip {
+    position: absolute;
+    border: 3px solid rgba(255,230,0,0.95);
+    background: rgba(255,230,0,0.22);
+    border-radius: 6px;
+    pointer-events: none;
+    animation: snipFade 2.0s ease-out forwards;
+  }
+  @keyframes snipFade { 0%{opacity:1} 80%{opacity:.25} 100%{opacity:0} }
+
+  .vscode-tree{ padding:6px 4px 12px 8px; margin:0; list-style:none; height:100%; overflow:auto; }
+  .vscode-row{ width:100%; text-align:left; background:transparent; color:#dbe7ff; border:0; padding:6px 6px; border-radius:6px; cursor:pointer; }
+  .vscode-row:hover{ background:#0f1722; }
+  .vscode-row.active{ background:#10213a; outline:1px solid #15335f; }
+
+  *::-webkit-scrollbar{ width:10px; height:10px; }
+  *::-webkit-scrollbar-track{ background:#0b0f14; }
+  *::-webkit-scrollbar-thumb{ background:#1e2a3b; border-radius:10px; }
+  *::-webkit-scrollbar-thumb:hover{ background:#263a5a; }
+
+  .tm{
+    position:fixed; left:14px; bottom:12px; color:var(--muted); font-size:.85rem;
+    opacity:.9; user-select:none; z-index:20;
+  }
+</style>
+
+
 </head>
 <body>
   <header class="topbar">
-    <div>
-      <strong>EP2C</strong> — Repo:
-      <code style="opacity:.85">{{ repo_root or 'unset' }}</code>
-      • Paper: <code style="opacity:.85">{{ paper_path or 'unset' }}</code>
-    </div>
-    <a class="link" href="#" onclick="location.reload()">Reload</a>
+    <a href="{{ url_for('index') }}" class="ep2c-title">EP2C</a>
   </header>
-
   <div class="layout">
     <aside class="sidebar">
       <div class="explorer-header">EXPLORER</div>
@@ -90,7 +174,7 @@
       <div id="pdfScroll"></div>
     </aside>
   </div>
-
+  <div class="tm">© 2025 CMSC473 EP2C Team™</div>
   <script>
     const fileList = (() => { try { return JSON.parse(document.getElementById('files-data').textContent) || []; } catch { return []; } })();
 
@@ -399,9 +483,35 @@
     function scrollToPage(idx){
       const container = document.getElementById('pdfScroll');
       const { pageDiv } = PDF_PAGES[idx];
-      container.scrollTo({ top: pageDiv.offsetTop - 12, behavior: 'smooth' });
+      const targetTop = pageDiv.offsetTop - 12;
+
+      const done = new Promise(resolve => {
+        let rafId = null;
+        const check = () => {
+          if (Math.abs(container.scrollTop - targetTop) < 4) {
+            container.removeEventListener('scroll', onScroll);
+            if (rafId) cancelAnimationFrame(rafId);
+            resolve();
+          } else {
+            rafId = requestAnimationFrame(check);
+          }
+        };
+        const onScroll = () => {
+          if (!rafId) rafId = requestAnimationFrame(check);
+        };
+        container.addEventListener('scroll', onScroll, { passive: true });
+        setTimeout(() => {
+          container.removeEventListener('scroll', onScroll);
+          if (rafId) cancelAnimationFrame(rafId);
+          resolve();
+        }, 1200);
+      });
+
+      container.scrollTo({ top: targetTop, behavior: 'smooth' });
       flashPage(idx);
+      return done;
     }
+
 
     function makeOverlay(pageIdx, rect) {
       const { pageDiv } = PDF_PAGES[pageIdx];
@@ -472,8 +582,7 @@
         if (tiny.length > 20) idx = tryFind(tiny);
       }
       if (idx >= 0) {
-        scrollToPage(idx);
-        highlightSnippetOnPage(idx, snippet);
+        scrollToPage(idx).then(() => highlightSnippetOnPage(idx, snippet));
       }
     }
 
