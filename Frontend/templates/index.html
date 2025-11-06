@@ -19,7 +19,6 @@
     }
 
     html,body{height:100%;}
-    /* lock the page to a single viewport to prevent gradient from showing extra space */
     body{
       margin:0; color:var(--text); background: var(--bg);
       background-image:
@@ -27,10 +26,10 @@
         radial-gradient(70rem 35rem at 110% 20%, rgba(122,163,255,.12), transparent),
         radial-gradient(50rem 40rem at 50% 120%, rgba(102,217,163,.08), transparent);
       font-family: system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, "Helvetica Neue", Arial, "Noto Sans","Apple Color Emoji","Segoe UI Emoji","Segoe UI Symbol";
-      overflow:hidden;  /* remove scrolling */
+      overflow:hidden;  
     }
 
-    /* page frame */
+
     .wrap{
       max-width:1000px; padding:48px 20px; margin:0 auto;
       height:100vh; display:flex; flex-direction:column; justify-content:flex-start;
@@ -48,28 +47,25 @@
     .title{font-size:2.2rem; margin:0;}
     .subtitle{margin:0; color:var(--muted); max-width:720px}
 
-    /* card */
+
     .card{
       margin:22px auto 0;
-      max-width: 1040px;               /* wider card */
+      max-width: 1040px;             
       background: color-mix(in srgb, var(--card) 85%, transparent);
       border:1px solid var(--stroke);
       border-radius:20px;
-      padding:-0px 20px;               /* a bit more breathing room */
+      padding:-0px 20px;             
       box-shadow: 0 12px 40px rgba(0,0,0,.35), inset 0 1px 0 rgba(255,255,255,.02);
       backdrop-filter: blur(6px);
-      overflow: visible;                /* remove inner scrollbar completely */
+      overflow: visible;            
     }
 
-
-    /* form layout */
     form .row{display:grid; grid-template-columns: 1fr; gap:18px; margin-top:18px;}
     @media (min-width:780px){ form .row{grid-template-columns: 2fr 1fr;} }
 
     .field label{display:block; margin:0 0 8px; font-weight:700;}
     .muted{color:var(--muted);}
 
-    /* drop zone */
     .drop{
       display:grid; place-items:center; text-align:center;
       background:#0b0f14; border:1px dashed var(--stroke-2); border-radius:12px; min-height:140px;
@@ -85,14 +81,12 @@
       border:1px solid var(--stroke-2); border-radius:999px; padding:4px 8px; font-size:.85rem; color:var(--muted);
     }
 
-    /* inputs */
     .hidden-input{position:absolute; width:1px; height:1px; padding:0; margin:-1px; overflow:hidden; clip:rect(0 0 0 0); border:0;}
     select{
       width:100%; background:#0b0f14; border:1px solid var(--stroke-2); color:var(--text);
       border-radius:12px; padding:12px; appearance:none;
     }
 
-    /* actions */
     .actions{margin-top:22px; display:flex; gap:12px; justify-content:center}
     .primary{
       background:linear-gradient(180deg, var(--brand), #1e5fe0); border:1px solid #1c55c8;
@@ -104,7 +98,6 @@
     .primary:active{transform: translateY(1px)}
     .ghost{display:none;}
 
-    /* helper list */
     .benefits{display:grid; grid-template-columns: 1fr; gap:12px; margin:20px 0 0}
     @media (min-width:700px){ .benefits{grid-template-columns: repeat(3,1fr);} }
     .benefit{
@@ -114,14 +107,55 @@
     .benefit b{display:block; margin-bottom:4px}
     ul.flash{margin-top:16px; padding-left:18px; color:#ffbebe;}
 
-    /* chosen file hint */
     .file-name{margin-top:8px; color:var(--ok); font-weight:700; font-size:.95rem; text-align:center}
 
-    /* trademark footer */
     .tm{
       position:fixed; left:14px; bottom:12px; color:var(--muted); font-size:.85rem;
       opacity:.9; user-select:none;
     }
+
+    .modal-overlay{
+      position:fixed; inset:0; display:grid; place-items:center;
+      background: rgba(7,11,17,.45);
+      backdrop-filter: blur(6px);
+      -webkit-backdrop-filter: blur(6px);
+      transition: opacity .18s ease;
+      z-index: 1000;
+    }
+    .modal-overlay[aria-hidden="true"]{ opacity:0; pointer-events:none; }
+
+    .loader{
+      width:min(92vw, 520px);
+      background: color-mix(in srgb, var(--card) 88%, transparent);
+      border:1px solid var(--stroke);
+      border-radius:16px;
+      padding:20px 20px 18px;
+      box-shadow: 0 16px 50px rgba(0,0,0,.45), inset 0 1px 0 rgba(255,255,255,.03);
+      text-align:center;
+    }
+    .loader h3{ margin:4px 0 10px; font-size:1.1rem; font-weight:800; letter-spacing:.3px; }
+    .loader p{ margin:0 0 14px; color:var(--muted); font-size:.95rem; }
+
+    .progress{
+      height:14px; border-radius:999px; overflow:hidden;
+      background:#0b0f14; border:1px solid var(--stroke-2);
+    }
+    .progress-fill{
+      height:100%; width:24%;
+      background: #28d17c;
+      background-image:
+        repeating-linear-gradient(45deg, rgba(255,255,255,.22) 0 12px, transparent 12px 24px);
+      box-shadow: inset 0 -1px 0 rgba(0,0,0,.2);
+      animation:
+        loadPulse 1.8s ease-in-out infinite alternate,
+        barberPole .7s linear infinite;
+    }
+    @keyframes loadPulse { from{width:12%} to{width:88%} }
+    @keyframes barberPole { from{ background-position:0 0 } to{ background-position:48px 0 } }
+
+    body.is-loading .wrap{ filter: blur(2px) saturate(.9); }
+
+    .primary[disabled]{ opacity:.7; cursor:not-allowed; }
   </style>
 </head>
 <body>
@@ -181,7 +215,6 @@
 
         <div class="actions">
           <button type="submit" class="primary">Continue</button>
-          <a class="ghost" href="/skip">Skip upload — use default paper</a>
         </div>
       </form>
 
@@ -196,6 +229,14 @@
   </div>
 
   <div class="tm">© 2025 CMSC473 EP2C Team™</div>
+
+  <div id="loadingOverlay" class="modal-overlay" aria-hidden="true">
+    <div class="loader">
+      <h3>Preparing your viewer…</h3>
+      <p>Uploading file, and running through the EP2C pipeline.</p>
+      <div class="progress"><div class="progress-fill"></div></div>
+    </div>
+  </div>
 
   <script>
     (function(){
@@ -222,6 +263,16 @@
         } else {
           fileName.hidden = true;
         }
+      });
+
+      const form = document.getElementById('uploadForm');
+      const overlay = document.getElementById('loadingOverlay');
+      const submitBtn = form.querySelector('.primary');
+
+      form.addEventListener('submit', () => {
+        overlay.setAttribute('aria-hidden', 'false');
+        document.body.classList.add('is-loading');
+        submitBtn.disabled = true;
       });
     })();
   </script>
