@@ -1,7 +1,9 @@
 from flask import (
     Flask, render_template, send_file, send_from_directory,
-    abort, url_for, Response, request, redirect, flash
+    abort, url_for, Response, request, redirect, flash, after_this_request
 )
+import tempfile
+import zipfile
 import os
 import sys
 import mimetypes
@@ -34,6 +36,17 @@ PAPERCODESYNC_DATA     = os.path.abspath(os.path.join(BASE_DIR, "../Backend/pape
 PAPERCODESYNC_SYMBOLS = os.path.join(PAPERCODESYNC_DATA, "symbols.json")
 PAPERCODESYNC_CHUNKS  = os.path.join(PAPERCODESYNC_DATA, "chunks.json")
 PAPERCODESYNC_MATCHES = os.path.join(PAPERCODESYNC_DATA, "matches.jsonl")
+
+EXCLUDE_DIRS = {".git", "__pycache__", "node_modules", ".venv"}
+
+def _zip_repo_to(temp_zip_path):
+    with zipfile.ZipFile(temp_zip_path, "w", compression=zipfile.ZIP_DEFLATED) as zf:
+        for root, dirs, files in os.walk(REPO_ROOT):
+            dirs[:] = [d for d in dirs if d not in EXCLUDE_DIRS]
+            for f in files:
+                full = os.path.join(root, f)
+                arc = os.path.relpath(full, REPO_ROOT)
+                zf.write(full, arc)
 
 def _absnorm(p):
     return os.path.realpath(os.path.abspath(p))
@@ -69,6 +82,30 @@ def _allowed_file(filename):
 @app.route("/", methods=["GET"])
 def index():
     return render_template("index.html", languages=LANGUAGES)
+
+@app.route("/export")
+def export_repo():
+    if not os.path.isdir(REPO_ROOT):
+        abort(404)
+
+    tmpdir = tempfile.mkdtemp(prefix="ep2c_zip_")
+    zip_path = os.path.join(tmpdir, "repo.zip")
+    _zip_repo_to(zip_path)
+
+    @after_this_request
+    def _cleanup(response):
+        try:
+            if os.path.exists(zip_path):
+                os.remove(zip_path)
+            if os.path.isdir(tmpdir):
+                os.rmdir(tmpdir)
+        except Exception:
+            pass
+        return response
+
+    download_name = f"{os.path.basename(REPO_ROOT.rstrip(os.sep)) or 'repo'}.zip"
+    return send_file(zip_path, mimetype="application/zip", as_attachment=True, download_name=download_name)
+
 
 @app.route("/upload", methods=["POST"])
 def upload():

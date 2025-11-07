@@ -99,6 +99,18 @@
   .code-frame{ height:100%; overflow:auto; position:relative; }
   .code-frame .lc{ white-space:pre; }
 
+  .export-btn{
+    display:inline-flex; align-items:center; gap:8px;
+    padding:6px 12px; border-radius:10px; font-weight:800; font-size:.9rem;
+    background:linear-gradient(180deg, var(--brand), #1e5fe0);
+    border:1px solid #1c55c8; color:white; text-decoration:none;
+    box-shadow: 0 6px 18px rgba(42,116,255,.35);
+    transition: filter .15s ease, transform .06s ease, box-shadow .15s ease;
+  }
+  .export-btn:hover{ filter:brightness(1.05); box-shadow:0 10px 30px rgba(42,116,255,.45); }
+  .export-btn:active{ transform: translateY(1px); }
+
+
   .pdf-pane {
     border-left: 1px solid var(--stroke);
     background: #0b0f14;
@@ -162,6 +174,8 @@
       <div class="code-toolbar">
         <div class="file-chip" id="openFileName">Select a file…</div>
         <div class="toolbar-spacer"></div>
+
+        <a class="export-btn" href="{{ url_for('export_repo') }}">Export .zip</a>
       </div>
 
       <div class="code-frame" id="codeFrame">
