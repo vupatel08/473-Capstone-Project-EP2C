@@ -2,7 +2,7 @@ from find_paper_link import find_link
 from find_repo import find_paper
 
 
-PAPER_PATH = "sample_papers/sample_paper.pdf"
+PAPER_PATH = "../papercodesync/example/paper.pdf"
 
 def get_repo_link():
     paper_link = find_link(PAPER_PATH)
@@ -14,9 +14,9 @@ def get_repo_link():
         print("Could not find paper information from MCP.")
         return None
     if not code_repo:
-        print("Could not find code repository for: ", paper_name " (", paper_url, ")")
+        print("Could not find code repository for: " + paper_name + " (" + paper_url + ")")
         return None
-    print("Found code repository for: ", paper_name, " (", paper_url, "): ", code_repo)
+    print("Found code repository for: " + paper_name + " (" + paper_url + "): " + code_repo)
     return code_repo
 
 if __name__ == "__main__":
