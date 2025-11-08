@@ -191,6 +191,7 @@
 
     let SYMBOLS = [];
     let MATCH_MAP = new Map();
+    let MATCH_INFO = new Map(); 
     let CHUNK_TEXT = new Map();
 
     const EXT_TO_LANG = {
@@ -331,8 +332,9 @@
         box.addEventListener('click', () => {
           const bestChunkId = MATCH_MAP.get(sym.id);
           if (!bestChunkId) return;
-          const t = CHUNK_TEXT.get(bestChunkId) || "";
-          jumpToPDFBySnippet(t);
+          const probeTokens = makeProbeTokensForSymbol(sym);
+          const displaySnippet = CHUNK_TEXT.get(bestChunkId) || "";
+          jumpToPDFByTokens(probeTokens, displaySnippet);
         });
 
         overlayLayer.appendChild(box);
@@ -368,16 +370,19 @@
     const PDF_PAGES = [];
     const PAGE_TEXTS = [];
     const PAGE_SPANS = [];
-    const PAGE_TOKENS = [];  
+    const PAGE_TOKENS = [];
     let currentSnipOverlays = [];
 
+    let TOKEN_DF = new Map(); 
+    let TOKEN_W  = new Map(); 
+
     const NORM_MAPS = [
-      [/[\u2010-\u2015]/g, "-"],       
-      [/\u00A0/g, " "],                 
-      [/\u00AD/g, ""],                 
+      [/[\u2010-\u2015]/g, "-"],      
+      [/\u00A0/g, " "],                
+      [/\u00AD/g, ""],                  
       [/[\u2018\u2019\u2032]/g, "'"],   
       [/[\u201C\u201D\u2033]/g, '"'],   
-      [/[\uFB00]/g, "ff"],           
+      [/[\uFB00]/g, "ff"],              
       [/[\uFB01]/g, "fi"],
       [/[\uFB02]/g, "fl"],
       [/[\uFB03]/g, "ffi"],
@@ -393,6 +398,19 @@
     }
     function tokenize(s) {
       return normalizeText(s).match(/[a-z0-9\-]{3,}/g) || [];
+    }
+    function rebuildTokenWeights(){
+      TOKEN_DF = new Map();
+      TOKEN_W = new Map();
+      for (const pageTokens of PAGE_TOKENS) {
+        const seen = new Set(pageTokens);
+        for (const t of seen) TOKEN_DF.set(t, (TOKEN_DF.get(t)||0) + 1);
+      }
+      const N = Math.max(1, PAGE_TOKENS.length);
+      for (const [t, df] of TOKEN_DF.entries()) {
+        const w = Math.log(1 + N / (1 + df)); 
+        TOKEN_W.set(t, w);
+      }
     }
 
     function clearSnippetOverlays() {
@@ -468,10 +486,12 @@
         });
 
         PDF_PAGES.push({ pageDiv, canvas, textDiv, index: i-1, baseWidth: vpAt1.width, scale });
-        PAGE_TEXTS.push(normalizeText(pageTextConcat));     
+        PAGE_TEXTS.push(normalizeText(pageTextConcat));
         PAGE_SPANS.push(spans);
-        PAGE_TOKENS.push(tokenize(pageTextConcat));         
+        PAGE_TOKENS.push(tokenize(pageTextConcat));
       }
+
+      rebuildTokenWeights();
     }
 
     async function loadPDF() {
@@ -577,7 +597,6 @@
       if (toks.length === 0) return;
 
       const spans = PAGE_SPANS[pageIdx] || [];
-      // frequency map for rarity preference
       const freq = {};
       for (const s of spans) {
         const ts = tokenize(s.el.textContent);
@@ -608,54 +627,87 @@
     }
 
     function tokenCoverageScore(needleTokens, hayTokens) {
-      if (needleTokens.length === 0 || hayTokens.length === 0) return 0;
+      if (needleTokens.length === 0 || hayTokens.length === 0) return {score:0, hits:0, rareHits:0};
       const haySet = new Set(hayTokens);
-      let hit = 0;
-      for (const t of needleTokens) if (haySet.has(t)) hit++;
-      return hit / needleTokens.length; // coverage of snippet tokens
+      let num = 0, den = 0, hits = 0, rareHits = 0;
+      for (const t of needleTokens) {
+        const w = TOKEN_W.get(t) || 0;
+        den += w || 0.05;
+        if (haySet.has(t)) {
+          num += w || 0.05;
+          hits++;
+          if ((TOKEN_DF.get(t)||9999) <= Math.max(2, PAGE_TOKENS.length * 0.15)) rareHits++;
+        }
+      }
+      return { score: den ? (num/den) : 0, hits, rareHits };
     }
-    function bestPageWindowForTokens(needleTokens){
-      let best = {score:0, start:-1, end:-1}; // inclusive indices
-      for (let i=0;i<PAGE_TOKENS.length;i++){
-        // single page
-        const s1 = tokenCoverageScore(needleTokens, PAGE_TOKENS[i]);
-        if (s1 > best.score) best = {score:s1, start:i, end:i};
 
-        // two-page window
-        if (i+1 < PAGE_TOKENS.length){
-          const two = new Set([...PAGE_TOKENS[i], ...PAGE_TOKENS[i+1]]);
-          const s2 = tokenCoverageScore(needleTokens, Array.from(two));
-          if (s2 > best.score) best = {score:s2, start:i, end:i+1};
+    function bestPageWindowForTokens(needleTokens){
+      let best = {score:0, start:-1, end:-1, rareHits:0, hits:0};
+      const N = PAGE_TOKENS.length;
+      for (let i=0;i<N;i++){
+        const winDefs = [
+          {start: i,   end: i},
+          {start: i,   end: i+1},
+          {start: i-1, end: i}
+        ];
+        for (const w of winDefs) {
+          if (w.start < 0 || w.end >= N) continue;
+          let merged = [];
+          for (let k=w.start;k<=w.end;k++) merged = merged.concat(PAGE_TOKENS[k]);
+          const sc = tokenCoverageScore(needleTokens, merged);
+          const better =
+            (sc.score > best.score + 1e-6) ||
+            (Math.abs(sc.score - best.score) < 1e-6 && (sc.rareHits > best.rareHits)) ||
+            (Math.abs(sc.score - best.score) < 1e-6 && sc.rareHits === best.rareHits && sc.hits > best.hits) ||
+            (Math.abs(sc.score - best.score) < 1e-6 && sc.rareHits === best.rareHits && sc.hits === best.hits && (w.end-w.start) < (best.end-best.start));
+          if (better) best = {score: sc.score, rareHits: sc.rareHits, hits: sc.hits, start: w.start, end: w.end};
         }
       }
       return best;
     }
 
-    async function jumpToPDFBySnippet(snippet){
+    function makeProbeTokensForSymbol(sym){
+      const info = MATCH_INFO.get(sym.id) || {};
+      const chunkText = CHUNK_TEXT.get(info.chunk_id || "") || "";
+      const nameBits = (sym.name || "").replace(/[^a-zA-Z0-9]+/g, " ");
+      const probe = [
+        info.semantic || "",
+        info.overlap  || "",
+        nameBits,
+        chunkText
+      ].join(" ");
+      const toks = tokenize(probe);
+      const seen = new Set();
+      const dedup = [];
+      for (const t of toks) { if (!seen.has(t)) { seen.add(t); dedup.push(t); } }
+      return dedup.slice(0, 60);
+    }
+
+    async function jumpToPDFByTokens(tokens, displaySnippet){
       if (!PDF_DOC || PDF_PAGES.length === 0) return;
-      const needle = tokenize(snippet);
-      if (needle.length === 0) return;
+      if (!tokens || tokens.length === 0) return;
 
-      const trimmed = needle.slice(0, 40); // keep it focused
-      const best = bestPageWindowForTokens(trimmed);
-      const THRESH = 0.30; 
+      const best = bestPageWindowForTokens(tokens);
+      const MIN_SCORE = 0.28;
+      const MIN_RARE  = Math.max(1, Math.round(tokens.length * 0.04));
 
-      if (best.score < THRESH || best.start < 0){
-        // fallback to first sentence
-        const firstSentence = (snippet.split(/[.?!]\s/)[0] || snippet);
-        const tiny = tokenize(firstSentence).slice(0, 20);
-        const best2 = bestPageWindowForTokens(tiny);
-        if (best2.score >= THRESH && best2.start >= 0){
-          await scrollToPage(best2.start);
-          highlightSnippetOnPage(best2.start, firstSentence);
-          return;
-        }
-        await scrollToPage(0);
+      if (best.start >= 0 && (best.score >= MIN_SCORE || best.rareHits >= MIN_RARE)) {
+        await scrollToPage(best.start);
+        highlightSnippetOnPage(best.start, displaySnippet || tokens.slice(0, 20).join(" "));
         return;
       }
 
-      await scrollToPage(best.start);
-      highlightSnippetOnPage(best.start, snippet);
+      const withW = tokens.map(t => [t, TOKEN_W.get(t)||0]).sort((a,b)=>b[1]-a[1]);
+      const rareTop = withW.slice(0, 25).map(x=>x[0]);
+      const best2 = bestPageWindowForTokens(rareTop);
+      if (best2.start >= 0) {
+        await scrollToPage(best2.start);
+        highlightSnippetOnPage(best2.start, displaySnippet || rareTop.slice(0, 12).join(" "));
+        return;
+      }
+
+      await scrollToPage(0);
     }
 
     (async function bootstrapData(){
@@ -686,6 +738,11 @@
           const obj = JSON.parse(line);
           if (obj.symbol_id && obj.best && obj.best.chunk_id) {
             MATCH_MAP.set(obj.symbol_id, obj.best.chunk_id);
+            MATCH_INFO.set(obj.symbol_id, {
+              chunk_id: obj.best.chunk_id,
+              semantic: obj.query_text_semantic || "",
+              overlap:  obj.query_text_overlap  || ""
+            });
           }
         } catch(e){ console.warn('Bad JSONL line', line); }
       });
