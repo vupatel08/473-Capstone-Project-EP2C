@@ -1,7 +1,7 @@
 utils:
   # changes what counts as a "token", which affects the identifiers/terms collected
   # from symbols and docs, which ultimately can shift TF-IDF/BM25 vocab and embedding text
-  token_pattern: "[A-Za-z0-9_]+" 
+  token_pattern: "[A-Za-z0-9_\\-]+" # first adjustment, trying to capture more hyphenated tokens
   # changes paper_id and any slug outputs that propagate to filenames/keys
   slugify_maxlen: 80
   # changes all emitted IDs (stable but different length), which flow into symbols/chunks/matches
