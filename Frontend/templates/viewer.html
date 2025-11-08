@@ -110,7 +110,6 @@
   .export-btn:hover{ filter:brightness(1.05); box-shadow:0 10px 30px rgba(42,116,255,.45); }
   .export-btn:active{ transform: translateY(1px); }
 
-
   .pdf-pane {
     border-left: 1px solid var(--stroke);
     background: #0b0f14;
@@ -156,8 +155,6 @@
     opacity:.9; user-select:none; z-index:20;
   }
 </style>
-
-
 </head>
 <body>
   <header class="topbar">
@@ -174,7 +171,6 @@
       <div class="code-toolbar">
         <div class="file-chip" id="openFileName">Select a file…</div>
         <div class="toolbar-spacer"></div>
-
         <a class="export-btn" href="{{ url_for('export_repo') }}">Export .zip</a>
       </div>
 
@@ -189,11 +185,12 @@
     </aside>
   </div>
   <div class="tm">© 2025 CMSC473 EP2C Team™</div>
+
   <script>
     const fileList = (() => { try { return JSON.parse(document.getElementById('files-data').textContent) || []; } catch { return []; } })();
 
     let SYMBOLS = [];
-    let MATCH_MAP = new Map();   
+    let MATCH_MAP = new Map();
     let CHUNK_TEXT = new Map();
 
     const EXT_TO_LANG = {
@@ -368,15 +365,35 @@
     function onWindowResize(){ if (currentOverlayState) requestAnimationFrame(() => currentOverlayState.positionBoxes()); }
 
     let PDF_DOC = null;
-    const PDF_PAGES = [];           
-    const PAGE_TEXTS = [];           
-    const PAGE_SPANS = [];           
-    let currentSnipOverlays = [];    
+    const PDF_PAGES = [];
+    const PAGE_TEXTS = [];
+    const PAGE_SPANS = [];
+    const PAGE_TOKENS = [];  
+    let currentSnipOverlays = [];
 
-    const compress = s => (s||"").toLowerCase().replace(/[^a-z0-9]+/g,"");
-    const tokenize = s => (s||"")
-      .toLowerCase()
-      .match(/[a-z0-9]{4,}/g) || [];
+    const NORM_MAPS = [
+      [/[\u2010-\u2015]/g, "-"],       
+      [/\u00A0/g, " "],                 
+      [/\u00AD/g, ""],                 
+      [/[\u2018\u2019\u2032]/g, "'"],   
+      [/[\u201C\u201D\u2033]/g, '"'],   
+      [/[\uFB00]/g, "ff"],           
+      [/[\uFB01]/g, "fi"],
+      [/[\uFB02]/g, "fl"],
+      [/[\uFB03]/g, "ffi"],
+      [/[\uFB04]/g, "ffl"],
+    ];
+    function normalizeText(s) {
+      if (!s) return "";
+      let t = s.normalize("NFKC");
+      for (const [re, rep] of NORM_MAPS) t = t.replace(re, rep);
+      t = t.replace(/[\u2000-\u200B]/g, " ").replace(/\s+/g, " ").trim();
+      t = t.replace(/[^0-9a-zA-Z\- ]+/g, "");
+      return t.toLowerCase();
+    }
+    function tokenize(s) {
+      return normalizeText(s).match(/[a-z0-9\-]{3,}/g) || [];
+    }
 
     function clearSnippetOverlays() {
       currentSnipOverlays.forEach(el => el.remove());
@@ -395,6 +412,7 @@
       PDF_PAGES.length = 0;
       PAGE_TEXTS.length = 0;
       PAGE_SPANS.length = 0;
+      PAGE_TOKENS.length = 0;
 
       const dpr = window.devicePixelRatio || 1;
 
@@ -410,7 +428,6 @@
 
         const canvas = document.createElement('canvas');
         canvas.className = "pdf-canvas";
-        // High-DPI crispness
         canvas.width = Math.floor(vp.width * dpr);
         canvas.height = Math.floor(vp.height * dpr);
         canvas.style.width = vp.width + "px";
@@ -431,7 +448,8 @@
         let pageTextConcat = "";
         const spans = [];
         txt.items.forEach(item => {
-          pageTextConcat += item.str + " ";
+          pageTextConcat += (item.str || "") + " ";
+
           const span = document.createElement('span');
           span.textContent = item.str;
 
@@ -446,12 +464,13 @@
           span.style.height = sy + "px";
 
           textDiv.appendChild(span);
-          spans.push({ el: span, textLower: item.str.toLowerCase() });
+          spans.push({ el: span, textLower: normalizeText(item.str || "") });
         });
 
         PDF_PAGES.push({ pageDiv, canvas, textDiv, index: i-1, baseWidth: vpAt1.width, scale });
-        PAGE_TEXTS.push(compress(pageTextConcat));
+        PAGE_TEXTS.push(normalizeText(pageTextConcat));     
         PAGE_SPANS.push(spans);
+        PAGE_TOKENS.push(tokenize(pageTextConcat));         
       }
     }
 
@@ -479,7 +498,7 @@
           const fp = await PDF_DOC.getPage(1);
           const vp1 = fp.getViewport({ scale: 1.0 });
           const newScale = fitScaleForWidth(vp1.width, cont.clientWidth);
-          clearSnippetOverlays(); 
+          clearSnippetOverlays();
           await renderAllPages(newScale);
         }, 140);
       });
@@ -526,7 +545,6 @@
       return done;
     }
 
-
     function makeOverlay(pageIdx, rect) {
       const { pageDiv } = PDF_PAGES[pageIdx];
       const o = document.createElement('div');
@@ -553,21 +571,32 @@
     }
 
     function highlightSnippetOnPage(pageIdx, snippet) {
-      clearSnippetOverlays(); 
+      clearSnippetOverlays();
 
-      const tokens = tokenize(snippet).slice(0, 8); 
-      if (tokens.length === 0) return;
+      const toks = tokenize(snippet);
+      if (toks.length === 0) return;
 
       const spans = PAGE_SPANS[pageIdx] || [];
+      // frequency map for rarity preference
+      const freq = {};
+      for (const s of spans) {
+        const ts = tokenize(s.el.textContent);
+        for (const t of ts) freq[t] = (freq[t]||0)+1;
+      }
+      const uniq = Array.from(new Set(toks));
+      uniq.sort((a,b)=>(freq[a]||9999)-(freq[b]||9999));
+
+      const wanted = uniq.slice(0, 10);
       const hits = [];
       for (const s of spans) {
-        if (tokens.some(t => s.textLower.includes(t))) hits.push(s.el);
-        if (hits.length > 24) break; 
+        const tl = s.textLower;
+        if (wanted.some(t => tl.includes(t))) hits.push(s.el);
+        if (hits.length > 24) break;
       }
       if (hits.length === 0) return;
 
       let box = null;
-      const take = Math.min(8, hits.length); 
+      const take = Math.min(10, hits.length);
       for (let i=0;i<take;i++){
         const r = hits[i].getBoundingClientRect();
         const pageRect = PDF_PAGES[pageIdx].pageDiv.getBoundingClientRect();
@@ -575,29 +604,58 @@
         box = bboxUnion(box, local);
       }
       if (!box) return;
-
       makeOverlay(pageIdx, { left: box.left, top: box.top, width: box.width, height: box.height });
     }
 
-    function jumpToPDFBySnippet(snippet){
-      if (!PDF_DOC || PDF_PAGES.length === 0) return;
-      const probe = compress((snippet || "").slice(0, 320));
-      const tryFind = (needle) => PAGE_TEXTS.findIndex(t => t.includes(needle));
+    function tokenCoverageScore(needleTokens, hayTokens) {
+      if (needleTokens.length === 0 || hayTokens.length === 0) return 0;
+      const haySet = new Set(hayTokens);
+      let hit = 0;
+      for (const t of needleTokens) if (haySet.has(t)) hit++;
+      return hit / needleTokens.length; // coverage of snippet tokens
+    }
+    function bestPageWindowForTokens(needleTokens){
+      let best = {score:0, start:-1, end:-1}; // inclusive indices
+      for (let i=0;i<PAGE_TOKENS.length;i++){
+        // single page
+        const s1 = tokenCoverageScore(needleTokens, PAGE_TOKENS[i]);
+        if (s1 > best.score) best = {score:s1, start:i, end:i};
 
-      let idx = -1;
-      if (probe) idx = tryFind(probe);
-      if (idx < 0) {
-        const firstSentence = (snippet||"").split(/[.?!]\s/)[0].slice(0, 140);
-        const shortProbe = compress(firstSentence);
-        if (shortProbe.length > 20) idx = tryFind(shortProbe);
+        // two-page window
+        if (i+1 < PAGE_TOKENS.length){
+          const two = new Set([...PAGE_TOKENS[i], ...PAGE_TOKENS[i+1]]);
+          const s2 = tokenCoverageScore(needleTokens, Array.from(two));
+          if (s2 > best.score) best = {score:s2, start:i, end:i+1};
+        }
       }
-      if (idx < 0) {
-        const tiny = compress((snippet||"").slice(0, 80));
-        if (tiny.length > 20) idx = tryFind(tiny);
+      return best;
+    }
+
+    async function jumpToPDFBySnippet(snippet){
+      if (!PDF_DOC || PDF_PAGES.length === 0) return;
+      const needle = tokenize(snippet);
+      if (needle.length === 0) return;
+
+      const trimmed = needle.slice(0, 40); // keep it focused
+      const best = bestPageWindowForTokens(trimmed);
+      const THRESH = 0.30; 
+
+      if (best.score < THRESH || best.start < 0){
+        // fallback to first sentence
+        const firstSentence = (snippet.split(/[.?!]\s/)[0] || snippet);
+        const tiny = tokenize(firstSentence).slice(0, 20);
+        const best2 = bestPageWindowForTokens(tiny);
+        if (best2.score >= THRESH && best2.start >= 0){
+          await scrollToPage(best2.start);
+          highlightSnippetOnPage(best2.start, firstSentence);
+          return;
+        }
+        await scrollToPage(0);
+        return;
       }
-      if (idx >= 0) {
-        scrollToPage(idx).then(() => highlightSnippetOnPage(idx, snippet));
-      }
+
+      await scrollToPage(best.start);
+      highlightSnippetOnPage(best.start, snippet);
     }
 
     (async function bootstrapData(){
@@ -636,7 +694,7 @@
       const first = document.querySelector('.vscode-item.file .vscode-row');
       if (first) first.click();
 
-      await loadPDF(); 
+      await loadPDF();
     })();
   </script>
 </body>
