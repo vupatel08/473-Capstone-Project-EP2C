@@ -1,7 +1,17 @@
+# my first adjustment was token_pattern: [A-Za-z0-9_]+ -> [A-Za-z0-9_\-]+ to capture hyphenated tokens
+# although i know it will have more noiser retrieval, i think smaller chunks is worth getting more precise areas
+# currently, a lot of the symbols jump to the same chunk, so my second adjustment was chunk_max_chars: 1400 -> 700 and chunk_hard_max_chars: 1600 -> 1000
+# for my third adjustment, I tried excluding more section titles that are common but not useful for code search, such as abstract, etc.
+# for my fourth adjustment, I increased the alpha from 0.6 to 0.8 to give more weight to overlap (sparse) matching, since code search benefits more from exact term matches.
+# okay, i ended up playing with more stuff and got too tired to write my explanations for each change
+# surprisingly, changing the semantic model from all-MiniLM-L6-v2 to all-MiniLM-L6-v1 improved results a lot
+# also changing to tfidf from bm25 for overlap matching improved results
+
+
 utils:
   # changes what counts as a "token", which affects the identifiers/terms collected
   # from symbols and docs, which ultimately can shift TF-IDF/BM25 vocab and embedding text
-  token_pattern: "[A-Za-z0-9_\\-]+" # first adjustment, trying to capture more hyphenated tokens
+  token_pattern: "[A-Za-z0-9_\\-]+" 
   # changes paper_id and any slug outputs that propagate to filenames/keys
   slugify_maxlen: 80
   # changes all emitted IDs (stable but different length), which flow into symbols/chunks/matches
@@ -10,9 +20,9 @@ utils:
     # used by keep_text(...)
     min_paragraph_len: 20           
     # rolling split target
-    chunk_max_chars: 1400           
+    chunk_max_chars: 700            
     # safety cap if a single block is huge
-    chunk_hard_max_chars: 1600      
+    chunk_hard_max_chars: 1000      
     # how we join lines/blocks before chunking
     paragraph_join: "\n\n"          
   markdown:
@@ -49,7 +59,7 @@ chunks:
   min_heading_level: 1              
   max_heading_level: 6
   # Skip sections by title (regex, case-insensitive)
-  exclude_section_titles_regex: "(acknowledg(e)?ments?|references|funding|appendix|supplement)"
+  exclude_section_titles_regex: "(acknowledg(e)?ments?|references|funding|appendix|supplement|abstract|introduction|background|overview|related work|methodology)"
   # Drop sections that end up empty (no paragraphs/figures/equations)
   keep_empty_sections: false
   # toggle off to omit references[] altogether
@@ -104,9 +114,9 @@ symbols:
   follow_symlinks: false
 map:
   # "bm25" or "tfidf"
-  overlap_method: "bm25"         
+  overlap_method: "tfidf"         
   # weight for overlap; semantic gets (1 - alpha)
-  alpha: 0.6                     
+  alpha: 0.8                     
   # top-K returned + saved in rows
   top_k: 10                      
   # "minmax" or "none"
@@ -114,9 +124,9 @@ map:
   # BM25 options (impactful for sparse text)
   bm25:
     # term saturation
-    k1: 1.5    
+    k1: 1.8    
     # length normalization                  
-    b: 0.75                      
+    b: 0.5                      
   # TF-IDF options (impact vocab & recall)
   tfidf:
     # 1=unigrams only
@@ -128,14 +138,14 @@ map:
     sublinear_tf: true
     use_idf: true
   # Semantic encoder (big lever)
-  semantic_model: "sentence-transformers/all-MiniLM-L6-v2"
+  semantic_model: "sentence-transformers/all-MiniLM-L6-v1"
   semantic:
     normalize_embeddings: true
     # encode speed/VRAM tradeoff
     batch_size: 64               
   # Query construction (changes what you search with)
   query:
-    use_full_text_for_semantic: true
+    use_full_text_for_semantic: false
     use_full_text_for_overlap: false
     # cap BoW size
-    bow_max_terms: 20            
+    bow_max_terms: 30            
