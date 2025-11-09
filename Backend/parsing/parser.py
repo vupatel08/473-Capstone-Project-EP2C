@@ -17,7 +17,6 @@ from mineru.backend.pipeline.pipeline_analyze import doc_analyze as pipeline_doc
 from mineru.backend.pipeline.pipeline_middle_json_mkcontent import union_make as pipeline_union_make
 from mineru.backend.pipeline.model_json_to_middle_json import result_to_middle_json as pipeline_result_to_middle_json
 from mineru.backend.vlm.vlm_middle_json_mkcontent import union_make as vlm_union_make
-from mineru.utils.guess_suffix_or_lang import guess_suffix_by_path
 
 
 # Parsing from Opendatalab:
@@ -27,14 +26,29 @@ def do_parse(
     pdf_file_names: list[str],  # List of PDF file names to be parsed
     pdf_bytes_list: list[bytes],  # List of PDF bytes to be parsed
     p_lang_list: list[str],  # List of languages for each PDF, default is 'en' (English)
+    model: str = "pipeline" # Backend model for parsing. "pipeline" or "vlm", default "pipeline"
 ):
+    
+    assert model in ("pipeline", "vlm"), "Invalid model type. Use 'pipeline' or 'vlm'."
 
     for idx, pdf_bytes in enumerate(pdf_bytes_list):
         new_pdf_bytes = convert_pdf_bytes_to_bytes_by_pypdfium2(pdf_bytes, start_page_id=0, end_page_id=None)
         pdf_bytes_list[idx] = new_pdf_bytes
 
-    infer_results, all_image_lists, all_pdf_docs, lang_list, ocr_enabled_list = \
-        pipeline_doc_analyze(pdf_bytes_list, p_lang_list, parse_method="auto", formula_enable=True,table_enable=True)
+    if model == "vlm":
+        infer_results, all_image_lists, all_pdf_docs, lang_list, ocr_enabled_list = [], [], [], [], []
+        for idx, pdf_bytes in enumerate(pdf_bytes_list):
+            lang = p_lang_list[idx] if idx < len(p_lang_list) else "en"
+            result, img_lst, pdfs, langs, ocr = \
+                vlm_doc_analyze(pdf_bytes, lang, parse_method="auto", formula_enable=True, table_enable=True)
+            infer_results.append(result)
+            all_image_lists.append(img_lst)
+            all_pdf_docs.append(pdfs)
+            lang_list.append(langs)
+            ocr_enabled_list.append(ocr)
+    else:
+        infer_results, all_image_lists, all_pdf_docs, lang_list, ocr_enabled_list = \
+            pipeline_doc_analyze(pdf_bytes_list, p_lang_list, parse_method="auto", formula_enable=True, table_enable=True)
 
     for idx, model_list in enumerate(infer_results):
         model_json = copy.deepcopy(model_list)
@@ -46,6 +60,7 @@ def do_parse(
         pdf_doc = all_pdf_docs[idx]
         _lang = lang_list[idx]
         _ocr_enable = ocr_enabled_list[idx]
+
         middle_json = pipeline_result_to_middle_json(model_list, images_list, pdf_doc, image_writer, _lang, _ocr_enable, True)
 
         pdf_info = middle_json["pdf_info"]
@@ -130,8 +145,9 @@ def _process_output(
 # Copyright (c) Opendatalab. All rights reserved.
 def parse_doc(
         path_list: list[Path],
-        output_dir = "parse_output",
+        output_dir="parse_output",
         lang="en",
+        model="pipeline"
 ):
     """
         Parameter description:
@@ -156,6 +172,7 @@ def parse_doc(
             pdf_file_names=file_name_list,
             pdf_bytes_list=pdf_bytes_list,
             p_lang_list=lang_list,
+            model=model
         )
     except Exception as e:
         logger.exception(e)
@@ -192,4 +209,4 @@ if __name__ == "__main__":
         output_path = Path(sys.argv[-1])
 
     # Parse the given pdfs.
-    parse_doc(pdf_paths, output_path)
+    parse_doc(pdf_paths, output_path, lang="en") # model defaults to "pipeline"
