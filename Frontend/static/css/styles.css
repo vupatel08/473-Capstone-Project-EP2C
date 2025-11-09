@@ -25,9 +25,24 @@ a { color: var(--accent); text-decoration: none; }
 h1 { margin-top: 0; }
 
 .topbar {
-  display: flex; align-items: center; justify-content: space-between;
-  padding: .75rem 1rem; background: var(--panel); border-bottom: 1px solid var(--border);
-  position: sticky; top: 0; z-index: 10;
+  display:flex;
+  justify-content:center;
+  align-items:center;
+  height:56px;
+  background:#0b0f14;
+  border-bottom:1px solid var(--border);
+}
+
+.ep2c-title {
+  font-size:1.6rem;
+  font-weight:700;
+  color:#fff;
+  text-decoration:none;
+  letter-spacing:1px;
+}
+
+.ep2c-title:hover {
+  color:#ffdb4d;
 }
 
 .layout {
