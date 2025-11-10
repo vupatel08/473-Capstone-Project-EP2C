@@ -1,0 +1,100 @@
+Below is a detailed logic analysis for the TruthXModel class (to be placed in model.py). This analysis outlines how the module will create a learnable autoencoder that “decouples” the LLM’s hidden states into a truthful component and a semantic component, fuses them via an attention mechanism, and––crucially––provides methods both for standard forward reconstruction and for “editing” an internal representation by applying the learned truth‐editing direction.
+
+────────────────────────
+1. CLASS INITIALIZATION AND ARCHITECTURE LAYOUT
+
+• The TruthXModel will inherit from torch.nn.Module.
+• In the __init__ method, we will:
+  – Read key configuration parameters from the configuration file (config.yaml), e.g.:
+      - d_model (4096 for Llama-2-7B-Chat)
+      - Encoder dimensions: a two‐layer MLP with dimensions [4096, 2048, 1024]
+      - Decoder dimensions: a two–layer MLP with dimensions [1024, 2048, 4096]
+      - Latent dimension (typically 1024)
+      - Other parameters will be passed to methods later (e.g., editing strength, temperature for contrastive loss is used elsewhere)
+  – Define two separate encoder modules:
+      • TruthEnc (truthful encoder): a 2-layer MLP that takes an input x ∈ ℝ^(d_model) and maps it to a latent space h_truth ∈ ℝ^(latent_dim). This MLP will include two Linear layers (first from d_model → intermediate dimension [2048] and then from 2048 → latent_dim [1024]) with ReLU activations.
+      • SemEnc (semantic encoder): similar 2-layer MLP that outputs h_sem ∈ ℝ^(latent_dim).
+  – Define the fusion mechanism that combines the two latent codes:
+      • The “fusion” is performed by an attention operation. In effect, we compute Attn(h_sem, h_truth) and then add the result to h_sem (i.e. fused = h_sem + Attn(h_sem, h_truth)).
+      • Although the exact details of Attn(·,·) are not fully specified in the paper, the general idea is to use a dot–product (or scaled dot–product) attention mechanism (possibly implemented via a helper function in utils.py) that “re-weights” h_truth based on h_sem.
+  – Define the decoder module:
+      • A 2–layer MLP that takes the fused latent representation as input (dimension latent_dim) and maps it back to the original representation space ℝ^(d_model). The decoder layers follow the dimensions defined in the configuration (1024 → 2048 → 4096) with ReLU activations in between.
+
+────────────────────────
+2. CORE METHODS OF THE MODEL
+
+A. compute_latents(x: Tensor) -> (Tensor, Tensor)
+   – Input: A hidden state x from the LLM (of shape [batch_size, d_model]).
+   – Process: Pass x through TruthEnc to obtain h_truth and through SemEnc to obtain h_sem.
+   – Output: Return the tuple (h_truth, h_sem).
+   – This method allows the trainer to later compute both reconstruction and contrastive losses.
+
+B. fuse_latents(h_sem: Tensor, h_truth: Tensor) -> Tensor
+   – Input: The two latent representations h_sem and h_truth.
+   – Process: Apply an attention mechanism to combine h_sem and h_truth:
+       • For example, compute attention weights using a dot–product between h_sem (as query) and h_truth (as key) with softmax normalization (the precise details, including scaling by a temperature or dimensionality factor, can be set in a utility function).
+       • The fused latent representation is then: fused = h_sem + Attn(h_sem, h_truth). (The idea is that h_sem provides semantic information while the “attended” h_truth injects truth–related features.)
+   – Output: Return the fused latent representation.
+   – Note: This function can call a helper from utils.py if a custom implementation of attention is provided.
+
+C. decode(fused: Tensor) -> Tensor
+   – Input: The fused latent code (from fuse_latents).
+   – Process: Forward pass the fused latent representation through the decoder MLP.
+   – Output: Returns the reconstructed representation x′ ∈ ℝ^(d_model).
+   – This output is compared with the original x in the reconstruction loss.
+
+D. forward(x: Tensor) -> (Tensor, Tensor, Tensor)
+   – Process:
+       1. Compute latent codes: (h_truth, h_sem) = self.compute_latents(x)
+       2. Fuse the latent codes: fused = self.fuse_latents(h_sem, h_truth)
+       3. Reconstruct x: x_recon = self.decode(fused)
+   – Output: Typically, return x_recon along with h_truth and h_sem so that the trainer can compute losses (reconstruction loss L_recon, contrastive loss L_ctr, and also use these for the editing loss).
+   – This constitutes the standard autoencoder forward pass.
+
+E. compute_edit_direction(truthful_batch: Tensor, untruthful_batch: Tensor) -> Tensor
+   – Purpose: After processing a training set, compute the “truth–editing direction” δ.
+   – Process:
+       • Receive a batch (or aggregated set) of latent representations h_truth from truthful samples and h_truth from untruthful samples.
+       • Compute δ as: δ = mean(h_truth of truthful samples) – mean(h_truth of untruthful samples).
+   – Output: Return δ ∈ ℝ^(latent_dim).
+   – Note: This function may be called periodically (or after training is complete) to fix the editing vector used at inference time.
+
+F. edit_representation(x: Tensor, delta: Tensor, alpha: float) -> Tensor
+   – Purpose: Modify a given internal representation x (from a selected module/layer) to steer generation toward truthfulness.
+   – Process:
+       1. Compute latent codes: (h_truth, h_sem) = self.compute_latents(x).
+       2. Apply the “conversion mechanism” to translate the editing direction δ from latent space to the original representation space. This is performed as follows:
+            • Compute the two “fused” latent representations:
+                  – fused_plus = h_sem + Attn( h_sem, (h_truth + δ) )
+                  – fused_minus = h_sem + Attn( h_sem, (h_truth - δ) )
+            • Decode both:
+                  – x_plus = self.decode(fused_plus)
+                  – x_minus = self.decode(fused_minus)
+            • Compute Δ = x_plus – x_minus.
+       3. Modify the original representation: x̂ = x + alpha * Δ.
+   – Output: Returns the edited representation x̂.
+   – The hyperparameter alpha depends on the task (open–ended uses 1.0; multiple–choice uses 4.5, as set in config.editing.editing_strength).
+
+────────────────────────
+3. INTEGRATION & DEPENDENCIES
+
+• The model depends on torch.nn modules (e.g., nn.Linear, nn.ReLU) to build the MLPs.
+• Utility functions (e.g., for the attention operation) may be imported from utils.py.
+• The outputs of forward (reconstructed x and latent codes) are used by the Trainer in trainer.py to compute all three losses (reconstruction, contrastive, editing).
+• The edit_representation method will be used at inference time to hook into the target LLM’s internal representations (as determined by a forward hook in main.py/trainer.py) to modify them on the fly before continuing generation.
+• All dimensions and hyperparameters (d_model, intermediate dims, latent_dim, α, etc.) are read from the configuration file (config.yaml).
+
+────────────────────────
+4. CLARIFICATIONS & AMBIGUITIES
+
+• Token Matching: The module assumes that x (the hidden state) is provided per token that is already preprocessed for “shared tokens” between truthful and untruthful answers. (The token matching procedure should be handled upstream in dataset_loader.py.)
+• Attention Operation: The exact formulation of the Attn(h_sem, h_truth) operation (scaling, softmax normalization, dropout, etc.) is not fully specified in the paper; therefore, a reasonable dot–product attention should be implemented, possibly with reference to the standard attention code in transformers.
+• Representation Injection: This module only computes modified representations. The actual hooking (i.e. capturing x from a given transformer module and re-injecting x̂ back into the model’s forward pass) is coordinated elsewhere (for example in trainer.py or main.py using forward hooks).
+• Loss Computations: While the forward() method and edit_representation() method provide critical outputs, the computation of contrastive and editing losses is handled outside this module by Trainer (using outputs from this model).
+
+────────────────────────
+5. SUMMARY
+
+The TruthXModel is structured around an autoencoder that splits an LLM’s hidden state into two parts: one that carries truth–related features (via TruthEnc) and one that captures semantic content (via SemEnc). Their fusion (via attention) produces a latent code that is then decoded back to the original space. In addition, the model provides functions to compute a global truth–editing direction and to “edit” a hidden representation by converting the latent difference into an additive perturbation. This design is central to the experimental approach outlined in the TruthX paper and will ultimately be leveraged to steer the LLM’s outputs toward more factual responses.
+
+This logic analysis now serves as the blueprint for writing and organizing the code in model.py.

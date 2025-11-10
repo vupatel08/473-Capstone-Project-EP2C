@@ -1,0 +1,37 @@
+training:
+  learning_rate: 1e-4
+  # Batch size is not specified in the paper.
+  batch_size: "not specified"
+  # Number of epochs is not provided in the paper.
+  epochs: "not specified"
+  optimizer: Adam
+  validation_split: 0.25  ## 2-fold validation (50% train/50% test split)
+
+model:
+  d_model: 4096
+  encoder_dims: [4096, 2048, 1024]  ## 2-layer MLP for TruthEnc and SemEnc respectively
+  decoder_dims: [1024, 2048, 4096]   ## 2-layer MLP for the decoder
+  latent_dim: 1024
+  k_edit_layers: 10  ## Top k layers selected for editing
+
+editing:
+  editing_strength:
+    open_ended: 1.0
+    multiple_choice: 4.5
+
+contrastive:
+  temperature: 0.1
+
+data:
+  dataset: TruthfulQA
+  train_samples: 408   ## Half of the dataset used for training/validation
+  test_samples: 408
+
+evaluation:
+  metrics:
+    - TruePercentage
+    - InfoPercentage
+    - TrueInfoProduct
+    - MC1
+    - MC2
+    - MC3

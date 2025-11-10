@@ -6,10 +6,12 @@ import os
 import sys
 from pathlib import Path
 from dotenv import load_dotenv
-from utils import print_response, print_log_cost, load_accumulated_cost, save_accumulated_cost
 
 # Load environment variables from .env file
 backend_dir = Path(__file__).parent.parent.resolve()
+# Add utils to path for imports
+sys.path.insert(0, str(backend_dir))
+from utils.papercoder_utils import print_response, print_log_cost, load_accumulated_cost, save_accumulated_cost
 project_root = backend_dir.parent
 env_paths = [backend_dir / ".env", project_root / ".env"]
 for env_path in env_paths:
@@ -293,3 +295,36 @@ with open(f'{output_dir}/planning_response.json', 'w') as f:
 
 with open(f'{output_dir}/planning_trajectories.json', 'w') as f:
     json.dump(trajectories, f)
+
+# Extract and save config.yaml from the last response (config generation)
+# The config is in the 4th response (index 3)
+if len(responses) >= 4:
+    config_response = responses[3]
+    config_content = config_response['choices'][0]['message']['content']
+    
+    # Extract YAML from markdown code blocks
+    import re
+    # Try to extract YAML from ```yaml ... ``` blocks
+    yaml_pattern = r'```(?:yaml)?\s*\n(.*?)```'
+    yaml_match = re.search(yaml_pattern, config_content, re.DOTALL)
+    
+    if yaml_match:
+        config_yaml = yaml_match.group(1).strip()
+        # Remove the "## config.yaml" header if present
+        config_yaml = re.sub(r'^##\s*config\.yaml\s*\n', '', config_yaml, flags=re.MULTILINE)
+    else:
+        # Fallback: try to extract anything between ``` markers
+        code_block_pattern = r'```[^\n]*\n(.*?)```'
+        code_match = re.search(code_block_pattern, config_content, re.DOTALL)
+        if code_match:
+            config_yaml = code_match.group(1).strip()
+        else:
+            # Last resort: use the entire content (might contain extra text)
+            config_yaml = config_content
+    
+    # Save config.yaml
+    with open(f'{output_dir}/planning_config.yaml', 'w', encoding='utf-8') as f:
+        f.write(config_yaml)
+    print(f"✅ Saved planning_config.yaml to {output_dir}/planning_config.yaml")
+else:
+    print("⚠️  Warning: Config response not found, planning_config.yaml not created")

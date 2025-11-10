@@ -1,0 +1,265 @@
+"""
+dataset_loader.py
+
+This module is responsible for loading and preprocessing the TruthfulQA dataset.
+It reads raw data (using HuggingFace's datasets API), constructs triplets of the form:
+    (question, truthful_answer, untruthful_answer)
+and extracts shared tokens between the truthful and untruthful answers to reduce semantic interference.
+The final product is two PyTorch Dataset objects (for training and testing) that will be used by the Trainer.
+
+Author: [Your Name]
+Date: [Today's Date]
+"""
+
+import random
+import string
+import logging
+from typing import List, Dict, Any, Optional, Tuple
+
+import torch
+from torch.utils.data import Dataset
+
+try:
+    from datasets import load_dataset
+except ImportError as import_error:
+    raise ImportError("The 'datasets' package from HuggingFace is required. Install it via 'pip install datasets'.") from import_error
+
+
+def extract_shared_tokens(truthful_text: str, untruthful_text: str) -> List[str]:
+    """
+    Extract tokens that are common to both the truthful and untruthful texts.
+    The texts are first normalized by lower-casing and removing punctuation.
+    
+    Args:
+        truthful_text (str): The truthful answer text.
+        untruthful_text (str): The untruthful answer text.
+        
+    Returns:
+        List[str]: A list of tokens (in order) from the truthful text which are also present in the untruthful text.
+    """
+    translator = str.maketrans('', '', string.punctuation)
+    norm_truth = truthful_text.lower().translate(translator)
+    norm_untruth = untruthful_text.lower().translate(translator)
+    tokens_truth = norm_truth.split()
+    tokens_untruth_set = set(norm_untruth.split())
+    shared_tokens = [token for token in tokens_truth if token in tokens_untruth_set]
+    return shared_tokens
+
+
+class TruthfulQADataset(Dataset):
+    """
+    PyTorch Dataset for TruthfulQA triplets.
+    Each item is a dictionary with keys:
+      - "question": the question text.
+      - "truthful_answer": the factual answer.
+      - "untruthful_answer": the hallucinatory answer.
+      - "shared_tokens": a list of tokens common to both answers.
+    """
+    def __init__(self, data_list: List[Dict[str, Any]]) -> None:
+        """
+        Initialize the dataset with a list of processed sample dictionaries.
+        
+        Args:
+            data_list (List[Dict[str, Any]]): Processed list of triplet dictionaries.
+        """
+        self.data_list = data_list
+
+    def __len__(self) -> int:
+        return len(self.data_list)
+
+    def __getitem__(self, idx: int) -> Dict[str, Any]:
+        return self.data_list[idx]
+
+
+class DatasetLoader:
+    """
+    DatasetLoader loads and preprocesses the TruthfulQA dataset according to the configuration.
+    
+    It:
+      - Loads raw data using HuggingFace's load_dataset.
+      - Constructs triplets (question, truthful answer, untruthful answer).
+      - Extracts shared tokens between the truthful answer and untruthful answer.
+      - Splits the processed samples into training and testing datasets.
+    """
+    def __init__(self, config: Dict[str, Any]) -> None:
+        """
+        Initializes the DatasetLoader with configuration parameters.
+        
+        Args:
+            config (Dict[str, Any]): Configuration dictionary (typically loaded from config.yaml).
+        """
+        self.config = config
+        data_config = config.get("data", {})
+        self.dataset_name: str = data_config.get("dataset", "TruthfulQA")
+        self.train_samples: int = int(data_config.get("train_samples", 408))
+        self.test_samples: int = int(data_config.get("test_samples", 408))
+        
+        # Set up logging.
+        self.logger = logging.getLogger(__name__)
+        if not self.logger.handlers:
+            logging.basicConfig(level=logging.INFO)
+
+    def load_raw_dataset(self) -> Any:
+        """
+        Loads the raw dataset based on the dataset name in the configuration.
+        Currently supports only "TruthfulQA".
+        
+        Returns:
+            The raw dataset object from HuggingFace datasets.
+        
+        Raises:
+            ValueError: If the specified dataset is not supported.
+        """
+        if self.dataset_name.lower() == "truthfulqa":
+            self.logger.info("Loading TruthfulQA dataset using HuggingFace datasets API.")
+            try:
+                # Load the "train" split for TruthfulQA.
+                raw_dataset = load_dataset("truthful_qa", split="train")
+            except Exception as error:
+                self.logger.error("Error loading TruthfulQA dataset: %s", error)
+                raise error
+            return raw_dataset
+        else:
+            message = f"Dataset '{self.dataset_name}' is not supported."
+            self.logger.error(message)
+            raise ValueError(message)
+
+    def preprocess_example(self, example: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+        """
+        Preprocesses a single raw example by extracting the question, truthful answer,
+        untruthful answer, and computing the shared tokens.
+        
+        The function attempts to use flexible keys (e.g., "correct_answer", "answer" for truthful answer;
+        "incorrect_answer", "hallucinated_answer" for untruthful answer).
+        
+        Args:
+            example (Dict[str, Any]): A raw example from the dataset.
+        
+        Returns:
+            A dictionary with keys "question", "truthful_answer", "untruthful_answer", and "shared_tokens",
+            or None if the example is incomplete.
+        """
+        question: str = example.get("question", "").strip()
+        truthful_answer: str = ""
+        untruthful_answer: str = ""
+
+        if "correct_answer" in example:
+            truthful_answer = example["correct_answer"].strip()
+        elif "answer" in example:
+            truthful_answer = example["answer"].strip()
+
+        if "incorrect_answer" in example:
+            untruthful_answer = example["incorrect_answer"].strip()
+        elif "hallucinated_answer" in example:
+            untruthful_answer = example["hallucinated_answer"].strip()
+
+        # If any required field is missing, skip the sample.
+        if not question or not truthful_answer or not untruthful_answer:
+            self.logger.warning("Incomplete example encountered; skipping sample.")
+            return None
+
+        # Extract shared tokens using the helper function.
+        shared_tokens: List[str] = extract_shared_tokens(truthful_answer, untruthful_answer)
+        if len(shared_tokens) == 0:
+            self.logger.warning("No shared tokens found for the sample (Question: %s)", question)
+        
+        processed_sample: Dict[str, Any] = {
+            "question": question,
+            "truthful_answer": truthful_answer,
+            "untruthful_answer": untruthful_answer,
+            "shared_tokens": shared_tokens
+        }
+        return processed_sample
+
+    def load_data(self) -> Tuple[TruthfulQADataset, TruthfulQADataset]:
+        """
+        Loads and preprocesses the raw dataset.
+        It shuffles the dataset, selects the required number of samples,
+        processes each example to construct triplets, and then splits the data into
+        training and testing datasets.
+        
+        Returns:
+            A tuple containing the training dataset and testing dataset (both as TruthfulQADataset objects).
+        """
+        raw_dataset = self.load_raw_dataset()
+        total_required: int = self.train_samples + self.test_samples
+
+        # Convert the raw dataset to a list.
+        raw_data_list: List[Any] = list(raw_dataset)
+        self.logger.info("Raw dataset size: %d", len(raw_data_list))
+
+        # Shuffle and select the required number of examples.
+        if len(raw_data_list) >= total_required:
+            random.seed(42)
+            random.shuffle(raw_data_list)
+            selected_data = raw_data_list[:total_required]
+        else:
+            self.logger.warning("Raw dataset size is smaller than the required total samples; using entire dataset.")
+            selected_data = raw_data_list
+
+        processed_samples: List[Dict[str, Any]] = []
+        for ex in selected_data:
+            processed = self.preprocess_example(ex)
+            if processed is not None:
+                processed_samples.append(processed)
+
+        self.logger.info("Processed %d samples after preprocessing.", len(processed_samples))
+
+        # If the number of processed samples is less than expected, adjust the split.
+        if len(processed_samples) < total_required:
+            self.logger.warning("Not enough processed samples; splitting the available samples equally.")
+            half = len(processed_samples) // 2
+            train_data = processed_samples[:half]
+            test_data = processed_samples[half:]
+        else:
+            train_data = processed_samples[:self.train_samples]
+            test_data = processed_samples[self.train_samples:self.train_samples + self.test_samples]
+
+        self.logger.info("Train dataset size: %d, Test dataset size: %d", len(train_data), len(test_data))
+        train_dataset = TruthfulQADataset(train_data)
+        test_dataset = TruthfulQADataset(test_data)
+        return train_dataset, test_dataset
+
+
+# For standalone testing:
+if __name__ == "__main__":
+    # Example configuration dictionary; in practice, load this from config.yaml.
+    example_config = {
+        "data": {
+            "dataset": "TruthfulQA",
+            "train_samples": 408,
+            "test_samples": 408
+        },
+        "training": {
+            "learning_rate": 1e-4,
+            "batch_size": 16,
+            "epochs": 5
+        },
+        "model": {
+            "d_model": 4096,
+            "encoder_dims": [4096, 2048, 1024],
+            "decoder_dims": [1024, 2048, 4096],
+            "latent_dim": 1024,
+            "k_edit_layers": 10
+        },
+        "editing": {
+            "editing_strength": {
+                "open_ended": 1.0,
+                "multiple_choice": 4.5
+            }
+        },
+        "contrastive": {
+            "temperature": 0.1
+        },
+        "evaluation": {
+            "metrics": ["TruePercentage", "InfoPercentage", "TrueInfoProduct", "MC1", "MC2", "MC3"]
+        }
+    }
+
+    # Instantiate DatasetLoader and load data.
+    loader = DatasetLoader(example_config)
+    train_ds, test_ds = loader.load_data()
+    # Print out a sample for verification.
+    if len(train_ds) > 0:
+        sample = train_ds[0]
+        logging.info("Sample from train dataset:\n%s", sample)

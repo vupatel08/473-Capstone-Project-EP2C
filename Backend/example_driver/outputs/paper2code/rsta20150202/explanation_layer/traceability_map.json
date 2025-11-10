@@ -1,0 +1,194 @@
+{
+  "code_to_paper": {
+    "evaluation.py:which": [
+      "The information provided is insufficient to determine the most relevant paper sections for the code component. Please provide more details about the code component and the paper sections."
+    ],
+    "evaluation.py:Evaluation": [
+      "Without specific section names",
+      "it's hard to provide an accurate answer. However",
+      "based on the code component description",
+      "the most relevant sections could be \"Methodology\"",
+      "\"Model Evaluation\"",
+      "\"Results and Discussion\"."
+    ],
+    "model.py:for": [
+      "The provided information is insufficient to determine the most relevant paper sections for the code component. Please provide more details about the code component and the paper sections."
+    ],
+    "model.py:TruthXModel": [
+      "Methodology",
+      "Results",
+      "Discussion"
+    ],
+    "dataset_loader.py:TruthfulQADataset": [
+      "Dataset Description",
+      "Methodology",
+      "Experiment Setup"
+    ],
+    "dataset_loader.py:DatasetLoader": [
+      "Dataset Preparation",
+      "Methodology",
+      "Experiment Setup"
+    ],
+    "trainer.py:which": [
+      "The provided information is insufficient to determine the most relevant paper sections for the code component. Please provide more details about the code component and the paper sections."
+    ],
+    "trainer.py:Trainer": [
+      "Methodology",
+      "Experiment Setup",
+      "Model Implementation"
+    ],
+    "main.py:with": [
+      "The provided information is insufficient to determine the most relevant paper sections for the code component. Please provide more details about the code component and the paper sections."
+    ]
+  },
+  "paper_to_code": {
+    "The information provided is insufficient to determine the most relevant paper sections for the code component. Please provide more details about the code component and the paper sections.": [
+      {
+        "component": "evaluation.py:which",
+        "description": "",
+        "file": "evaluation.py"
+      }
+    ],
+    "Without specific section names": [
+      {
+        "component": "evaluation.py:Evaluation",
+        "description": "Evaluation class for running open\u2011ended generation and multiple\u2011choice evaluations\n    on the test dataset using the TruthXModel.",
+        "file": "evaluation.py"
+      }
+    ],
+    "it's hard to provide an accurate answer. However": [
+      {
+        "component": "evaluation.py:Evaluation",
+        "description": "Evaluation class for running open\u2011ended generation and multiple\u2011choice evaluations\n    on the test dataset using the TruthXModel.",
+        "file": "evaluation.py"
+      }
+    ],
+    "based on the code component description": [
+      {
+        "component": "evaluation.py:Evaluation",
+        "description": "Evaluation class for running open\u2011ended generation and multiple\u2011choice evaluations\n    on the test dataset using the TruthXModel.",
+        "file": "evaluation.py"
+      }
+    ],
+    "the most relevant sections could be \"Methodology\"": [
+      {
+        "component": "evaluation.py:Evaluation",
+        "description": "Evaluation class for running open\u2011ended generation and multiple\u2011choice evaluations\n    on the test dataset using the TruthXModel.",
+        "file": "evaluation.py"
+      }
+    ],
+    "\"Model Evaluation\"": [
+      {
+        "component": "evaluation.py:Evaluation",
+        "description": "Evaluation class for running open\u2011ended generation and multiple\u2011choice evaluations\n    on the test dataset using the TruthXModel.",
+        "file": "evaluation.py"
+      }
+    ],
+    "\"Results and Discussion\".": [
+      {
+        "component": "evaluation.py:Evaluation",
+        "description": "Evaluation class for running open\u2011ended generation and multiple\u2011choice evaluations\n    on the test dataset using the TruthXModel.",
+        "file": "evaluation.py"
+      }
+    ],
+    "The provided information is insufficient to determine the most relevant paper sections for the code component. Please provide more details about the code component and the paper sections.": [
+      {
+        "component": "model.py:for",
+        "description": "",
+        "file": "model.py"
+      },
+      {
+        "component": "trainer.py:which",
+        "description": "",
+        "file": "trainer.py"
+      },
+      {
+        "component": "main.py:with",
+        "description": "",
+        "file": "main.py"
+      }
+    ],
+    "Methodology": [
+      {
+        "component": "model.py:TruthXModel",
+        "description": "TruthXModel implements an autoencoder-based method to decouple an LLM's hidden state \n    into semantic and truth-related latent spaces, fuse them using an attention mechanism, \n    and reconstruct the original representation. It also provides methods to compute the \n    truth-editing direction and to edit internal representations.",
+        "file": "model.py"
+      },
+      {
+        "component": "dataset_loader.py:TruthfulQADataset",
+        "description": "PyTorch Dataset for TruthfulQA triplets.\n    Each item is a dictionary with keys:\n      - \"question\": the question text.\n      - \"truthful_answer\": the factual answer.\n      - \"untruthful_answer\": the hallucinatory answer.\n      - \"shared_tokens\": a list of tokens common to both answers.",
+        "file": "dataset_loader.py"
+      },
+      {
+        "component": "dataset_loader.py:DatasetLoader",
+        "description": "DatasetLoader loads and preprocesses the TruthfulQA dataset according to the configuration.\n    \n    It:\n      - Loads raw data using HuggingFace's load_dataset.\n      - Constructs triplets (question, truthful answer, untruthful answer).\n      - Extracts shared tokens between the truthful answer and untruthful answer.\n      - Splits the processed samples into training and testing datasets.",
+        "file": "dataset_loader.py"
+      },
+      {
+        "component": "trainer.py:Trainer",
+        "description": "Trainer class for training the TruthXModel.\n    \n    Attributes:\n        model (TruthXModel): The TruthXModel instance to be trained.\n        train_dataset (torch.utils.data.Dataset): Training dataset.\n        config (Dict): Configuration dictionary loaded from config.yaml.\n        optimizer (torch.optim.Optimizer): Adam optimizer.\n        device (torch.device): Device to perform training on.\n        dataloader (DataLoader): PyTorch DataLoader for batching the training dataset.",
+        "file": "trainer.py"
+      }
+    ],
+    "Results": [
+      {
+        "component": "model.py:TruthXModel",
+        "description": "TruthXModel implements an autoencoder-based method to decouple an LLM's hidden state \n    into semantic and truth-related latent spaces, fuse them using an attention mechanism, \n    and reconstruct the original representation. It also provides methods to compute the \n    truth-editing direction and to edit internal representations.",
+        "file": "model.py"
+      }
+    ],
+    "Discussion": [
+      {
+        "component": "model.py:TruthXModel",
+        "description": "TruthXModel implements an autoencoder-based method to decouple an LLM's hidden state \n    into semantic and truth-related latent spaces, fuse them using an attention mechanism, \n    and reconstruct the original representation. It also provides methods to compute the \n    truth-editing direction and to edit internal representations.",
+        "file": "model.py"
+      }
+    ],
+    "Dataset Description": [
+      {
+        "component": "dataset_loader.py:TruthfulQADataset",
+        "description": "PyTorch Dataset for TruthfulQA triplets.\n    Each item is a dictionary with keys:\n      - \"question\": the question text.\n      - \"truthful_answer\": the factual answer.\n      - \"untruthful_answer\": the hallucinatory answer.\n      - \"shared_tokens\": a list of tokens common to both answers.",
+        "file": "dataset_loader.py"
+      }
+    ],
+    "Experiment Setup": [
+      {
+        "component": "dataset_loader.py:TruthfulQADataset",
+        "description": "PyTorch Dataset for TruthfulQA triplets.\n    Each item is a dictionary with keys:\n      - \"question\": the question text.\n      - \"truthful_answer\": the factual answer.\n      - \"untruthful_answer\": the hallucinatory answer.\n      - \"shared_tokens\": a list of tokens common to both answers.",
+        "file": "dataset_loader.py"
+      },
+      {
+        "component": "dataset_loader.py:DatasetLoader",
+        "description": "DatasetLoader loads and preprocesses the TruthfulQA dataset according to the configuration.\n    \n    It:\n      - Loads raw data using HuggingFace's load_dataset.\n      - Constructs triplets (question, truthful answer, untruthful answer).\n      - Extracts shared tokens between the truthful answer and untruthful answer.\n      - Splits the processed samples into training and testing datasets.",
+        "file": "dataset_loader.py"
+      },
+      {
+        "component": "trainer.py:Trainer",
+        "description": "Trainer class for training the TruthXModel.\n    \n    Attributes:\n        model (TruthXModel): The TruthXModel instance to be trained.\n        train_dataset (torch.utils.data.Dataset): Training dataset.\n        config (Dict): Configuration dictionary loaded from config.yaml.\n        optimizer (torch.optim.Optimizer): Adam optimizer.\n        device (torch.device): Device to perform training on.\n        dataloader (DataLoader): PyTorch DataLoader for batching the training dataset.",
+        "file": "trainer.py"
+      }
+    ],
+    "Dataset Preparation": [
+      {
+        "component": "dataset_loader.py:DatasetLoader",
+        "description": "DatasetLoader loads and preprocesses the TruthfulQA dataset according to the configuration.\n    \n    It:\n      - Loads raw data using HuggingFace's load_dataset.\n      - Constructs triplets (question, truthful answer, untruthful answer).\n      - Extracts shared tokens between the truthful answer and untruthful answer.\n      - Splits the processed samples into training and testing datasets.",
+        "file": "dataset_loader.py"
+      }
+    ],
+    "Model Implementation": [
+      {
+        "component": "trainer.py:Trainer",
+        "description": "Trainer class for training the TruthXModel.\n    \n    Attributes:\n        model (TruthXModel): The TruthXModel instance to be trained.\n        train_dataset (torch.utils.data.Dataset): Training dataset.\n        config (Dict): Configuration dictionary loaded from config.yaml.\n        optimizer (torch.optim.Optimizer): Adam optimizer.\n        device (torch.device): Device to perform training on.\n        dataloader (DataLoader): PyTorch DataLoader for batching the training dataset.",
+        "file": "trainer.py"
+      }
+    ]
+  },
+  "paper_sections": [
+    {
+      "section": "Abstract",
+      "text": "Shaolei Zhang1,3, Tian $\\mathbf { Y } \\mathbf { u } ^ { 1 , 3 }$ , Yang Feng1,2,3\\*",
+      "ontology": "abstract"
+    }
+  ],
+  "coverage_score": 15.0
+}

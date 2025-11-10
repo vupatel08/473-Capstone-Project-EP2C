@@ -1,0 +1,151 @@
+Below is an extended logic analysis for the contents of utils.py. In this module, our goal is to implement several helper functions that will be used by model.py and trainer.py. These functions include (a) token‐matching utilities to extract “common tokens” from pairwise answers, (b) a custom attention fusion function for merging the two latent codes (the “semantic” and “truthful” representations), and (c) loss function implementations (reconstruction, contrastive, and editing losses). Below is a step‐by‐step analysis of the logic behind each component:
+
+────────────────────────
+1. TOKEN MATCHING FUNCTIONS
+
+• Purpose:
+  – When constructing each training triplet (question, truthful answer A₊, untruthful answer A₋), we want to limit the extracted internal representations to those tokens that occur in both A₊ and A₋. This “common token” selection helps reduce semantic noise.
+
+• Logic:
+  – Accept two sequences (e.g., lists) of tokens (or token IDs) from the two answers.
+  – Compute the “intersection” of the two token sets.
+  – For each answer sequence, iterate through the tokens to record the indices (or positions) where the token is in the intersected set.
+  – Return these index mappings for later use (for example, to select the matching hidden activations from the LLM outputs).
+  
+• Edge cases:
+  – If there are no common tokens, consider what to do (e.g., fallback to the entire token sequence, issue a warning, or skip the example).
+
+────────────────────────
+2. CUSTOM ATTENTION FUSION FUNCTION
+
+• Purpose:
+  – In our autoencoder architecture, we run the hidden state x ∈ ℝ^(d_model) through two distinct encoders: one (TruthEnc) produces h_truth and the other (SemEnc) produces h_sem. To “fuse” these two latent representations, we apply an attention operation. The paper states a fused latent code is computed as:
+    fused = h_sem + Attn(h_sem, h_truth)
+  – This fusion is meant to combine semantic features with the truth–oriented features in a controlled manner.
+
+• Logic:
+  – Design a function (e.g., attention_fusion) that accepts two tensors: query = h_sem and key/value = h_truth.
+  – Compute an attention “score” between h_sem and h_truth. A standard approach is to use the dot–product:
+      
+        score = (h_sem · h_truth^T) / sqrt(d_latent)
+      
+    (One may also include a temperature parameter; however, note that the contrastive loss already uses a temperature, so here the normalization factor might be the square-root of the latent dimension.)
+  – Apply the softmax function across the appropriate dimension (if working with batches or sequences) to obtain attention weights.
+  – Finally, obtain the output by taking the weighted sum of h_truth (you might use torch.matmul with the weights and h_truth).
+  – Return this “attended” vector so that the fused representation becomes h_sem + output.
+  
+• Edge considerations:
+  – Make sure the dimensions match with latent_dim (here, as per configuration, d_latent = 1024).
+  – Decide whether the attention should be computed per token (if the encoder outputs are sequences) or on aggregated representations (if working with a single vector per answer). In our reproduction, assuming that we work with individual token activations (or pooled representations), the function should handle tensor shapes accordingly.
+
+────────────────────────
+3. LOSS FUNCTIONS
+
+A. Reconstruction Loss
+  • Purpose:
+    – The autoencoder must be able to reconstruct the original LLM hidden representation x from the fused latent code.
+  • Logic:
+    – Use the Mean Squared Error (MSE) loss between the original x and the reconstructed x′.
+    – Implementation: simply call torch.nn.functional.mse_loss(x, x′).
+    
+B. Contrastive Loss
+  • Purpose:
+    – To encourage the latent spaces to isolate the “truthfulness” (in h_truth) and the “semantics” (in h_sem), a contrastive loss is applied so that:
+       – In the truthful space, representations from truthful answers (A₊) are pulled together while being pushed away from untruthful ones (A₋).
+       – Similarly, one can enforce in the semantic space that tokens with similar meaning (i.e. shared tokens from A₊ and A₋) are close.
+  • Logic:
+    – For a given “anchor” representation (e.g., h_truth from a sample), define:
+         • A positive set S⁺ comprised of latent representations from samples with the same truth label.
+         • A negative set S⁻ comprised of latent representations with the opposite truth label.
+    – Compute cosine similarities between the anchor and all positives and negatives.
+    – Use a loss such as
+           
+           loss_anchor = -log( (Σ_{p∈S⁺} exp(sim(anchor, p)/τ)) /
+                   (Σ_{p∈S⁺ ∪ S⁻} exp(sim(anchor, p)/τ)) )
+           
+         where τ is the temperature (set from config to 0.1).
+    – Vectorize this computation where possible (for instance, using batched matrix operations) to process a batch of anchors.
+  • Implementation considerations:
+    – Use torch.nn.functional.cosine_similarity and torch.logsumexp for numerical stability.
+    – The function should be general so it can be applied in both the truthful and semantic spaces.
+    
+C. Editing Loss
+  • Purpose:
+    – The editing loss enforces that if we swap the h_truth latent representation between a truthful sample and an untruthful sample (keeping h_sem intact), then the decoder should reconstruct the representation that corresponds to the opposite truth value.
+  • Logic:
+    – For a matched pair (from A₊ and A₋ corresponding to the same common tokens), compute:
+      
+            x_recon_pos→neg = Dec( h_sem^(pos) + Attn( h_sem^(pos), h_truth^(neg) ) )
+            x_recon_neg→pos = Dec( h_sem^(neg) + Attn( h_sem^(neg), h_truth^(pos) ) )
+      
+      Then, compute the MSE loss between x_recon_pos→neg and the actual x from the untruthful sample, and similarly for the other direction.
+    – Sum the two MSE losses to yield L_edit.
+    
+D. Additional Utility Function: Cosine Similarity
+  • Although torch.nn.functional.cosine_similarity exists, a wrapper or helper might be provided to ensure consistent use of dimensions and potential damping.
+
+────────────────────────
+4. GENERAL IMPLEMENTATION CONSIDERATIONS
+
+• All functions must accept torch.Tensors and return Tensors that are differentiable (for loss functions and attention fusion).
+• Many of the hyperparameters (for instance, temperature τ=0.1 for contrastive loss) are read from our configuration. The functions should either accept these as arguments or be designed to use global configuration values.
+• Ensure that our token matching function is robust. A typical approach is to convert tokens to strings (if they are not already) and then use Python’s set intersection and list comprehensions to get indices.
+• When writing the custom attention fusion function, it will be important to verify that the output has the same dimensions as h_truth (and h_sem) so that the decoder receives the properly sized fused vector.
+• In computing contrastive loss, take care with numerical stability (consider using a log-sum-exp trick).
+
+────────────────────────
+5. SUMMARY OF FUNCTIONS TO BE INCLUDED IN utils.py
+
+Below is an outline of the functions and their responsibilities:
+
+• extract_common_tokens(seq1, seq2)
+  – Input: Two sequences (lists) of tokens (or token IDs).
+  – Output: Two lists of indices (or a tuple of index lists) corresponding to the tokens common to both sequences.
+  – Logic: Compute intersection; iterate to record indices.
+  
+• attention_fusion(query, key, scaling=True)
+  – Input: query (h_sem) and key (h_truth) Tensors; option for scaling (e.g., divide the dot–product by sqrt(d_latent)).
+  – Process: Compute dot–product scores; apply softmax; then weighted sum of key vectors.
+  – Output: Returns attention output which will be added to h_sem to form the fused latent vector.
+  
+• mse_reconstruction_loss(x, x_prime)
+  – Wraps torch.nn.functional.mse_loss.
+  
+• contrastive_loss(anchor, positives, negatives, temperature)
+  – Computes the InfoNCE–style loss for a batch of anchor examples using cosine similarity.
+  
+• editing_loss(x_target, x_swapped)
+  – Computes the MSE loss between the target representation and the reconstruction obtained via swapped latent representations.
+  
+• (Optional) cosine_similarity(a, b, eps=1e-8)
+  – Custom function that computes cosine similarity with small eps for numerical stability.
+
+────────────────────────
+6. HOW THESE FUNCTIONS ARE USED
+
+• In model.py:
+  – The TruthXModel will call attention_fusion within its fusion method.
+  – It will also use the provided loss functions when computing L_recon, L_ctr, and L_edit.
+  
+• In trainer.py:
+  – During each training batch, the Trainer will call the appropriate loss (via functions in utils.py) to update the model.
+  – The token matching function is called before the activations are extracted to ensure only “common tokens” are used.
+  
+• Throughout:
+  – The functions rely on configuration parameters (e.g., temperature = 0.1) that are defined in the config.yaml file.
+  
+────────────────────────
+7. CLARIFICATIONS AND POTENTIAL AMBIGUITIES
+
+Before finalizing the utility functions:
+• Confirm the token matching strategy—especially how tokens are compared (exact string match vs. token ID match) and what to do if no tokens are common.
+• Clarify the integration of the attention fusion operation (e.g., whether to use the standard dot–product attention with a scaling factor computed using sqrt(d_latent) or any custom variation).
+• Make sure that the contrastive loss function’s positive/negative set creation is compatible with batch processing and that any batch–based negative sampling is done correctly.
+• Ensure that the overall dimension sizes (as given by config: d_model=4096, latent_dim=1024) are maintained across all functions.
+
+────────────────────────
+CONCLUSION
+
+The utils.py module will therefore encapsulate all these helper functions so that the core training and model code remains clean and modular. Each function is written with clarity in its input/output expectations (using torch.Tensors), and hyperparameters (e.g., temperature for contrastive loss) are to be passed as arguments or drawn from the config. This analysis should serve as the blueprint for writing the actual code later.
+
+This completes the logic analysis for utils.py.

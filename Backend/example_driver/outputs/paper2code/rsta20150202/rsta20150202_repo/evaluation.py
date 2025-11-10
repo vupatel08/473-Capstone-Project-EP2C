@@ -1,0 +1,394 @@
+"""
+evaluation.py
+
+This module implements the Evaluation class which provides end‐to‐end evaluation for 
+the TruthX method. It supports evaluation on open‑ended generation tasks and multiple‑choice tasks.
+For open‑ended tasks, it uses the model’s edit_representation() method (with the pre‐computed 
+truth‐editing direction δ) to modify simulated internal representations and “generate” answers.
+For multiple‑choice tasks, it “scores” candidate answers by simulating hidden activations and 
+applying the editing mechanism. The evaluation results are aggregated into a dictionary that includes:
+    - TruePercentage, InfoPercentage, and TrueInfoProduct for open‑ended generations;
+    - MC1, MC2, and MC3 metrics for multiple‑choice tasks.
+Optionally, a diagnostic t‑SNE plot of latent representations can be generated.
+Configuration parameters (e.g., d_model, editing strengths, etc.) are read from the provided config.
+
+Author: [Your Name]
+Date: [Today's Date]
+"""
+
+import math
+import logging
+import random
+from typing import Any, Dict, List, Optional, Tuple
+
+import torch
+from torch import Tensor
+from torch.utils.data import DataLoader, Dataset
+
+# For optional diagnostic plotting
+import numpy as np
+import matplotlib.pyplot as plt
+from sklearn.manifold import TSNE
+
+# Import the autoencoder-based model.
+# (Ensure that model.py is in the same project directory.)
+from model import TruthXModel
+
+# Initialize module-level logger.
+logger = logging.getLogger(__name__)
+logging.basicConfig(level=logging.INFO)
+
+
+class Evaluation:
+    """
+    Evaluation class for running open‑ended generation and multiple‑choice evaluations
+    on the test dataset using the TruthXModel.
+    """
+    def __init__(self, model: TruthXModel, test_dataset: Dataset, config: Dict[str, Any]) -> None:
+        """
+        Initializes the evaluation with a pre-trained TruthXModel, a test dataset,
+        and a configuration dictionary (loaded from config.yaml).
+        
+        Args:
+            model (TruthXModel): The trained model instance.
+            test_dataset (Dataset): A PyTorch Dataset containing test samples.
+            config (Dict[str, Any]): Configuration dictionary that includes model, editing, and evaluation settings.
+        """
+        self.model: TruthXModel = model
+        self.test_dataset: Dataset = test_dataset
+        self.config: Dict[str, Any] = config
+        
+        # Set device based on model's device.
+        self.device: torch.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        self.model.to(self.device)
+        
+        # Obtain d_model and latent_dim from configuration.
+        model_config: Dict[str, Any] = self.config.get("model", {})
+        self.d_model: int = model_config.get("d_model", 4096)
+        self.latent_dim: int = model_config.get("latent_dim", 1024)
+        
+        # Get editing strengths. For open-ended tasks alpha = 1.0, multiple-choice alpha = 4.5.
+        editing_config: Dict[str, Any] = self.config.get("editing", {})
+        editing_strength_dict: Dict[str, Any] = editing_config.get("editing_strength", {})
+        self.alpha_open_ended: float = float(editing_strength_dict.get("open_ended", 1.0))
+        self.alpha_multiple_choice: float = float(editing_strength_dict.get("multiple_choice", 4.5))
+        
+        # Prepare DataLoader for test dataset.
+        test_training_config: Dict[str, Any] = self.config.get("training", {})
+        self.batch_size: int = int(test_training_config.get("batch_size", 16))
+        self.test_loader: DataLoader = DataLoader(
+            self.test_dataset, batch_size=self.batch_size, shuffle=False, drop_last=False
+        )
+        
+        # Assume that the truth-editing direction (δ) is stored in the model attribute after training.
+        # If not available, use zeros.
+        if hasattr(self.model, "truth_edit_direction"):
+            self.delta: Tensor = self.model.truth_edit_direction.to(self.device)
+            logger.info("Using precomputed truth-editing direction δ with norm: %.4f", self.delta.norm().item())
+        else:
+            self.delta = torch.zeros(self.latent_dim, device=self.device)
+            logger.warning("No truth-editing direction found in model; using zeros.")
+
+    def _simulate_generation(self, question: str) -> str:
+        """
+        Simulates open‑ended answer generation for a given question.
+        For demonstration, it fabricates an answer by:
+           1. Simulating an internal hidden representation x ~ N(0,1) of shape (1, d_model)
+           2. Editing the representation via model.edit_representation() with alpha_open_ended.
+           3. Converting the edited representation into a dummy text by using its mean value.
+        
+        Args:
+            question (str): The input question text.
+        
+        Returns:
+            str: The generated answer text.
+        """
+        # In practice, x would be the actual hidden state from the LLM.
+        x: Tensor = torch.randn(1, self.d_model, device=self.device)
+        # Edit the representation using the truth-editing direction δ.
+        x_edited: Tensor = self.model.edit_representation(x, self.delta, self.alpha_open_ended)
+        # For demonstration, convert the mean of the edited representation into an answer.
+        value: float = x_edited.mean().item()
+        # A simple rounding for demonstration.
+        answer: str = f"Generated answer for question '{question}': value {value:.4f}"
+        return answer
+
+    def evaluate_open_ended(self) -> Dict[str, float]:
+        """
+        Evaluates the model on an open‑ended generation task using the test dataset.
+        
+        For each sample:
+           - Uses the question to simulate hidden state via _simulate_generation.
+           - Accumulates generated answers.
+           - Scores each answer using dummy evaluators for truthfulness and informativeness.
+        
+        Returns:
+            Dict[str, float]: A dictionary containing:
+                - TruePercentage: percentage of responses deemed truthful.
+                - InfoPercentage: percentage of responses deemed informative (avoid "I have no comment").
+                - TrueInfoProduct: product of the above two percentages.
+        """
+        generated_answers: List[str] = []
+        # Dummy counters (in practice, these should interface with external evaluators)
+        true_count: int = 0
+        info_count: int = 0
+        total_samples: int = 0
+        
+        logger.info("Evaluating open-ended generation on %d samples...", len(self.test_dataset))
+        for sample in self.test_dataset:
+            question: str = sample.get("question", "No question provided")
+            generated_answer: str = self._simulate_generation(question)
+            generated_answers.append(generated_answer)
+            total_samples += 1
+
+            # Dummy scoring functions:
+            # For truthfulness: if the mean value (extracted from the answer text) is > 0, mark as True.
+            # Here we parse the last token as a float.
+            try:
+                answer_value: float = float(generated_answer.strip().split()[-1])
+                is_true: bool = answer_value > 0  # Simulated criterion.
+            except Exception:
+                is_true = False
+
+            # For informativeness: if answer does not contain "no comment", we mark it as informative.
+            is_informative: bool = "no comment" not in generated_answer.lower()
+
+            if is_true:
+                true_count += 1
+            if is_informative:
+                info_count += 1
+
+        true_percentage: float = (true_count / total_samples) * 100 if total_samples > 0 else 0.0
+        info_percentage: float = (info_count / total_samples) * 100 if total_samples > 0 else 0.0
+        true_info_product: float = (true_percentage * info_percentage) / 100.0
+
+        results_open: Dict[str, float] = {
+            "TruePercentage": true_percentage,
+            "InfoPercentage": info_percentage,
+            "TrueInfoProduct": true_info_product
+        }
+        logger.info("Open-ended Evaluation Results: %s", results_open)
+        return results_open
+
+    def evaluate_multiple_choice(self) -> Dict[str, float]:
+        """
+        Evaluates the model on a multiple-choice task.
+        
+        For each test sample in the dataset that contains multiple-choice candidates:
+           - Each sample is expected to contain:
+                 "question": the question,
+                 "choices": a list of candidate answer strings,
+                 "correct_choice_index": the index of the correct candidate.
+           - For each candidate, simulate a hidden representation (x_candidate) and edit it using model.edit_representation()
+             with multiple-choice editing strength (alpha_multiple_choice).
+           - Compute a "score" for each candidate by taking the mean of the edited representation.
+           - MC1: Percentage where the candidate with highest score matches the correct_choice_index.
+           - MC2: Evaluate if the normalized probability mass for correct choices is higher than that of incorrect ones.
+           - MC3: Evaluate if the score of the correct candidate is higher than all incorrect candidates.
+        
+        Returns:
+            Dict[str, float]: A dictionary containing MC1, MC2, and MC3 percentages.
+        """
+        mc1_correct: int = 0
+        mc2_correct: int = 0
+        mc3_correct: int = 0
+        total_mc: int = 0
+
+        logger.info("Evaluating multiple-choice on test samples with candidate choices...")
+        # Iterate over test dataset; only consider samples that provide a "choices" field.
+        for sample in self.test_dataset:
+            # Check if sample has multiple-choice candidates.
+            if "choices" not in sample or "correct_choice_index" not in sample:
+                continue  # Skip non-multiple-choice samples.
+            
+            total_mc += 1
+            question: str = sample.get("question", "No question provided")
+            choices: List[str] = sample.get("choices", [])
+            correct_index: int = int(sample.get("correct_choice_index", 0))
+            
+            candidate_scores: List[float] = []
+            # For each candidate answer, simulate a hidden state and edit it.
+            for candidate in choices:
+                # In a real scenario, input the candidate text into the LLM and extract its internal representation.
+                # Here we simulate the hidden state as a random tensor.
+                x_candidate: Tensor = torch.randn(1, self.d_model, device=self.device)
+                # Edit the representation with multiple-choice editing strength.
+                x_candidate_edited: Tensor = self.model.edit_representation(x_candidate, self.delta, self.alpha_multiple_choice)
+                # Define a candidate score as the mean of the edited representation.
+                score: float = x_candidate_edited.mean().item()
+                candidate_scores.append(score)
+            
+            # Compute MC1: if the candidate with highest score is the correct one.
+            predicted_index: int = int(np.argmax(candidate_scores))
+            if predicted_index == correct_index:
+                mc1_correct += 1
+            
+            # Compute normalized probabilities using softmax.
+            scores_tensor: Tensor = torch.tensor(candidate_scores)
+            prob_tensor: Tensor = torch.softmax(scores_tensor, dim=0)
+            # For MC2, assume single correct candidate.
+            correct_prob: float = prob_tensor[correct_index].item()
+            incorrect_prob: float = (prob_tensor.sum() - correct_prob).item()
+            if correct_prob > incorrect_prob:
+                mc2_correct += 1
+            
+            # Compute MC3: if the score of the correct candidate is higher than all incorrect candidate scores.
+            if candidate_scores[correct_index] > max([candidate_scores[i] for i in range(len(candidate_scores)) if i != correct_index]):
+                mc3_correct += 1
+
+        # If no multiple-choice samples were found, default to zeros.
+        if total_mc == 0:
+            logger.warning("No multiple-choice samples found in test dataset.")
+            return {"MC1": 0.0, "MC2": 0.0, "MC3": 0.0}
+
+        mc1_percentage: float = (mc1_correct / total_mc) * 100.0
+        mc2_percentage: float = (mc2_correct / total_mc) * 100.0
+        mc3_percentage: float = (mc3_correct / total_mc) * 100.0
+
+        results_mc: Dict[str, float] = {
+            "MC1": mc1_percentage,
+            "MC2": mc2_percentage,
+            "MC3": mc3_percentage
+        }
+        logger.info("Multiple-choice Evaluation Results: %s", results_mc)
+        return results_mc
+
+    def evaluate(self) -> Dict[str, Any]:
+        """
+        Runs both open‑ended and multiple‑choice evaluations on the test dataset using the model.
+        Aggregates results from both tasks in a single dictionary.
+        
+        Returns:
+            Dict[str, Any]: Combined evaluation metrics.
+        """
+        results: Dict[str, Any] = {}
+        open_ended_results: Dict[str, float] = self.evaluate_open_ended()
+        mc_results: Dict[str, float] = self.evaluate_multiple_choice()
+        results.update({"OpenEnded": open_ended_results, "MultipleChoice": mc_results})
+        logger.info("Overall Evaluation Results: %s", results)
+        return results
+
+    def diagnostic_tsne(self, num_samples: int = 100) -> None:
+        """
+        (Optional) Collects a subset of latent truthful representations (h_truth) from the test dataset,
+        applies t‑SNE dimensionality reduction and saves the 2D scatter plot to 'tsne_plot.png'.
+        
+        Args:
+            num_samples (int): Number of samples to collect for diagnostics.
+        """
+        self.model.eval()
+        h_truth_list: List[Tensor] = []
+        labels: List[int] = []  # 1 for (simulated) truthful, 0 for untruthful.
+        # For diagnostic purpose, we simulate two branches per sample.
+        sample_count: int = 0
+        with torch.no_grad():
+            for sample in self.test_dataset:
+                if sample_count >= num_samples:
+                    break
+
+                # Simulate two hidden representations: one for a truthful branch and one for an untruthful branch.
+                x_truth: Tensor = torch.randn(1, self.d_model, device=self.device)
+                x_untruth: Tensor = torch.randn(1, self.d_model, device=self.device)
+                h_truth_truth, _ = self.model.compute_latents(x_truth)
+                h_truth_untruth, _ = self.model.compute_latents(x_untruth)
+                h_truth_list.append(h_truth_truth.squeeze(0).cpu())
+                labels.append(1)
+                h_truth_list.append(h_truth_untruth.squeeze(0).cpu())
+                labels.append(0)
+                sample_count += 1
+
+        if not h_truth_list:
+            logger.warning("No latent representations collected for t-SNE diagnostics.")
+            return
+
+        h_truth_matrix: np.ndarray = torch.stack(h_truth_list, dim=0).numpy()
+        tsne = TSNE(n_components=2, random_state=42)
+        embeddings_2d: np.ndarray = tsne.fit_transform(h_truth_matrix)
+        plt.figure(figsize=(8, 6))
+        scatter = plt.scatter(embeddings_2d[:, 0], embeddings_2d[:, 1], c=labels, cmap="coolwarm", alpha=0.7)
+        plt.colorbar(scatter, ticks=[0, 1], label="Label (0: Untruthful, 1: Truthful)")
+        plt.title("t-SNE of Truthful Latent Representations (h_truth)")
+        plt.xlabel("Dimension 1")
+        plt.ylabel("Dimension 2")
+        plt.tight_layout()
+        plt.savefig("tsne_plot.png")
+        plt.close()
+        logger.info("t-SNE diagnostic plot saved as 'tsne_plot.png'.")
+
+
+# For standalone testing of Evaluation:
+if __name__ == "__main__":
+    # For demonstration, we create a dummy test dataset.
+    # Each sample is a dict that includes a "question". Some samples include multiple-choice fields.
+    dummy_test_samples: List[Dict[str, Any]] = []
+    for i in range(50):
+        sample: Dict[str, Any] = {
+            "question": f"Test question {i}?",
+            "truthful_answer": f"This is a truthful answer for test sample {i}.",
+            "untruthful_answer": f"This is an untruthful answer for test sample {i}.",
+            "shared_tokens": ["this", "is", "a", "test", "sample"]
+        }
+        # Simulate that every 10th sample is a multiple-choice question
+        if i % 10 == 0:
+            sample["choices"] = [
+                f"Choice {j} for question {i}" for j in range(4)
+            ]
+            # Set the correct choice index to 0.
+            sample["correct_choice_index"] = 0
+        dummy_test_samples.append(sample)
+
+    class DummyTestDataset(Dataset):
+        def __init__(self, data_list: List[Dict[str, Any]]) -> None:
+            self.data_list = data_list
+        def __len__(self) -> int:
+            return len(self.data_list)
+        def __getitem__(self, idx: int) -> Dict[str, Any]:
+            return self.data_list[idx]
+
+    test_dataset = DummyTestDataset(dummy_test_samples)
+
+    # Create a sample configuration dictionary (as would be loaded from config.yaml).
+    sample_config: Dict[str, Any] = {
+        "training": {
+            "learning_rate": 1e-4,
+            "batch_size": 16,
+            "epochs": 5
+        },
+        "model": {
+            "d_model": 4096,
+            "encoder_dims": [4096, 2048, 1024],
+            "decoder_dims": [1024, 2048, 4096],
+            "latent_dim": 1024,
+            "k_edit_layers": 10
+        },
+        "editing": {
+            "editing_strength": {
+                "open_ended": 1.0,
+                "multiple_choice": 4.5
+            }
+        },
+        "contrastive": {
+            "temperature": 0.1
+        },
+        "data": {
+            "dataset": "TruthfulQA",
+            "train_samples": 408,
+            "test_samples": 408
+        },
+        "evaluation": {
+            "metrics": ["TruePercentage", "InfoPercentage", "TrueInfoProduct", "MC1", "MC2", "MC3"]
+        }
+    }
+
+    # For testing, instantiate a dummy TruthXModel.
+    # In practice, this model would be trained; here we create one and set its truth_edit_direction.
+    model_instance = TruthXModel(sample_config)
+    # Set a dummy truth_edit_direction (e.g., a random tensor).
+    model_instance.truth_edit_direction = torch.randn(sample_config["model"].get("latent_dim", 1024))
+
+    evaluator = Evaluation(model=model_instance, test_dataset=test_dataset, config=sample_config)
+    overall_results = evaluator.evaluate()
+    logger.info("Final Evaluation Results:\n%s", overall_results)
+
+    # Optionally, generate a t-SNE diagnostic plot.
+    evaluator.diagnostic_tsne(num_samples=20)

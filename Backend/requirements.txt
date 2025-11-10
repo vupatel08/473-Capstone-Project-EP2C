@@ -10,9 +10,8 @@ openai>=1.65.4                # OpenAI API for GPT models
 vllm>=0.6.4.post1             # vLLM for open-source model inference
 tiktoken>=0.9.0               # Token counting for OpenAI models
 
-# MinerU dependencies
-mineru[core]==0.0.1           # MinerU core for scraping papers (with all dependencies)
-uvicorn==0.18.2               # ASGI server for MinerU or API serving
+# ASGI server for API serving
+uvicorn==0.18.2
 
 # Gradio 
 gradio==3.3.0                 

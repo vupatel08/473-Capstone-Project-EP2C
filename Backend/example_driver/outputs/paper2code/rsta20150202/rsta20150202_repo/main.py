@@ -1,0 +1,149 @@
+"""
+main.py
+
+This is the main entry point for the TruthX reproduction project.
+It loads the configuration from 'config.yaml', initializes logging,
+loads and preprocesses the dataset via DatasetLoader, instantiates the
+TruthXModel (the autoencoder-based representation editor), runs the
+training process via Trainer to compute the truth-editing direction δ,
+and finally evaluates the performance (open‐ended and multiple–choice)
+using the Evaluation class.
+
+Usage:
+    python main.py --config config.yaml
+
+Author: [Your Name]
+Date: [Today's Date]
+"""
+
+import os
+import sys
+import yaml
+import logging
+import argparse
+
+# Import internal modules from the project
+from dataset_loader import DatasetLoader
+from model import TruthXModel
+from trainer import Trainer
+from evaluation import Evaluation
+
+def load_config(config_path: str = "config.yaml") -> dict:
+    """
+    Loads the configuration from a YAML file.
+
+    Args:
+        config_path (str): Path to the configuration file.
+                            Default is "config.yaml".
+
+    Returns:
+        dict: Configuration dictionary.
+    """
+    if os.path.exists(config_path):
+        with open(config_path, "r") as f:
+            config = yaml.safe_load(f)
+        return config
+    else:
+        logging.warning("Configuration file '%s' not found. Using default configuration.", config_path)
+        # Default configuration as specified in the provided config.yaml snippet.
+        default_config = {
+            "training": {
+                "learning_rate": 1e-4,
+                "batch_size": 16,
+                "epochs": 5,
+                "optimizer": "Adam",
+                "validation_split": 0.25
+            },
+            "model": {
+                "d_model": 4096,
+                "encoder_dims": [4096, 2048, 1024],
+                "decoder_dims": [1024, 2048, 4096],
+                "latent_dim": 1024,
+                "k_edit_layers": 10
+            },
+            "editing": {
+                "editing_strength": {
+                    "open_ended": 1.0,
+                    "multiple_choice": 4.5
+                }
+            },
+            "contrastive": {
+                "temperature": 0.1
+            },
+            "data": {
+                "dataset": "TruthfulQA",
+                "train_samples": 408,
+                "test_samples": 408
+            },
+            "evaluation": {
+                "metrics": [
+                    "TruePercentage",
+                    "InfoPercentage",
+                    "TrueInfoProduct",
+                    "MC1",
+                    "MC2",
+                    "MC3"
+                ]
+            }
+        }
+        return default_config
+
+def main() -> None:
+    """
+    Main function coordinating configuration loading, dataset loading,
+    model initialization, training, and evaluation.
+    """
+    # Setup logging configuration
+    logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
+    logger: logging.Logger = logging.getLogger(__name__)
+
+    # Parse command-line arguments to optionally override the config file path
+    parser = argparse.ArgumentParser(
+        description="TruthX: Enhance the truthfulness of Large Language Models via internal representation editing."
+    )
+    parser.add_argument(
+        "--config",
+        type=str,
+        default="config.yaml",
+        help="Path to the configuration YAML file."
+    )
+    args = parser.parse_args()
+
+    # Load configuration from the YAML file or use defaults if not found.
+    config: dict = load_config(args.config)
+    logger.info("Configuration loaded successfully.")
+
+    # Load the dataset using DatasetLoader.
+    logger.info("Loading dataset using DatasetLoader...")
+    dataset_loader: DatasetLoader = DatasetLoader(config)
+    train_dataset, test_dataset = dataset_loader.load_data()
+    logger.info("Dataset loaded: %d training samples, %d test samples", len(train_dataset), len(test_dataset))
+
+    # Initialize the TruthXModel with model configuration parameters.
+    logger.info("Initializing TruthXModel...")
+    model = TruthXModel(config)
+    logger.info("TruthXModel initialized with d_model=%d and latent_dim=%d",
+                config.get("model", {}).get("d_model", 4096),
+                config.get("model", {}).get("latent_dim", 1024))
+
+    # Instantiate the Trainer with the model, training dataset, and configuration.
+    logger.info("Instantiating Trainer and starting training...")
+    trainer = Trainer(model=model, train_dataset=train_dataset, config=config)
+    # Train the model to compute the editing direction δ.
+    truth_edit_direction = trainer.train()
+    logger.info("Training completed. Computed truth-editing direction δ with norm: %.4f",
+                truth_edit_direction.norm().item())
+
+    # Instantiate the Evaluation class with the trained model and test dataset.
+    logger.info("Starting Evaluation...")
+    evaluator = Evaluation(model=model, test_dataset=test_dataset, config=config)
+    evaluation_results = evaluator.evaluate()
+    logger.info("Evaluation Results:\n%s", evaluation_results)
+
+    # Optionally, generate a diagnostic t-SNE plot to visualize latent spaces.
+    logger.info("Generating diagnostic t-SNE plot for latent representations...")
+    evaluator.diagnostic_tsne(num_samples=20)
+    logger.info("Diagnostic t-SNE plot generated and saved as 'tsne_plot.png'.")
+
+if __name__ == "__main__":
+    main()
