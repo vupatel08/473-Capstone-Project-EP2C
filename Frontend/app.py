@@ -12,6 +12,8 @@ import uuid
 from werkzeug.utils import secure_filename
 sys.path.append("../Backend/papercodesync/src") 
 from driver import pcs_pipeline
+sys.path.append("../Backend/example_driver")
+from pipeline import run as ep2c_pipeline
 
 
 app = Flask(__name__, static_folder="static", template_folder="templates")
@@ -29,8 +31,8 @@ BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 # (DELETE WHEN FULL PIPELINE IS INTEGRATED)
 PAPERCODESYNC_EXAMPLE = os.path.abspath(os.path.join(BASE_DIR, "../Backend/papercodesync/example"))
 PAPER_MD   = os.path.join(PAPERCODESYNC_EXAMPLE, "paper.md")
-PAPER_PATH = os.path.join(PAPERCODESYNC_EXAMPLE, "paper.pdf")
 REPO_ROOT  = os.path.join(PAPERCODESYNC_EXAMPLE, "repo")
+DRIVER_WORK_ROOT = os.path.abspath(os.path.join(BASE_DIR, "../Backend/example_driver"))
 
 PAPERCODESYNC_DATA     = os.path.abspath(os.path.join(BASE_DIR, "../Backend/papercodesync/data"))
 PAPERCODESYNC_SYMBOLS = os.path.join(PAPERCODESYNC_DATA, "symbols.json")
@@ -125,8 +127,27 @@ def upload():
     save_path = os.path.join(UPLOAD_FOLDER, unique_name)
     file.save(save_path)
 
-    # === TODO: integrate full pipeline ===
+    if ep2c_pipeline is None:
+        flash("Backend driver not available. Ensure example_driver is importable.")
+        print("[EP2C] example_driver not importable.", flush=True)
+        return redirect(url_for("index"))
+    
+    try:
+        repo_path = ep2c_pipeline(
+            paper_pdf_path=save_path,        
+            work_root=DRIVER_WORK_ROOT,        
+            generated_repo_dir="repo",        
+            model="gemini-2.5-pro",
+        )
 
+        # update global REPO_ROOT so the rest of the app uses the new repo
+        global REPO_ROOT
+        REPO_ROOT = repo_path
+        print(f"[EP2C] Driver produced repo at: {REPO_ROOT}", flush=True)
+    except Exception as e:
+        print(f"[ERROR] driver_run failed: {e}", flush=True)
+        flash("Backend driver failed. Check server logs.")
+        return redirect(url_for("index"))
 
 
     if pcs_pipeline is None:
@@ -172,9 +193,9 @@ def viewer():
         pdf_url = url_for("static", filename=f"uploads/{filename}")
         paper_path_for_header = os.path.join(UPLOAD_FOLDER, filename)
     else:
-        pdf_url = url_for("serve_paper")
-        paper_path_for_header = PAPER_PATH
-
+        flash("No paper specified. Please upload a PDF.")
+        return redirect(url_for("index"))
+        
     return render_template(
         "viewer.html",
         pdf_url=pdf_url,
@@ -210,11 +231,6 @@ def serve_matches():
                 yield chunk
     return Response(generate(), mimetype="text/plain")
 
-@app.route("/paper")
-def serve_paper():
-    if not os.path.isfile(PAPER_PATH):
-        abort(404)
-    return send_file(PAPER_PATH, mimetype="application/pdf", conditional=True)
 
 @app.route("/code/<path:subpath>")
 def serve_code_file(subpath):
@@ -230,7 +246,6 @@ def serve_code_file(subpath):
 if __name__ == "__main__":
     print("EP2C running", flush=True)
     print(f"Paper (md): {PAPER_MD}", flush=True)
-    print(f"Paper (pdf): {PAPER_PATH}", flush=True)
     print(f"Repo:  {REPO_ROOT}", flush=True)
     print(f"Backend data: {PAPERCODESYNC_DATA}", flush=True)
     app.run(debug=True, host="0.0.0.0", port=5001)
