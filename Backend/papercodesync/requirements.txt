@@ -20,3 +20,4 @@ transformers>=4.43.3
 
 # Code parsing
 tree-sitter>=0.20.4
+tree_sitter_languages
