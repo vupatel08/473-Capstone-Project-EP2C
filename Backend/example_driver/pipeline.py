@@ -7,10 +7,10 @@ from google import genai
 
 HERE = Path(__file__).resolve().parent # Backend/example_driver/
 ROOT = HERE.parent.parent # project root                                  
-sys.path.append("../research-tracker")
+sys.path.append(str(ROOT / "Backend/research-tracker"))
 from find_repo import get_repo_link
-sys.path.append("../parsing")
-from parser import parse_doc  
+sys.path.append(str(ROOT / "Backend/parsing"))
+from parser import parse_doc
 
 
 DOTENV_PATH = ROOT / ".env"                              
