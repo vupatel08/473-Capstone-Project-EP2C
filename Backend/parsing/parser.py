@@ -21,7 +21,7 @@ from mineru.backend.vlm.vlm_middle_json_mkcontent import union_make as vlm_union
 
 # Parsing from Opendatalab:
 # Copyright (c) Opendatalab. All rights reserved.
-def do_parse(
+def _do_parse(
     output_dir,  # Output directory for storing parsing results
     pdf_file_names: list[str],  # List of PDF file names to be parsed
     pdf_bytes_list: list[bytes],  # List of PDF bytes to be parsed
@@ -143,10 +143,10 @@ def _process_output(
     return
 
 # Copyright (c) Opendatalab. All rights reserved.
-def parse_doc(
+def _parse_doc(
         path_list: list[Path],
-        output_dir="parse_output",
-        lang="en",
+        langs: list[str],
+        output_dir: str,
         model="pipeline"
 ):
     """
@@ -160,18 +160,16 @@ def parse_doc(
     try:
         file_name_list = []
         pdf_bytes_list = []
-        lang_list = []
         for path in path_list:
             file_name = str(Path(path).stem)
             pdf_bytes = read_fn(path)
             file_name_list.append(file_name)
             pdf_bytes_list.append(pdf_bytes)
-            lang_list.append(lang)
-        do_parse(
+        _do_parse(
             output_dir=output_dir,
             pdf_file_names=file_name_list,
             pdf_bytes_list=pdf_bytes_list,
-            p_lang_list=lang_list,
+            p_lang_list=langs,
             model=model
         )
     except Exception as e:
@@ -180,33 +178,111 @@ def parse_doc(
     return
 
 
-if __name__ == "__main__":
-    # Enter hard-coded pdf/output paths here...
-    pdf_paths = []
-    output_path = None
+def _typecheck(args, types, single_elem = False):
+    """
+    Ensure all given arguments match the given types.
+    args and types can both be a list or both be a single item.
+        types can have a tuple of types for each argument.
+    single_elem would be True to treat a list as a single element argument.
+    Exit the program if any types do not match their respective arguments.
+    """
 
-    # Ensure all paths are Path objects.
-    for i in range(len(pdf_paths)):
-        if not isinstance(pdf_paths[i], Path):
-            if not isinstance(pdf_paths[i], str):
-                print("pdf paths must be Path objects or strings.", file=sys.stderr)
+    error_prefix = "EP2C_TYPECHECK: "
+    arg_count = 1
+    type_count = 1
+
+    # Ensure each argument has a type to check. Also retrieve the number of arguments/types if they are lists.
+    if isinstance(args, list):
+        arg_count = len(args)
+
+        if not isinstance(types, list):
+            if single_elem:
+                arg_count = 1
+            else:
+                print(f"{error_prefix}received more arguments than meta types", file=sys.stderr)
                 exit()
-            pdf_paths[i] = Path(pdf_paths[i])
-    if isinstance(output_path, str):
-        output_path = Path(output_path)
-    elif output_path and (not isinstance(output_path, Path)):
-        print("output directory path must be a Path object or string.", file=sys.stderr)
+            
+        type_count = len(types)
+
+    elif isinstance(types, list):
+        print(f"{error_prefix}received more meta types than arguments", file=sys.stderr)
         exit()
 
-    if not (pdf_paths and output_path):
-        if len(sys.argv) == 1:
-            print("Usage: python <script>.py \"<pdf path 1>\" \"<pdf path 2>\" ... \"<output dir path>\"")
+    # Ensure there are the same number of arguments as types.
+    if arg_count != type_count:
+        error_str = error_prefix + "more "
+        if arg_count > type_count:
+            error_str += "arguments than meta types"
+        else:
+            error_str += "meta types than arguments"
+        print(error_str, file=sys.stderr)
+        exit()
+
+    if arg_count == 1:
+        args = [args]
+        types = [types]
+    
+    # Cross-reference arguments with types.
+    for i in range(arg_count):
+        curr_type = types[i]
+        if not isinstance(curr_type, tuple):
+            curr_type = (curr_type,)
+        if type(args[i]) not in curr_type:
+            print(f"{error_prefix}mismatched types. Argument {i} expected {curr_type} but was {type(args[i])}.")
             exit()
 
-        for path in sys.argv[1:-1]:
-            pdf_paths.append(Path(path))
+    return
 
-        output_path = Path(sys.argv[-1])
 
-    # Parse the given pdfs.
-    parse_doc(pdf_paths, output_path, lang="en") # model defaults to "pipeline"
+def ep2c_parse(docs: list[tuple[str | Path, str]], output_path : str | Path):
+    """
+    Parse a given list of documents with MinerU and save results in the given output directory.
+
+    Parameters:
+        docs: list of documents to parse. each element is a tuple containing the path to the document and that document's language.
+              Paths can be strings or Path objects. Language options are strings.
+        output_path: directory to save results of parsing to. Must be a string or Path object.
+
+    This function will exit the program when incorrect types are given or a language option is unsupported.
+    """
+
+    LANGUAGE_OPTIONS = ["ch", "ch_lite", "en", "korean", "japan", "chinese_cht", "ta", "te", "ka",]
+
+    error_prefix = "EP2C_PARSE: "
+    if not isinstance(docs, list):
+        print(f"{error_prefix}documents must be in a list.", file=sys.stderr) 
+        exit()
+
+    path_types = [str, Path]
+
+    if isinstance(output_path, Path):
+        output_path = str(output_path)
+    elif not isinstance(output_path, str):
+        print(f"{error_prefix}output path must be a string or Path.")
+        exit()
+
+    doc_paths = []
+    langs = []
+
+    # Check arguments.
+    for doc_lang in docs:
+        # Typecheck all arguments.
+        if (not isinstance(doc_lang, tuple)) or \
+           (not len(doc_lang) == 2) \
+           (not ((type(doc_lang[0]) in path_types) and isinstance(doc_lang[1], str))):
+            
+            print(f"{error_prefix}document list should be a list of (str | Path, str) tuples.", file=sys.stderr)
+            exit()
+        
+        # Ensure languages given are supported.
+        if doc_lang[1] not in LANGUAGE_OPTIONS:
+            print(f"{error_prefix}\'{doc_lang[1]}\' language option not supported", file=sys.stderr)
+            exit()
+
+        doc_paths.append(Path(doc_lang[0]))
+        langs.append(doc_lang[1])
+
+    # Parse the documents with MinerU.
+    _parse_doc(path_list=doc_paths, langs=langs, output_dir=output_path)
+
+    return

@@ -250,14 +250,15 @@ Environment Variables:
     
     # Check for OpenAI API key
     if not os.getenv("OPENAI_API_KEY"):
-        print("❌ Error: OPENAI_API_KEY not found")
-        print("\n   Please create a .env file:")
-        print("   1. Copy .env.example to .env:")
-        print(f"      cp {backend_dir}/.env.example {backend_dir}/.env")
-        print("   2. Edit .env and add your API key:")
-        print("      OPENAI_API_KEY=sk-your-key-here")
-        print("\n   Or set it as an environment variable:")
-        print("      export OPENAI_API_KEY=your_api_key_here")
+        api_key_error_msg = "❌ Error: OPENAI_API_KEY not found" \
+                            "\n\n   Please create a .env file:" \
+                            "\n   1. Copy .env.example to .env:" \
+                            f"\n      cp {backend_dir}/.env.example {backend_dir}/.env" \
+                            "\n   2. Edit .env and add your API key:" \
+                            "\n      OPENAI_API_KEY=sk-your-key-here" \
+                            "\n\n   Or set it as an environment variable:" \
+                            "      export OPENAI_API_KEY=your_api_key_here"
+        print(api_key_error_msg)
         sys.exit(1)
     
     # Run pipeline
