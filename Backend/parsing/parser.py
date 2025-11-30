@@ -234,7 +234,54 @@ def _typecheck(args, types, single_elem = False):
     return
 
 
-def ep2c_parse(docs: list[tuple[str | Path, str]], output_path : str | Path):
+def funcy(doc_paths: list[Path], output_dir: Path):
+    context_lst = []
+    for i, doc in enumerate(doc_paths):
+        curr_doc = str(doc.stem)
+        context_lst.append({
+            "document": curr_doc,
+            "content": []
+        })
+
+        paper_output_directory = output_dir / f"/{curr_doc}/auto"
+
+        with open(paper_output_directory / f"/{curr_doc}_content_list.json") as curr_parse:
+            parse_content =json.load(curr_parse)
+            content_str = ""
+            
+            for item in parse_content:
+                match item["type"]:
+                    case "text" | "code" | "title": # check code 
+                        content_str += item["text"]
+                    case "title":
+                        content_str += item["title"]
+                    case "table" | "image" | "equation":
+                        if content_str:
+                            context_lst[i]["content"].append({
+                                "type": "text",
+                                "text": content_str
+                                })
+                        context_lst[i]["content"].append({
+                            "type": "image",
+                            "path": paper_output_directory / 
+                                f"/{item["img_path"]}"
+                            })
+                        
+                        if "table_path" in item:
+                            content_str = item["table_path"]
+                        elif "image_path" in item:
+                            content_str = item["image_path"]
+                        elif "text" in item:
+                            content_str = item["text"]
+
+                        content_str += '\n'
+                    case _:
+                        continue
+                    
+                    content_str += '\n'
+    
+
+def ep2c_parse(docs: list[tuple[str | Path, str]], output_path: str | Path):
     """
     Parse a given list of documents with MinerU and save results in the given output directory.
 
@@ -258,7 +305,7 @@ def ep2c_parse(docs: list[tuple[str | Path, str]], output_path : str | Path):
     if isinstance(output_path, Path):
         output_path = str(output_path)
     elif not isinstance(output_path, str):
-        print(f"{error_prefix}output path must be a string or Path.")
+        print(f"{error_prefix}output path must be a string or Path.", file=sys.stderr)
         exit()
 
     doc_paths = []
@@ -268,7 +315,7 @@ def ep2c_parse(docs: list[tuple[str | Path, str]], output_path : str | Path):
     for doc_lang in docs:
         # Typecheck all arguments.
         if (not isinstance(doc_lang, tuple)) or \
-           (not len(doc_lang) == 2) \
+           (len(doc_lang) != 2) \
            (not ((type(doc_lang[0]) in path_types) and isinstance(doc_lang[1], str))):
             
             print(f"{error_prefix}document list should be a list of (str | Path, str) tuples.", file=sys.stderr)
