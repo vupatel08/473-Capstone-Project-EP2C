@@ -234,7 +234,7 @@ def _typecheck(args, types, single_elem = False):
     return
 
 
-def funcy(doc_paths: list[Path], output_dir: Path):
+def codegen_prep(doc_paths: list[Path], output_dir: Path) -> list[dict[str: str, str: list[dict[str: str, str: str | Path]]]]:
     context_lst = []
     for i, doc in enumerate(doc_paths):
         curr_doc = str(doc.stem)
@@ -278,8 +278,15 @@ def funcy(doc_paths: list[Path], output_dir: Path):
                     case _:
                         continue
                     
-                    content_str += '\n'
+                content_str += '\n'
+
+            if content_str:
+                context_lst[i]["content"].append({
+                    "type": "text",
+                    "content": content_str
+                })
     
+    return context_lst
 
 def ep2c_parse(docs: list[tuple[str | Path, str]], output_path: str | Path):
     """
