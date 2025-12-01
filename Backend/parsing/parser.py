@@ -235,56 +235,81 @@ def _typecheck(args, types, single_elem = False):
 
 
 def codegen_prep(doc_paths: list[Path], output_dir: Path) -> list[dict[str: str, str: list[dict[str: str, str: str | Path]]]]:
+    """
+    Prepare given parsed document data for code generation. Assume parameters match their given type hints.
+
+    Parameters:
+        doc_paths: List of Path objects pointing to original documents that were parsed.
+        output_dir: Output directory of all parsed document data. Each document's data is at `<output_dir>/<document_name>/auto/`.
+
+    Returns a list of prepared document data.
+    """
     context_lst = []
     for i, doc in enumerate(doc_paths):
         curr_doc = str(doc.stem)
+        # Each element of the list is a dictionary with the document name and contents.
         context_lst.append({
             "document": curr_doc,
             "content": []
         })
 
+        # Use default MinerU output directory.
         paper_output_directory = output_dir / f"/{curr_doc}/auto"
 
         with open(paper_output_directory / f"/{curr_doc}_content_list.json") as curr_parse:
-            parse_content =json.load(curr_parse)
-            content_str = ""
-            
-            for item in parse_content:
-                match item["type"]:
-                    case "text" | "code" | "title": # check code 
-                        content_str += item["text"]
-                    case "title":
-                        content_str += item["title"]
-                    case "table" | "image" | "equation":
-                        if content_str:
+            if not curr_parse:
+                print(f"Document \'{curr_doc}\' not found.", file=sys.stderr)
+            else:
+                parse_content =json.load(curr_parse)
+                content_str = ""
+                
+                # Handle each type of parsed data.
+                # Each document's content list has dictionaries, each containing the type of data and the data 
+                # itself. All text is stored in a string in one dictioanry until an image file is needed, which 
+                # is stored in another dictionary element.
+                for item in parse_content:
+                    match item["type"]:
+                        case "text" | "code" | "title": # check code 
+                            content_str += item["text"]
+                        case "title":
+                            content_str += item["title"]
+                        # Image files are appended to the content list as individual dictionaries.
+                        case "table" | "image" | "equation":
+                            if content_str:
+                                # First add all text until the given image file.
+                                context_lst[i]["content"].append({
+                                    "type": "text",
+                                    "text": content_str
+                                    })
+                            # Store the image file's path.
                             context_lst[i]["content"].append({
-                                "type": "text",
-                                "text": content_str
+                                "type": "image",
+                                "path": paper_output_directory / 
+                                    f"/{item["img_path"]}"
                                 })
-                        context_lst[i]["content"].append({
-                            "type": "image",
-                            "path": paper_output_directory / 
-                                f"/{item["img_path"]}"
-                            })
+                            
+                            if "table_caption" in item:
+                                content_str = item["table_caption"]
+                            elif "image_caption" in item:
+                                content_str = item["image_caption"]
+                            elif "text" in item: # for equations, LaTeX is stored in "text"
+                                content_str = item["text"]
+
+                            # Separate image file captions from the next text with a newline.
+                            content_str += '\n'
+                        case _:
+                            continue
                         
-                        if "table_path" in item:
-                            content_str = item["table_path"]
-                        elif "image_path" in item:
-                            content_str = item["image_path"]
-                        elif "text" in item:
-                            content_str = item["text"]
+                    # Separate pieces of data with a newline.
+                    # For paragraphs that are split between two pages, this adds a newline between them...
+                    content_str += '\n'
 
-                        content_str += '\n'
-                    case _:
-                        continue
-                    
-                content_str += '\n'
-
-            if content_str:
-                context_lst[i]["content"].append({
-                    "type": "text",
-                    "content": content_str
-                })
+                # Append the final string.
+                if content_str:
+                    context_lst[i]["content"].append({
+                        "type": "text",
+                        "content": content_str
+                    })
     
     return context_lst
 
