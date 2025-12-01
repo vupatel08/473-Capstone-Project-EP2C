@@ -135,17 +135,37 @@ class ExplainabilityPipeline:
         with open(f"{output_dir}/explainability_report.txt", 'w') as f:
             f.write(report)
         
+        # Step 5: Generate comprehensive EXPLANATION.md
+        print("\nStep 5: Generating comprehensive EXPLANATION.md...")
+        comprehensive_explanation = self.readme_generator.generate_comprehensive_explanation(
+            paper_metadata=self._extract_paper_metadata(paper_json),
+            code_structure=planning_artifacts,
+            traceability_map=traceability_map,
+            missing_info=missing_info,
+            metrics=explainability_metrics,
+            config_data=config_data
+        )
+        with open(f"{output_dir}/EXPLANATION.md", 'w', encoding='utf-8') as f:
+            f.write(comprehensive_explanation)
+        
         print("\n" + "="*60)
         print("EXPLANATION LAYER GENERATION COMPLETE")
         print("="*60)
         print(f"\nOverall Explainability Score: {explainability_metrics['overall_explainability_score']:.2%}")
         print(f"Files saved to: {output_dir}")
+        print(f"   - EXPLANATION.md (comprehensive documentation)")
+        print(f"   - README.md (basic documentation)")
+        print(f"   - traceability_map.json")
+        print(f"   - missing_information.json")
+        print(f"   - explainability_metrics.json")
+        print(f"   - explainability_report.txt")
         print("="*60 + "\n")
         
         return {
             "traceability_map": traceability_map,
             "missing_info": missing_info,
             "readme": readme_content,
+            "comprehensive_explanation": comprehensive_explanation,
             "metrics": explainability_metrics,
             "report": report
         }

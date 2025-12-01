@@ -2,21 +2,14 @@ import sys, os, io, json, argparse, zipfile, requests
 from pathlib import Path
 from typing import List, Dict, Any, Iterable, Union
 from dotenv import load_dotenv
-# code gen LLM
-from google import genai
 
 HERE = Path(__file__).resolve().parent # Backend/example_driver/
 ROOT = HERE.parent.parent # project root                                  
 sys.path.append(str(ROOT / "Backend/research-tracker"))
 from find_repo import get_repo_link
-sys.path.append(str(ROOT / "Backend/parsing"))
-from parser import parse_doc
-
 
 DOTENV_PATH = ROOT / ".env"                              
 load_dotenv(DOTENV_PATH)
-if not os.getenv("GEMINI_API_KEY"):
-    raise EnvironmentError("GEMINI_API_KEY is not set.")
 
 WORK_ROOT_DEFAULT = HERE                                   
 GITHUB_DIR = "github_repo"
@@ -157,7 +150,7 @@ def _gen_repo_with_gemini(target_dir: Path, context: Union[Path, Iterable[Path]]
 
     contents = [
         {"role": "user", "parts": [{"text": PROMPT_HEADER}]},
-        {"role": "user", "parts": [{"text": "Project context from parsed paper (MinerU outputs):"}]},
+        {"role": "user", "parts": [{"text": "Project context from paper:"}]},
     ]
 
     for item in context_items:
@@ -193,41 +186,108 @@ def run(
     paper_pdf_path: str,
     work_root: str | Path = WORK_ROOT_DEFAULT,
     generated_repo_dir: str = GEN_REPO_DIR,
-    model: str = "gemini-2.5-pro",
-) -> str:   
+    gpt_version: str = "o3-mini",
+    paper_name: str = None,
+    paper_md_path: str = None,  # Optional: specify markdown file directly
+) -> Dict[str, str]:
+    """
+    Run the EP2C pipeline using a hardcoded paper.md file.
+    
+    Args:
+        paper_pdf_path: Path to paper PDF (used for research tracker check)
+        work_root: Working directory root
+        generated_repo_dir: Directory name for generated repo
+        gpt_version: GPT model version (default: "o3-mini")
+        paper_name: Name identifier for the paper (extracted from PDF if not provided)
+    
+    Returns:
+        Dictionary containing paths to generated files
+    """
     paper_pdf_path = str(Path(paper_pdf_path).resolve())
     work_root = Path(work_root).resolve()
     work_root.mkdir(parents=True, exist_ok=True)
 
+    # Extract paper name if not provided
+    if paper_name is None:
+        paper_name = Path(paper_pdf_path).stem
+
     github_root = work_root / GITHUB_DIR
     parse_dir = work_root / PARSE_DIR
-    out_repo_dir = work_root / generated_repo_dir
 
     print("Running EP2C Pipeline...", flush=True)
     print("Checking for existing GitHub repo...", flush=True)
 
-    # check if there's already an existing github repo for this paper
-    # repo_url = get_repo_link(paper_pdf_path)
-    # if repo_url:
-    #     print(f"Found GitHub repo: {repo_url}", flush=True)
-    #     repo_dir = _download_github_repo(repo_url, github_root)
-    #     return str(repo_dir)
+    # Check if there's already an existing github repo for this paper (research tracker)
+    try:
+        repo_url = get_repo_link(paper_pdf_path)
+        if repo_url:
+            print(f"Found GitHub repo: {repo_url}", flush=True)
+            repo_dir = _download_github_repo(repo_url, github_root)
+            # Still try to find paper.md for PaperCodeSync
+            paper_md_path = HERE / "parse_output" / "paper.md"
+            return {
+                "repo_path": str(repo_dir),
+                "paper_md_path": str(paper_md_path) if paper_md_path.exists() else "",
+                "paper_json_path": "",
+                "output_dir": "",
+                "explanation_dir": "",
+                "from_github": True
+            }
+    except Exception as e:
+        print(f"Research tracker check failed or no repo found: {e}", flush=True)
 
     print("No existing GitHub repo found.", flush=True)
-    print("Parsing paper for context...", flush=True)
+    
+    # Use provided paper_md_path or fall back to hardcoded paper.md
+    if paper_md_path:
+        paper_md_path = Path(paper_md_path).resolve()
+        print(f"Using provided paper markdown: {paper_md_path}", flush=True)
+    else:
+        # Use hardcoded paper.md path (no MinerU parsing)
+        paper_md_path = HERE / "parse_output" / "paper.md"
+        print("Using hardcoded paper.md file...", flush=True)
+    
+    if not paper_md_path.exists():
+        raise FileNotFoundError(
+            f"Paper markdown file not found at {paper_md_path}. "
+            f"Please ensure the markdown file exists, or provide paper_md_path parameter."
+        )
 
-    # parse via MinerU
-    parse_dir.mkdir(parents=True, exist_ok=True)
-    # parse_doc(paper_pdf_path, str(parse_dir), lang="en") 
-    context = parse_dir
+    print(f"Found paper markdown at: {paper_md_path}", flush=True)
 
-    print("Parsing complete. Generating repository with Gemini...", flush=True)
+    # Import and call run_full_pipeline
+    sys.path.append(str(ROOT / "Backend"))
+    from run_full_pipeline import run_full_pipeline
 
-    # generate repo with Gemini 
-    repo_dir = _gen_repo_with_gemini(out_repo_dir, context, model=model)
+    print("Running full EP2C pipeline (Planning → Analysis → Coding → Explanation)...", flush=True)
 
-    print("Repository generation complete.", flush=True)
-    return str(repo_dir)
+    # Run full pipeline with markdown as "LaTeX" format (both are just text)
+    # Use absolute path since subprocess runs from Backend directory
+    output_dir, output_repo_dir = run_full_pipeline(
+        paper_pdf_path=str(paper_md_path.resolve()),  # Pass absolute path to markdown file
+        paper_name=paper_name,
+        gpt_version=gpt_version,
+        paper_format="LaTeX",  # Treat markdown as LaTeX (both are plain text)
+        output_base_dir=str(work_root / "outputs")
+    )
+
+    # Explanation layer is automatically generated in {output_dir}/explanation_layer/
+    explanation_dir = output_dir / "explanation_layer"
+    explanation_md_path = explanation_dir / "EXPLANATION.md"
+
+    print("Pipeline complete!", flush=True)
+    print(f"  Repository: {output_repo_dir}", flush=True)
+    print(f"  Explanation: {explanation_md_path if explanation_md_path.exists() else explanation_dir}", flush=True)
+
+    return {
+        "repo_path": str(output_repo_dir),
+        "paper_md_path": str(paper_md_path),  # For PaperCodeSync
+        "paper_json_path": "",  # Not needed (using markdown directly)
+        "output_dir": str(output_dir),
+        "explanation_dir": str(explanation_dir),
+        "explanation_md_path": str(explanation_md_path) if explanation_md_path.exists() else "",
+        "from_github": False
+    }
 
 
 
@@ -237,15 +297,22 @@ if __name__ == "__main__":
     ap.add_argument("--work_root", default=str(WORK_ROOT_DEFAULT),
                     help="Working directory (default: this folder)")
     ap.add_argument("--generated_repo_dir", default=GEN_REPO_DIR,
-                    help="Folder name under work_root for Gemini output (default: 'repo')")
-    ap.add_argument("--model", default="gemini-2.5-pro")
+                    help="Folder name under work_root for generated output (default: 'repo')")
+    ap.add_argument("--gpt_version", default="o3-mini", help="GPT model version (default: 'o3-mini')")
+    ap.add_argument("--paper_name", help="Paper name identifier (extracted from PDF if not provided)")
     args = ap.parse_args()
 
-    final_path = run(
+    result = run(
         paper_pdf_path=args.paper,
         work_root=args.work_root,
         generated_repo_dir=args.generated_repo_dir,
-        model=args.model,
+        gpt_version=args.gpt_version,
+        paper_name=args.paper_name,
     )
 
-    print(final_path)
+    print("\n" + "="*60)
+    print("PIPELINE RESULTS")
+    print("="*60)
+    for key, value in result.items():
+        print(f"  {key}: {value}")
+    print("="*60)

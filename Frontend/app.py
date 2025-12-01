@@ -2,6 +2,7 @@ from flask import (
     Flask, render_template, send_file, send_from_directory,
     abort, url_for, Response, request, redirect, flash, after_this_request
 )
+from pathlib import Path as PathLib
 import tempfile
 import zipfile
 import os
@@ -133,43 +134,60 @@ def upload():
         return redirect(url_for("index"))
     
     try:
-        repo_path = ep2c_pipeline(
+        result = ep2c_pipeline(
             paper_pdf_path=save_path,        
             work_root=DRIVER_WORK_ROOT,        
-            generated_repo_dir="repo",        
-            model="gemini-2.5-pro",
+            generated_repo_dir="repo",
+            gpt_version="o3-mini",  # Using OpenAI now, not Gemini
+            paper_name=None,  # Will be extracted from PDF
         )
 
-        # update global REPO_ROOT so the rest of the app uses the new repo
+        # Update global REPO_ROOT so the rest of the app uses the new repo
         global REPO_ROOT
-        REPO_ROOT = repo_path
+        REPO_ROOT = result["repo_path"]
+        paper_md_path = result.get("paper_md_path", "")
+        explanation_dir = result.get("explanation_dir", "")
+        explanation_md_path = result.get("explanation_md_path", "")
+        
         print(f"[EP2C] Driver produced repo at: {REPO_ROOT}", flush=True)
+        print(f"[EP2C] Paper MD at: {paper_md_path}", flush=True)
+        print(f"[EP2C] Explanation dir at: {explanation_dir}", flush=True)
+        print(f"[EP2C] EXPLANATION.md at: {explanation_md_path}", flush=True)
     except Exception as e:
         print(f"[ERROR] driver_run failed: {e}", flush=True)
+        import traceback
+        traceback.print_exc()
         flash("Backend driver failed. Check server logs.")
         return redirect(url_for("index"))
 
 
-    if pcs_pipeline is None:
-        flash("Backend driver not available. Ensure pcs_pipeline is importable.")
-        print("[EP2C] pcs_pipeline not importable.", flush=True)
-        return redirect(url_for("index"))
+    # Run PaperCodeSync if we have a paper MD path
+    if paper_md_path and os.path.exists(paper_md_path):
+        if pcs_pipeline is None:
+            flash("Backend driver not available. Ensure pcs_pipeline is importable.")
+            print("[EP2C] pcs_pipeline not importable.", flush=True)
+            return redirect(url_for("index"))
 
-    try:
-        print("[EP2C] Running backend synchronization pipeline (skip demo)...", flush=True)
-        # BLOCKING call, do not redirect until this returns
-        pcs_pipeline(PAPER_MD, REPO_ROOT)
-        print("[EP2C] Backend sync complete.", flush=True)
-    except Exception as e:
-        print(f"[ERROR] pcs_pipeline failed: {e}", flush=True)
-        flash("Pipeline failed. Check server logs.")
-        return redirect(url_for("index"))
+        try:
+            print("[EP2C] Running PaperCodeSync with parsed paper and generated repo...", flush=True)
+            # BLOCKING call, do not redirect until this returns
+            pcs_pipeline(paper_md_path, REPO_ROOT)
+            print("[EP2C] PaperCodeSync complete.", flush=True)
+        except Exception as e:
+            print(f"[ERROR] pcs_pipeline failed: {e}", flush=True)
+            import traceback
+            traceback.print_exc()
+            flash("PaperCodeSync failed. Check server logs.")
+            return redirect(url_for("index"))
+    else:
+        print(f"[WARNING] Paper MD not found at {paper_md_path}, skipping PaperCodeSync", flush=True)
 
+    # Check for PaperCodeSync files (optional - viewer works without them)
     missing = [p for p in (PAPERCODESYNC_CHUNKS, PAPERCODESYNC_SYMBOLS, PAPERCODESYNC_MATCHES) if not os.path.exists(p)]
     if missing:
-        print(f"[ERROR] Backend outputs missing: {missing}", flush=True)
-        flash("Backend output missing — ensure PaperCodeSync generated chunks/symbols/matches.")
-        return redirect(url_for("index"))
+        print(f"[WARNING] PaperCodeSync files missing: {missing}", flush=True)
+        print("   Viewer will work but interactive mapping may not be available.", flush=True)
+        # Don't redirect - allow viewer to work without PaperCodeSync
 
 
     return redirect(url_for("viewer", filename=unique_name, language=language))
@@ -195,6 +213,18 @@ def viewer():
     else:
         flash("No paper specified. Please upload a PDF.")
         return redirect(url_for("index"))
+    
+    # Check if explanation layer exists - search for most recent EXPLANATION.md
+    explanation_base_dir = os.path.join(DRIVER_WORK_ROOT, "outputs", "paper2code")
+    explanation_md_path = None
+    if os.path.exists(explanation_base_dir):
+        explanation_files = []
+        for root, dirs, files in os.walk(explanation_base_dir):
+            if "EXPLANATION.md" in files:
+                explanation_files.append(os.path.join(root, "EXPLANATION.md"))
+        if explanation_files:
+            # Use the most recent one
+            explanation_md_path = max(explanation_files, key=os.path.getmtime)
         
     return render_template(
         "viewer.html",
@@ -207,22 +237,42 @@ def viewer():
         symbols_url=url_for("serve_symbols"),
         chunks_url=url_for("serve_chunks"),
         matches_url=url_for("serve_matches"),
+        explanation_md_path=explanation_md_path,  # Pass to template
         chosen_language=language,
     )
 
+@app.route("/data/explanation.md")
+def serve_explanation():
+    # Try to find EXPLANATION.md in the explanation layer
+    explanation_base_dir = os.path.join(DRIVER_WORK_ROOT, "outputs", "paper2code")
+    explanation_files = []
+    for root, dirs, files in os.walk(explanation_base_dir):
+        if "EXPLANATION.md" in files:
+            explanation_files.append(os.path.join(root, "EXPLANATION.md"))
+    
+    if explanation_files:
+        # Use the most recent one
+        explanation_path = max(explanation_files, key=os.path.getmtime)
+        return send_file(explanation_path, mimetype="text/markdown")
+    else:
+        abort(404)
+
 @app.route("/data/symbols.json")
 def serve_symbols():
-    if not os.path.isfile(PAPERCODESYNC_SYMBOLS): abort(404)
+    if not os.path.isfile(PAPERCODESYNC_SYMBOLS):
+        return Response("[]", mimetype="application/json")
     return send_file(PAPERCODESYNC_SYMBOLS, mimetype="application/json")
 
 @app.route("/data/chunks.json")
 def serve_chunks():
-    if not os.path.isfile(PAPERCODESYNC_CHUNKS): abort(404)
+    if not os.path.isfile(PAPERCODESYNC_CHUNKS):
+        return Response("{}", mimetype="application/json")
     return send_file(PAPERCODESYNC_CHUNKS, mimetype="application/json")
 
 @app.route("/data/matches.jsonl")
 def serve_matches():
-    if not os.path.isfile(PAPERCODESYNC_MATCHES): abort(404)
+    if not os.path.isfile(PAPERCODESYNC_MATCHES):
+        return Response("", mimetype="text/plain")
     def generate():
         with open(PAPERCODESYNC_MATCHES, "rb") as f:
             while True:

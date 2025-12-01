@@ -7,10 +7,12 @@ import sys
 import copy
 from pathlib import Path
 from dotenv import load_dotenv
-from utils import extract_planning, content_to_json, extract_code_from_content, print_response, print_log_cost, load_accumulated_cost, save_accumulated_cost
 
 # Load environment variables from .env file
 backend_dir = Path(__file__).parent.parent.resolve()
+# Add utils to path for imports
+sys.path.insert(0, str(backend_dir))
+from utils.papercoder_utils import extract_planning, content_to_json, extract_code_from_content, print_response, print_log_cost, load_accumulated_cost, save_accumulated_cost
 project_root = backend_dir.parent
 env_paths = [backend_dir / ".env", project_root / ".env"]
 for env_path in env_paths:
@@ -262,14 +264,58 @@ try:
     from explainability_pipeline import ExplainabilityPipeline
     
     # Prepare paths for explanation layer
-    paper_json_path = pdf_json_path  # Paper JSON from input
+    # Handle both JSON and LaTeX/Markdown formats
+    if paper_format == "JSON":
+        paper_json_path = pdf_json_path
+    elif paper_format == "LaTeX":
+        # Convert markdown/LaTeX to a simple JSON structure for explanation layer
+        # Read the markdown content and create a JSON wrapper
+        if pdf_latex_path and os.path.exists(pdf_latex_path):
+            with open(pdf_latex_path, 'r', encoding='utf-8') as f:
+                markdown_content = f.read()
+            
+            # Create a simple JSON structure from markdown
+            # Split into paragraphs (simple approach)
+            paragraphs = [p.strip() for p in markdown_content.split('\n\n') if p.strip()]
+            body_text = [{"text": p} for p in paragraphs[:50]]  # Limit to first 50 paragraphs
+            
+            # Try to extract title (first line or first heading)
+            title = "Research Paper"
+            if paragraphs:
+                first_line = paragraphs[0].strip()
+                if first_line and len(first_line) < 200:  # Likely a title
+                    title = first_line
+                # Check for markdown heading
+                if first_line.startswith('#'):
+                    title = first_line.lstrip('#').strip()
+            
+            # Create JSON structure
+            paper_json_data = {
+                "title": title,
+                "abstract": paragraphs[1] if len(paragraphs) > 1 else "",
+                "authors": [],
+                "body_text": body_text,
+                "url": ""
+            }
+            
+            # Save as temporary JSON file for explanation layer
+            temp_json_path = os.path.join(output_dir, 'paper_content.json')
+            with open(temp_json_path, 'w', encoding='utf-8') as f:
+                json.dump(paper_json_data, f, ensure_ascii=False, indent=2)
+            paper_json_path = temp_json_path
+            print(f"   Created temporary JSON from markdown: {paper_json_path}")
+        else:
+            paper_json_path = None
+    else:
+        paper_json_path = None
+    
     generated_code_dir = output_repo_dir  # Generated code directory
     planning_artifacts_path = os.path.join(output_dir, 'planning_trajectories.json')
     explanation_output_dir = os.path.join(output_dir, 'explanation_layer')
     config_path = os.path.join(output_dir, 'planning_config.yaml')
     
     # Verify required files exist
-    if not os.path.exists(paper_json_path):
+    if not paper_json_path or not os.path.exists(paper_json_path):
         print(f"⚠️  Warning: Paper JSON not found at {paper_json_path}")
         print("   Skipping explanation layer generation...")
     elif not os.path.exists(generated_code_dir):
@@ -291,8 +337,9 @@ try:
         
         print("\n✅ Explanation layer generated successfully!")
         print(f"   Output directory: {explanation_output_dir}")
+        print(f"   EXPLANATION.md: {explanation_output_dir}/EXPLANATION.md (comprehensive documentation)")
+        print(f"   README.md: {explanation_output_dir}/README.md")
         print(f"   Traceability map: {explanation_output_dir}/traceability_map.json")
-        print(f"   README: {explanation_output_dir}/README.md")
         print(f"   Missing info: {explanation_output_dir}/missing_information.json")
         print(f"   Metrics: {explanation_output_dir}/explainability_metrics.json")
         

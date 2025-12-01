@@ -1,0 +1,22 @@
+training:
+  learning_rate: 1e-4
+  # batch_size and epochs are not explicitly specified in the paper; these defaults can be adjusted.
+  batch_size: 32
+  epochs: 50
+validation:
+  folds: 2
+model:
+  hidden_dim: 4096
+  latent_dim: 1024
+  encoder:
+    layers: 2
+    dimensions: [4096, 2048, 1024]
+  decoder:
+    layers: 2
+    dimensions: [1024, 2048, 4096]
+editing:
+  num_layers: 10
+  strength_open_ended: 1.0
+  strength_multiple_choice: 4.5
+optimizer: Adam
+device: cuda

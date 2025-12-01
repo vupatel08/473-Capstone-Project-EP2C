@@ -5,11 +5,13 @@ from tqdm import tqdm
 import sys
 from pathlib import Path
 from dotenv import load_dotenv
-from utils import extract_planning, content_to_json, print_response, print_log_cost, load_accumulated_cost, save_accumulated_cost
 import copy
 
 # Load environment variables from .env file
 backend_dir = Path(__file__).parent.parent.resolve()
+# Add utils to path for imports
+sys.path.insert(0, str(backend_dir))
+from utils.papercoder_utils import extract_planning, content_to_json, print_response, print_log_cost, load_accumulated_cost, save_accumulated_cost
 project_root = backend_dir.parent
 env_paths = [backend_dir / ".env", project_root / ".env"]
 for env_path in env_paths:

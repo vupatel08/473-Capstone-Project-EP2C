@@ -89,7 +89,7 @@ class MissingInfoDetector:
         
         for param in self.HYPERPARAMETERS:
             # Check if parameter is mentioned in paper
-            param_mentioned = any(
+            param_mentioned = (
                 param in paper_lower or
                 param.replace("_", " ") in paper_lower
             )
