@@ -234,6 +234,12 @@ def _typecheck(args, types, single_elem = False):
     return
 
 
+def clear_env(doc_names: list[str], output_dir: Path):
+    for doc in doc_names:
+        if doc[-1] == '/':
+            return
+    #if os.path.exists(output_dir / {d}):
+
 def codegen_prep(doc_paths: list[Path], output_dir: Path) -> list[dict[str: str, str: list[dict[str: str, str: str | Path]]]]:
     """
     Prepare given parsed document data for code generation. Assume parameters match their given type hints.
@@ -254,9 +260,9 @@ def codegen_prep(doc_paths: list[Path], output_dir: Path) -> list[dict[str: str,
         })
 
         # Use default MinerU output directory.
-        paper_output_directory = output_dir / f"/{curr_doc}/auto"
+        paper_output_directory = output_dir / f"{curr_doc}/auto"
 
-        with open(paper_output_directory / f"/{curr_doc}_content_list.json") as curr_parse:
+        with open(paper_output_directory / f"{curr_doc}_content_list.json", encoding="utf-8") as curr_parse:
             if not curr_parse:
                 print(f"Document \'{curr_doc}\' not found.", file=sys.stderr)
             else:
@@ -365,3 +371,11 @@ def ep2c_parse(docs: list[tuple[str | Path, str]], output_path: str | Path):
     _parse_doc(path_list=doc_paths, langs=langs, output_dir=output_path)
 
     return
+
+out = codegen_prep([Path("Backend/parsing/ExampleResearchPaper.pdf"), Path("Backend/parsing/EP2C -  Project Proposal.pdf")], Path("Backend/parsing/parse_output"))
+
+with open("out.txt", 'w', encoding="utf-8") as f:
+    for doc in out:
+        print(doc["document"], file=f)
+        for item in doc["content"]:
+            print("    " + str(item), file=f)
