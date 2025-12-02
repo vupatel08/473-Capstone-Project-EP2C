@@ -22,7 +22,11 @@
       symbols: "{{ symbols_url }}",
       chunks:  "{{ chunks_url }}",
       matches: "{{ matches_url }}",
-      pdf:     "{{ pdf_url }}"
+      pdf:     "{{ pdf_url }}",
+      planning: "/data/planning.md",
+      analysis: "/data/analysis.md",
+      coding: "/data/coding.md",
+      explanation: "/data/explanation.md"
     };
   </script>
 
@@ -154,6 +158,47 @@
     position:fixed; left:14px; bottom:12px; color:var(--muted); font-size:.85rem;
     opacity:.9; user-select:none; z-index:20;
   }
+
+  .phase-view {
+    display: none;
+    padding: 20px;
+    overflow-y: auto;
+    height: 100%;
+    color: var(--text);
+    line-height: 1.6;
+  }
+  .phase-view.active {
+    display: block;
+  }
+  .phase-view h1, .phase-view h2, .phase-view h3 {
+    color: #cfe0ff;
+    margin-top: 1.5em;
+    margin-bottom: 0.5em;
+  }
+  .phase-view code {
+    background: #0b0f14;
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-family: 'Monaco', 'Menlo', monospace;
+    font-size: 0.9em;
+  }
+  .phase-view pre {
+    background: #0b0f14;
+    padding: 12px;
+    border-radius: 6px;
+    overflow-x: auto;
+    border: 1px solid var(--stroke);
+  }
+  .phase-view pre code {
+    background: transparent;
+    padding: 0;
+  }
+  .phase-view blockquote {
+    border-left: 3px solid var(--brand);
+    padding-left: 12px;
+    margin-left: 0;
+    color: var(--muted);
+  }
 </style>
 </head>
 <body>
@@ -165,6 +210,30 @@
       <div class="explorer-header">EXPLORER</div>
       <div class="workspace-title">Repository</div>
       <ul id="fileTree" class="vscode-tree"></ul>
+      
+      <div class="workspace-title" style="margin-top: 20px; border-top: 1px solid var(--stroke); padding-top: 10px;">Pipeline Phases</div>
+      <ul id="phaseTree" class="vscode-tree">
+        <li class="vscode-item phase" data-phase="planning">
+          <button class="vscode-row">
+            <span>📋 Planning</span>
+          </button>
+        </li>
+        <li class="vscode-item phase" data-phase="analysis">
+          <button class="vscode-row">
+            <span>🔍 Analysis</span>
+          </button>
+        </li>
+        <li class="vscode-item phase" data-phase="coding">
+          <button class="vscode-row">
+            <span>💻 Coding</span>
+          </button>
+        </li>
+        <li class="vscode-item phase" data-phase="explanation">
+          <button class="vscode-row">
+            <span>📚 Explanation</span>
+          </button>
+        </li>
+      </ul>
     </aside>
 
     <main class="code-pane">
@@ -177,6 +246,7 @@
       <div class="code-frame" id="codeFrame">
         <div id="codeLines" class="code-lines"></div>
         <div id="overlayLayer" class="overlay-layer"></div>
+        <div id="phaseView" class="phase-view"></div>
       </div>
     </main>
 
@@ -753,6 +823,82 @@
 
       await loadPDF();
     })();
+
+    // Phase documentation viewer
+    const phaseView = document.getElementById('phaseView');
+    const codeFrame = document.getElementById('codeFrame');
+    const codeLines = document.getElementById('codeLines');
+    let currentPhase = null;
+
+    async function loadPhase(phaseName) {
+      const endpoint = EP2C_ENDPOINTS[phaseName];
+      if (!endpoint) return;
+
+      try {
+        const res = await fetch(endpoint);
+        if (!res.ok) {
+          phaseView.innerHTML = `<p style="color: var(--muted); padding: 20px;">${phaseName.charAt(0).toUpperCase() + phaseName.slice(1)} documentation not available.</p>`;
+          return;
+        }
+        const markdown = await res.text();
+        
+        // Simple markdown to HTML conversion (basic)
+        let html = markdown
+          .replace(/^# (.*$)/gim, '<h1>$1</h1>')
+          .replace(/^## (.*$)/gim, '<h2>$1</h2>')
+          .replace(/^### (.*$)/gim, '<h3>$1</h3>')
+          .replace(/^#### (.*$)/gim, '<h4>$1</h4>')
+          .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+          .replace(/\*(.*?)\*/g, '<em>$1</em>')
+          .replace(/`([^`]+)`/g, '<code>$1</code>')
+          .replace(/```(\w+)?\n([\s\S]*?)```/g, '<pre><code>$2</code></pre>')
+          .replace(/\n\n/g, '</p><p>')
+          .replace(/^(.+)$/gm, '<p>$1</p>');
+        
+        phaseView.innerHTML = html;
+        phaseView.classList.add('active');
+        codeLines.style.display = 'none';
+        currentPhase = phaseName;
+      } catch (e) {
+        console.error('Error loading phase:', e);
+        phaseView.innerHTML = `<p style="color: #ff6b6b; padding: 20px;">Error loading ${phaseName} documentation.</p>`;
+      }
+    }
+
+    function showCodeView() {
+      phaseView.classList.remove('active');
+      codeLines.style.display = 'block';
+      currentPhase = null;
+    }
+
+    // Setup phase buttons
+    document.querySelectorAll('.vscode-item.phase .vscode-row').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const phaseItem = btn.closest('.vscode-item.phase');
+        const phaseName = phaseItem.dataset.phase;
+        
+        // Toggle active state
+        document.querySelectorAll('.vscode-item.phase .vscode-row').forEach(b => b.classList.remove('active'));
+        if (currentPhase === phaseName) {
+          showCodeView();
+          btn.classList.remove('active');
+        } else {
+          btn.classList.add('active');
+          loadPhase(phaseName);
+        }
+      });
+    });
+
+    // Allow clicking file tree items to return to code view
+    document.querySelectorAll('.vscode-item.file .vscode-row').forEach(btn => {
+      btn.addEventListener('click', () => {
+        if (currentPhase) {
+          document.querySelectorAll('.vscode-item.phase .vscode-row').forEach(b => b.classList.remove('active'));
+          showCodeView();
+        }
+      });
+    });
   </script>
 </body>
 </html>
