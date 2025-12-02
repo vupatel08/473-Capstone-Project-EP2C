@@ -59,6 +59,8 @@ else:
     print(f"[ERROR] Invalid paper format. Please select either 'JSON' or 'LaTeX.")
     sys.exit(0)
 
+# TODO: Link parser/update message.
+
 plan_msg = [
         {'role': "system", "content": f"""You are an expert researcher and strategic planner with a deep understanding of experimental design and reproducibility in scientific research. 
 You will receive a research paper in {paper_format} format. 
