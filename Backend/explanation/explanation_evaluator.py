@@ -122,7 +122,7 @@ class ExplanationEvaluator:
         ]
         
         # Check each file for paper references
-        for file_path, content in generated_files.items():
+        for file_path, content in generated_code.items():
             content_lower = content.lower()
             has_reference = any(
                 re.search(pattern, content_lower, re.IGNORECASE)
