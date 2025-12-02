@@ -14,6 +14,9 @@ import argparse
 import os
 import sys
 import subprocess
+import io
+import zipfile
+import requests
 from pathlib import Path
 from typing import Dict, Optional, Union
 from dotenv import load_dotenv
@@ -78,4 +81,46 @@ def run_unified_pipeline(
         - from_github: Whether repo came from GitHub (bool)
     """
     pass  # Implementation will be added in subsequent commits
+
+
+def _download_github_repo(repo_url: str, extract_root: Path) -> Path:
+    """
+    Download a GitHub repository as a ZIP and extract it.
+    
+    Args:
+        repo_url: GitHub repository URL
+        extract_root: Directory where the repo should be extracted
+    
+    Returns:
+        Path to the extracted repository directory
+    
+    Raises:
+        RuntimeError: If download fails for both main and master branches
+    """
+    extract_root = Path(extract_root).resolve()
+    extract_root.mkdir(parents=True, exist_ok=True)
+
+    def _try(branch: str) -> Optional[Path]:
+        """Try to download a specific branch."""
+        url = repo_url.rstrip("/") + f"/archive/refs/heads/{branch}.zip"
+        try:
+            resp = requests.get(url, timeout=60)
+            if resp.status_code != 200:
+                return None
+            with zipfile.ZipFile(io.BytesIO(resp.content)) as z:
+                z.extractall(extract_root)
+            top = max(extract_root.iterdir(), key=lambda p: p.stat().st_mtime)
+            return top
+        except Exception:
+            return None
+
+    out = _try("main") or _try("master")
+    if not out:
+        raise RuntimeError(f"Could not download ZIP for main/master branch from {repo_url}")
+    return out.resolve()
+
+
+def _normalize_path(path: Union[str, Path]) -> Path:
+    """Normalize a path string or Path object to a resolved Path."""
+    return Path(path).resolve()
 
