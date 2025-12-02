@@ -124,3 +124,31 @@ def _normalize_path(path: Union[str, Path]) -> Path:
     """Normalize a path string or Path object to a resolved Path."""
     return Path(path).resolve()
 
+
+def _check_research_tracker(paper_pdf_path: str) -> Optional[str]:
+    """
+    Check research tracker for existing GitHub repository.
+    
+    Args:
+        paper_pdf_path: Path to paper PDF file
+    
+    Returns:
+        GitHub repository URL if found, None otherwise
+    """
+    # Add research-tracker to path
+    research_tracker_dir = project_root / "Backend" / "research-tracker"
+    if research_tracker_dir.exists() and str(research_tracker_dir) not in sys.path:
+        sys.path.insert(0, str(research_tracker_dir))
+    
+    try:
+        from find_repo import get_repo_link
+        repo_url = get_repo_link(paper_pdf_path)
+        return repo_url
+    except ImportError:
+        # Research tracker not available, continue without it
+        return None
+    except Exception as e:
+        # Log error but don't fail - continue with pipeline
+        print(f"⚠️  Research tracker check failed: {e}", flush=True)
+        return None
+
