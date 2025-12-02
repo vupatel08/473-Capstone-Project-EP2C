@@ -205,3 +205,56 @@ def _run_planning_phase(
         print(f"\n❌ Planning phase failed with exit code {e.returncode}")
         return False
 
+
+def _run_analysis_phase(
+    paper_name: str,
+    gpt_version: str,
+    paper_format: str,
+    output_dir: Path,
+    pdf_json_path: Optional[str],
+    pdf_latex_path: Optional[str],
+) -> bool:
+    """
+    Run the analysis phase of the EP2C pipeline.
+    
+    Args:
+        paper_name: Name identifier for the paper
+        gpt_version: GPT model version to use
+        paper_format: Paper format ("JSON" or "LaTeX")
+        output_dir: Output directory for analysis artifacts
+        pdf_json_path: Path to paper JSON (if JSON format)
+        pdf_latex_path: Path to paper LaTeX/Markdown (if LaTeX format)
+    
+    Returns:
+        True if successful, False otherwise
+    """
+    print("\n" + "="*70)
+    print("[2/3] ANALYSIS PHASE")
+    print("="*70)
+    print("Performing detailed logic analysis for each file...\n")
+    
+    # Build command for analysis phase
+    analysis_cmd = [
+        sys.executable,
+        str(backend_dir / "models" / "2_analyzing.py"),
+        "--paper_name", paper_name,
+        "--gpt_version", gpt_version,
+        "--paper_format", paper_format,
+        "--output_dir", str(output_dir)
+    ]
+    
+    # Add paper input path based on format
+    if pdf_json_path:
+        analysis_cmd.extend(["--pdf_json_path", pdf_json_path])
+    if pdf_latex_path:
+        analysis_cmd.extend(["--pdf_latex_path", pdf_latex_path])
+    
+    try:
+        # Run analysis phase subprocess
+        result = subprocess.run(analysis_cmd, check=True, cwd=str(backend_dir))
+        print("\n✅ Analysis phase completed successfully!")
+        return True
+    except subprocess.CalledProcessError as e:
+        print(f"\n❌ Analysis phase failed with exit code {e.returncode}")
+        return False
+
