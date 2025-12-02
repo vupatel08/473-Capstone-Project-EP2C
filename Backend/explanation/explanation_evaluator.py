@@ -37,26 +37,27 @@ class ExplanationEvaluator:
         Returns:
             Dictionary of explainability metrics
         """
+        # Calculate individual explainability metrics
         metrics = {
             "traceability_coverage": self.calculate_traceability_coverage(
                 traceability_map, paper_sections
             ),
-            "comment_density": self.calculate_comment_density(generated_code),
+            "comment_density": self.calculate_comment_density(generated_code),  # Comments/docstrings ratio
             "paper_reference_accuracy": self.calculate_paper_reference_accuracy(
-                generated_code
+                generated_code  # How well code references paper sections
             ),
-            "missing_info_score": self.calculate_missing_info_score(missing_info),
-            "readability_score": self.calculate_readability_score(generated_code),
+            "missing_info_score": self.calculate_missing_info_score(missing_info),  # Info completeness
+            "readability_score": self.calculate_readability_score(generated_code),  # Code documentation quality
             "overall_explainability_score": 0.0
         }
         
-        # Calculate overall score (weighted average)
+        # Calculate overall score as weighted average of individual metrics
         weights = {
-            "traceability_coverage": 0.3,
-            "comment_density": 0.2,
-            "paper_reference_accuracy": 0.25,
-            "missing_info_score": 0.15,
-            "readability_score": 0.1
+            "traceability_coverage": 0.3,  # Most important: code-paper links
+            "comment_density": 0.2,  # Comments help explain code
+            "paper_reference_accuracy": 0.25,  # Explicit paper references
+            "missing_info_score": 0.15,  # Completeness of information
+            "readability_score": 0.1  # Code structure and documentation
         }
         
         metrics["overall_explainability_score"] = sum(
@@ -76,48 +77,52 @@ class ExplanationEvaluator:
         return 0.0
     
     def calculate_comment_density(self, generated_code: Dict[str, str]) -> float:
-        """Calculate comment density in generated code."""
+        """Calculate comment density in generated code (ratio of comment lines to total lines)."""
         if not generated_code:
             return 0.0
         
         total_lines = 0
         comment_lines = 0
         
+        # Count lines across all files
         for file_path, content in generated_code.items():
             lines = content.split('\n')
             total_lines += len(lines)
             
+            # Count comment lines (single-line #, docstrings)
             for line in lines:
                 stripped = line.strip()
-                # Count comment lines
                 if stripped.startswith('#') or stripped.startswith('"""') or stripped.startswith("'''"):
                     comment_lines += 1
         
         if total_lines == 0:
             return 0.0
         
+        # Return ratio, capped at 1.0
         return min(comment_lines / total_lines, 1.0)
     
     def calculate_paper_reference_accuracy(self, generated_code: Dict[str, str]) -> float:
-        """Calculate how well code references paper sections."""
+        """Calculate how well code references paper sections (percentage of files with references)."""
         if not generated_code:
             return 0.0
         
         total_files = len(generated_code)
         files_with_references = 0
         
+        # Patterns that indicate paper references in code
         paper_reference_patterns = [
-            r'section\s+\d+',
-            r'equation\s*\(\d+\)',
-            r'figure\s+\d+',
-            r'table\s+\d+',
-            r'algorithm\s+\d+',
-            r'described\s+in',
-            r'implements\s+the',
-            r'according\s+to\s+the\s+paper'
+            r'section\s+\d+',  # Section references
+            r'equation\s*\(\d+\)',  # Equation references
+            r'figure\s+\d+',  # Figure references
+            r'table\s+\d+',  # Table references
+            r'algorithm\s+\d+',  # Algorithm references
+            r'described\s+in',  # Descriptive references
+            r'implements\s+the',  # Implementation references
+            r'according\s+to\s+the\s+paper'  # Explicit paper mentions
         ]
         
-        for file_path, content in generated_code.items():
+        # Check each file for paper references
+        for file_path, content in generated_files.items():
             content_lower = content.lower()
             has_reference = any(
                 re.search(pattern, content_lower, re.IGNORECASE)
@@ -130,6 +135,7 @@ class ExplanationEvaluator:
         if total_files == 0:
             return 0.0
         
+        # Return percentage of files with references
         return files_with_references / total_files
     
     def calculate_missing_info_score(self, missing_info: List[Dict]) -> float:

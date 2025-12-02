@@ -48,22 +48,23 @@ class ExplanationGenerator:
         """
         print("Generating paper-to-code traceability map...")
         
-        # Extract paper structure
+        # Extract structured paper sections from JSON
         paper_sections = self._extract_paper_sections(paper_json)
         
-        # Build traceability map
-        code_to_paper = {}
-        paper_to_code = {}
+        # Build bidirectional traceability maps
+        code_to_paper = {}  # Maps code components -> paper sections
+        paper_to_code = {}  # Maps paper sections -> code components
         
+        # Process each generated code file
         for file_path, code_content in generated_files.items():
             file_basename = os.path.basename(file_path)
             
-            # Extract code components (classes, functions, methods)
+            # Extract code components (classes, functions, methods) from file
             code_components = self._extract_code_components(code_content, file_path)
             
-            # Map each component to paper sections
+            # Map each code component to relevant paper sections
             for component, component_info in code_components.items():
-                # Use planning artifacts to find related paper sections
+                # Use LLM to find related paper sections based on planning artifacts
                 related_sections = self._find_related_paper_sections(
                     file_basename,
                     component_info,
@@ -72,9 +73,10 @@ class ExplanationGenerator:
                 )
                 
                 if related_sections:
+                    # Forward mapping: code component -> paper sections
                     code_to_paper[component] = related_sections
                     
-                    # Build reverse map
+                    # Reverse mapping: paper section -> code components
                     for section in related_sections:
                         if section not in paper_to_code:
                             paper_to_code[section] = []
@@ -119,32 +121,34 @@ class ExplanationGenerator:
         """Extract classes, functions, and methods from code."""
         components = {}
         
-        # Extract classes
+        # Extract classes using regex pattern (matches class definition and body)
         class_pattern = r'class\s+(\w+)[^:]*:(.*?)(?=\nclass|\ndef\s|\Z)'
         for match in re.finditer(class_pattern, code_content, re.DOTALL):
             class_name = match.group(1)
             class_body = match.group(2)
             
-            # Extract methods
+            # Extract methods from class body
             methods = []
             method_pattern = r'def\s+(\w+)\s*\([^)]*\):'
             for method_match in re.finditer(method_pattern, class_body):
                 methods.append(method_match.group(1))
             
+            # Store class component with metadata
             component_key = f"{os.path.basename(file_path)}:{class_name}"
             components[component_key] = {
                 "type": "class",
-                "description": self._extract_docstring(class_body),
-                "methods": methods,
+                "description": self._extract_docstring(class_body),  # Extract docstring
+                "methods": methods,  # List of method names
                 "file": file_path
             }
         
-        # Extract standalone functions
+        # Extract standalone functions (not inside classes)
         function_pattern = r'def\s+(\w+)\s*\([^)]*\):(.*?)(?=\ndef|\Z)'
         for match in re.finditer(function_pattern, code_content, re.DOTALL):
             func_name = match.group(1)
             func_body = match.group(2)
             
+            # Store function component
             component_key = f"{os.path.basename(file_path)}:{func_name}"
             components[component_key] = {
                 "type": "function",
@@ -234,17 +238,18 @@ Return only the section names/titles, separated by commas.
         return "\n\n".join(formatted)
     
     def _calculate_coverage_score(self, code_to_paper: Dict, paper_sections: List[Dict]) -> float:
-        """Calculate traceability coverage score."""
+        """Calculate traceability coverage score (percentage of paper sections mapped to code)."""
         if not paper_sections:
             return 0.0
         
-        # Count unique sections that have code links
+        # Collect all unique paper sections that have code links
         linked_sections = set()
         for component, sections in code_to_paper.items():
-            linked_sections.update(sections)
+            linked_sections.update(sections)  # Add all sections linked to this component
         
+        # Coverage = linked sections / total sections
         coverage = len(linked_sections) / len(paper_sections) if paper_sections else 0.0
-        return round(coverage, 3)
+        return round(coverage, 3)  # Round to 3 decimal places
     
     def generate_explanation_summary(self, traceability_map: Dict) -> str:
         """Generate a human-readable explanation summary."""

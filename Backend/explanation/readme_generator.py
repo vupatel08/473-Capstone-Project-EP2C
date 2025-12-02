@@ -38,15 +38,16 @@ class READMEGenerator:
         Returns:
             Formatted README content
         """
-        readme = self._generate_header(paper_metadata)
-        readme += self._generate_overview(paper_metadata)
-        readme += self._generate_requirements(code_structure, config_data)
-        readme += self._generate_structure(code_structure)
-        readme += self._generate_code_to_paper_mapping(traceability_map)
-        readme += self._generate_missing_information(missing_info)
-        readme += self._generate_getting_started(code_structure, config_data)
-        readme += self._generate_next_steps(missing_info)
-        readme += self._generate_acknowledgments(paper_metadata)
+        # Build README by combining all sections
+        readme = self._generate_header(paper_metadata)  # Title, authors, abstract
+        readme += self._generate_overview(paper_metadata)  # Key features
+        readme += self._generate_requirements(code_structure, config_data)  # Dependencies
+        readme += self._generate_structure(code_structure)  # File structure
+        readme += self._generate_code_to_paper_mapping(traceability_map)  # Traceability table
+        readme += self._generate_missing_information(missing_info)  # Missing info alerts
+        readme += self._generate_getting_started(code_structure, config_data)  # Usage instructions
+        readme += self._generate_next_steps(missing_info)  # Next steps
+        readme += self._generate_acknowledgments(paper_metadata)  # Credits
         
         return readme
     
