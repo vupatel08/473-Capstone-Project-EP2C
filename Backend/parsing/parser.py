@@ -347,7 +347,7 @@ def ep2c_parse(docs: list[tuple[str | Path, str]], output_path: str | Path):
     for doc_lang in docs:
         # Typecheck all arguments.
         if (not isinstance(doc_lang, tuple)) or \
-           (len(doc_lang) != 2) \
+           (len(doc_lang) != 2) or \
            (not ((type(doc_lang[0]) in path_types) and isinstance(doc_lang[1], str))):
             
             print(f"{error_prefix}document list should be a list of (str | Path, str) tuples.", file=sys.stderr)
