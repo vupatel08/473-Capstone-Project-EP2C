@@ -365,3 +365,5 @@ def ep2c_parse(docs: list[tuple[str | Path, str]], output_path: str | Path):
     _parse_doc(path_list=doc_paths, langs=langs, output_dir=output_path)
 
     return
+
+out = codegen_prep([Path("Backend\parsing\ExampleResearchPaper.pdf")], Path("Backend\parsing\parse_output"))
