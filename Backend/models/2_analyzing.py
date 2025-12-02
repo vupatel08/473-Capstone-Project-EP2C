@@ -223,3 +223,39 @@ for todo_file_name in tqdm(todo_file_lst):
         json.dump(trajectories, f)
 
 save_accumulated_cost(f"{output_dir}/accumulated_cost.json", total_accumulated_cost)
+
+# Generate ANALYSIS.md for frontend display
+print("\n📝 Generating ANALYSIS.md...")
+analysis_md = "# Analysis Phase\n\n"
+analysis_md += "This document contains the detailed logic analysis for each file in the implementation.\n\n"
+
+# Collect all analysis files
+analysis_files_found = []
+for todo_file_name in todo_file_lst:
+    if todo_file_name == "config.yaml":
+        continue
+    
+    analysis_file = f'{artifact_output_dir}/{todo_file_name}_simple_analysis.txt'
+    if os.path.exists(analysis_file):
+        analysis_files_found.append((todo_file_name, analysis_file))
+
+# Sort by filename for consistent ordering
+analysis_files_found.sort(key=lambda x: x[0])
+
+# Add each analysis to the markdown
+for todo_file_name, analysis_file in analysis_files_found:
+    analysis_md += f"## {todo_file_name}\n\n"
+    try:
+        with open(analysis_file, 'r', encoding='utf-8') as f:
+            content = f.read()
+        analysis_md += content + "\n\n"
+    except Exception as e:
+        analysis_md += f"*Error reading analysis file: {e}*\n\n"
+
+if not analysis_files_found:
+    analysis_md += "*No analysis files found.*\n"
+
+# Save ANALYSIS.md
+with open(f'{output_dir}/ANALYSIS.md', 'w', encoding='utf-8') as f:
+    f.write(analysis_md)
+print(f"✅ Saved ANALYSIS.md to {output_dir}/ANALYSIS.md")
