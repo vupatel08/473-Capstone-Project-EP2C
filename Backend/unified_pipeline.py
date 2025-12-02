@@ -182,21 +182,21 @@ def run_unified_pipeline(
     print("\n" + "="*70)
     print("PIPELINE COMPLETE")
     print("="*70)
-    print(f"\n📁 Output Directory:     {output_dir}")
-    print(f"📦 Generated Repository: {output_repo_dir}")
+    print(f"\nOutput Directory:     {output_dir}")
+    print(f"Generated Repository: {output_repo_dir}")
     
     if explanation_dir.exists():
-        print(f"📚 Explanation Layer:     {explanation_dir}")
+        print(f"Explanation Layer:     {explanation_dir}")
         print(f"   - EXPLANATION.md:      {explanation_md_path}")
         print(f"   - Traceability Map:    {explanation_dir / 'traceability_map.json'}")
     
-    print(f"📋 Phase Documentation:")
+    print(f"Phase Documentation:")
     print(f"   - PLANNING.md:          {planning_md_path if planning_md_path.exists() else 'Not found'}")
     print(f"   - ANALYSIS.md:          {analysis_md_path if analysis_md_path.exists() else 'Not found'}")
     print(f"   - CODING.md:            {coding_md_path if coding_md_path.exists() else 'Not found'}")
     
     print("\n" + "="*70)
-    print("✅ EP2C Unified Pipeline Execution Complete!")
+    print("EP2C Unified Pipeline Execution Complete!")
     print("="*70 + "\n")
     
     # Return unified result dictionary
