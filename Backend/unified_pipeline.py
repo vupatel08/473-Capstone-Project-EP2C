@@ -18,7 +18,7 @@ import io
 import zipfile
 import requests
 from pathlib import Path
-from typing import Dict, Optional, Union
+from typing import Dict, Optional, Union, Tuple
 from dotenv import load_dotenv
 
 # Load environment variables from .env file
@@ -54,18 +54,19 @@ def run_unified_pipeline(
     This function:
     1. Checks for existing GitHub repos via research tracker
     2. If found, downloads the repo and returns early
-    3. If not found, runs the full EP2C pipeline (Planning → Analysis → Coding → Explanation)
-    4. Returns a consistent dictionary with all relevant paths
+    3. If not found, automatically parses PDF files using MinerU (if input is PDF)
+    4. Runs the full EP2C pipeline (Planning → Analysis → Coding → Explanation)
+    5. Returns a consistent dictionary with all relevant paths
     
     Args:
-        paper_pdf_path: Path to input paper PDF (used for research tracker check)
+        paper_pdf_path: Path to input paper PDF or already-parsed file (PDFs will be auto-parsed)
         paper_name: Name identifier for the paper (extracted from PDF if not provided)
         gpt_version: GPT model version to use (default: "o3-mini")
-        paper_format: Paper format ("JSON" or "LaTeX")
+        paper_format: Paper format ("JSON" or "LaTeX") - auto-set to "LaTeX" if PDF is parsed
         work_root: Working directory root (default: Backend/example_driver)
         output_base_dir: Base directory for outputs (default: "outputs")
         generated_repo_dir: Directory name for generated repo (default: "repo")
-        paper_md_path: Optional pre-parsed markdown file path
+        paper_md_path: Optional pre-parsed markdown file path (skips parsing if provided)
     
     Returns:
         Dictionary containing:
@@ -153,7 +154,20 @@ def run_unified_pipeline(
     
     print("No existing GitHub repo found. Running full EP2C pipeline...", flush=True)
     
-    # STEP 2: Run full EP2C pipeline
+    # STEP 2: Parse PDF if needed (convert PDF to markdown/JSON)
+    pdf_json_path, pdf_latex_path, updated_format = _parse_paper_if_needed(
+        paper_pdf_path=paper_pdf_path,
+        paper_md_path=paper_md_path,
+        paper_format=paper_format,
+        work_root=work_root,
+        paper_name=paper_name
+    )
+    
+    # Update paper_format if PDF was parsed (PDFs become markdown, which uses "LaTeX" format)
+    if updated_format:
+        paper_format = updated_format
+    
+    # STEP 3: Run full EP2C pipeline
     # Planning phase
     if not _run_planning_phase(paper_name, gpt_version, paper_format, output_dir, pdf_json_path, pdf_latex_path):
         raise RuntimeError("Planning phase failed")
@@ -166,7 +180,7 @@ def run_unified_pipeline(
     if not _run_coding_phase(paper_name, gpt_version, paper_format, output_dir, output_repo_dir, pdf_json_path, pdf_latex_path):
         raise RuntimeError("Coding phase failed")
     
-    # STEP 3: Collect all paths for return dictionary
+    # STEP 4: Collect all paths for return dictionary
     explanation_dir = output_dir / "explanation_layer"
     explanation_md_path = explanation_dir / "EXPLANATION.md" if explanation_dir.exists() else None
     
@@ -176,7 +190,8 @@ def run_unified_pipeline(
     coding_md_path = output_dir / "CODING.md"
     
     # Paper markdown path (for PaperCodeSync)
-    final_paper_md_path = paper_md_path if paper_md_path else pdf_latex_path
+    # Use parsed markdown if available, otherwise use provided paper_md_path or pdf_latex_path
+    final_paper_md_path = pdf_latex_path if pdf_latex_path else (paper_md_path if paper_md_path else None)
     
     # Final summary
     print("\n" + "="*70)
@@ -254,6 +269,114 @@ def _download_github_repo(repo_url: str, extract_root: Path) -> Path:
 def _normalize_path(path: Union[str, Path]) -> Path:
     """Normalize a path string or Path object to a resolved Path."""
     return Path(path).resolve()
+
+
+def _parse_paper_if_needed(
+    paper_pdf_path: Path,
+    paper_md_path: Optional[str],
+    paper_format: str,
+    work_root: Path,
+    paper_name: str
+) -> Tuple[Optional[str], Optional[str], Optional[str]]:
+    """
+    Parse PDF if input is a PDF file, otherwise use provided paths.
+    
+    This function checks if the input is a PDF file. If so, it uses MinerU parser
+    to convert it to markdown format. If the file is already parsed or not a PDF,
+    it returns the original paths.
+    
+    Args:
+        paper_pdf_path: Path to the paper file (PDF or already parsed)
+        paper_md_path: Optional pre-parsed markdown file path
+        paper_format: Paper format ("JSON" or "LaTeX")
+        work_root: Working directory root for parse output
+        paper_name: Name identifier for the paper
+    
+    Returns:
+        Tuple of (pdf_json_path, pdf_latex_path, updated_format) where:
+        - pdf_json_path: Path to JSON file (if JSON format)
+        - pdf_latex_path: Path to markdown/LaTeX file (if LaTeX format)
+        - updated_format: Updated format string if PDF was parsed (None if unchanged)
+    """
+    # If markdown/JSON already provided, use those
+    if paper_md_path and Path(paper_md_path).exists():
+        if paper_format == "JSON":
+            return str(paper_md_path), None, None
+        else:
+            return None, str(paper_md_path), None
+    
+    # Check if input is a PDF file
+    if paper_pdf_path.suffix.lower() == '.pdf':
+        print("\n" + "="*70)
+        print("PARSING PDF WITH MINERU")
+        print("="*70)
+        print(f"Input PDF: {paper_pdf_path}")
+        print(f"Paper Name: {paper_name}\n")
+        
+        # Setup parse output directory
+        parse_output_dir = work_root / "parse_output"
+        parse_output_dir.mkdir(parents=True, exist_ok=True)
+        
+        # Import parser
+        parsing_dir = backend_dir / "parsing"
+        if str(parsing_dir) not in sys.path:
+            sys.path.insert(0, str(parsing_dir))
+        
+        try:
+            from parser import ep2c_parse
+            
+            # Parse PDF (default to English)
+            print("Running MinerU parser...", flush=True)
+            ep2c_parse(
+                docs=[(str(paper_pdf_path), "en")],
+                output_path=str(parse_output_dir)
+            )
+            
+            # MinerU outputs to: <output_dir>/<paper_name>/auto/<paper_name>.md
+            # Note: paper_name might have spaces/special chars, so we need to match the actual output
+            parsed_output_base = parse_output_dir / paper_name / "auto"
+            
+            # Find the actual markdown file (MinerU uses the PDF stem as the filename)
+            pdf_stem = paper_pdf_path.stem
+            parsed_md_path = parsed_output_base / f"{pdf_stem}.md"
+            
+            # If that doesn't exist, try with paper_name
+            if not parsed_md_path.exists():
+                parsed_md_path = parsed_output_base / f"{paper_name}.md"
+            
+            # If still not found, look for any .md file in the auto directory
+            if not parsed_md_path.exists() and parsed_output_base.exists():
+                md_files = list(parsed_output_base.glob("*.md"))
+                if md_files:
+                    parsed_md_path = md_files[0]
+            
+            if parsed_md_path.exists():
+                print(f"✓ Parsed PDF → Markdown: {parsed_md_path}", flush=True)
+                # Update paper_format to LaTeX since we now have markdown
+                return None, str(parsed_md_path), "LaTeX"
+            else:
+                raise FileNotFoundError(
+                    f"Parsed markdown not found. Expected at {parsed_md_path} or similar. "
+                    f"Check parse_output directory: {parse_output_dir}"
+                )
+                
+        except ImportError as e:
+            print(f"Warning: Could not import parser: {e}", flush=True)
+            print("Continuing with PDF path (may fail if models expect parsed format)", flush=True)
+            # Fall back to original paths
+            if paper_format == "JSON":
+                return str(paper_pdf_path) if paper_pdf_path.exists() else None, None, None
+            else:
+                return None, str(paper_pdf_path) if paper_pdf_path.exists() else None, None
+        except Exception as e:
+            print(f"Error parsing PDF: {e}", flush=True)
+            raise RuntimeError(f"Failed to parse PDF: {e}") from e
+    
+    # Not a PDF, return original paths based on format
+    if paper_format == "JSON":
+        return str(paper_pdf_path) if paper_pdf_path.exists() else None, None, None
+    else:
+        return None, str(paper_pdf_path) if paper_pdf_path.exists() else None, None
 
 
 def _check_research_tracker(paper_pdf_path: str) -> Optional[str]:
