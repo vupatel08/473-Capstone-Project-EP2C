@@ -80,7 +80,138 @@ def run_unified_pipeline(
         - coding_md_path: Path to CODING.md
         - from_github: Whether repo came from GitHub (bool)
     """
-    pass  # Implementation will be added in subsequent commits
+    # Normalize paths
+    paper_pdf_path = _normalize_path(paper_pdf_path)
+    if work_root is None:
+        # Default to example_driver directory
+        work_root = backend_dir / "example_driver"
+    work_root = _normalize_path(work_root)
+    work_root.mkdir(parents=True, exist_ok=True)
+    
+    # Extract paper name if not provided
+    if paper_name is None:
+        paper_name = paper_pdf_path.stem
+    
+    # Setup output directories
+    output_dir = work_root / output_base_dir / "paper2code" / paper_name
+    output_repo_dir = output_dir / f"{paper_name}_repo"
+    output_dir.mkdir(parents=True, exist_ok=True)
+    output_repo_dir.mkdir(parents=True, exist_ok=True)
+    
+    # Setup paths for paper input based on format
+    if paper_format == "JSON":
+        pdf_json_path = str(paper_pdf_path)
+        pdf_latex_path = None
+    else:
+        pdf_json_path = None
+        pdf_latex_path = str(paper_pdf_path) if not paper_md_path else paper_md_path
+    
+    # Use provided paper_md_path if available
+    if paper_md_path:
+        pdf_latex_path = str(_normalize_path(paper_md_path))
+    
+    print("\n" + "="*70)
+    print("EP2C UNIFIED PIPELINE")
+    print("="*70)
+    print(f"Paper Name:      {paper_name}")
+    print(f"Paper Format:    {paper_format}")
+    print(f"GPT Version:     {gpt_version}")
+    print(f"Paper Input:     {paper_pdf_path}")
+    print(f"Output Dir:      {output_dir}")
+    print(f"Generated Repo:  {output_repo_dir}")
+    print("="*70 + "\n")
+    
+    # Verify paper input exists
+    if not paper_pdf_path.exists() and not (paper_md_path and Path(paper_md_path).exists()):
+        raise FileNotFoundError(f"Paper file not found: {paper_pdf_path}")
+    
+    # STEP 1: Check research tracker for existing GitHub repo
+    print("Checking for existing GitHub repo...", flush=True)
+    repo_url = _check_research_tracker(str(paper_pdf_path))
+    
+    if repo_url:
+        # Found existing repo - download and return early
+        print(f"Found GitHub repo: {repo_url}", flush=True)
+        github_root = work_root / "github_repo"
+        repo_dir = _download_github_repo(repo_url, github_root)
+        
+        # Try to find paper.md for PaperCodeSync
+        paper_md = work_root / "parse_output" / "paper.md"
+        
+        return {
+            "repo_path": str(repo_dir),
+            "paper_md_path": str(paper_md) if paper_md.exists() else "",
+            "paper_json_path": "",
+            "output_dir": "",
+            "explanation_dir": "",
+            "explanation_md_path": "",
+            "planning_md_path": "",
+            "analysis_md_path": "",
+            "coding_md_path": "",
+            "from_github": True
+        }
+    
+    print("No existing GitHub repo found. Running full EP2C pipeline...", flush=True)
+    
+    # STEP 2: Run full EP2C pipeline
+    # Planning phase
+    if not _run_planning_phase(paper_name, gpt_version, paper_format, output_dir, pdf_json_path, pdf_latex_path):
+        raise RuntimeError("Planning phase failed")
+    
+    # Analysis phase
+    if not _run_analysis_phase(paper_name, gpt_version, paper_format, output_dir, pdf_json_path, pdf_latex_path):
+        raise RuntimeError("Analysis phase failed")
+    
+    # Coding phase (includes explanation layer)
+    if not _run_coding_phase(paper_name, gpt_version, paper_format, output_dir, output_repo_dir, pdf_json_path, pdf_latex_path):
+        raise RuntimeError("Coding phase failed")
+    
+    # STEP 3: Collect all paths for return dictionary
+    explanation_dir = output_dir / "explanation_layer"
+    explanation_md_path = explanation_dir / "EXPLANATION.md" if explanation_dir.exists() else None
+    
+    # Phase MD files
+    planning_md_path = output_dir / "PLANNING.md"
+    analysis_md_path = output_dir / "ANALYSIS.md"
+    coding_md_path = output_dir / "CODING.md"
+    
+    # Paper markdown path (for PaperCodeSync)
+    final_paper_md_path = paper_md_path if paper_md_path else pdf_latex_path
+    
+    # Final summary
+    print("\n" + "="*70)
+    print("PIPELINE COMPLETE")
+    print("="*70)
+    print(f"\n📁 Output Directory:     {output_dir}")
+    print(f"📦 Generated Repository: {output_repo_dir}")
+    
+    if explanation_dir.exists():
+        print(f"📚 Explanation Layer:     {explanation_dir}")
+        print(f"   - EXPLANATION.md:      {explanation_md_path}")
+        print(f"   - Traceability Map:    {explanation_dir / 'traceability_map.json'}")
+    
+    print(f"📋 Phase Documentation:")
+    print(f"   - PLANNING.md:          {planning_md_path if planning_md_path.exists() else 'Not found'}")
+    print(f"   - ANALYSIS.md:          {analysis_md_path if analysis_md_path.exists() else 'Not found'}")
+    print(f"   - CODING.md:            {coding_md_path if coding_md_path.exists() else 'Not found'}")
+    
+    print("\n" + "="*70)
+    print("✅ EP2C Unified Pipeline Execution Complete!")
+    print("="*70 + "\n")
+    
+    # Return unified result dictionary
+    return {
+        "repo_path": str(output_repo_dir),
+        "paper_md_path": str(final_paper_md_path) if final_paper_md_path else "",
+        "paper_json_path": str(pdf_json_path) if pdf_json_path else "",
+        "output_dir": str(output_dir),
+        "explanation_dir": str(explanation_dir) if explanation_dir.exists() else "",
+        "explanation_md_path": str(explanation_md_path) if explanation_md_path and explanation_md_path.exists() else "",
+        "planning_md_path": str(planning_md_path) if planning_md_path.exists() else "",
+        "analysis_md_path": str(analysis_md_path) if analysis_md_path.exists() else "",
+        "coding_md_path": str(coding_md_path) if coding_md_path.exists() else "",
+        "from_github": False
+    }
 
 
 def _download_github_repo(repo_url: str, extract_root: Path) -> Path:
@@ -149,7 +280,7 @@ def _check_research_tracker(paper_pdf_path: str) -> Optional[str]:
         return None
     except Exception as e:
         # Log error but don't fail - continue with pipeline
-        print(f"⚠️  Research tracker check failed: {e}", flush=True)
+        print(f"Warning: Research tracker check failed: {e}", flush=True)
         return None
 
 
@@ -199,10 +330,10 @@ def _run_planning_phase(
     try:
         # Run planning phase subprocess
         result = subprocess.run(planning_cmd, check=True, cwd=str(backend_dir))
-        print("\n✅ Planning phase completed successfully!")
+        print("\nPlanning phase completed successfully!")
         return True
     except subprocess.CalledProcessError as e:
-        print(f"\n❌ Planning phase failed with exit code {e.returncode}")
+        print(f"\nPlanning phase failed with exit code {e.returncode}")
         return False
 
 
@@ -252,9 +383,65 @@ def _run_analysis_phase(
     try:
         # Run analysis phase subprocess
         result = subprocess.run(analysis_cmd, check=True, cwd=str(backend_dir))
-        print("\n✅ Analysis phase completed successfully!")
+        print("\nAnalysis phase completed successfully!")
         return True
     except subprocess.CalledProcessError as e:
-        print(f"\n❌ Analysis phase failed with exit code {e.returncode}")
+        print(f"\nAnalysis phase failed with exit code {e.returncode}")
+        return False
+
+
+def _run_coding_phase(
+    paper_name: str,
+    gpt_version: str,
+    paper_format: str,
+    output_dir: Path,
+    output_repo_dir: Path,
+    pdf_json_path: Optional[str],
+    pdf_latex_path: Optional[str],
+) -> bool:
+    """
+    Run the coding phase of the EP2C pipeline (includes explanation layer).
+    
+    Args:
+        paper_name: Name identifier for the paper
+        gpt_version: GPT model version to use
+        paper_format: Paper format ("JSON" or "LaTeX")
+        output_dir: Output directory for coding artifacts
+        output_repo_dir: Directory for generated code repository
+        pdf_json_path: Path to paper JSON (if JSON format)
+        pdf_latex_path: Path to paper LaTeX/Markdown (if LaTeX format)
+    
+    Returns:
+        True if successful, False otherwise
+    """
+    print("\n" + "="*70)
+    print("[3/3] CODING PHASE")
+    print("="*70)
+    print("Generating code files and explanation layer...\n")
+    
+    # Build command for coding phase
+    coding_cmd = [
+        sys.executable,
+        str(backend_dir / "models" / "3_coding.py"),
+        "--paper_name", paper_name,
+        "--gpt_version", gpt_version,
+        "--paper_format", paper_format,
+        "--output_dir", str(output_dir),
+        "--output_repo_dir", str(output_repo_dir)
+    ]
+    
+    # Add paper input path based on format
+    if pdf_json_path:
+        coding_cmd.extend(["--pdf_json_path", pdf_json_path])
+    if pdf_latex_path:
+        coding_cmd.extend(["--pdf_latex_path", pdf_latex_path])
+    
+    try:
+        # Run coding phase subprocess (includes explanation layer generation)
+        result = subprocess.run(coding_cmd, check=True, cwd=str(backend_dir))
+        print("\nCoding phase completed successfully!")
+        return True
+    except subprocess.CalledProcessError as e:
+        print(f"\nCoding phase failed with exit code {e.returncode}")
         return False
 
