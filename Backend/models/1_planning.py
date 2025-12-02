@@ -328,3 +328,39 @@ if len(responses) >= 4:
     print(f"✅ Saved planning_config.yaml to {output_dir}/planning_config.yaml")
 else:
     print("⚠️  Warning: Config response not found, planning_config.yaml not created")
+
+# Generate PLANNING.md for frontend display
+print("\n📝 Generating PLANNING.md...")
+planning_md = "# Planning Phase\n\n"
+planning_md += "This document contains the complete planning phase output, including the overall plan, architecture design, logic design, and configuration.\n\n"
+
+# Add Overall Plan (response 0)
+if len(responses) > 0:
+    planning_md += "## 1. Overall Plan\n\n"
+    plan_content = responses[0]['choices'][0]['message']['content']
+    planning_md += plan_content + "\n\n"
+
+# Add Architecture Design (response 1)
+if len(responses) > 1:
+    planning_md += "## 2. Architecture Design\n\n"
+    design_content = responses[1]['choices'][0]['message']['content']
+    planning_md += design_content + "\n\n"
+
+# Add Logic Design (response 2)
+if len(responses) > 2:
+    planning_md += "## 3. Logic Design & Task List\n\n"
+    task_content = responses[2]['choices'][0]['message']['content']
+    planning_md += task_content + "\n\n"
+
+# Add Config Summary (response 3)
+if len(responses) > 3:
+    planning_md += "## 4. Configuration\n\n"
+    config_content = responses[3]['choices'][0]['message']['content']
+    planning_md += config_content + "\n\n"
+    planning_md += "---\n\n"
+    planning_md += "**Note:** Full configuration is available in `planning_config.yaml`\n"
+
+# Save PLANNING.md
+with open(f'{output_dir}/PLANNING.md', 'w', encoding='utf-8') as f:
+    f.write(planning_md)
+print(f"✅ Saved PLANNING.md to {output_dir}/PLANNING.md")
