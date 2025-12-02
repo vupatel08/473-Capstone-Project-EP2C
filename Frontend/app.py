@@ -257,6 +257,54 @@ def serve_explanation():
     else:
         abort(404)
 
+@app.route("/data/planning.md")
+def serve_planning():
+    """Serve PLANNING.md from the most recent pipeline run."""
+    planning_base_dir = os.path.join(DRIVER_WORK_ROOT, "outputs", "paper2code")
+    planning_files = []
+    for root, dirs, files in os.walk(planning_base_dir):
+        if "PLANNING.md" in files:
+            planning_files.append(os.path.join(root, "PLANNING.md"))
+    
+    if planning_files:
+        # Use the most recent one
+        planning_path = max(planning_files, key=os.path.getmtime)
+        return send_file(planning_path, mimetype="text/markdown")
+    else:
+        abort(404)
+
+@app.route("/data/analysis.md")
+def serve_analysis():
+    """Serve ANALYSIS.md from the most recent pipeline run."""
+    analysis_base_dir = os.path.join(DRIVER_WORK_ROOT, "outputs", "paper2code")
+    analysis_files = []
+    for root, dirs, files in os.walk(analysis_base_dir):
+        if "ANALYSIS.md" in files:
+            analysis_files.append(os.path.join(root, "ANALYSIS.md"))
+    
+    if analysis_files:
+        # Use the most recent one
+        analysis_path = max(analysis_files, key=os.path.getmtime)
+        return send_file(analysis_path, mimetype="text/markdown")
+    else:
+        abort(404)
+
+@app.route("/data/coding.md")
+def serve_coding():
+    """Serve CODING.md from the most recent pipeline run."""
+    coding_base_dir = os.path.join(DRIVER_WORK_ROOT, "outputs", "paper2code")
+    coding_files = []
+    for root, dirs, files in os.walk(coding_base_dir):
+        if "CODING.md" in files:
+            coding_files.append(os.path.join(root, "CODING.md"))
+    
+    if coding_files:
+        # Use the most recent one
+        coding_path = max(coding_files, key=os.path.getmtime)
+        return send_file(coding_path, mimetype="text/markdown")
+    else:
+        abort(404)
+
 @app.route("/data/symbols.json")
 def serve_symbols():
     if not os.path.isfile(PAPERCODESYNC_SYMBOLS):
