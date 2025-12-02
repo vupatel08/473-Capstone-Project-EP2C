@@ -247,6 +247,46 @@ for todo_idx, todo_file_name in enumerate(tqdm(todo_file_lst)):
 
 save_accumulated_cost(f"{output_dir}/accumulated_cost.json", total_accumulated_cost)
 
+# Generate CODING.md for frontend display
+print("\n📝 Generating CODING.md...")
+coding_md = "# Coding Phase\n\n"
+coding_md += "This document contains the code generation artifacts for each file in the implementation.\n\n"
+
+# Collect all coding artifacts
+coding_files_found = []
+for todo_file_name in todo_file_lst:
+    if todo_file_name == "config.yaml":
+        continue
+    
+    save_todo_file_name = todo_file_name.replace("/", "_")
+    coding_file = f'{artifact_output_dir}/{save_todo_file_name}_coding.txt'
+    if os.path.exists(coding_file):
+        coding_files_found.append((todo_file_name, coding_file))
+
+# Sort by filename for consistent ordering
+coding_files_found.sort(key=lambda x: x[0])
+
+# Add each coding artifact to the markdown
+for todo_file_name, coding_file in coding_files_found:
+    coding_md += f"## {todo_file_name}\n\n"
+    try:
+        with open(coding_file, 'r', encoding='utf-8') as f:
+            content = f.read()
+        coding_md += content + "\n\n"
+    except Exception as e:
+        coding_md += f"*Error reading coding file: {e}*\n\n"
+
+if not coding_files_found:
+    coding_md += "*No coding artifacts found.*\n"
+
+coding_md += "---\n\n"
+coding_md += f"**Note:** Generated code files are available in `{output_repo_dir}`\n"
+
+# Save CODING.md
+with open(f'{output_dir}/CODING.md', 'w', encoding='utf-8') as f:
+    f.write(coding_md)
+print(f"✅ Saved CODING.md to {output_dir}/CODING.md")
+
 # ============================================================================
 # STEP 4: EXPLANATION LAYER GENERATION
 # ============================================================================
