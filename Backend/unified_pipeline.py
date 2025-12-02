@@ -152,3 +152,56 @@ def _check_research_tracker(paper_pdf_path: str) -> Optional[str]:
         print(f"⚠️  Research tracker check failed: {e}", flush=True)
         return None
 
+
+def _run_planning_phase(
+    paper_name: str,
+    gpt_version: str,
+    paper_format: str,
+    output_dir: Path,
+    pdf_json_path: Optional[str],
+    pdf_latex_path: Optional[str],
+) -> bool:
+    """
+    Run the planning phase of the EP2C pipeline.
+    
+    Args:
+        paper_name: Name identifier for the paper
+        gpt_version: GPT model version to use
+        paper_format: Paper format ("JSON" or "LaTeX")
+        output_dir: Output directory for planning artifacts
+        pdf_json_path: Path to paper JSON (if JSON format)
+        pdf_latex_path: Path to paper LaTeX/Markdown (if LaTeX format)
+    
+    Returns:
+        True if successful, False otherwise
+    """
+    print("\n" + "="*70)
+    print("[1/3] PLANNING PHASE")
+    print("="*70)
+    print("Generating overall plan, architecture design, logic design, and config...\n")
+    
+    # Build command for planning phase
+    planning_cmd = [
+        sys.executable,
+        str(backend_dir / "models" / "1_planning.py"),
+        "--paper_name", paper_name,
+        "--gpt_version", gpt_version,
+        "--paper_format", paper_format,
+        "--output_dir", str(output_dir)
+    ]
+    
+    # Add paper input path based on format
+    if pdf_json_path:
+        planning_cmd.extend(["--pdf_json_path", pdf_json_path])
+    if pdf_latex_path:
+        planning_cmd.extend(["--pdf_latex_path", pdf_latex_path])
+    
+    try:
+        # Run planning phase subprocess
+        result = subprocess.run(planning_cmd, check=True, cwd=str(backend_dir))
+        print("\n✅ Planning phase completed successfully!")
+        return True
+    except subprocess.CalledProcessError as e:
+        print(f"\n❌ Planning phase failed with exit code {e.returncode}")
+        return False
+
