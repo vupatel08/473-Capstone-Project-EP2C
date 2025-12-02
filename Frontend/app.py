@@ -13,8 +13,8 @@ import uuid
 from werkzeug.utils import secure_filename
 sys.path.append("../Backend/papercodesync/src") 
 from driver import pcs_pipeline
-sys.path.append("../Backend/example_driver")
-from pipeline import run as ep2c_pipeline
+sys.path.append("../Backend")
+from unified_pipeline import run_unified_pipeline as ep2c_pipeline
 
 
 app = Flask(__name__, static_folder="static", template_folder="templates")

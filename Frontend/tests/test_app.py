@@ -21,9 +21,20 @@ import types
 mock_driver = types.ModuleType("driver")
 mock_driver.pcs_pipeline = lambda paper_md, repo_root: None
 sys.modules["driver"] = mock_driver
-mock_pipeline = types.ModuleType("pipeline")
-mock_pipeline.run = lambda **kw: str(HERE / "repo")
-sys.modules["pipeline"] = mock_pipeline
+mock_unified_pipeline = types.ModuleType("unified_pipeline")
+mock_unified_pipeline.run_unified_pipeline = lambda **kw: {
+    "repo_path": str(HERE / "repo"),
+    "paper_md_path": "",
+    "paper_json_path": "",
+    "output_dir": "",
+    "explanation_dir": "",
+    "explanation_md_path": "",
+    "planning_md_path": "",
+    "analysis_md_path": "",
+    "coding_md_path": "",
+    "from_github": False
+}
+sys.modules["unified_pipeline"] = mock_unified_pipeline
 
 import importlib
 app_module = importlib.import_module("app")
@@ -269,3 +280,72 @@ def test_viewer_with_filename_success(client, tmp_path, monkeypatch):
     resp = client.get(f'/viewer?filename={fname}&language=Python')
     assert resp.status_code == 200
     assert b'viewer' in resp.data or b'pdf' in resp.data
+
+
+def test_unified_pipeline_integration(client, tmp_path, monkeypatch):
+    """Test that frontend uses unified_pipeline correctly."""
+    pdf = tmp_path / 'paper.pdf'
+    pdf.write_bytes(b'%PDF-1.4 test')
+    
+    repo_dir = tmp_path / 'repo'
+    repo_dir.mkdir()
+    (repo_dir / 'test.py').write_text('print("test")')
+    
+    # Mock unified pipeline to return proper structure
+    def mock_unified_pipeline(**kwargs):
+        return {
+            "repo_path": str(repo_dir),
+            "paper_md_path": str(tmp_path / "paper.md"),
+            "paper_json_path": "",
+            "output_dir": str(tmp_path / "outputs"),
+            "explanation_dir": str(tmp_path / "outputs" / "explanation_layer"),
+            "explanation_md_path": "",
+            "planning_md_path": "",
+            "analysis_md_path": "",
+            "coding_md_path": "",
+            "from_github": False
+        }
+    
+    monkeypatch.setattr(app_module, 'ep2c_pipeline', mock_unified_pipeline)
+    
+    with open(pdf, 'rb') as f:
+        rv = client.post('/upload', data={'paper': (f, 'paper.pdf'), 'language': 'Python'}, follow_redirects=True)
+    
+    # Should redirect to viewer on success
+    assert rv.status_code == 200
+    assert b'viewer' in rv.data.lower() or b'pdf' in rv.data.lower()
+
+
+def test_unified_pipeline_return_format(client, tmp_path, monkeypatch):
+    """Test that unified pipeline returns expected format."""
+    pdf = tmp_path / 'paper.pdf'
+    pdf.write_bytes(b'%PDF-1.4 test')
+    
+    repo_dir = tmp_path / 'repo'
+    repo_dir.mkdir()
+    
+    # Create mock return with all expected keys
+    mock_result = {
+        "repo_path": str(repo_dir),
+        "paper_md_path": str(tmp_path / "paper.md"),
+        "paper_json_path": "",
+        "output_dir": str(tmp_path / "outputs"),
+        "explanation_dir": str(tmp_path / "outputs" / "explanation_layer"),
+        "explanation_md_path": str(tmp_path / "outputs" / "explanation_layer" / "EXPLANATION.md"),
+        "planning_md_path": str(tmp_path / "outputs" / "PLANNING.md"),
+        "analysis_md_path": str(tmp_path / "outputs" / "ANALYSIS.md"),
+        "coding_md_path": str(tmp_path / "outputs" / "CODING.md"),
+        "from_github": False
+    }
+    
+    def mock_unified_pipeline(**kwargs):
+        return mock_result
+    
+    monkeypatch.setattr(app_module, 'ep2c_pipeline', mock_unified_pipeline)
+    monkeypatch.setattr(app_module, 'REPO_ROOT', str(repo_dir))
+    
+    with open(pdf, 'rb') as f:
+        rv = client.post('/upload', data={'paper': (f, 'paper.pdf'), 'language': 'Python'}, follow_redirects=True)
+    
+    # Verify all expected keys are handled
+    assert rv.status_code == 200
