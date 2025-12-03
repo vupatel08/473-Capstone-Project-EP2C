@@ -332,23 +332,35 @@ def _parse_paper_if_needed(
                 output_path=str(parse_output_dir)
             )
             
-            # MinerU outputs to: <output_dir>/<paper_name>/auto/<paper_name>.md
-            # Note: paper_name might have spaces/special chars, so we need to match the actual output
-            parsed_output_base = parse_output_dir / paper_name / "auto"
-            
-            # Find the actual markdown file (MinerU uses the PDF stem as the filename)
+            # MinerU outputs to: <output_dir>/<pdf_stem>/auto/<pdf_stem>.md
+            # Note: MinerU uses the PDF filename stem, not paper_name, for the directory structure
             pdf_stem = paper_pdf_path.stem
+            
+            # Try PDF stem directory first (MinerU's default behavior)
+            parsed_output_base = parse_output_dir / pdf_stem / "auto"
             parsed_md_path = parsed_output_base / f"{pdf_stem}.md"
             
-            # If that doesn't exist, try with paper_name
+            # If that doesn't exist, try paper_name directory
+            if not parsed_md_path.exists():
+                parsed_output_base = parse_output_dir / paper_name / "auto"
+                parsed_md_path = parsed_output_base / f"{pdf_stem}.md"
+            
+            # If still not found, try paper_name as filename
             if not parsed_md_path.exists():
                 parsed_md_path = parsed_output_base / f"{paper_name}.md"
             
             # If still not found, look for any .md file in the auto directory
-            if not parsed_md_path.exists() and parsed_output_base.exists():
-                md_files = list(parsed_output_base.glob("*.md"))
-                if md_files:
-                    parsed_md_path = md_files[0]
+            if not parsed_md_path.exists():
+                # Try PDF stem directory first
+                if (parse_output_dir / pdf_stem / "auto").exists():
+                    md_files = list((parse_output_dir / pdf_stem / "auto").glob("*.md"))
+                    if md_files:
+                        parsed_md_path = md_files[0]
+                # Then try paper_name directory
+                elif parsed_output_base.exists():
+                    md_files = list(parsed_output_base.glob("*.md"))
+                    if md_files:
+                        parsed_md_path = md_files[0]
             
             if parsed_md_path.exists():
                 print(f"✓ Parsed PDF → Markdown: {parsed_md_path}", flush=True)
@@ -567,4 +579,49 @@ def _run_coding_phase(
     except subprocess.CalledProcessError as e:
         print(f"\nCoding phase failed with exit code {e.returncode}")
         return False
+
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser(
+        description="EP2C Unified Pipeline - Generate code from research papers",
+        epilog="Example: python unified_pipeline.py --paper_pdf paper.pdf --paper_name Transformer"
+    )
+    
+    parser.add_argument("--paper_pdf", type=str, required=True, help="Path to paper PDF, JSON, or markdown file")
+    parser.add_argument("--paper_name", type=str, default=None, help="Paper name (default: extracted from filename)")
+    parser.add_argument("--gpt_version", type=str, default="o3-mini", help="GPT model version (default: o3-mini)")
+    parser.add_argument("--paper_format", type=str, default="JSON", choices=["JSON", "LaTeX"], help="Paper format (default: JSON)")
+    parser.add_argument("--work_root", type=str, default=None, help="Working directory root")
+    parser.add_argument("--output_base_dir", type=str, default="outputs", help="Output base directory")
+    parser.add_argument("--generated_repo_dir", type=str, default="repo", help="Generated repo directory name")
+    parser.add_argument("--paper_md_path", type=str, default=None, help="Pre-parsed markdown file path")
+    
+    args = parser.parse_args()
+    
+    if not os.getenv("OPENAI_API_KEY"):
+        print("Error: OPENAI_API_KEY not found. Set it with: export OPENAI_API_KEY=your_key")
+        sys.exit(1)
+    
+    try:
+        result = run_unified_pipeline(
+            paper_pdf_path=args.paper_pdf,
+            paper_name=args.paper_name,
+            gpt_version=args.gpt_version,
+            paper_format=args.paper_format,
+            work_root=args.work_root,
+            output_base_dir=args.output_base_dir,
+            generated_repo_dir=args.generated_repo_dir,
+            paper_md_path=args.paper_md_path
+        )
+        
+        print("\n" + "="*70)
+        print("PIPELINE COMPLETE")
+        print("="*70)
+        print(f"Repository:  {result.get('repo_path', 'N/A')}")
+        print(f"Output Dir:  {result.get('output_dir', 'N/A')}")
+        print("="*70)
+        
+    except Exception as e:
+        print(f"\nError: {e}", file=sys.stderr)
+        sys.exit(1)
 
