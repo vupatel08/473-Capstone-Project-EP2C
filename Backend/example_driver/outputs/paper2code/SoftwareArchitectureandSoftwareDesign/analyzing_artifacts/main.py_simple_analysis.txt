@@ -1,0 +1,115 @@
+### Logic Analysis for main.py
+
+**Objective:**  
+Coordinate the overall demonstration and analysis workflow for modeling software architectures, applying design principles, and visualizing relationships, all inspired by the paper's discussion on architecture and design principles.
+
+---
+
+### Key Responsibilities of `main.py`:
+
+1. **Configuration Loading and Initialization**
+2. **Instantiate Architectural Style(s)**
+3. **Create and Add Components to Architecture**
+4. **Apply Selected Design Principles to Components**
+5. **Visualize Architecture Diagrams**
+6. **Perform Basic Analysis or Validation (if applicable)**
+7. **Output and Save Results**
+
+---
+
+### Step-by-Step Logical Workflow:
+
+#### 1. **Import Modules & Load Configuration**
+
+- Import necessary classes (`Architecture`, `Component`, `Principle`, `Visualization`) and standard modules (`yaml` for configuration, `os` for file paths).
+- Read `config.yaml` to extract parameters such as architecture styles, principles, component info, and visualization preferences.
+- Establish constants or parameters for naming, file paths, and which architecture styles/principles to include in this run.
+
+---
+
+#### 2. **Initialize Architecture**
+
+- Instantiate an `Architecture` object, passing:
+  - A descriptive name for the architecture (e.g., "Sample Architecture").
+  - Style type(s), e.g., "Microservices".
+- This object will serve as the container for components and their relationships.
+
+---
+
+#### 3. **Create Components**
+
+- Based on architecture style, define a set of representative components.
+  - For example, in a microservices architecture:
+    - "Order Service"
+    - "Payment Service"
+    - "Inventory Service"
+- For each component:
+  - Instantiate a `Component` object, assign a name.
+  - Add dependencies to other components if needed (e.g., "Order Service" depends on "Payment Service").
+  - Add components to the architecture via `add_component()` method or similar.
+
+- The selection of components can be based on predefined data or inferred from the configuration, depending on how detailed the modeling should be.
+
+---
+
+#### 4. **Instantiate and Apply Principles**
+
+- For each principle listed in the configuration (`Single Responsibility`, `Open-Closed`, etc.):
+  - Instantiate a `Principle` object with its name and description.
+  - For each component:
+    - Call `apply_principle(principle)` method.
+    - Within this method, the system may simulate or check whether the component conforms to the principle.
+    - Since this is a model/demonstration, actual enforcement may just be logging or flagging.
+
+- Alternatively, methods could set properties or annotations indicating conformance.
+
+---
+
+#### 5. **Visualization**
+
+- Instantiate a `Visualization` object (or use functions directly).
+- Call `draw_graph(architecture)`:
+  - Visualize components and dependencies as a directed graph.
+  - Use different visual styles or colors to denote principles conformity, architecture style, etc.
+- Save visualization images to files for documentation or comparison.
+
+---
+
+#### 6. **Analysis and Validation (Optional/Enhanced)**
+
+- Depending on implementation details:
+  - Calculate dependency metrics (coupling, cohesion).
+  - Check principle violations / conformance.
+  - Log or display compliance reports.
+
+*(Note: Since the paper emphasizes principles and relationships visually and conceptually, additional quantitative analysis is optional but adds rigor.)*
+
+---
+
+### Edge Cases & Assumptions:
+
+- **Multiple architecture styles:** If multiple styles are specified, iterate over each, creating separate architecture models.
+- **Component dependencies:** Keep dependencies simple for demonstration; if complex, limit to a few key relationships.
+- **Principle enforcement:** The enforcement methods can be placeholders or simulated rules based on mocking attribute states.
+- **Visualization preferences:** Use default visualization if configuration is unspecified.
+
+---
+
+### Final Output:
+
+- **Visual diagrams** saved as image files.
+- **Console logs** indicating process flow and principles applied.
+- **Optional reports** or annotations in the visualization indicating principle conformance.
+
+---
+
+### Summary:
+`main.py` will function as the orchestrator that:
+- Loads configuration,
+- Sets up architecture models and components,
+- Applies design principles,
+- Visualizes the architecture,
+- Optionally performs simple analysis or validation, and
+- Outputs results for review.
+
+This structured logic ensures fidelity to the paper's conceptual discussion while allowing flexible extensions (e.g., testing more architectures, principles, or detailed validation).

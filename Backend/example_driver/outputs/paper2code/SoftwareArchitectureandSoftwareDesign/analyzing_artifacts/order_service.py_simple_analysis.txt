@@ -1,0 +1,135 @@
+### Logic Analysis for order_service.py
+
+**Purpose Overview:**  
+The `order_service.py` module defines the `OrderService` class. This class is responsible for:
+- Creating new orders within the system.
+- Publishing an `'OrderCreated'` event to notify other components (Payment, Notification modules).
+- Handling `'OrderStatusQuery'` events to respond with current order status.
+- Ensuring adherence to the principles of single responsibility and interface segregation.
+
+---
+
+### Core Responsibilities & Functional Requirements:
+
+1. **Order Creation:**
+   - Accept order data (e.g., list of items).
+   - Generate a unique order ID.
+   - Save order details in an internal data store (e.g., in-memory dictionary or persistent database).
+   - Initialize order status (e.g., `'Pending'`).
+   - Publish `'OrderCreated'` event with the order data and order ID via the `EventBus`.
+
+2. **Order Status Retrieval:**
+   - Listen for `'OrderStatusQuery'` events from the `EventBus`.
+   - Upon receiving such an event with an `order_id`, retrieve the current status of that order.
+   - Return the order status, either directly (if API invoked) or via event response if integrated asynchronously.
+
+3. **Event Handling:**
+   - Subscribe to `'OrderStatusQuery'` events through the `EventBus`.
+   - Implement an event callback method (`on_event`) that reacts when relevant events are received.
+   - Depending on the event type:
+     - For `'OrderStatusQuery'`:
+       - Fetch order status.
+       - Publish or respond with the order status accordingly.
+
+4. **Internal Data Management:**
+   - Maintain a data storage structure that maps `order_id` to order details, including:
+     - Items, timestamps, status, etc.
+   - Maintain thread safety if necessary (though for simple in-memory, may not be critical).
+
+5. **Design Principles:**
+   - **Single Responsibility:** The class handles only order-related responsibilities—creation, storage, status query, and event publishing.
+   - **Interface Segregation:** The class exposes only methods essential for order management (`create_order`, `on_event`), avoiding extraneous functionalities.
+
+---
+
+### Inputs & Outputs:
+
+| Method/Responsibility | Inputs | Outputs | Notes |
+|------------------------------|------------------------------|-------------------------------------------------------|--------------------------------------------------------------|
+| `create_order(data: dict)` | Order data (e.g., list of items) | Returns `order_id` (string) | Generates a new order, updates internal store, publishes event |
+| `on_event(event_type: str, payload: dict)` | Event type (e.g., `'OrderStatusQuery'`) and payload (e.g., `{'order_id': ...}`) | Performs internal actions; for query, returns order status | Reacts to subscribed events and processes |
+
+---
+
+### Key Implementation Details:
+
+- **Order Storage:**
+  - Use a dictionary: `orders = {}` keyed by `order_id`.
+  - Each value is a dict with keys: `'items'`, `'status'`, `'created_at'`, etc.
+
+- **Order ID Generation:**
+  - Generate unique IDs, e.g., using UUIDs (`uuid.uuid4()`).
+  - Ensure thread safety if concurrency arises (e.g., using locks).
+
+- **Event Publishing:**
+  - Use the `event_bus.publish()` method to broadcast `'OrderCreated'` with payload.
+  - Payload should include `order_id`, items, timestamp, and initial status.
+
+- **Event Subscription:**
+  - The instance subscribes to `'OrderStatusQuery'` events.
+  - When such an event arrives, parse `order_id` from payload.
+
+- **Handling `'OrderStatusQuery'`:**
+  - Look up the order in internal store.
+  - If found, retrieve the current status.
+  - Respond by publishing an event or returning directly (depends on system architecture; since this is a class, it should publish an event).
+
+- **Error Handling:**
+  - If an order ID is not found in a `'OrderStatusQuery'`, publish a response indicating not found or default status.
+
+- **Responsibility Segregation:**
+  - Ensure this class does not handle other unrelated tasks like payment processing or notification sending.
+
+---
+
+### Pseudocode Structure:
+
+```python
+class OrderService:
+    def __init__(self, event_bus):
+        self.event_bus = event_bus
+        self.orders = {}  # In-memory store: order_id -> order details
+        # Subscribe to relevant events
+        self.event_bus.subscribe(self, ['OrderStatusQuery'])
+
+    def create_order(self, data):
+        # Generate unique order ID
+        order_id = generate_uuid()
+        # Store order details
+        self.orders[order_id] = {
+            'items': data['items'],
+            'status': 'Pending',
+            'created_at': current_timestamp(),
+        }
+        # Publish 'OrderCreated' event with order details
+        payload = {
+            'order_id': order_id,
+            'items': data['items'],
+            'timestamp': self.orders[order_id]['created_at']
+        }
+        self.event_bus.publish('OrderCreated', payload)
+        return order_id
+
+    def on_event(self, event_type, payload):
+        if event_type == 'OrderStatusQuery':
+            order_id = payload.get('order_id')
+            status = self.orders.get(order_id, {}).get('status', 'NotFound')
+            # Publish response with order status
+            response_payload = {'order_id': order_id, 'status': status}
+            self.event_bus.publish('OrderStatusResponse', response_payload)
+        # Additional event types can be handled here.
+```
+
+---
+
+### Final Points:
+
+- Ensure `create_order()` method validates input data.
+- Maintain consistent use of configured topics and message formats from `config.yaml`.
+- The class interfaces directly with `EventBus` through `subscribe()` and `publish()`.
+- The class does not handle direct API calls; API layer invokes `create_order()` and interacts with `on_event()` via the event bus.
+
+---
+
+**Summary:**  
+The implementation of `OrderService` balances creating and managing orders with the event-driven system's subscriptions/publications, respecting design principles and system scalability. All internal data is stored in-memory for simplicity but can be extended to a persistent database as needed.

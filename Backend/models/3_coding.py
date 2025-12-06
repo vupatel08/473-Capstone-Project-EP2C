@@ -54,16 +54,16 @@ output_dir = args.output_dir
 output_repo_dir = args.output_repo_dir
 
 if paper_format == "JSON":
-    with open(f'{pdf_json_path}') as f:
+    with open(f'{pdf_json_path}', 'r', encoding='utf-8') as f:
         paper_content = json.load(f)
 elif paper_format == "LaTeX":
-    with open(f'{pdf_latex_path}') as f:
+    with open(f'{pdf_latex_path}', 'r', encoding='utf-8') as f:
         paper_content = f.read()
 else:
     print(f"[ERROR] Invalid paper format. Please select either 'JSON' or 'LaTeX.")
     sys.exit(0)
 
-with open(f'{output_dir}/planning_config.yaml') as f: 
+with open(f'{output_dir}/planning_config.yaml', 'r', encoding='utf-8') as f: 
     config_yaml = f.read()
 
 context_lst = extract_planning(f'{output_dir}/planning_trajectories.json')
@@ -182,7 +182,7 @@ for todo_file_name in todo_file_lst:
     if todo_file_name == "config.yaml":
         continue
     
-    with open(f"{output_dir}/{save_todo_file_name}_simple_analysis_response.json") as f:
+    with open(f"{output_dir}/{save_todo_file_name}_simple_analysis_response.json", 'r', encoding='utf-8') as f:
         detailed_logic_analysis_response = json.load(f)
     detailed_logic_analysis_dict[todo_file_name] = detailed_logic_analysis_response[0]['choices'][0]['message']['content']
 
@@ -228,7 +228,7 @@ for todo_idx, todo_file_name in enumerate(tqdm(todo_file_lst)):
     total_accumulated_cost = temp_total_accumulated_cost
 
     # save artifacts
-    with open(f'{artifact_output_dir}/{save_todo_file_name}_coding.txt', 'w') as f:
+    with open(f'{artifact_output_dir}/{save_todo_file_name}_coding.txt', 'w', encoding='utf-8') as f:
         f.write(completion_json['choices'][0]['message']['content'])
 
 
@@ -242,7 +242,7 @@ for todo_idx, todo_file_name in enumerate(tqdm(todo_file_lst)):
         todo_file_dir = '/'.join(todo_file_name.split("/")[:-1])
         os.makedirs(f"{output_repo_dir}/{todo_file_dir}", exist_ok=True)
 
-    with open(f"{output_repo_dir}/{todo_file_name}", 'w') as f:
+    with open(f"{output_repo_dir}/{todo_file_name}", 'w', encoding='utf-8') as f:
         f.write(code)
 
 save_accumulated_cost(f"{output_dir}/accumulated_cost.json", total_accumulated_cost)

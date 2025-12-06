@@ -1,0 +1,399 @@
+from openai import OpenAI
+import json
+import os
+from tqdm import tqdm
+import re
+import sys
+import copy
+from pathlib import Path
+from dotenv import load_dotenv
+
+# Load environment variables from .env file
+backend_dir = Path(__file__).parent.parent.resolve()
+# Add utils to path for imports
+sys.path.insert(0, str(backend_dir))
+from utils.papercoder_utils import extract_planning, content_to_json, extract_code_from_content, print_response, print_log_cost, load_accumulated_cost, save_accumulated_cost
+project_root = backend_dir.parent
+env_paths = [backend_dir / ".env", project_root / ".env"]
+for env_path in env_paths:
+    if env_path.exists():
+        load_dotenv(env_path)
+        break
+else:
+    load_dotenv()
+
+import argparse
+
+parser = argparse.ArgumentParser()
+
+parser.add_argument('--paper_name',type=str)
+parser.add_argument('--gpt_version',type=str, default="o3-mini")
+parser.add_argument('--paper_format',type=str, default="JSON", choices=["JSON", "LaTeX"])
+parser.add_argument('--pdf_json_path', type=str) # json format
+parser.add_argument('--pdf_latex_path', type=str) # latex format
+parser.add_argument('--output_dir',type=str, default="")
+parser.add_argument('--output_repo_dir',type=str, default="")
+
+args    = parser.parse_args()
+
+# Check for API key
+api_key = os.getenv("OPENAI_API_KEY")
+if not api_key:
+    print("❌ Error: OPENAI_API_KEY not found in environment variables or .env file")
+    print("   Please create a .env file or set OPENAI_API_KEY environment variable")
+    sys.exit(1)
+
+client = OpenAI(api_key=api_key)
+
+paper_name = args.paper_name
+gpt_version = args.gpt_version
+paper_format = args.paper_format
+pdf_json_path = args.pdf_json_path
+pdf_latex_path = args.pdf_latex_path
+output_dir = args.output_dir
+output_repo_dir = args.output_repo_dir
+
+if paper_format == "JSON":
+    with open(f'{pdf_json_path}') as f:
+        paper_content = json.load(f)
+elif paper_format == "LaTeX":
+    with open(f'{pdf_latex_path}') as f:
+        paper_content = f.read()
+else:
+    print(f"[ERROR] Invalid paper format. Please select either 'JSON' or 'LaTeX.")
+    sys.exit(0)
+
+with open(f'{output_dir}/planning_config.yaml') as f: 
+    config_yaml = f.read()
+
+context_lst = extract_planning(f'{output_dir}/planning_trajectories.json')
+# 0: overview, 1: detailed, 2: PRD
+# file_list = content_to_json(context_lst[1])
+task_list = content_to_json(context_lst[2])
+
+todo_file_lst = task_list['Task list']
+done_file_lst = ['config.yaml']
+done_file_dict = {}
+
+code_msg = [
+    {"role": "system", "content": f"""You are an expert researcher and software engineer with a deep understanding of experimental design and reproducibility in scientific research.
+You will receive a research paper in {paper_format} format, an overview of the plan, a Design in JSON format consisting of "Implementation approach", "File list", "Data structures and interfaces", and "Program call flow", followed by a Task in JSON format that includes "Required packages", "Required other language third-party packages", "Logic Analysis", and "Task list", along with a configuration file named "config.yaml". 
+Your task is to write code to reproduce the experiments and methodologies described in the paper. 
+
+The code you write must be elegant, modular, and maintainable, adhering to Google-style guidelines. 
+The code must strictly align with the paper's methodology, experimental setup, and evaluation metrics. 
+Write code with triple quoto."""}]
+
+def get_write_msg(todo_file_name, detailed_logic_analysis, done_file_lst): 
+    code_files = ""
+    for done_file in done_file_lst:
+        if done_file.endswith(".yaml"): continue
+        code_files += f"""
+```python
+{done_file_dict[done_file]}
+```
+
+"""
+
+    write_msg=[
+{'role': 'user', "content": f"""# Context
+## Paper
+{paper_content}
+
+-----
+
+## Overview of the plan
+{context_lst[0]}
+
+-----
+
+## Design
+{context_lst[1]}
+
+-----
+
+## Task
+{context_lst[2]}
+
+-----
+
+## Configuration file
+```yaml
+{config_yaml}
+```
+-----
+
+## Code Files
+{code_files}
+
+-----
+
+# Format example
+## Code: {todo_file_name}
+```python
+## {todo_file_name}
+...
+```
+
+-----
+
+# Instruction
+Based on the paper, plan, design, task and configuration file(config.yaml) specified previously, follow "Format example", write the code. 
+
+We have {done_file_lst}.
+Next, you must write only the "{todo_file_name}".
+1. Only One file: do your best to implement THIS ONLY ONE FILE.
+2. COMPLETE CODE: Your code will be part of the entire project, so please implement complete, reliable, reusable code snippets.
+3. Set default value: If there is any setting, ALWAYS SET A DEFAULT VALUE, ALWAYS USE STRONG TYPE AND EXPLICIT VARIABLE. AVOID circular import.
+4. Follow design: YOU MUST FOLLOW "Data structures and interfaces". DONT CHANGE ANY DESIGN. Do not use public member functions that do not exist in your design.
+5. CAREFULLY CHECK THAT YOU DONT MISS ANY NECESSARY CLASS/FUNCTION IN THIS FILE.
+6. Before using a external variable/module, make sure you import it first.
+7. Write out EVERY CODE DETAIL, DON'T LEAVE TODO.
+8. REFER TO CONFIGURATION: you must use configuration from "config.yaml". DO NOT FABRICATE any configuration values.
+
+{detailed_logic_analysis}
+
+## Code: {todo_file_name}"""}]
+    return write_msg
+
+
+def api_call(msg):
+    if "o3-mini" in gpt_version:
+        completion = client.chat.completions.create(
+            model=gpt_version, 
+            reasoning_effort="high",
+            messages=msg
+        )
+    else:
+        completion = client.chat.completions.create(
+            model=gpt_version, 
+            messages=msg
+        )
+    return completion
+    
+
+# testing for checking
+detailed_logic_analysis_dict = {}
+retrieved_section_dict = {}
+for todo_file_name in todo_file_lst:
+    # simple analysis
+    save_todo_file_name = todo_file_name.replace("/", "_")
+
+    if todo_file_name == "config.yaml":
+        continue
+    
+    with open(f"{output_dir}/{save_todo_file_name}_simple_analysis_response.json") as f:
+        detailed_logic_analysis_response = json.load(f)
+    detailed_logic_analysis_dict[todo_file_name] = detailed_logic_analysis_response[0]['choices'][0]['message']['content']
+
+artifact_output_dir=f'{output_dir}/coding_artifacts'
+os.makedirs(artifact_output_dir, exist_ok=True)
+
+total_accumulated_cost = load_accumulated_cost(f"{output_dir}/accumulated_cost.json")
+for todo_idx, todo_file_name in enumerate(tqdm(todo_file_lst)):
+    responses = []
+    trajectories = copy.deepcopy(code_msg)
+
+    current_stage = f"[CODING] {todo_file_name}"
+    print(current_stage)
+
+    if todo_file_name == "config.yaml":
+        continue
+
+    instruction_msg = get_write_msg(todo_file_name, detailed_logic_analysis_dict[todo_file_name], done_file_lst)
+    trajectories.extend(instruction_msg)
+
+    completion = api_call(trajectories)
+    # print(completion.choices[0].message)
+    
+    # response
+    completion_json = json.loads(completion.model_dump_json())
+    responses.append(completion_json)
+
+    # trajectories
+    message = completion.choices[0].message
+    trajectories.append({'role': message.role, 'content': message.content})
+
+    done_file_lst.append(todo_file_name)
+
+    # save
+    # save_dir_name = f"{paper_name}_repo"
+    os.makedirs(f'{output_repo_dir}', exist_ok=True)
+    save_todo_file_name = todo_file_name.replace("/", "_")
+
+
+    # print and logging
+    print_response(completion_json)
+    temp_total_accumulated_cost = print_log_cost(completion_json, gpt_version, current_stage, output_dir, total_accumulated_cost)
+    total_accumulated_cost = temp_total_accumulated_cost
+
+    # save artifacts
+    with open(f'{artifact_output_dir}/{save_todo_file_name}_coding.txt', 'w') as f:
+        f.write(completion_json['choices'][0]['message']['content'])
+
+
+    # extract code save 
+    code = extract_code_from_content(message.content)
+    if len(code) == 0:
+        code = message.content 
+
+    done_file_dict[todo_file_name] = code
+    if save_todo_file_name != todo_file_name:
+        todo_file_dir = '/'.join(todo_file_name.split("/")[:-1])
+        os.makedirs(f"{output_repo_dir}/{todo_file_dir}", exist_ok=True)
+
+    with open(f"{output_repo_dir}/{todo_file_name}", 'w') as f:
+        f.write(code)
+
+save_accumulated_cost(f"{output_dir}/accumulated_cost.json", total_accumulated_cost)
+
+# Generate CODING.md for frontend display
+print("\n📝 Generating CODING.md...")
+coding_md = "# Coding Phase\n\n"
+coding_md += "This document contains the code generation artifacts for each file in the implementation.\n\n"
+
+# Collect all coding artifacts
+coding_files_found = []
+for todo_file_name in todo_file_lst:
+    if todo_file_name == "config.yaml":
+        continue
+    
+    save_todo_file_name = todo_file_name.replace("/", "_")
+    coding_file = f'{artifact_output_dir}/{save_todo_file_name}_coding.txt'
+    if os.path.exists(coding_file):
+        coding_files_found.append((todo_file_name, coding_file))
+
+# Sort by filename for consistent ordering
+coding_files_found.sort(key=lambda x: x[0])
+
+# Add each coding artifact to the markdown
+for todo_file_name, coding_file in coding_files_found:
+    coding_md += f"## {todo_file_name}\n\n"
+    try:
+        with open(coding_file, 'r', encoding='utf-8') as f:
+            content = f.read()
+        coding_md += content + "\n\n"
+    except Exception as e:
+        coding_md += f"*Error reading coding file: {e}*\n\n"
+
+if not coding_files_found:
+    coding_md += "*No coding artifacts found.*\n"
+
+coding_md += "---\n\n"
+coding_md += f"**Note:** Generated code files are available in `{output_repo_dir}`\n"
+
+# Save CODING.md
+with open(f'{output_dir}/CODING.md', 'w', encoding='utf-8') as f:
+    f.write(coding_md)
+print(f"✅ Saved CODING.md to {output_dir}/CODING.md")
+
+# ============================================================================
+# STEP 4: EXPLANATION LAYER GENERATION
+# ============================================================================
+print("\n" + "="*60)
+print("STEP 4: GENERATING EXPLANATION LAYER")
+print("="*60 + "\n")
+
+# Add explanation module to path
+backend_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+explanation_dir = os.path.join(backend_dir, 'explanation')
+if explanation_dir not in sys.path:
+    sys.path.insert(0, explanation_dir)
+
+try:
+    from explainability_pipeline import ExplainabilityPipeline
+    
+    # Prepare paths for explanation layer
+    # Handle both JSON and LaTeX/Markdown formats
+    if paper_format == "JSON":
+        paper_json_path = pdf_json_path
+    elif paper_format == "LaTeX":
+        # Convert markdown/LaTeX to a simple JSON structure for explanation layer
+        # Read the markdown content and create a JSON wrapper
+        if pdf_latex_path and os.path.exists(pdf_latex_path):
+            with open(pdf_latex_path, 'r', encoding='utf-8') as f:
+                markdown_content = f.read()
+            
+            # Create a simple JSON structure from markdown
+            # Split into paragraphs (simple approach)
+            paragraphs = [p.strip() for p in markdown_content.split('\n\n') if p.strip()]
+            body_text = [{"text": p} for p in paragraphs[:50]]  # Limit to first 50 paragraphs
+            
+            # Try to extract title (first line or first heading)
+            title = "Research Paper"
+            if paragraphs:
+                first_line = paragraphs[0].strip()
+                if first_line and len(first_line) < 200:  # Likely a title
+                    title = first_line
+                # Check for markdown heading
+                if first_line.startswith('#'):
+                    title = first_line.lstrip('#').strip()
+            
+            # Create JSON structure
+            paper_json_data = {
+                "title": title,
+                "abstract": paragraphs[1] if len(paragraphs) > 1 else "",
+                "authors": [],
+                "body_text": body_text,
+                "url": ""
+            }
+            
+            # Save as temporary JSON file for explanation layer
+            temp_json_path = os.path.join(output_dir, 'paper_content.json')
+            with open(temp_json_path, 'w', encoding='utf-8') as f:
+                json.dump(paper_json_data, f, ensure_ascii=False, indent=2)
+            paper_json_path = temp_json_path
+            print(f"   Created temporary JSON from markdown: {paper_json_path}")
+        else:
+            paper_json_path = None
+    else:
+        paper_json_path = None
+    
+    generated_code_dir = output_repo_dir  # Generated code directory
+    planning_artifacts_path = os.path.join(output_dir, 'planning_trajectories.json')
+    explanation_output_dir = os.path.join(output_dir, 'explanation_layer')
+    config_path = os.path.join(output_dir, 'planning_config.yaml')
+    
+    # Verify required files exist
+    if not paper_json_path or not os.path.exists(paper_json_path):
+        print(f"⚠️  Warning: Paper JSON not found at {paper_json_path}")
+        print("   Skipping explanation layer generation...")
+    elif not os.path.exists(generated_code_dir):
+        print(f"⚠️  Warning: Generated code directory not found at {generated_code_dir}")
+        print("   Skipping explanation layer generation...")
+    elif not os.path.exists(planning_artifacts_path):
+        print(f"⚠️  Warning: Planning artifacts not found at {planning_artifacts_path}")
+        print("   Skipping explanation layer generation...")
+    else:
+        # Create explanation layer
+        explanation_pipeline = ExplainabilityPipeline()
+        explanation_results = explanation_pipeline.generate_explanation_layer(
+            paper_json_path=paper_json_path,
+            generated_code_dir=generated_code_dir,
+            planning_artifacts_path=planning_artifacts_path,
+            output_dir=explanation_output_dir,
+            config_path=config_path if os.path.exists(config_path) else None
+        )
+        
+        print("\n✅ Explanation layer generated successfully!")
+        print(f"   Output directory: {explanation_output_dir}")
+        print(f"   EXPLANATION.md: {explanation_output_dir}/EXPLANATION.md (comprehensive documentation)")
+        print(f"   README.md: {explanation_output_dir}/README.md")
+        print(f"   Traceability map: {explanation_output_dir}/traceability_map.json")
+        print(f"   Missing info: {explanation_output_dir}/missing_information.json")
+        print(f"   Metrics: {explanation_output_dir}/explainability_metrics.json")
+        
+except ImportError as e:
+    print(f"⚠️  Warning: Could not import explanation pipeline: {e}")
+    print("   Ensure explanation module is properly installed.")
+    print("   Continuing without explanation layer...")
+except Exception as e:
+    print(f"⚠️  Warning: Explanation layer generation failed: {e}")
+    import traceback
+    print("   Error details:")
+    traceback.print_exc()
+    print("   Continuing without explanation layer...")
+
+print("\n" + "="*60)
+print("CODING PHASE COMPLETE")
+print("="*60 + "\n")

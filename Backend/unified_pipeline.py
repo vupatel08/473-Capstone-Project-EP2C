@@ -167,9 +167,12 @@ def run_unified_pipeline(
     if updated_format:
         paper_format = updated_format
     
+    # Get parse_output_dir if PDF was parsed (for accessing content_list.json with images)
+    parse_output_dir = work_root / "parse_output" if (work_root / "parse_output").exists() else None
+    
     # STEP 3: Run full EP2C pipeline
     # Planning phase
-    if not _run_planning_phase(paper_name, gpt_version, paper_format, output_dir, pdf_json_path, pdf_latex_path):
+    if not _run_planning_phase(paper_name, gpt_version, paper_format, output_dir, pdf_json_path, pdf_latex_path, parse_output_dir):
         raise RuntimeError("Planning phase failed")
     
     # Analysis phase
@@ -426,6 +429,7 @@ def _run_planning_phase(
     output_dir: Path,
     pdf_json_path: Optional[str],
     pdf_latex_path: Optional[str],
+    parse_output_dir: Optional[Path] = None,
 ) -> bool:
     """
     Run the planning phase of the EP2C pipeline.
@@ -437,6 +441,7 @@ def _run_planning_phase(
         output_dir: Output directory for planning artifacts
         pdf_json_path: Path to paper JSON (if JSON format)
         pdf_latex_path: Path to paper LaTeX/Markdown (if LaTeX format)
+        parse_output_dir: Optional path to parse_output directory containing content_list.json
     
     Returns:
         True if successful, False otherwise
@@ -461,6 +466,10 @@ def _run_planning_phase(
         planning_cmd.extend(["--pdf_json_path", pdf_json_path])
     if pdf_latex_path:
         planning_cmd.extend(["--pdf_latex_path", pdf_latex_path])
+    
+    # Add parse_output_dir if available (for accessing content_list.json with images)
+    if parse_output_dir and parse_output_dir.exists():
+        planning_cmd.extend(["--parse_output_dir", str(parse_output_dir)])
     
     try:
         # Run planning phase subprocess

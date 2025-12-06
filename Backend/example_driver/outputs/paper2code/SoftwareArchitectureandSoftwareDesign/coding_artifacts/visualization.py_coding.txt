@@ -1,0 +1,92 @@
+```python
+## visualization.py
+import networkx as nx
+import matplotlib.pyplot as plt
+from architecture import Architecture
+from components import Component
+from typing import Optional, Dict, Any
+
+def draw_graph(
+    architecture: Architecture,
+    filepath: Optional[str] = None,
+    show: bool = True,
+    highlight_principles: Optional[Dict[str, Any]] = None
+) -> nx.DiGraph:
+    """
+    Visualizes the given architecture as a directed graph.
+
+    Args:
+        architecture (Architecture): The architecture instance to visualize.
+        filepath (Optional[str]): Path to save the visualization image. Defaults to None.
+        show (bool): Whether to display the graph interactively. Defaults to True.
+        highlight_principles (Optional[Dict[str, Any]]): Optional dict specifying component names
+            mapped to their principle compliance info (e.g., {'ComponentA': {'compliant': True}}).
+            This can be used to color nodes based on principles adherence.
+
+    Returns:
+        nx.DiGraph: The generated NetworkX directed graph object.
+    """
+    # Initialize directed graph
+    graph = nx.DiGraph()
+
+    # Create a mapping for component names to component objects for validation
+    name_to_component = {
+        comp.name: comp for comp in architecture.components
+    }
+
+    # Add nodes with attributes
+    for comp in architecture.components:
+        # Decide node color based on principle compliance if info provided
+        color = 'lightblue'  # default color
+        if highlight_principles and comp.name in highlight_principles:
+            comp_info = highlight_principles[comp.name]
+            # For demonstration, use 'compliant' bool to assign color
+            if comp_info.get('compliant', True):
+                color = 'lightgreen'
+            else:
+                color = 'salmon'
+        # Add node with label and color attribute
+        graph.add_node(comp.name, label=comp.name, color=color)
+
+    # Add edges based on dependencies
+    for comp in architecture.components:
+        for dep in comp.dependencies:
+            # Verify that the dependency is part of the architecture
+            if dep.name in name_to_component:
+                graph.add_edge(comp.name, dep.name)
+
+    # Prepare for visualization
+    # Compute layout
+    pos = nx.spring_layout(graph, seed=42)
+
+    # Extract node colors
+    node_colors = [graph.nodes[node].get('color', 'lightblue') for node in graph.nodes()]
+
+    # Draw nodes
+    nx.draw_networkx_nodes(graph, pos, node_color=node_colors, node_size=1500, edgecolors='black')
+
+    # Draw edges
+    nx.draw_networkx_edges(graph, pos, arrowstyle='->', arrowsize=20, linewidths=1)
+
+    # Draw labels
+    labels = {node: node for node in graph.nodes()}
+    nx.draw_networkx_labels(graph, pos, labels=labels, font_size=10, font_weight='bold')
+
+    # Add title
+    plt.title(f"{architecture.style_type} Architecture: {architecture.name}")
+
+    # Remove axes
+    plt.axis('off')
+
+    # Save figure if filepath provided
+    if filepath:
+        plt.savefig(filepath, format='png', bbox_inches='tight')
+
+    # Display plot if 'show' is True
+    if show:
+        plt.show()
+    else:
+        plt.close()
+
+    return graph
+```

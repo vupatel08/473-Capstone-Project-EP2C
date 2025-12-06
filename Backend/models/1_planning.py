@@ -4,6 +4,7 @@ from tqdm import tqdm
 import argparse
 import os
 import sys
+import base64
 from pathlib import Path
 from dotenv import load_dotenv
 
@@ -29,6 +30,7 @@ parser.add_argument('--paper_format',type=str, default="JSON", choices=["JSON", 
 parser.add_argument('--pdf_json_path', type=str) # json format
 parser.add_argument('--pdf_latex_path', type=str) # latex format
 parser.add_argument('--output_dir',type=str, default="")
+parser.add_argument('--parse_output_dir', type=str, default=None, help="Path to parse_output directory containing content_list.json files")
 
 args    = parser.parse_args()
 
@@ -41,6 +43,7 @@ if not api_key:
 
 client = OpenAI(api_key=api_key)
 
+"""
 paper_name = args.paper_name
 gpt_version = args.gpt_version
 paper_format = args.paper_format
@@ -58,25 +61,263 @@ elif paper_format == "LaTeX":
 else:
     print(f"[ERROR] Invalid paper format. Please select either 'JSON' or 'LaTeX.")
     sys.exit(0)
+"""
 
+from parsing.parser import codegen_prep
 
-# TODO: Update message and paper contents here...
-plan_msg = [
-        {'role': "system", "content": f"""You are an expert researcher and strategic planner with a deep understanding of experimental design and reproducibility in scientific research. 
-You will receive a research paper in {paper_format} format. 
-Your task is to create a detailed and efficient plan to reproduce the experiments and methodologies described in the paper.
-This plan should align precisely with the paper's methodology, experimental setup, and evaluation metrics. 
+# Extract variables from args
+paper_name = args.paper_name
+gpt_version = args.gpt_version
+paper_format = args.paper_format
+pdf_json_path = args.pdf_json_path
+pdf_latex_path = args.pdf_latex_path
+output_dir = Path(args.output_dir) if args.output_dir else Path("")
 
-Instructions:
+# Try to access content_list.json from parsed paper using codegen_prep
+paper_content = ""  # For fallback: plain text content
+paper_content_items = []  # Structured content with text and images for vision API
+parse_output_dir = None
+doc_path = None
 
-1. Align with the Paper: Your plan must strictly follow the methods, datasets, model configurations, hyperparameters, and experimental setups described in the paper.
-2. Be Clear and Structured: Present the plan in a well-organized and easy-to-follow format, breaking it down into actionable steps.
-3. Prioritize Efficiency: Optimize the plan for clarity and practical implementation while ensuring fidelity to the original experiments."""},
-        {"role": "user",
-         "content" : f"""## Paper
+def encode_image_to_base64(image_path: Path, max_size_mb: float = 20.0) -> str:
+    """
+    Encode an image file to base64 data URL format for OpenAI API.
+    
+    Args:
+        image_path: Path to the image file
+        max_size_mb: Maximum file size in MB (default 20MB, OpenAI's limit is ~20MB per image)
+    
+    Returns:
+        Base64-encoded data URL string, or None if encoding fails
+    """
+    try:
+        # Check file size first
+        file_size = image_path.stat().st_size
+        file_size_mb = file_size / (1024 * 1024)
+        
+        if file_size_mb > max_size_mb:
+            print(f"⚠️  Warning: Image {image_path.name} is {file_size_mb:.2f}MB (exceeds {max_size_mb}MB limit). Skipping.")
+            return None
+        
+        with open(image_path, 'rb') as image_file:
+            image_data = image_file.read()
+            base64_encoded = base64.b64encode(image_data).decode('utf-8')
+            
+            # Determine image format from file extension
+            ext = image_path.suffix.lower()
+            mime_type = {
+                '.png': 'image/png',
+                '.jpg': 'image/jpeg',
+                '.jpeg': 'image/jpeg',
+                '.gif': 'image/gif',
+                '.webp': 'image/webp'
+            }.get(ext, 'image/png')  # Default to PNG if unknown
+            
+            return f"data:{mime_type};base64,{base64_encoded}"
+    except FileNotFoundError:
+        print(f"⚠️  Warning: Image file not found: {image_path}")
+        return None
+    except Exception as e:
+        print(f"⚠️  Warning: Could not encode image {image_path}: {e}")
+        return None
+
+# Determine parse output directory
+if args.parse_output_dir:
+    # Use explicitly provided parse_output_dir
+    parse_output_dir = Path(args.parse_output_dir)
+else:
+    # Try to find parse_output directory automatically - try common locations
+    # Typically parse_output is at work_root/parse_output, where work_root might be example_driver
+    possible_parse_dirs = [
+        output_dir.parent.parent / "parse_output",  # output_dir/../parse_output
+        output_dir.parent / "parse_output",  # output_dir/../parse_output (alternative)
+        backend_dir / "example_driver" / "parse_output",  # default location
+        backend_dir.parent / "Backend" / "example_driver" / "parse_output",  # alternative structure
+    ]
+
+    for parse_dir in possible_parse_dirs:
+        if parse_dir.exists():
+            parse_output_dir = parse_dir
+            break
+
+    # If not found, try to infer from output_dir structure
+    if parse_output_dir is None and output_dir:
+        # Try going up from output_dir to find parse_output
+        current = output_dir.parent
+        for _ in range(3):  # Go up max 3 levels
+            candidate = current / "parse_output"
+            if candidate.exists():
+                parse_output_dir = candidate
+                break
+            current = current.parent
+
+# Get the original document path
+if paper_format == "JSON" and pdf_json_path:
+    doc_path = Path(pdf_json_path)
+elif paper_format == "LaTeX" and pdf_latex_path:
+    doc_path = Path(pdf_latex_path)
+elif pdf_json_path:  # Fallback
+    doc_path = Path(pdf_json_path)
+elif pdf_latex_path:  # Fallback
+    doc_path = Path(pdf_latex_path)
+
+# Try to use codegen_prep if we have both doc_path and parse_output_dir
+if doc_path and parse_output_dir and parse_output_dir.exists():
+    try:
+        # Check if content_list.json exists for this document
+        doc_stem = doc_path.stem
+        content_list_path = parse_output_dir / doc_stem / "auto" / f"{doc_stem}_content_list.json"
+        
+        # Also try with paper_name if different
+        if not content_list_path.exists() and paper_name:
+            content_list_path = parse_output_dir / paper_name / "auto" / f"{paper_name}_content_list.json"
+        
+        if content_list_path.exists():
+            # Use codegen_prep to get formatted content
+            prep_result = codegen_prep([doc_path], parse_output_dir)
+            
+            if prep_result and len(prep_result) > 0:
+                # Format the content for the prompt
+                # codegen_prep returns a list with content items (text and images)
+                content_parts = []  # For fallback text-only format
+                # Use the outer paper_content_items variable
+                paper_content_items.clear()  # Clear any existing items
+                
+                for doc_data in prep_result:
+                    for item in doc_data.get("content", []):
+                        if item.get("type") == "text":
+                            # Use "text" or "content" key depending on what's available
+                            text = item.get("text") or item.get("content", "")
+                            # Ensure text is a string, not a list or other type
+                            if isinstance(text, list):
+                                text = "\n".join(str(t) for t in text)
+                            elif not isinstance(text, str):
+                                text = str(text) if text else ""
+                            
+                            if text:
+                                content_parts.append(text)
+                                # Add text to structured content
+                                paper_content_items.append({
+                                    "type": "text",
+                                    "text": text
+                                })
+                        elif item.get("type") == "image":
+                            # Handle image files
+                            image_path = item.get("path")
+                            if image_path:
+                                image_path_obj = Path(image_path) if not isinstance(image_path, Path) else image_path
+                                if image_path_obj.exists():
+                                    base64_image = encode_image_to_base64(image_path_obj)
+                                    if base64_image:
+                                        paper_content_items.append({
+                                            "type": "image_url",
+                                            "image_url": {"url": base64_image}
+                                        })
+                                        print(f"✓ Added image: {image_path_obj.name}")
+                                    else:
+                                        print(f"⚠️  Warning: Could not encode image {image_path_obj}")
+                                else:
+                                    print(f"⚠️  Warning: Image path does not exist: {image_path_obj}")
+                            else:
+                                print(f"⚠️  Warning: Image path is None or missing")
+                
+                # Set both formats
+                paper_content = "\n".join(content_parts)  # Fallback text-only
+                num_images = sum(1 for item in paper_content_items if item.get("type") == "image_url")
+                print(f"✓ Loaded paper content from parsed content_list.json ({len(paper_content_items)} items, {num_images} images)")
+            else:
+                print(f"⚠️  Warning: codegen_prep returned empty result, falling back to direct file read")
+        else:
+            print(f"⚠️  Warning: content_list.json not found at {content_list_path}, falling back to direct file read")
+    except Exception as e:
+        print(f"⚠️  Warning: Error using codegen_prep: {e}, falling back to direct file read")
+        # Clear any partially populated data
+        paper_content_items.clear()
+        paper_content = ""
+
+# Fallback: read paper content directly if codegen_prep wasn't used
+if not paper_content and not paper_content_items:
+    if paper_format == "JSON" and pdf_json_path:
+        with open(pdf_json_path, 'r', encoding='utf-8') as f:
+            paper_content = json.dumps(json.load(f), ensure_ascii=False, indent=2)
+            # Convert to structured format for consistency
+            paper_content_items = [{"type": "text", "text": paper_content}]
+    elif paper_format == "LaTeX" and pdf_latex_path:
+        with open(pdf_latex_path, 'r', encoding='utf-8') as f:
+            paper_content = f.read()
+            # Convert to structured format for consistency
+            paper_content_items = [{"type": "text", "text": paper_content}]
+    else:
+        print(f"[ERROR] Invalid paper format. Please select either 'JSON' or 'LaTeX'.")
+        sys.exit(1)
+
+# If we have structured content items but no plain text, create it
+if paper_content_items and not paper_content:
+    text_parts = []
+    for item in paper_content_items:
+        if item.get("type") == "text":
+            # Handle both "text" and "content" keys (parser.py uses "content" for final string)
+            text = item.get("text") or item.get("content", "")
+            # Ensure text is a string, not a list
+            if isinstance(text, str):
+                text_parts.append(text)
+            elif isinstance(text, list):
+                # If it's a list, join it
+                text_parts.append("\n".join(str(t) for t in text))
+            else:
+                # Convert to string if it's something else
+                text_parts.append(str(text))
+    paper_content = "\n".join(text_parts) if text_parts else ""
+
+# Build message content with images if available
+def build_message_content_with_images(task_text: str, paper_content_items: list = None) -> list:
+    """
+    Build message content that can include both text and images.
+    If paper_content_items contains images, use structured format with images embedded.
+    Otherwise, use plain text format.
+    """
+    has_images = paper_content_items and any(item.get("type") == "image_url" for item in paper_content_items)
+    
+    if has_images:
+        # Use structured format with images
+        message_content = []
+        
+        # Add task header
+        message_content.append({
+            "type": "text",
+            "text": "## Paper\n\n"
+        })
+        
+        # Add paper content items (text and images) in order
+        for item in paper_content_items:
+            if item.get("type") == "image_url":
+                message_content.append(item)
+            elif item.get("type") == "text":
+                # Merge consecutive text items
+                if message_content and message_content[-1].get("type") == "text":
+                    message_content[-1]["text"] += "\n" + item.get("text", "")
+                else:
+                    message_content.append(item)
+        
+        # Add task instructions
+        if message_content and message_content[-1].get("type") == "text":
+            message_content[-1]["text"] += "\n\n" + task_text
+        else:
+            message_content.append({
+                "type": "text",
+                "text": task_text
+            })
+        
+        return message_content
+    else:
+        # Use plain text format (backward compatible)
+        return f"""## Paper
 {paper_content}
 
-## Task
+{task_text}"""
+
+# Build the task text
+task_text = """## Task
 1. We want to reproduce the method described in the attached paper. 
 2. The authors did not release any official code, so we have to plan our own implementation.
 3. Before writing any Python code, please outline a comprehensive plan that covers:
@@ -89,7 +330,23 @@ Instructions:
 - If something is unclear from the paper, mention it explicitly.
 
 ## Instruction
-The response should give us a strong roadmap, making it easier to write the code later."""}]
+The response should give us a strong roadmap, making it easier to write the code later."""
+
+# Build message content (with images if available)
+user_content = build_message_content_with_images(task_text, paper_content_items)
+
+plan_msg = [
+        {'role': "system", "content": f"""You are an expert researcher and strategic planner with a deep understanding of experimental design and reproducibility in scientific research. 
+You will receive a research paper in read-order. 
+Your task is to create a detailed and efficient plan to reproduce the experiments and methodologies described in the paper.
+This plan should align precisely with the paper's methodology, experimental setup, and evaluation metrics. 
+
+Instructions:
+
+1. Align with the Paper: Your plan must strictly follow the methods, datasets, model configurations, hyperparameters, and experimental setups described in the paper.
+2. Be Clear and Structured: Present the plan in a well-organized and easy-to-follow format, breaking it down into actionable steps.
+3. Prioritize Efficiency: Optimize the plan for clarity and practical implementation while ensuring fidelity to the original experiments."""},
+        {"role": "user", "content": user_content}]
 
 file_list_msg = [
         {"role": "user", "content": """Your goal is to create a concise, usable, and complete software system design for reproducing the paper's method. Use appropriate open-source libraries and keep the overall architecture simple.

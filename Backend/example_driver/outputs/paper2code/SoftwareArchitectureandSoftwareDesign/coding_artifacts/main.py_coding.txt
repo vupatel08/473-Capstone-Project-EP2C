@@ -1,0 +1,72 @@
+```python
+## main.py
+import yaml
+import os
+from components import Component
+from principles import Principle
+from architecture import Architecture
+from visualization import draw_graph
+
+def main():
+    # Load configuration from 'config.yaml'
+    config_path = os.path.join(os.path.dirname(__file__), 'config.yaml')
+    with open(config_path, 'r') as file:
+        config = yaml.safe_load(file)
+
+    # Extract architecture styles from config
+    architecture_styles = config.get('architecture_styles', [])
+    principles_config = config.get('principles', [])
+    
+    # For simplicity, we'll demonstrate with the first architecture style specified
+    if not architecture_styles:
+        print("No architecture styles specified in configuration.")
+        return
+
+    style_entry = architecture_styles[0]
+    style_name: str = style_entry.get('style_name', 'Microservices')
+    style_description: str = style_entry.get('description', '')
+
+    # Instantiate Architecture
+    architecture_name = f"{style_name} Architecture Demo"
+    architecture = Architecture(name=architecture_name, style_type=style_name)
+
+    # Construct architecture components based on style
+    architecture.construct()
+
+    # Create and add components (as per constructed architecture)
+    # Components are already created inside construct()
+
+    # Instantiate principles based on configuration
+    principles = []
+    for p_cfg in principles_config:
+        principle_name = p_cfg.get('name')
+        # Description can be extended; for now, simple placeholder
+        description = f"Enforces {principle_name}"
+        principle = Principle(name=principle_name, description=description)
+        principles.append(principle)
+
+    # Apply each principle to each component
+    for component in architecture.components:
+        for principle in principles:
+            # Apply principle, which returns boolean if compliant
+            compliant = component.apply_principle(principle)
+            # Log the application
+            print(f"Component '{component.name}': Applied Principle '{principle.name}', Compliant: {compliant}")
+
+    # Visualize architecture
+    # Decide on output file path based on architecture style
+    output_dir = os.path.join(os.path.dirname(__file__), 'outputs')
+    os.makedirs(output_dir, exist_ok=True)
+    output_filepath = os.path.join(output_dir, f"{style_name}_architecture.png")
+    print(f"Visualizing architecture and saving to {output_filepath}")
+    draw_graph(architecture, filepath=output_filepath, show=False)
+
+    # Optional: Could perform validation or add annotations
+    # For example, highlight compliant vs non-compliant components
+    # Here, we skip detailed validation for simplicity
+
+    print("Demo completed. Architecture visualization saved successfully.")
+
+if __name__ == "__main__":
+    main()
+```
