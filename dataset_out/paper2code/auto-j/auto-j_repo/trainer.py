@@ -1,0 +1,274 @@
+## trainer.py
+
+import os
+import torch
+from torch.utils.data import DataLoader
+from transformers import get_linear_schedule_with_warmup
+import deepspeed
+import logging
+from typing import Dict
+from dataset_loader import Dataset, Sample
+from model import AutoJudgeModel
+
+logger = logging.getLogger(__name__)
+logger.setLevel(logging.INFO)
+
+class Trainer:
+    def __init__(self, model: AutoJudgeModel, train_dataset: Dataset, config: Dict, val_dataset: Dataset = None):
+        """
+        Initialize Trainer with model, datasets, and hyperparameters.
+        """
+        self.model = model
+        self.train_dataset = train_dataset
+        self.val_dataset = val_dataset
+        self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+        self.config = config
+        self._prepare_optimizer_scheduler()
+
+        # DeepSpeed initialization if enabled
+        self.use_deepspeed = getattr(self.model, 'deepspeed_enabled', False)
+        self.global_step = 0
+
+        self.batch_size = self.config.get("training", {}).get("batch_size", 64)
+        self.epochs = self.config.get("training", {}).get("epochs", 5)
+        self.warmup_steps = self.config.get("training", {}).get("warmup_steps", 6750)
+        self.decay_rate = self.config.get("training", {}).get("decay_rate", 0.95)
+        self.max_seq_length = self.config.get("training", {}).get("max_seq_length", 2048)
+        self.checkpoint_path = self.config.get("model", {}).get("checkpoint_path", "checkpoints/auto_j_checkpoint")
+        self.save_every_steps = self.config.get("model", {}).get("save_every_steps", 50)
+        self.gradient_checkpointing = self.config.get("training", {}).get("gradient_checkpointing", True)
+
+        # Prepare DataLoader
+        self.train_loader = DataLoader(
+            self.train_dataset,
+            batch_size=self.batch_size,
+            shuffle=True,
+            collate_fn=self.collate_fn
+        )
+
+    def _prepare_optimizer_scheduler(self):
+        """
+        Setup optimizer and learning rate scheduler with warmup and exponential decay.
+        """
+        # Using AdamW optimizer as per config
+        no_decay = ["bias", "LayerNorm.weight"]
+        opt_grouped_parameters = [
+            {
+                "params": [p for n, p in self.model.model.named_parameters() if not any(nd in n for nd in no_decay)],
+                "weight_decay": self.model.model.config.weight_decay
+            },
+            {
+                "params": [p for n, p in self.model.model.named_parameters() if any(nd in n for nd in no_decay)],
+                "weight_decay": 0.0
+            }
+        ]
+        self.optimizer = torch.optim.AdamW(self.model.model.parameters(),
+                                           lr=self.config.get("training", {}).get("learning_rate", 1e-5),
+                                           weight_decay=self.model.model.config.weight_decay,
+                                           betas=(0.9, 0.95))
+        total_training_steps = int(len(self.train_dataset) / self.batch_size * self.epochs)
+        self.lr_scheduler = get_linear_schedule_with_warmup(
+            self.optimizer,
+            num_warmup_steps=self.warmup_steps,
+            num_training_steps=total_training_steps
+        )
+
+        # Initialize DeepSpeed if enabled
+        if self.use_deepspeed:
+            ds_config = {
+                "train_batch_size": self.batch_size,
+                "fp16": {"enabled": False},  # or True if preferred
+                "bf16": {"enabled": True},
+                "zero_optimization": {"stage": 3},
+                "gradient_accumulation_steps": 1,
+                "optimizer": {
+                    "type": "AdamW",
+                    "params": {
+                        "lr": self.config.get("training", {}).get("learning_rate", 1e-5),
+                        "weight_decay": self.model.model.config.weight_decay
+                    }
+                }
+            }
+            self.model.model, self.optimizer, _, self.ds_config = deepspeed.initialize(
+                model=self.model.model,
+                optimizer=self.optimizer,
+                model_parameters=self.model.model.parameters(),
+                config=ds_config
+            )
+        else:
+            self.ds_config = None
+
+    def collate_fn(self, batch: list):
+        """
+        Collate function to prepare batch tensors, tokenizing inputs.
+        """
+        # Separate out queries, responses, scenarios, annotations
+        queries = [sample.query for sample in batch]
+        responses = [sample.responses for sample in batch]
+        scenarios = [sample.scenario for sample in batch]
+        annotations = [sample.annotation for sample in batch]
+        # Prepare prompts based on scenario (not implemented here, assume scenario instructions are added in annotation)
+        inputs = []
+        labels = []
+
+        # For each sample, prepare input string with scenario instruction if needed
+        for q, r_list, scenario, annot in zip(queries, responses, scenarios, annotations):
+            # Format inputs appropriately, e.g., with scenario-specific prompt
+            prompt_text = self._format_input_prompt(q, r_list, scenario)
+            inputs.append(prompt_text)
+            # For ratings, labels are the annotation (preference or rating)
+            labels.append(annot)
+
+        # Tokenize all inputs
+        tokenized = self.model.tokenizer(
+            inputs,
+            padding=True,
+            truncation=True,
+            max_length=self.max_seq_length,
+            return_tensors='pt'
+        )
+        input_ids = tokenized['input_ids']
+        attention_mask = tokenized['attention_mask']
+        # Labels: convert annotations to target labels
+        # For preference/classification, encode label
+        label_tensors = self._encode_labels(labels)
+        return input_ids, attention_mask, label_tensors
+
+    def _format_input_prompt(self, query: str, responses: list, scenario: str) -> str:
+        """
+        Generate input prompt string based on scenario and responses.
+        """
+        # Typically, scenario instruction is added as context
+        scenario_prompt = self._get_scenario_instruction(scenario)
+        if len(responses) == 2:
+            # For pairwise, format with responses swapped for data augmentation
+            # Logic: in training, possibly swap responses randomly
+            r1, r2 = responses
+            # response order will be randomized outside collate; here no swapping
+            prompt = f"{scenario_prompt}\nQuery: {query}\nResponse 1: {r1}\nResponse 2: {r2}\n"
+        else:
+            # Single response
+            prompt = f"{scenario_prompt}\nQuery: {query}\nResponse: {responses[0]}\n"
+        return prompt
+
+    def _get_scenario_instruction(self, scenario: str) -> str:
+        """
+        Return the scenario-specific instruction or criteria as instruction prompt.
+        Assumes stored in config or a method.
+        """
+        # Example: Placeholder, in real case, load from config or hardcoded
+        scenario_instructions = {
+            "summarization": "[Summarize the given text.]",
+            "exam_questions": "[Answer the exam question with reasoning.]",
+            # ... add all 58 scenarios accordingly
+        }
+        return scenario_instructions.get(scenario, "[Evaluate the following response.]")
+
+    def _encode_labels(self, labels: list):
+        """
+        Convert annotations (preference labels or ratings) into tensors.
+        """
+        # Preferences for pairwise: "win"/"tie"/"lose" -> class indices
+        # Ratings for single response: numerical scale 1-10
+        batch_labels = []
+        for lbl in labels:
+            if isinstance(lbl, str):
+                lbl_lower = lbl.lower()
+                if lbl_lower in ["win", "1"]:
+                    batch_labels.append(0)  # e.g., class index for "win"
+                elif lbl_lower == "tie":
+                    batch_labels.append(1)
+                elif lbl_lower in ["lose", "2"]:
+                    batch_labels.append(2)
+                else:
+                    # fallback
+                    batch_labels.append(1)
+            elif isinstance(lbl, (int, float)):
+                # scalar rating scaled to float tensor
+                batch_labels.append(float(lbl))
+            else:
+                # default fallback
+                batch_labels.append(5.0)
+        if isinstance(labels[0], str):
+            # Classification labels
+            return torch.tensor(batch_labels, dtype=torch.long)
+        else:
+            # Regression scores
+            return torch.tensor(batch_labels, dtype=torch.float)
+
+    def train(self):
+        """
+        Main training loop over epochs.
+        """
+        total_steps = len(self.train_loader) * self.epochs
+        for epoch in range(self.epochs):
+            logger.info(f"Starting epoch {epoch+1}/{self.epochs}")
+            for step, (input_ids, attention_mask, labels) in enumerate(self.train_loader):
+                input_ids = input_ids.to(self.device)
+                attention_mask = attention_mask.to(self.device)
+                labels = labels.to(self.device)
+
+                if self.use_deepspeed:
+                    self.model.model.train()
+                    self.model.model.zero_grad()
+                    outputs = self.model.model(input_ids=input_ids, attention_mask=attention_mask, labels=labels)
+                    loss = outputs.loss
+                    self.model.model.backward(loss)
+                    self.model.model.step()
+                else:
+                    self.model.model.train()
+                    self.model.optimizer.zero_grad()
+                    outputs = self.model.model(input_ids=input_ids, attention_mask=attention_mask, labels=labels)
+                    loss = outputs.loss
+                    loss.backward()
+                    self.model.optimizer.step()
+
+                # Step LR scheduler
+                self.lr_scheduler.step()
+                self.global_step += 1
+
+                # Logging
+                if self.global_step % 10 == 0:
+                    print(f"Epoch {epoch+1} Step {step} Loss: {loss.item():.4f}")
+                # Save checkpoint
+                if self.global_step % self.save_every_steps == 0:
+                    save_path = self.checkpoint_path
+                    os.makedirs(save_path, exist_ok=True)
+                    self.model.save_checkpoint(save_path)
+                    print(f"Saved checkpoint at step {self.global_step}")
+            # Optionally validate model here on val_dataset
+            if self.val_dataset:
+                self.evaluate(self.val_dataset)
+
+        # Save final checkpoint
+        self.model.save_checkpoint(self.checkpoint_path)
+        print("Training complete. Final model saved.")
+
+    def evaluate(self, eval_dataset: Dataset):
+        """
+        Run evaluation on validation or test set, compute metrics.
+        """
+        eval_loader = DataLoader(
+            eval_dataset,
+            batch_size=self.batch_size,
+            collate_fn=self.collate_fn,
+            shuffle=False
+        )
+        all_preds = []
+        all_labels = []
+        for input_ids, attention_mask, labels in eval_loader:
+            input_ids = input_ids.to(self.device)
+            attention_mask = attention_mask.to(self.device)
+            with torch.no_grad():
+                outputs = self.model.model(input_ids=input_ids, attention_mask=attention_mask)
+                # For classification: get prediction
+                preds = torch.argmax(outputs.logits, dim=-1)
+                all_preds.extend(preds.cpu().numpy())
+                all_labels.extend(labels.cpu().numpy())
+
+        # Compute metrics: accuracy or correlation depending on setup
+        # Placeholder: print accuracy
+        correct = sum(p == l for p, l in zip(all_preds, all_labels))
+        accuracy = correct / len(all_labels)
+        print(f"Evaluation Accuracy: {accuracy:.4f}")
+

@@ -1,0 +1,119 @@
+## model.py
+import torch
+import torch.nn as nn
+import torchvision.models as models
+
+class ConvBlock(nn.Module):
+    """Basic convolutional block: Conv -> BN -> ReLU"""
+    def __init__(self, in_channels, out_channels, kernel_size=3, padding=1):
+        super().__init__()
+        self.conv = nn.Conv2d(in_channels, out_channels, kernel_size, padding=padding)
+        self.bn = nn.BatchNorm2d(out_channels)
+        self.relu = nn.ReLU(inplace=True)
+    def forward(self, x):
+        return self.relu(self.bn(self.conv(x)))
+
+class UpSampleBlock(nn.Module):
+    """Upsampling block: ConvTranspose -> Conv -> BN -> ReLU"""
+    def __init__(self, in_channels, out_channels):
+        super().__init__()
+        self.up = nn.ConvTranspose2d(in_channels, out_channels, kernel_size=2, stride=2)
+        self.conv1 = ConvBlock(out_channels * 2, out_channels)
+    def forward(self, x, skip_connection):
+        x = self.up(x)
+        # Pad if needed
+        diffY = skip_connection.size(2) - x.size(2)
+        diffX = skip_connection.size(1) - x.size(1)
+        x = nn.functional.pad(x, [diffX // 2, diffX - diffX //2, diffY //2, diffY - diffY //2])
+        x = torch.cat([skip_connection, x], dim=1)
+        return self.conv1(x)
+
+class MaskUNet(nn.Module):
+    """UNet architecture for pixel-wise mask prediction."""
+    def __init__(self, base_channels=32, channel_mult=[1,2,4,8], step_size=40, gamma=0.5, momentum=0.9):
+        super().__init__()
+        self.base_channels = base_channels
+        self.channel_mult = channel_mult
+        self.step_size = step_size
+        self.gamma = gamma
+        self.momentum = momentum
+
+        # Encoder layers
+        self.encoders = nn.ModuleList()
+        in_ch = 3
+        for mult in channel_mult:
+            out_ch = base_channels * mult
+            self.encoders.append(ConvBlock(in_ch, out_ch))
+            in_ch = out_ch
+        self.pool = nn.MaxPool2d(kernel_size=2)
+
+        # Bottleneck
+        self.bottleneck = ConvBlock(in_ch, in_ch * 2)
+
+        # Decoder layers
+        self.upconvs = nn.ModuleList()
+        self.decoders = nn.ModuleList()
+        for mult in reversed(channel_mult):
+            out_ch = base_channels * mult
+            self.upconvs.append(UpSampleBlock(in_ch * 2, out_ch))
+            in_ch = out_ch
+
+        # Final conv to 1 channel
+        self.final_conv = nn.Conv2d(in_ch, 1, kernel_size=1)
+        self.sigmoid = nn.Sigmoid()
+
+    def forward(self, noisy_input):
+        # Encoder
+        enc_features = []
+        x = noisy_input
+        for encoder in self.encoders:
+            x = encoder(x)
+            enc_features.append(x)
+            x = self.pool(x)
+
+        # Bottleneck
+        x = self.bottleneck(x)
+
+        # Decoder: upsample + skip connection
+        for idx, upconv in enumerate(self.upconvs):
+            skip = enc_features[-(idx+1)]
+            x = upconv(x, skip)
+
+        x = self.final_conv(x)
+        mask = self.sigmoid(x)
+        return mask  # shape: (batch_size, 1, H, W)
+
+# For completeness, even if not used here, a placeholder for the classifier
+class ResNetClassifier(nn.Module):
+    def __init__(self, architecture='resnet50', num_classes=10, 
+                 pretrained=False, custom_state_dict=None):
+        """
+        Instantiate ResNet backbone (from torchvision.models),
+        optionally load pretrained weights or custom state dict.
+        """
+        super().__init__()
+        if architecture == 'resnet50':
+            self.backbone = models.resnet50(pretrained=pretrained)
+        elif architecture == 'resnet110':
+            # If you have a ResNet-110 implementation, replace here
+            # For demonstration, using resnet50; replace with actual if available
+            self.backbone = models.resnet50(pretrained=pretrained)
+        else:
+            raise ValueError(f"Unknown architecture: {architecture}")
+
+        # Replace final FC layer to match num_classes
+        in_features = self.backbone.fc.in_features
+        self.backbone.fc = nn.Linear(in_features, num_classes)
+
+        if custom_state_dict:
+            self.load_state_dict(custom_state_dict)
+
+    def forward(self, images):
+        return self.backbone(images)  # logits: shape (batch, num_classes)
+
+    def predict(self, images):
+        """Return class probabilities after softmax."""
+        logits = self.forward(images)
+        probs = nn.functional.softmax(logits, dim=1)
+        return probs
+

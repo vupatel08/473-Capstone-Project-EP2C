@@ -1,0 +1,182 @@
+# Logic Analysis for `main.py`
+
+The primary purpose of `main.py` is to serve as the entry point for the entire experimentation pipeline, managing configuration parsing, data loading, model initialization, training, evaluation, and logging. Based on the provided paper, design, and configuration, the core logical flow can be broken down into distinct, well-ordered steps.
+
+---
+
+## 1. Parse Configuration
+
+- **Input:** `config.yaml`
+- **Objective:** Read and parse all experiment parameters, including:
+  - Training hyperparameters: `learning_rate`, `batch_size`, `epochs`, `dropout_rate`, `mask_probability`, `patience`, `optimizer`, `weight_decay`.
+  - Model architecture: `input_sequence_length`, `forecast_horizon`, `patch_size`, `num_layers`, `num_heads`, `embed_dim`, etc.
+  - Dataset specifics: `name`, `data_path`, normalization type, data splits.
+  - Miscellaneous: seed, masking strategy, number of patches.
+  - Hardware setup: `gpus`.
+
+- **Implementation details:**
+  - Use `PyYAML` to load `config.yaml`.
+  - Convert to a dictionary object (`config`) accessible for subsequent steps.
+
+---
+
+## 2. Set Random Seed for Reproducibility
+
+- **Input:** `config['misc']['seed']` (e.g., 42)
+- **Objective:** Fix the random seed for:
+  - `torch.manual_seed`
+  - `numpy.random.seed`
+  - `random.seed` (if necessary)
+  - Additional to ensure deterministic behavior (`torch.backends.cudnn.deterministic=True`, `torch.backends.cudnn.benchmark=False`).
+- **Justification:** Ensures reproducibility across runs, as emphasized in the paper.
+
+---
+
+## 3. Hardware Setup
+
+- **Input:** `config['hardware']['gpus']`
+- **Objective:**
+  - Detect available GPU devices.
+  - Initialize device(s) accordingly.
+  - Use `torch.device('cuda')` or `torch.device('cpu')` if no GPU.
+  - If multiple GPUs: initialize `torch.nn.DataParallel` or `torch.nn.parallel.DistributedDataParallel` (if distributed setup intended).
+- **Implementation:**
+  - Use `torch.cuda.is_available()` and `torch.cuda.device_count()`.
+  - Set `device` accordingly.
+  - Log the number of GPUs for user confirmation.
+
+---
+
+## 4. Data Loading & Preprocessing
+
+- **Input:** `config['dataset']` entries
+- **Steps:**
+  - Instantiate `DatasetLoader`.
+  - Load dataset from `data_path`.
+  - Apply normalization (`standard`, as in config).
+  - Segment time series into patches of size `patch_size`:
+    - For real datasets, use fixed or dynamic windowing.
+    - For synthetic or special datasets, generate synthetic signals with described properties (shocks, periodicity).
+  - Apply train/validation/test splits based on fractions (`train_split`, `val_split`, `test_split`).
+  - Convert data to `torch.Tensor` objects.
+- **Output:** Dictionary with `train_dataset`, `val_dataset`, `test_dataset`.
+
+---
+
+## 5. Model Initialization
+
+- **Input:** Loaded dataset info, `config['model']`
+- **Steps:**
+  - Instantiate the `CATSModel` class.
+  - Set hyperparameters:
+    - `input_sequence_length`
+    - `forecast_horizon`
+    - `patch_size`
+    - `num_layers`, `num_heads`, `embed_dim`, etc.
+    - Use `parameter_sharing=True`.
+    - Initialize learnable horizon-dependent query embeddings.
+  - Incorporate masking parameters (`mask_probability`), if applicable.
+  - If GPU available, move model to device.
+  - Log model architecture and parameter count for transparency.
+  
+---
+
+## 6. Optimizer & Learning Rate Scheduler Setup
+
+- **Input:** Hyperparameters from config
+- **Steps:**
+  - Choose optimizer: e.g., `torch.optim.Adam` or tied to config.
+  - Set optimizer parameters:
+    - Learning rate as per `config['training']['learning_rate']`.
+    - Weight decay.
+  - Decide on learning rate scheduler:
+    - Optional: cyclic, step decay, or constant.
+- **Output:** Optimizer object, scheduler object (if used).
+
+---
+
+## 7. Define Loss Function
+
+- **Based on evaluation metrics in the paper:**
+  - Use `torch.nn.MSELoss()` for training.
+  - Optionally, MAE could also be logged.
+- **Implementation:** Instantiate once for use during training.
+
+---
+
+## 8. Training Loop
+
+- **Conditions:**
+  - Loop from epoch 1 to `epochs`.
+  - Use early stopping with `patience`.
+- **Per Epoch:**
+  - **Training phase:**
+    - Shuffle training data (if dataset is large).
+    - For each batch:
+      - Load batch data: `input_sequence`, `target_sequence`.
+      - Apply query-adaptive masking:
+        - Generate or decide mask based on `mask_probability`.
+        - Mask the queries or their embeddings accordingly.
+      - Forward pass:
+        - Invoke model with input patches, horizon queries, and mask.
+        - Collect predictions.
+      - Compute loss (e.g., MSELoss between predictions and targets).
+      - Backpropagation:
+        - Zero gradients.
+        - `loss.backward()`.
+        - Optimizer step.
+    - Record average loss for the epoch.
+  - **Validation phase:**
+    - Run inference on validation set with model in eval mode.
+    - Compute validation metrics (MSE, MAE).
+    - Store metrics for early stopping.
+- **Checkpointing:**
+  - Save model weights whenever validation improves.
+  - Use patience to determine early stopping.
+
+---
+
+## 9. Evaluation & Testing
+
+- **Post-training:**
+  - Load best checkpoint model.
+  - Run inference on the test set.
+  - Generate forecasting results for all horizons.
+  - Collect errors (MSE, MAE), attention maps, and attention scores.
+- **Visualization:**
+  - Use `matplotlib` integrated with `utils.py` to:
+    - Plot forecast vs ground truth.
+    - Visualize attention score maps (especially for interpretability, as shown in Sections 5.5 and Figures 6–15).
+- **Metrics:**
+  - Report comprehensive metrics matching what is presented in Tables 4–6, 11–12, etc.
+
+---
+
+## 10. Logging & Results Summary
+
+- **Implementation:**
+  - Record metrics per epoch and overall.
+  - Log hyperparameters, training duration, resource consumption.
+  - Save visualizations and attention maps for interpretability analysis.
+- **Output:**
+  - Console logs.
+  - Saved plots/images and model checkpoint files.
+  - Summary report or log file with final metrics.
+
+---
+
+## 11. Optional: Hyperparameter Search or Ablation Studies
+
+- Repeat training with varied `mask_probability`, layer counts, or patch sizes.
+- Record and compare performance and interpretability.
+- Conduct ablation studies similar to the ones in the paper (e.g., removing masking, replacing cross-attention with self-attention).
+
+---
+
+## Summary of Dependencies & Sequence:
+
+- Parse config → Set seeds → Set device → Load data → Initialize model → Setup optimizer/scheduler → Loop over epochs:
+  - Train batches → Apply masking → Forward → Loss → Backward → Save best models.
+- After training, run inference on test set → Generate metrics → Visualize attention patterns → Save final results.
+
+This detailed logical flow ensures that every component, as described in the paper and plan, is properly incorporated, maintaining the original methodology, hyperparameters, and evaluation protocols for faithful experiment reproduction and interpretability.

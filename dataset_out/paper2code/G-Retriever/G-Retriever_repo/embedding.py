@@ -1,0 +1,113 @@
+## embedding.py
+import torch
+import numpy as np
+from transformers import AutoModel, AutoTokenizer
+from typing import List
+import logging
+
+# Set up logging for debug
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
+class Embedding:
+    def __init__(self, model_name: str = "sentence-transformers/all-MiniLM-L6-v2",
+                 max_input_tokens: int = 512,
+                 model_precision: str = "fp16"):
+        """
+        Initialize the Embedding class with a pretrained text encoder.
+        Args:
+            model_name (str): Huggingface model identifier.
+            max_input_tokens (int): Maximum token length for encoding.
+            model_precision (str): 'fp16' or 'fp32' for model weights precision.
+        """
+        self.model_name = model_name
+        self.max_input_tokens = max_input_tokens
+        self.model_precision = model_precision
+
+        # Load tokenizer and model
+        self.tokenizer = AutoTokenizer.from_pretrained(self.model_name)
+        # Set device
+        self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+
+        # Load model with specified precision
+        self.model = AutoModel.from_pretrained(self.model_name)
+        if self.model_precision == "fp16":
+            self.model = self.model.half()
+        self.model.to(self.device)
+        self.model.eval()
+
+        # Determine embedding dimension from model config
+        self.embedding_dim = self.model.config.hidden_size
+
+        # Freeze model parameters (no training expected)
+        for param in self.model.parameters():
+            param.requires_grad = False
+
+    def _encode_texts(self, texts: List[str]) -> np.ndarray:
+        """
+        Encode a list of texts into dense vectors.
+        Args:
+            texts (List[str]): List of input strings.
+
+        Returns:
+            np.ndarray: Array of shape (len(texts), embedding_dim)
+        """
+        # Tokenize with truncation and padding
+        encodings = self.tokenizer(
+            texts,
+            max_length=self.max_input_tokens,
+            padding=True,
+            truncation=True,
+            return_tensors='pt'
+        )
+        input_ids = encodings['input_ids'].to(self.device)
+        attention_mask = encodings['attention_mask'].to(self.device)
+
+        # Disable gradient calculation for inference
+        with torch.no_grad():
+            outputs = self.model(input_ids=input_ids, attention_mask=attention_mask)
+            # Use CLS token embedding as representation
+            # outputs.last_hidden_state shape: [batch_size, seq_len, hidden_size]
+            # CLS token is at position 0
+            embeddings = outputs.last_hidden_state[:, 0, :]  # shape: [batch_size, hidden_size]
+            # Convert to numpy
+            embeddings_np = embeddings.cpu().numpy()
+        return embeddings_np
+
+    def encode_nodes(self, nodes: List[str]) -> np.ndarray:
+        """
+        Encode a list of node attribute strings into vectors.
+        Args:
+            nodes (List[str]): List of textual node attributes.
+
+        Returns:
+            np.ndarray: Embeddings shape (num_nodes, embedding_dim)
+        """
+        if not nodes:
+            return np.zeros((0, self.embedding_dim))
+        return self._encode_texts(nodes)
+
+    def encode_edges(self, edges: List[str]) -> np.ndarray:
+        """
+        Encode a list of edge attribute strings into vectors.
+        Args:
+            edges (List[str]): List of edge labels/attributes.
+
+        Returns:
+            np.ndarray: Embeddings shape (num_edges, embedding_dim)
+        """
+        if not edges:
+            return np.zeros((0, self.embedding_dim))
+        return self._encode_texts(edges)
+
+    def encode_question(self, question: str) -> np.ndarray:
+        """
+        Encode a question string into a vector.
+        Args:
+            question (str): User question text.
+
+        Returns:
+            np.ndarray: Array of shape (1, embedding_dim)
+        """
+        q_embed = self._encode_texts([question])
+        return q_embed

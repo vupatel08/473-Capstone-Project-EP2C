@@ -1,0 +1,145 @@
+## trainer.py
+import torch
+import numpy as np
+import json
+from typing import Dict, Optional
+from tqdm import tqdm
+from evaluation import Evaluation
+from visualization import plot_reliability_diagram_and_histogram, plot_confusion_matrix, plot_bias_bars, plot_invariance_results
+
+class Trainer:
+    def __init__(
+        self,
+        model,
+        dataset_loader,
+        config: Dict,
+        device: Optional[str] = None
+    ):
+        """
+        Initializes the Trainer with model, dataset loader, configuration, and device.
+        """
+        self.model = model
+        self.dataset_loader = dataset_loader
+        self.config = config
+        self.device = device or ('cuda' if torch.cuda.is_available() else 'cpu')
+        # Store evaluation results
+        self.results = {}
+
+        # Initialize the evaluation object
+        self.evaluator = Evaluation(
+            dataset_name=self.dataset_loader.config.get('name', 'Unknown'),
+            batch_size=self.config.get('evaluation', {}).get('batch_size', 128),
+            transformations=self.config.get('evaluation', {}).get('transformations', {}),
+            inference_steps=self.config.get('evaluation', {}).get('inference_steps', 10000),
+            device=self.device,
+            seed=self.config.get('misc', {}).get('seed', 42)
+        )
+
+    def run(self):
+        """
+        Run the full suite of evaluations as per paper's methodology.
+        """
+        # Load datasets
+        val_loader = self.dataset_loader.load_data(split='validation')
+
+        # 1. Standard accuracy on ImageNet-1K validation set
+        print("Evaluating Top-1 Accuracy on ImageNet-1K validation...")
+        top1_acc = self.evaluator.compute_accuracy(self.model, val_loader)
+        self.results['accuracy'] = top1_acc
+        print(f"ImageNet-1K Validation Accuracy: {top1_acc:.2f}%")
+
+        # 2. Mistake analysis / confusion
+        print("Running mistake analysis...")
+        mistake_stats = self.evaluator.compute_mistake_stats(self.model, val_loader)
+        self.results['mistake_analysis'] = mistake_stats
+
+        # 3. Calibration
+        print("Evaluating calibration on ImageNet-1K...")
+        calib_results_in = self.evaluator.compute_calibration(self.model, val_loader)
+        self.results['calibration_in'] = calib_results_in
+
+        # 4. Calibration on ImageNet-R
+        print("Evaluating calibration on ImageNet-R...")
+        imagenet_r_loader = self.dataset_loader.load_data(split='validation', dataset_name='ImageNet-R')
+        calib_results_r = self.evaluator.compute_calibration(self.model, imagenet_r_loader)
+        self.results['calibration_out'] = calib_results_r
+
+        # Visualize calibration
+        plot_reliability_diagram_and_histogram(
+            calib_results_in, calib_results_in['confidence_bin_centers'], calib_results_in['ece']
+        )
+
+        # 5. Bias analysis: shape vs texture bias (cue-conflict images)
+        print("Conducting shape vs texture bias analysis...")
+        cue_conflict_loader = self.dataset_loader.load_data(split='validation', dataset_name='CueConflict')
+        bias_stats = self.evaluator.compute_bias(self.model, cue_conflict_loader)
+        self.results['bias'] = bias_stats
+
+        # Visualize bias
+        plot_bias_bars(bias_stats)
+
+        # 6. Invariance tests: scale, shift, resolution
+        print("Performing invariance tests (scale, shift, resolution)...")
+        for test_type in ['scale', 'shift', 'resolution']:
+            dataset = self.dataset_loader.load_data(split='validation')  # Use same dataset but with transformed images
+            invariance_results = self.evaluator.invariance_tests(self.model, dataset, test_type=test_type)
+            self.results[f'invariance_{test_type}'] = invariance_results
+            # Plot invariance
+            plot_invariance_results(invariance_results, test_type=test_type)
+
+        # 7. Transferability on VTAB or similar datasets
+        print("Evaluating transferability...")
+        # Here you should load VTAB datasets; assuming they're preloaded or placeholder
+        datasets_dict = self._load_vtab_datasets()
+        transfer_results = self.evaluator.evaluate_transferability(self.model, datasets_dict)
+        self.results['transferability'] = transfer_results
+
+        # 8. Synthetic data evaluation (e.g., PUG-ImageNet)
+        print("Evaluating on synthetic PUG-ImageNet data...")
+        pug_dataset = self._load_synthetic_dataset()
+        synthetic_results = self.evaluator.synthetic_data_evaluation(self.model, pug_dataset)
+        self.results['synthetic'] = synthetic_results
+
+        # Save results dict to JSON for record
+        with open('evaluation_results.json', 'w') as f:
+            json.dump(self.results, f, indent=4)
+
+        print("Evaluation complete. Results saved to 'evaluation_results.json'.")
+
+    def _load_vtab_datasets(self):
+        """
+        Placeholder to load VTAB datasets or similar for transferability.
+        Replace with actual dataset loading logic.
+        """
+        # Here, load actual datasets e.g., via dataset_loader or other sources
+        # For demonstration, return empty dict or sample datasets
+        return {}
+
+    def _load_synthetic_dataset(self):
+        """
+        Placeholder for loading synthetic dataset (PUG-ImageNet).
+        Replace with actual data loading.
+        """
+        # For demo, use the same dataset loader with a different split or mock data
+        # Assume synthetic dataset is prepared similarly
+        class DummySyntheticDataset:
+            def __len__(self):
+                return 1000
+            def __getitem__(self, idx):
+                # Return dummy image tensor and label
+                # Replace with actual synthetic images loading process
+                from PIL import Image
+                import torch
+                dummy_img = Image.new('RGB', (224, 224))
+                dummy_tensor = self._transform(dummy_img)
+                label = np.random.randint(0, 1000)
+                return dummy_tensor, label
+            def _transform(self, img):
+                from torchvision import transforms
+                transform = transforms.Compose([
+                    transforms.Resize(224),
+                    transforms.ToTensor(),
+                    transforms.Normalize(mean=[0.485,0.456,0.406], std=[0.229,0.224,0.225])
+                ])
+                return transform(img)
+        return DummySyntheticDataset()

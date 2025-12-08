@@ -1,0 +1,175 @@
+## model.py
+import torch
+import torch.nn as nn
+from transformers import CLIPModel, CLIPProcessor, ViTModel, ViTConfig
+import timm
+
+class CAMLModel(nn.Module):
+    def __init__(self, config: dict):
+        """
+        Initializes the CAML model components:
+        - Frozen CLIP image encoder
+        - Learnable label (ELMES) embeddings
+        - Non-causal transformer sequence model
+        """
+        super().__init__()
+        # Load and freeze CLIP encoder
+        self.clip_model = CLIPModel.from_pretrained(config['model']['image_encoder'])
+        for param in self.clip_model.parameters():
+            param.requires_grad = False
+        # CLIP's image encoder outputs last_hidden_state or pooler_output
+        # Use pooled output or mean pooling
+        # The embedding size (hidden_dim) depends on the CLIP version
+        self.clip_embedding_dim = self.clip_model.config.hidden_size  # e.g., 512 or 768
+
+        # Label (ELMES) embeddings: initialize as trainable parameters
+        self.label_embedding_dim = config['model']['label_embedding_dim']
+        # For maximum class number during training
+        self.max_classes = 100  # Can be adjusted or set dynamically
+        self.label_embeddings = nn.Embedding(self.max_classes, self.label_embedding_dim)
+
+        # Initialize label embeddings with random uniform
+        nn.init.uniform_(self.label_embeddings.weight, -0.1, 0.1)
+
+        # Build the transformer encoder for sequence modeling
+        # Using vision transformer as backbone - huggingface ViT or timm
+        transformer_name = config['model']['transformer_model_name']
+        transformer_params = config['model']['transformer_params']
+        # For flexibility, use timm's ViT implementation
+        # Note: Adjust input embedding size to match combined support image + label embedding
+        self.transformer = timm.create_model(
+            transformer_name,
+            pretrained=True,
+            num_classes=0,
+            global_pool='mean'
+        )
+        # Replace patch embedding or modify as needed to accept sequence of token embeddings
+        # Here, since encoding support/query as sequence of feature vectors, better to implement custom transformer
+        # For simplicity, define a standard nn.TransformerEncoder
+        encoder_layer = nn.TransformerEncoderLayer(
+            d_model=transformer_params['hidden_dim'],
+            nhead=transformer_params['num_heads'],
+            dropout=transformer_params['dropout']
+        )
+        self.transformer_encoder = nn.TransformerEncoder(
+            encoder_layer,
+            num_layers=transformer_params['num_layers']
+        )
+
+        # Positional embeddings: learned parameters
+        # Max sequence length: support set size + 1 (query)
+        self.max_seq_len = 64  # Can be adjusted based on max support size
+        self.positional_embeddings = nn.Parameter(
+            torch.randn(self.max_seq_len, transformer_params['hidden_dim'])
+        )
+
+        # Hidden dimension matches the transformer's d_model
+        self.hidden_dim = transformer_params['hidden_dim']
+        # A final MLP to produce output if needed (optional)
+        # Not necessary unless doing further classification step
+        # For CAML: use inner product similarity directly
+
+        # Initialize a special "unknown" label embedding for unknown class
+        self.unknown_label_embedding = nn.Parameter(torch.randn(self.label_embedding_dim))
+
+    def encode_image(self, images):
+        """
+        Encode images using frozen CLIP encoder.
+        Args:
+            images: list or tensor of images (PIL or tensors)
+        Returns:
+            Tensor of shape [batch_size, clip_embedding_dim]
+        """
+        # Expect images as tensor or list of PIL Images
+        # Convert to feature vectors via CLIP
+        with torch.no_grad():
+            # If images are PIL Images, convert to tensor and normalize
+            # Here, assume images are already preprocessed tensors
+            # If not, preprocessing should be added outside
+            outputs = self.clip_model.get_image_features(images)
+        # outputs shape: [batch_size, clip_embedding_dim]
+        return outputs
+
+    def prepare_sequence(self, support_images, support_labels, query_image, support_labels_in_training=None):
+        """
+        Construct the input sequence for transformer.
+        Support images and labels are converted to tokens and concatenated with query.
+        Args:
+            support_images: list or tensor of support images
+            support_labels: tensor of shape [support_size], class indices
+            query_image: single image tensor
+        Returns:
+            sequence: tensor of shape [sequence_length, embed_dim]
+            support_label_indices: tensor of shape [support_size]
+            support_class_indices: list of class indices in support set (for mapping)
+        """
+        # Encode support images
+        support_embeddings = self.encode_image(support_images)  # shape: [support_size, clip_dim]
+        query_embedding = self.encode_image(query_image.unsqueeze(0)).squeeze(0)  # shape: [clip_dim]
+
+        support_size = support_embeddings.shape[0]
+        support_class_indices = support_labels  # used to index label embeddings
+
+        # Map support labels to label embeddings (support support_labels help index)
+        # support_labels are class indices in support set, map to our label embeddings
+        support_label_embeddings = self.label_embeddings(support_class_indices)  # [support_size, label_dim]
+
+        # Concatenate support image embedding + label embedding for each support
+        support_tokens = torch.cat([support_embeddings, support_label_embeddings], dim=1)  # [support_size, support_dim]
+        # For the support tokens, project to the sequence feature size if needed (assumed compatible)
+        # Assume clip_dim and label_dim are the same or adjust
+        support_tokens_seq = support_tokens  # shape: [support_size, embed_dim]
+
+        # Create query token (just image embedding; label is unknown)
+        # For the query, initialize a support_label_embedding placeholder (could use unknown token)
+        # For current, we do not have label info; use unknown token if desired:
+        query_token = torch.cat([query_embedding, self.unknown_label_embedding], dim=0)  # shape: [embed_dim]
+
+        # Build sequence
+        sequence = torch.cat([support_tokens_seq, query_token.unsqueeze(0)], dim=0)  # shape: [support_size+1, embed_dim]
+
+        # Add positional embeddings
+        seq_len = sequence.shape[0]
+        if seq_len > self.max_seq_len:
+            raise ValueError(f"Sequence length {seq_len} exceeds maximum supported {self.max_seq_len}")
+        positional = self.positional_embeddings[:seq_len, :]  # [seq_len, embed_dim]
+        sequence = sequence + positional
+
+        return sequence, support_class_indices
+
+    def forward(self, support_images, support_labels, query_image):
+        """
+        Complete forward pass:
+        - build sequence
+        - pass through transformer
+        - extract query output
+        - compute similarities with label embeddings
+        - output predicted class index
+        """
+        # Prepare sequence
+        sequence, support_class_indices = self.prepare_sequence(support_images, support_labels, query_image)
+
+        # Transformer expects [sequence_len, batch=1, embed_dim]
+        sequence = sequence.unsqueeze(1)  # [seq_len, 1, embed_dim]
+
+        # Pass through transformer encoder
+        transformer_output = self.transformer_encoder(sequence)  # [seq_len, 1, embed_dim]
+
+        # Extract last token (query output)
+        query_output = transformer_output[-1, 0, :]  # [embed_dim]
+
+        # Compare query output to label embeddings
+        # Get all class label embeddings
+        # During inference/support, number of classes may be less than max_classes
+        # So, for predicted, compute similarity with all label embeddings
+        class_embeds = self.label_embeddings.weight[:len(support_class_indices)]  # [support_size, label_dim]
+        # Compute inner products
+        similarities = torch.matmul(class_embeds, query_output)  # [support_size]
+        # For classification, aggregate over support set or pick maximum
+        # Here, assume the support set labels are for classes; but in practice, classify among all classes
+        # For generalization, compare query to all label embeddings
+        # So, extend class_embeds to total number of classes (if known), or use a fixed large number
+        # For simplicity, assume only support classes are in consideration
+        probs = torch.softmax(similarities, dim=0)
+        pred_class_idx = torch.argmax(probs).item()
+        return pred_class_idx

@@ -1,0 +1,220 @@
+{
+  "code_to_paper": {
+    "attention_calibrator.py:AttentionCalibrator": [
+      "The provided information does not include specific paper section names/titles. Please provide the names/titles of the paper sections to proceed with the analysis."
+    ],
+    "attention_calibrator.py:__init__": [
+      "The provided paper sections do not contain any relevant information related to the code component. Please provide more paper sections."
+    ],
+    "dataset_loader.py:DatasetLoader": [
+      "The paper sections are not clearly defined in the provided information. However",
+      "based on the code component's description",
+      "the most relevant sections could be \"Data Preparation\"",
+      "\"Methodology\"",
+      "and \"Experiment Setup\". Please provide the actual section names for a more accurate mapping."
+    ],
+    "dataset_loader.py:__init__": [
+      "The provided paper sections are not sufficient to link with the given code component. Please provide more relevant paper sections such as \"Methodology\"",
+      "\"Data Collection\"",
+      "\"Experiment Setup\"",
+      "or \"Implementation Details\"."
+    ],
+    "evaluation.py:Evaluation": [
+      "Without the specific section names",
+      "it's hard to provide an accurate answer. However",
+      "based on the code description",
+      "the most relevant sections could be \"Model Evaluation\"",
+      "\"Results and Discussion\"",
+      "\"Methodology\"."
+    ],
+    "evaluation.py:__init__": [
+      "The provided paper sections do not seem to contain any relevant information related to the code component. Please provide more relevant paper sections."
+    ],
+    "main.py:main": [
+      "The provided information is insufficient to determine the most relevant paper sections for the code component. Please provide more details about the function in the main.py file and its purpose."
+    ],
+    "model_wrapper.py:ModelWrapper": [
+      "The provided paper sections are not sufficient to link with the given code component. Please provide more relevant paper sections such as \"Methodology\"",
+      "\"Implementation Details\"",
+      "\"Model Architecture\"",
+      "etc."
+    ],
+    "model_wrapper.py:__init__": [
+      "The provided paper sections do not seem to contain any relevant information related to the code component. Please provide more relevant paper sections."
+    ]
+  },
+  "paper_to_code": {
+    "The provided information does not include specific paper section names/titles. Please provide the names/titles of the paper sections to proceed with the analysis.": [
+      {
+        "component": "attention_calibrator.py:AttentionCalibrator",
+        "description": "Implements attention sink detection and suppression to calibrate attention maps\n    during inference, inspired by the paper's methodology. Designed for input-adaptive,\n    training-free adjustment of attention distributions to improve model performance.",
+        "file": "attention_calibrator.py"
+      }
+    ],
+    "The provided paper sections do not contain any relevant information related to the code component. Please provide more paper sections.": [
+      {
+        "component": "attention_calibrator.py:__init__",
+        "description": "Initialize the AttentionCalibrator with default hyperparameters.\n        Args:\n            alpha (float): Threshold multiplier to identify high-attention tokens as sinks.\n            suppress_factor (float): Factor (\\(\\beta\\)) to reduce attention weights of sinks.\n            subset_percent (float): Percentage (e.g., 0.4) of top tokens considered sinks per layer-head.",
+        "file": "attention_calibrator.py"
+      }
+    ],
+    "The paper sections are not clearly defined in the provided information. However": [
+      {
+        "component": "dataset_loader.py:DatasetLoader",
+        "description": "Responsible for loading datasets for various NLP tasks, formatting prompts,\n    and returning data samples suitable for inference and evaluation.",
+        "file": "dataset_loader.py"
+      }
+    ],
+    "based on the code component's description": [
+      {
+        "component": "dataset_loader.py:DatasetLoader",
+        "description": "Responsible for loading datasets for various NLP tasks, formatting prompts,\n    and returning data samples suitable for inference and evaluation.",
+        "file": "dataset_loader.py"
+      }
+    ],
+    "the most relevant sections could be \"Data Preparation\"": [
+      {
+        "component": "dataset_loader.py:DatasetLoader",
+        "description": "Responsible for loading datasets for various NLP tasks, formatting prompts,\n    and returning data samples suitable for inference and evaluation.",
+        "file": "dataset_loader.py"
+      }
+    ],
+    "\"Methodology\"": [
+      {
+        "component": "dataset_loader.py:DatasetLoader",
+        "description": "Responsible for loading datasets for various NLP tasks, formatting prompts,\n    and returning data samples suitable for inference and evaluation.",
+        "file": "dataset_loader.py"
+      }
+    ],
+    "and \"Experiment Setup\". Please provide the actual section names for a more accurate mapping.": [
+      {
+        "component": "dataset_loader.py:DatasetLoader",
+        "description": "Responsible for loading datasets for various NLP tasks, formatting prompts,\n    and returning data samples suitable for inference and evaluation.",
+        "file": "dataset_loader.py"
+      }
+    ],
+    "The provided paper sections are not sufficient to link with the given code component. Please provide more relevant paper sections such as \"Methodology\"": [
+      {
+        "component": "dataset_loader.py:__init__",
+        "description": "Initialize DatasetLoader.\n\n        Args:\n            dataset_configs (Dict[str, Dict]]): Dictionary mapping dataset name to configuration, e.g.,\n                {\n                    \"Hellaswag\": {\"path\": \"path/to/file.json\", \"type\": \"json\"},\n                    \"SQuAD\": {\"name\": \"squad\", \"split\": \"validation\"},\n                    ...\n                }\n            prompts (Dict[str, str]): Dictionary of prompt templates for each dataset/task.\n            split (str): Dataset split to load, default 'test'.\n            max_input_length (int): Max token length for inputs, truncates if exceeded.",
+        "file": "dataset_loader.py"
+      },
+      {
+        "component": "model_wrapper.py:ModelWrapper",
+        "description": "Wraps a HuggingFace transformer language model to:\n    - Load model and tokenizer\n    - Register hooks to extract attention weights during inference\n    - Provide method to retrieve attention maps\n    - Generate outputs with optional modified attention",
+        "file": "model_wrapper.py"
+      }
+    ],
+    "\"Data Collection\"": [
+      {
+        "component": "dataset_loader.py:__init__",
+        "description": "Initialize DatasetLoader.\n\n        Args:\n            dataset_configs (Dict[str, Dict]]): Dictionary mapping dataset name to configuration, e.g.,\n                {\n                    \"Hellaswag\": {\"path\": \"path/to/file.json\", \"type\": \"json\"},\n                    \"SQuAD\": {\"name\": \"squad\", \"split\": \"validation\"},\n                    ...\n                }\n            prompts (Dict[str, str]): Dictionary of prompt templates for each dataset/task.\n            split (str): Dataset split to load, default 'test'.\n            max_input_length (int): Max token length for inputs, truncates if exceeded.",
+        "file": "dataset_loader.py"
+      }
+    ],
+    "\"Experiment Setup\"": [
+      {
+        "component": "dataset_loader.py:__init__",
+        "description": "Initialize DatasetLoader.\n\n        Args:\n            dataset_configs (Dict[str, Dict]]): Dictionary mapping dataset name to configuration, e.g.,\n                {\n                    \"Hellaswag\": {\"path\": \"path/to/file.json\", \"type\": \"json\"},\n                    \"SQuAD\": {\"name\": \"squad\", \"split\": \"validation\"},\n                    ...\n                }\n            prompts (Dict[str, str]): Dictionary of prompt templates for each dataset/task.\n            split (str): Dataset split to load, default 'test'.\n            max_input_length (int): Max token length for inputs, truncates if exceeded.",
+        "file": "dataset_loader.py"
+      }
+    ],
+    "or \"Implementation Details\".": [
+      {
+        "component": "dataset_loader.py:__init__",
+        "description": "Initialize DatasetLoader.\n\n        Args:\n            dataset_configs (Dict[str, Dict]]): Dictionary mapping dataset name to configuration, e.g.,\n                {\n                    \"Hellaswag\": {\"path\": \"path/to/file.json\", \"type\": \"json\"},\n                    \"SQuAD\": {\"name\": \"squad\", \"split\": \"validation\"},\n                    ...\n                }\n            prompts (Dict[str, str]): Dictionary of prompt templates for each dataset/task.\n            split (str): Dataset split to load, default 'test'.\n            max_input_length (int): Max token length for inputs, truncates if exceeded.",
+        "file": "dataset_loader.py"
+      }
+    ],
+    "Without the specific section names": [
+      {
+        "component": "evaluation.py:Evaluation",
+        "description": "Handles model evaluation on multiple datasets, with optional attention calibration (ACT).\n    Supports computing metrics like accuracy, EM, F1, and detailed result aggregation.",
+        "file": "evaluation.py"
+      }
+    ],
+    "it's hard to provide an accurate answer. However": [
+      {
+        "component": "evaluation.py:Evaluation",
+        "description": "Handles model evaluation on multiple datasets, with optional attention calibration (ACT).\n    Supports computing metrics like accuracy, EM, F1, and detailed result aggregation.",
+        "file": "evaluation.py"
+      }
+    ],
+    "based on the code description": [
+      {
+        "component": "evaluation.py:Evaluation",
+        "description": "Handles model evaluation on multiple datasets, with optional attention calibration (ACT).\n    Supports computing metrics like accuracy, EM, F1, and detailed result aggregation.",
+        "file": "evaluation.py"
+      }
+    ],
+    "the most relevant sections could be \"Model Evaluation\"": [
+      {
+        "component": "evaluation.py:Evaluation",
+        "description": "Handles model evaluation on multiple datasets, with optional attention calibration (ACT).\n    Supports computing metrics like accuracy, EM, F1, and detailed result aggregation.",
+        "file": "evaluation.py"
+      }
+    ],
+    "\"Results and Discussion\"": [
+      {
+        "component": "evaluation.py:Evaluation",
+        "description": "Handles model evaluation on multiple datasets, with optional attention calibration (ACT).\n    Supports computing metrics like accuracy, EM, F1, and detailed result aggregation.",
+        "file": "evaluation.py"
+      }
+    ],
+    "\"Methodology\".": [
+      {
+        "component": "evaluation.py:Evaluation",
+        "description": "Handles model evaluation on multiple datasets, with optional attention calibration (ACT).\n    Supports computing metrics like accuracy, EM, F1, and detailed result aggregation.",
+        "file": "evaluation.py"
+      }
+    ],
+    "The provided paper sections do not seem to contain any relevant information related to the code component. Please provide more relevant paper sections.": [
+      {
+        "component": "evaluation.py:__init__",
+        "description": "Initialize Evaluation class.\n        Args:\n            model (ModelWrapper): The pretrained model wrapper.\n            dataset_configs (Dict): Dataset configuration dict as per 'config.yaml'.\n            prompts (Dict): Dictionary of prompt templates per task.\n            config (Dict): Full configuration dictionary from 'config.yaml'.\n            device (str): Device string.",
+        "file": "evaluation.py"
+      },
+      {
+        "component": "model_wrapper.py:__init__",
+        "description": "Initialize the model wrapper.\n        Args:\n            model_name (str): Identifier of the pretrained model.\n            device (str): Device to run inference (\"cpu\" or \"cuda\").\n            model_path (str, optional): Path to local model or HF model id.",
+        "file": "model_wrapper.py"
+      }
+    ],
+    "The provided information is insufficient to determine the most relevant paper sections for the code component. Please provide more details about the function in the main.py file and its purpose.": [
+      {
+        "component": "main.py:main",
+        "description": "",
+        "file": "main.py"
+      }
+    ],
+    "\"Implementation Details\"": [
+      {
+        "component": "model_wrapper.py:ModelWrapper",
+        "description": "Wraps a HuggingFace transformer language model to:\n    - Load model and tokenizer\n    - Register hooks to extract attention weights during inference\n    - Provide method to retrieve attention maps\n    - Generate outputs with optional modified attention",
+        "file": "model_wrapper.py"
+      }
+    ],
+    "\"Model Architecture\"": [
+      {
+        "component": "model_wrapper.py:ModelWrapper",
+        "description": "Wraps a HuggingFace transformer language model to:\n    - Load model and tokenizer\n    - Register hooks to extract attention weights during inference\n    - Provide method to retrieve attention maps\n    - Generate outputs with optional modified attention",
+        "file": "model_wrapper.py"
+      }
+    ],
+    "etc.": [
+      {
+        "component": "model_wrapper.py:ModelWrapper",
+        "description": "Wraps a HuggingFace transformer language model to:\n    - Load model and tokenizer\n    - Register hooks to extract attention weights during inference\n    - Provide method to retrieve attention maps\n    - Generate outputs with optional modified attention",
+        "file": "model_wrapper.py"
+      }
+    ]
+  },
+  "paper_sections": [
+    {
+      "section": "Abstract",
+      "text": "Zhongzhi $\\mathbf { Y } \\mathbf { u } ^ { \\mathrm { ~ \\ast ~ 1 ~ } }$ Zheng Wang \\* 1 Yonggan Fu 1 Huihong Shi 1 Khalid Shaikh 1 Yingyan (Celine) Lin 1",
+      "ontology": "abstract"
+    }
+  ],
+  "coverage_score": 22.0
+}

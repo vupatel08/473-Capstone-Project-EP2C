@@ -1,0 +1,199 @@
+## trainer.py
+import torch
+import torch.nn.functional as F
+import numpy as np
+from tqdm import tqdm
+from dataset_loader import DatasetLoader
+from conditioning import ConditioningEncoder
+from text_prompt import TextPromptEmbedder
+from diffusion_utils import ddim_sample, convert_latent_to_rgb, interpolate_frames
+from model import ControlVideoModel
+from video_utils import save_frames_as_video
+from evaluation import EvaluationMetrics
+
+class Trainer:
+    def __init__(self, config: dict):
+        """
+        Initialize the trainer with configuration parameters.
+        Loads models, encoders, and prepares conditions and prompts.
+        """
+        # Device setup
+        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        self.config = config
+
+        # Load dataset
+        dataset_path = self.config['dataset_path']
+        annotations = self.config['annotations']
+        self.dataset_loader = DatasetLoader(dataset_path, annotations,
+                                            control_types=self.config['conditioning']['control_type'])
+        self.dataset = self.dataset_loader.load_dataset()
+
+        # Initialize text prompt embedder
+        self.prompt_embedder = TextPromptEmbedder()
+
+        # Initialize conditioning encoders
+        self.condition_encoders = {}
+        for cond_type in self.config['conditioning']['control_type']:
+            self.condition_encoders[cond_type] = ConditioningEncoder(cond_type, device=self.device)
+
+        # Prepare control condition maps for each sample
+        for sample in self.dataset:
+            sample['conditioning_maps'] = {}
+            for cond_type in self.config['conditioning']['control_type']:
+                map_ = sample.get(cond_type + 's')  # 'edges', 'depths', 'poses'
+                if map_ is not None:
+                    # Take the middle frame for a single control map
+                    sample['conditioning_maps'][cond_type] = torch.from_numpy(map_[len(map_)//2]).float().to(self.device)/255.0
+                else:
+                    sample['conditioning_maps'][cond_type] = None
+
+        # Load Diffusion & ControlNet models
+        model_path = self.config['model']['model_path']
+        controlnet_weights_path = self.config['conditioning']['controlnet_weights_path']
+        self.diffusion_model = ControlVideoModel(model_path, controlnet_weights_path,
+                                                 inflation_scale=self.config['model']['inflation_scale'],
+                                                 num_heads=self.config['model']['num_heads'],
+                                                 device=self.device)
+
+        # Encode the text prompt
+        prompts = [sample['prompt'] for sample in self.dataset]
+        self.prompt_embeddings = [self.prompt_embedder.embed(prompt) for prompt in prompts]
+
+        # Parameters
+        self.T = self.config['training']['denoising_steps']
+        self.smoothing_steps = self.config['training']['smoothing_steps']
+        self.smoothing_timesteps = self.config['training']['smoothing_timesteps']
+        self.high_res = self.config['model']['high_res_size']
+        self.low_res = self.config['training']['low_res_size']
+        self.total_frames = self.config['training']['total_frames']
+        self.hierarchical_segments = self.config['model']['hierarchical_segments']
+        self.use_full_cross_attention = self.config['model']['use_full_cross_attention']
+
+    def generate_video(self, sample_idx: int):
+        """
+        Generate a video from a specific sample in the dataset.
+        """
+        sample = self.dataset[sample_idx]
+        prompt_emb = self.prompt_embeddings[sample_idx]
+        # Extract conditioning map(s)
+        cond_maps = sample['conditioning_maps']
+        # For simplicity, select one control type, e.g., 'depth' or 'edges'
+        control_type = self.config['conditioning']['control_type'][0]
+        control_map = cond_maps.get(control_type)
+
+        # Prepare initial latent z_T: shape (1, C, H, W, D)
+        # Typically, noise: (1, C, H, W, D) with D=total_frames
+        batch_size = 1
+        c_dim = self.diffusion_model.unet_2d.config.block_out_channels[0]  # example latent channel size
+        height = self.high_res
+        width = self.high_res
+        latent_dim = c_dim
+        num_frames = self.total_frames
+
+        # Initialize latent with standard normal noise
+        z_t = torch.randn(batch_size, latent_dim, height, width, num_frames, device=self.device)
+
+        # If hierarchical sampling, initialize segments (not shown here for brevity)
+
+        # Prepare diffusion schedule
+        timetable = list(range(self.T, 0, -1))  # t in [T, 1]
+        # For some steps, apply smoothing
+        smoothing_timesteps = self.smoothing_timesteps
+
+        # Generate video by denoising from T to 0
+        for t_idx in tqdm(range(self.T)):
+            t = self.T - t_idx  # current timestep
+            # Determine if smoothing should be applied at current step
+            apply_smooth = (t in smoothing_timesteps)
+
+            # --- Denoising step ---
+            z_prev = ddim_sample(
+                z_t, t, prompt_emb,
+                control_map,
+                self.diffusion_model,
+                control_apply_fn=None,  # control handling builtin in model
+                t_schedule=timetable,
+                device=self.device
+            )
+
+            # --- Cross-frame attention (handled internally in model) ---
+            # For the code above, assume model applies attention as configured
+
+            # --- Smoothing at scheduled steps ---
+            if apply_smooth:
+                # Prepare sequence of latent frames for smoothing
+                # For simplicity, smoothing applied on the whole sequence here
+                # The smoothing process requires sequence of z for each frame
+                # Extract sequence of latents per frame
+                z_sequence = [z_prev[..., i] for i in range(num_frames)]  # list of (1,C,H,W)
+                # Apply smoothing
+                smoothed_sequence = self.apply_interleaved_smoothing(
+                    z_sequence, t, control_map, prompt_emb
+                )
+                # Stack back into tensor
+                z_t = torch.stack(smoothed_sequence, dim=4)  # shape: (1,C,H,W,N)
+            else:
+                z_t = z_prev
+
+        # Final conversion to RGB frames
+        rgb_frames = []
+        for i in range(num_frames):
+            z_frame = z_t[..., i]  # (1,C,H,W)
+            rgb = convert_latent_to_rgb(z_frame, self.diffusion_model.latent_decoder, self.device)
+            rgb_frames.append(rgb)
+
+        # Save all frames as video
+        video_filename = f"generated_video_{sample_idx}.mp4"
+        save_frames_as_video(rgb_frames, video_filename)
+        return rgb_frames
+
+    def apply_interleaved_smoothing(self, z_sequence, t, control_map, prompt_emb):
+        """
+        Apply the interleaved-frame smoother algorithm defined in Alg. 1.
+        """
+        # Parameters
+        num_frames = len(z_sequence)
+        smoothed_z = list(z_sequence)
+        # For each scheduled smoothing timestep (e.g., 48,49), perform smoothing
+        for t_smooth in self.smoothing_timesteps:
+            # Convert each z to RGB
+            rgb_frames = [
+                convert_latent_to_rgb(z, self.diffusion_model.latent_decoder, self.device)
+                for z in smoothed_z
+            ]
+            # Interpolate middle frames in overlapping 3-frame clips
+            for i in range(1, num_frames -1):
+                # Interpolate between neighbor frames (i-1, i+1)
+                rgb1 = rgb_frames[i - 1]
+                rgb2 = rgb_frames[i + 1]
+                interp_rgb = interpolate_frames(rgb1, rgb2, alpha=0.5)
+                # Convert interpolated RGB to latent
+                interp_tensor = torch.from_numpy(interp_rgb).permute(2,0,1).unsqueeze(0).float().to(self.device)/255.0 * 2 - 1
+                z_interp = self.diffusion_model.latent_decoder(interp_tensor)
+                # Replace middle frame latent
+                smoothed_z[i] = z_interp.squeeze(0)
+            # After interpolation, convert sequence to latent and denoise with DDIM
+            # For each frame, compute z_{t-1}
+            new_z_seq = []
+            for z in smoothed_z:
+                alpha_t = self.diffusion_model.get_alpha(torch.tensor([t_smooth], device=self.device))
+                epsilon_pred = self.diffusion_model.unet_3d(z.unsqueeze(0), torch.tensor([t_smooth], device=self.device),
+                                                              control_map.unsqueeze(0), prompt_emb)
+                sqrt_alpha_t = torch.sqrt(alpha_t)
+                sqrt_one_minus_alpha_t = torch.sqrt(1 - alpha_t)
+                z_next = sqrt_alpha_t * z + sqrt_one_minus_alpha_t * epsilon_pred.squeeze(0)
+                new_z_seq.append(z_next)
+            smoothed_z = new_z_seq
+        return smoothed_z
+
+    def run(self):
+        """
+        Run the entire inference pipeline over dataset samples.
+        """
+        generated_vids = []
+        for i in range(len(self.dataset)):
+            rgb_frames = self.generate_video(i)
+            generated_vids.append(rgb_frames)
+            # Optionally evaluate and save metrics
+        # Evaluate all generated videos if needed
+        # Return or save results

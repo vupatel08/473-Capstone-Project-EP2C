@@ -1,0 +1,169 @@
+**Evaluation.py Logic Analysis for AutoVP Framework**
+
+---
+
+### 1. Purpose & Role
+- This module is responsible for:
+  - Loading a trained model (including prompt parameters and label mappings).
+  - Running inference on the test datasets.
+  - Computing various evaluation metrics (classification accuracy, IoU, robustness).
+  - Generating visualizations of prompts and label mappings for interpretability.
+  - Returning evaluation results for further analysis or reporting.
+
+---
+
+### 2. Inputs & Dependencies
+- **Inputs:**
+  - *Model*: The trained `PretrainedModel` instance (with prompts).
+  - *Prompt Generator*: The trained prompt tensor(s) (pixel-based or frequency domain).
+  - *Dataset*: The test dataset (images, labels, masks, or bounding boxes as applicable).
+  - *Label Mapper*: The label mapping object (to convert model source predictions to target labels).
+  - *Evaluation Config*: Metrics to compute, number of samples, possibly data splits.
+- **Dependencies:**
+  - PyTorch for model inference.
+  - Datasets for data loader.
+  - Metrics calculation functions (accuracy, IoU).
+  - Visualization tools (matplotlib, PIL).
+
+---
+
+### 3. Main Components & Workflow
+
+**A. Initialization**
+- Load dataset: create a DataLoader for the test split.
+- Prepare model:
+  - Freeze or set to eval mode.
+  - Load prompts and label mapper.
+- Initialize metrics accumulators: counters for accuracy, IoU, damages, robustness, etc.
+- Optional: preload class names, class embeddings, or masks if needed for visualization.
+
+---
+
+**B. Evaluation Procedure**
+- Set model in evaluation mode (`model.eval()`).
+- Loop over test DataLoader:
+  - For each batch:
+    - If dataset is segmentation/detection:
+      - Extract images, labels, masks, bounding boxes as relevant.
+      - Generate prompts if prompts are not fixed (if adaptively trained).
+    - Else:
+      - For classification tasks:
+        - Input images undergo resizing/scaling as per configuration.
+        - Apply prompts (pixel tensors or FFT prompts) to images.
+        - Forward through backbone:
+          - Obtain raw outputs (predictions/logits).
+          - If `label_mapping` strategy is non-parametric (`FreqMap`, `SemanticMap`), apply the static mapping.
+          - If trainable (`FullyMap`, `IterMap`), ensure the model has been trained with trained label mapping at this point.
+        - For CLIP, use image encoder and label text embeddings to generate final predictions.
+    - Collect predicted labels and ground truths.
+    - Compute per-batch metrics:
+      - Accuracy: count correct predictions.
+      - IoU (if segmentation): compute intersection over union.
+      - Robustness metrics (if applicable): e.g., accuracy on corrupted images.
+  - Accumulate metrics:
+    - Total correct / total samples for classification accuracy.
+    - Sum of IoU scores across data.
+    - Confidence scores for robustness/uncertainty.
+
+**C. Post-processing & Metrics Calculation**
+- Finalize metrics:
+  - Compute overall accuracy = correct / total samples.
+  - Average IoU = sum IoU scores / number of samples.
+  - Robustness: perhaps calculate average confidence, or difference between clean and corrupted data.
+- Store detailed results:
+  - Per-class accuracy.
+  - Per-dataset metrics.
+  - Ambiguity/confidence distributions.
+
+**D. Visualizations**
+- Prompts visualization:
+  - Pixel prompts: reshape and display as images.
+  - Frequency prompts: inverse FFT and display.
+- Label maps visualization:
+  - Map class names to semantic embeddings if semantic mapping used.
+  - Show predicted vs. true labels, confusion matrices, or class similarity maps.
+- Save visualizations optionally to configured directories.
+
+---
+
+### 4. Implementation Details & Considerations
+
+**A. Data Loop**
+- Use DataLoader for batch iteration.
+- For segmentation/detection, adapt the inference accordingly.
+- Use `torch.no_grad()` context to disable gradient computations.
+
+**B. Model Inference**
+- For CLIP:
+  - Encode images via CLIP image encoder.
+  - Compute cosine similarity with class text embeddings.
+  - Derive predictions from maximum similarity.
+- For ResNet/Swin:
+  - Forward images, get logits.
+  - Apply label mapping if necessary.
+  - Decide final class labels.
+
+**C. Metrics Calculations**
+- Accuracy:
+  \#correct / total.
+- IoU:
+  - For segmentation:
+    - Obtain predicted masks (via argmax or threshold if needed).
+    - Calculate intersection and union with ground truth masks.
+    - Accumulate per batch.
+- Robustness:
+  - Test on corrupted images if provided.
+  - Compute accuracy on corrupted datasets.
+  - Record confidence scores (max softmax) as needed.
+
+**D. Visualization & Reports**
+- Visualize prompts: 
+  - Plot pixel prompts as images using `matplotlib`.
+  - Plot FFT prompts in magnitude spectrum.
+- Mapping visualization:
+  - For semantic maps, display cosine similarity heatmaps.
+  - For FullyMap, plot weight distributions or confusion matrices.
+
+**E. Final Output**
+- Return a dictionary or data class with:
+  - All metrics summary.
+  - Visualization images (or save file paths).
+  - Additional logs/config info.
+
+---
+
+### 5. Edge Cases & Robustness
+- Handle missing data or corrupt images gracefully.
+- For datasets with masks or bounding boxes, adapt IoU/detection metrics accordingly.
+- If label mapping is not applied, default to raw model outputs.
+- Ensure that prompts and label mappings are applied consistently during inference.
+
+---
+
+### 6. Hyperparameters & Configuration
+- Use the `config.yaml` to:
+  - Select dataset, model, metrics.
+  - Set batch size, number of samples.
+  - Control visualization options.
+- Allow overrides via function parameters for flexibility.
+
+---
+
+### 7. Summary
+- The `evaluate()` method runs inference with a trained model:
+  - Loads dataset.
+  - Processes each batch:
+    - Applies prompts (pixel or FFT).
+    - Scales input images.
+    - Runs through backbone.
+    - Applies label mapping (if needed).
+    - Computes metrics.
+  - Collects and averages metrics.
+  - Generates visualizations.
+- The `visualize_results()` method:
+  - Visualizes prompts, label mappings, confusion matrices, etc.
+  - Saves or displays plots.
+
+---
+
+With this detailed logic analysis, you are now equipped to implement a comprehensive, modular, and reproducible `evaluation.py` module aligned with AutoVP methodology, datasets, and experimental design.

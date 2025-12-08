@@ -1,0 +1,48 @@
+training:
+  learning_rate: 3e-6             # Starting learning rate as per paper
+  min_learning_rate: 3e-7        # Final learning rate after schedule decay
+  batch_size: 2                  # Comparisons per batch (4 responses)
+  epochs: 2                      # For datasets with single labels
+  lambda_reg: 0.0001             # Regularization coefficient for convexity
+  regularization_type: l2        # Type of regularization
+  optimizer: AdamW
+  weight_decay: 0.0001
+  lr_schedule: cosine            # Cosine decay schedule
+  lr_decay_epochs: null           # Use default cosine decay over epochs
+  total_steps: null               # To be computed based on dataset size and epochs
+
+model:
+  base_model: llama-2-7b-hf       # Using pre-trained LLAMA-2-7B model
+  head_type: scalar                # Options: scalar, mean_var, categorical
+  num_outputs: 1                   # 1 for standard, 2 for mean & variance, 10 for categorical
+  lora_rank: 8                     # LoRA implementation detail (dimensionality)
+  
+dataset:
+  dataset_type: relabeled_hh_rlhf  # Include synthetic, relabeled, and real datasets
+  synthetic_size: 10000            # Number of synthetic comparisons (adjust as needed)
+  relabel: false                   # Whether to perform GPT relabeling
+
+loss:
+  preference_loss: logistic        # Logistic Bradley-Terry pairwise loss
+  regularization: l2               # L2 regularization on utility outputs
+  entropy_bonus: 0.1               # For categorical DPL, entropy regularization weight
+  use_regularization: true
+  
+optimization:
+  optimizer: AdamW
+  learning_rate: 3e-6             # Initial LR
+  min_learning_rate: 3e-7        # Final LR
+  weight_decay: 0.0001
+  scheduler: cosine
+  epochs: 2                        # for single-label datasets
+  batch_size: 2
+  lambda_reg: 0.0001
+  total_steps: auto                # Calculated based on dataset size and epochs
+
+evaluation:
+  metrics:
+    preference_accuracy: true      # Accuracy over pairwise preferences
+    rank_correlation: true         # Spearman or Kendall correlation
+    bias_detection: true           # Variance and hidden context detection
+  compare_model: true              # Compare with true utilities (synthetic)
+  save_best_model: true            # Save best performing checkpoint

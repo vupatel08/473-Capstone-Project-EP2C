@@ -1,0 +1,158 @@
+{
+  "title": "CONTEXT-AWARE META-LEARNING",
+  "abstract": "Christopher Fifty1, Dennis Duan1,2, Ronald G. Junkins1, Ehsan Amid3, Jure Leskovec1, Christopher ${ \\bf R } \\acute { \\bf e } ^ { 1 }$ , Sebastian Thrun1 1Stanford University, 2Google, 3Google DeepMind fifty@cs.stanford.com",
+  "authors": [],
+  "body_text": [
+    {
+      "text": "# CONTEXT-AWARE META-LEARNING"
+    },
+    {
+      "text": "Christopher Fifty1, Dennis Duan1,2, Ronald G. Junkins1, Ehsan Amid3, Jure Leskovec1, Christopher ${ \\bf R } \\acute { \\bf e } ^ { 1 }$ , Sebastian Thrun1 1Stanford University, 2Google, 3Google DeepMind fifty@cs.stanford.com"
+    },
+    {
+      "text": "# ABSTRACT"
+    },
+    {
+      "text": "Large Language Models like ChatGPT demonstrate a remarkable capacity to learn new concepts during inference without any fine-tuning. However, visual models trained to detect new objects during inference have been unable to replicate this ability, and instead either perform poorly or require meta-training and/or finetuning on similar objects. In this work, we propose a meta-learning algorithm that emulates Large Language Models by learning new visual concepts during inference without fine-tuning. Our approach leverages a frozen pre-trained feature extractor, and analogous to in-context learning, recasts visual meta-learning as sequence modeling over datapoints with known labels and a test datapoint with an unknown label. On 8 out of 11 few-shot image classification benchmarks, our approach—without meta-training or fine-tuning—exceeds or matches the state-ofthe-art algorithm, $\\mathrm { P > M > F } ,$ , which is meta-trained on these benchmarks. Our code is available at https://github.com/cfifty/CAML."
+    },
+    {
+      "text": "# 1 INTRODUCTION"
+    },
+    {
+      "text": "Meta-learning refers to a capacity to learn new concepts from a small number of demonstrations (Lake et al., 2015). In a decade of remarkable advances to machine intelligence, it remains an area where human performance continues to surpass that of machines (Brown et al., 2020). To match human capabilities, and towards developing machines that can learn and think like humans, we must develop machine intelligence capable of learning novel concepts from only a few examples (Lake et al., 2017)."
+    },
+    {
+      "text": "Many applications of deep learning apply a learning algorithm to a large set of training data; however, learning from a very small number of training examples poses a challenge (Lake et al., 2017; Garnelo et al., 2018). This challenge led to two predominant evaluation settings: in-domain and cross-domain. The in-domain setting evaluates a meta-learner’s ability to quickly adapt to new tasks after training on similar tasks within a specific domain. Models designed for this setting are often extremely fast but exhibit poor generalization to tasks outside the target domain (Chen et al., 2019). Meanwhile, the cross-domain setting evaluates a meta-learner’s ability to adapt to tasks in previously unseen domains. Methods designed for this setting are highly adaptable but slow during inference as they require fine-tuning on the support set (Guo et al., 2020; Oh et al., 2022; Hu et al., 2022). Critically, meta-learners in both settings differ from a human’s capacity to quickly generalize to new tasks."
+    },
+    {
+      "text": "The problem of simultaneously fast and general meta-learning has recently been addressed in Natural Language by Large Language Models (LLMs). LLMs like ChatGPT can quickly generalize to new tasks through an ability termed in-context learning (Brown et al., 2020). However, it remains an open problem in Computer Vision. Even the best visual meta-learning algorithms cannot be deployed to a ChatGPT-like system because such systems require models that can (1) generalize to a broad set of tasks unknown at training time and (2) do so in real-time, without the time allowance for finetuning the model. LLMs have shown a remarkable ability to do both; however, current visual meta-learners may only satisfy one requirement or the other (Hu et al., 2022)."
+    },
+    {
+      "text": "To measure progress towards this goal of fast and general visual meta-learners, we develop an evaluation paradigm that we call universal meta-learning. Universal meta-learning measures a model’s capacity to quickly learn new image classes. It evaluates models across a diverse set of meta-learning benchmarks spanning many different image classification tasks without meta-training on any of the benchmarks’ training sets or fine-tuning on the support set during inference. We focus on the application of few-shot image classification—as opposed to dense prediction tasks like in-painting or segmentation—as the universal setting has already been explored for these applications (Bar et al., 2022; Zhang et al., 2023; Wang et al., 2023; Kim et al., 2023; Butoi et al., 2023)."
+    },
+    {
+      "text": "Beyond benchmarking methods in the universal setting, we present a meta-learner that achieves strong universal performance. Drawing inspiration from in-context learning in LLMs, we reformulate $n$ -way- $k$ -shot image classification as non-causal sequence modeling over the support set and an unknown query image. Specifically, given $n$ -way classification with $k$ -examples from each class, we train a non-causal model over $\\bar { \\{ ( x _ { i } , y _ { i } ) \\} } _ { i = 1 } ^ { n k }$ (image, label) support set pairs, and an unlabeled query image $x _ { n k + 1 }$ , to predict the label of the query image. This formulation causes the meta-learner to extrapolate to new classes in its parameter space, enabling it to learn new visual concepts during inference without fine-tuning. Due to its capacity to learn visual information “in-context”, we term our approach Context-Aware Meta-Learning (CAML)."
+    },
+    {
+      "text": "In summary, our contribution is two-fold. First, we develop a meta-learning evaluation paradigm that approximates the performance of visual meta-learners in a ChatGPT-like application. Second, we design a meta-learning algorithm that works well in this setting. Our empirical findings show that CAML outperforms other meta-learners in the universal setting. Remarkably, CAML’s performance in the universal setting often matches—and even exceeds—the in-domain performance of the state-ofthe-art meta-learning algorithm, $\\mathrm { P > M > F }$ (Hu et al., 2022), that is directly trained on each down-stream benchmark."
+    },
+    {
+      "text": "# 2 RELATED WORK"
+    },
+    {
+      "text": "Meta-Learning as Causal Sequence Modeling. Several of the earliest meta-learning algorithms were formulated as causal sequence modeling problems. Hochreiter et al. (2001) leverage a LSTM (Hochreiter & Schmidhuber, 1997) to model extensions to semi-linear and quadratic functions, and two decades later, Graves et al. (2014); Santoro et al. (2016); Kaiser et al. (2017) build upon this approach by integrating a form of external memory that the LSTM can read to and write from memory to develop Neural Turing Machines. With the advent of self-attention (Vaswani et al., 2017), Mishra et al. (2017) predict the labels of query images by first composing a sequence of (image, label) pairs and then feeding it through a stack of interleaved causal self-attention and temporal convolution layers. Kirsch et al. (2022) replaces the stack of interleaved causal self-attention and temporal convolution layers with a Transformer encoder; however, their approach is also causal in the input sequence by composing a sequence of (image, label of previous image) pairs. Both Mishra et al. (2017) and Kirsch et al. (2022) are conceptually similar to our work; however, the causal property of both approaches breaks an important symmetry in meta-learning, namely invariance to permutations of the support set (Garnelo et al., 2018; Müller et al., 2021). In Section 5.2, we observe a performance gap between both approaches and CAML and hypothesize the causal approach actually forces a subtly more difficult modeling problem by imposing a causality inductive bias on a fundamentally non-causal prediction task."
+    },
+    {
+      "text": "Cross-Domain Meta-Learning. Cross-domain meta-learning refers to a challenging evaluation paradigm where the meta-training and inference-time data distributions are significantly different (Chen et al., 2019). Recent work finds that leveraging self-supervised pre-training—or foundational model feature extractors—can significantly improve cross-domain performance (Hu et al., 2022; Zhang et al., 2021). Moreover, fine-tuning with respect to the support set almost always outperforms meta-learning without fine-tuning in this setting (Guo et al., 2020; Oh et al., 2022; Phoo & Hariharan, 2020; Islam et al., 2021). While effective, fine-tuning is prohibitive to deploying visual meta-learning models in a manner similar to LLMs like ChatGPT as the latency and memory cost to fine-tune a model’s parameters on each user query is untenable. Accordingly, we propose the universal setting to measure a meta-learner’s ability to learn to classify any task seen during inference without fine-tuning."
+    },
+    {
+      "text": "In-Context Learning for Dense Prediction Tasks. Many recent works have explored in-context learning for other applications of computer vision. Bar et al. (2022) casts in-context learning as image in-painting by first concatenating demonstration images with a query image and then using a vision model to fill-in-the-blank within this concatenated image. Building on this work, Zhang et al. (2023) explores what demonstrations lead to strong in-painting performance and Wang et al. (2023) generalizes the approach by formulating other visual applications like segmentation, depth estimation, etc. as in-painting. Other approaches explore in-context learning for applications like scene understanding (Balazevic et al., 2024), medical image segmentation (Butoi et al., 2023), and more generally dense prediction tasks (Kim et al., 2023). Like these approaches, we study visual in-context learning; however, this work focuses on few-shot image classification rather than dense prediction tasks."
+    },
+    {
+      "text": "![](images/c66130ceaa2accb15aa2ce71a147c63baddf3fedb7386ced0b3db5a9f4524bcd.jpg)  \nFigure 1: Overview of CAML. Query and support set images are encoded with a pre-trained feature extractor and then concatenated with their corresponding ELMES label embeddings. We feed the resulting sequence of concatenated vectors into a non-casual sequence model and extract the query vector from the output sequence to predict its class."
+    },
+    {
+      "text": "# 3 APPROACH"
+    },
+    {
+      "text": "We adapt the ideas underpinning in-context learning in LLMs—namely learning to classify a query from a context of support set demonstrations in a single forward pass—to image classification. However, dissimilar from in-context learning, visual meta-learners should be non-causal: placing one example before another in the support set does not entail a causal relationship (Garnelo et al., 2018; Müller et al., 2021)."
+    },
+    {
+      "text": "Architecture. An overview of CAML is shown in Figure 1. It consists of three different components: (1) a frozen pre-trained image encoder, (2) a fixed Equal Length and Maximally Equiangular Set (ELMES) class encoder, and (3) a non-causal sequence model. While pre-trained image encoders and non-causal sequence models are well-known, to encode label information we introduce an ELMES encoder. An ELMES encoder is a bijective mapping between the labels and a set of vectors that are equal length and maximally equiangular. Historically, labels have been encoded with one-hot vectors; however in Section 4, we prove that an ELMES encoding of mutually exclusive classes allows the sequence model to maximally identify classes within the support set."
+    },
+    {
+      "text": "As visualized in Figure 1, CAML first encodes query and support set images using a frozen pre-trained feature extractor. Crucially, the pre-trained image encoder’s embedding space distills images into low-dimensional representations so that images with similar content and visual characteristics have similar embeddings. Classes of the support set are encoded with an ELMES class encoder; however as the class of the query is unknown, we use a special learnable “unknown token” embedding that is learned during large-scale pre-training. CAML then concatenates each image embedding with its corresponding query embedding to form an input sequence."
+    },
+    {
+      "text": "Progressing through Figure 1, this sequence is fed into a non-causal sequence model, i.e. a Transformer encoder, to condition the output representations on the full context of query and support set points. This enables dynamic and real-time classification; visual characteristics from query and support set images can be compared with each other to determine the specific visual features—such as content, textures, etc.—used to classify the query. From the output sequence of the non-causal sequence model, we select the element at the same position as the query in the input sequence, and pass this vector through a shallow MLP to predict the label of the query."
+    },
+    {
+      "text": "Large-Scale Pre-Training. As our focus is universal meta-learning—and CAML may encounter any new visual concept during inference—we pre-train CAML’s non-causal sequence model on few-shot image classification tasks from ImageNet-1k (Deng et al., 2009), Fungi (Schroeder & Cui, 2018), MSCOCO (Lin et al., 2014), and WikiArt (Saleh & Elgammal, 2015). We chose these datasets because they span generic object recognition (ImageNet-1k, MSCOCO), fine-grained image classification (Fungi), and unnatural image classification (WikiArt). To avoid distorting the pre-trained image encoder’s embedding space, we freeze this module and only update the sequence model’s parameters during pretraining. Similarly, since an ELMES minimizes the entropy of detecting classes within the support set, the label encoder is also frozen. In the context of pre-training, meta-training, and fine-tuning, CAML only requires pre-training and avoids meta-training on the train/validation splits of meta-learning benchmarks or fine-tuning on the support set during inference."
+    },
+    {
+      "text": "# 4 THEORETICAL ANALYSIS"
+    },
+    {
+      "text": "In this section, we motivate our choice of the ELMES Class Encoder by considering the symmetries desirable in meta-learning algorithms. Two important symmetries are (1) invariance to the assignment of support set classes to numeric labels and (2) invariance to permutations in the ordering of the input sequence. The first invariance implies the class embeddings must be equiangular and equal norm, with an ELMES configuration minimizing the entropy of learnable model parameters detecting any given class. Later, we show an ELMES also satisfies the second symmetry. Due to space constraints, all proofs and many definitions, properties, lemmas, and theorems are allocated to Appendix A.1. We begin with a formal definition of an ELMES."
+    },
+    {
+      "text": "# 4.1 EQUAL LENGTH AND MAXIMALLY EQUIANGULAR SET OF VECTORS"
+    },
+    {
+      "text": "Definition 1. An Equal Length and Maximally Equiangular Set (ELMES) is a set of non-zero vectors $\\{ \\phi _ { j } \\} _ { j = 1 } ^ { d }$ , $\\bar { \\phi _ { j } } \\doteq \\mathbb { R } ^ { d + \\bar { k } }$ for some $k \\geq 0$ and $d > 1$ , such that $\\forall j \\ne j ^ { \\prime }$ , $\\| \\phi _ { j } \\| = \\| \\phi _ { j ^ { \\prime } } \\|$ and $\\langle \\phi _ { j }$ , $\\begin{array} { r } { \\phi _ { j ^ { \\prime } } \\rangle = \\frac { - 1 } { d - 1 } } \\end{array}$ . Simply, all vectors in this set are equal length and maximally equiangular."
+    },
+    {
+      "text": "An Equal Angle and Maximally Equiangular Set (ELMES) of vectors has connections to both Equiangular Tight Frames in representation theory (Welch, 1974; Fickus et al., 2018) as well as the Simplex Equiangular Tight Frames highlighted in recent neural collapse works exploring softmaxlayer geometry at the terminal phase of training (Papyan et al., 2020; Yang et al., 2022). We offer additional discussion comparing these structures in Appendix A.1 as well as provide an intuitive view of an ELMES as a regular d-simplex immersed in Rd+k."
+    },
+    {
+      "text": "# 4.2 LABEL SYMMETRY"
+    },
+    {
+      "text": "Symmetry in the assignment of support classes to numeric labels is an important property of metalearning algorithms. For example, if we have the support set classes {tower, bear, tree}, the mapping of $\\{ { \\mathrm { b e a r } } \\ - > 1$ , tower $- > 2$ , tree $ 3 \\}$ should produce the same prediction for a query point as a different mapping $\\{ { \\mathrm { b e a r } } \\to 2$ , tower $- > 3$ , tree $- > 1 \\}$ . To explore this symmetry, we examine how class embeddings may be used by the model."
+    },
+    {
+      "text": "From our formulation in Section 3, we represent a demonstration vector as a concatenation of an image embedding $\\rho$ and a label embedding $\\phi$ : $[ \\rho \\mid \\phi ]$ . This vector is directly fed into the self-attention mechanism, where we matrix multiply with key, query, and value self-attention heads. Taking only one of these matrices for simplicity with head-dimension $k$ :"
+    },
+    {
+      "text": "$$\n\\left[ \\rho \\ | \\ \\phi \\right] \\left[ { \\frac { \\Gamma _ { 1 } } { \\psi _ { 1 } } } \\quad \\ldots \\quad \\Gamma _ { k } \\right] = \\left[ \\langle \\rho , \\ \\Gamma _ { 1 } \\rangle \\quad \\ldots \\quad \\langle \\rho , \\ \\Gamma _ { k } \\rangle \\right] + \\left[ \\langle \\phi \\ , \\ \\psi _ { 1 } \\rangle \\quad \\ldots \\quad \\langle \\phi \\ , \\ \\psi _ { k } \\rangle \\right]\n$$"
+    },
+    {
+      "text": "The output of this transformation will be the sum of two vectors: one composed of the inner products between the image embedding $\\rho$ and the learnable $\\{ \\Gamma _ { i } \\} _ { i = 1 } ^ { k }$ and the other composed of the class embedding $\\phi$ and the learnable $\\{ \\psi _ { i } \\} _ { i = 1 } ^ { k }$ . Note that Equation (1) implies that CAML is not invariant to the assignment of labels to support set classes due to the addition between $\\langle \\rho , \\Gamma _ { i } \\rangle$ and $\\langle \\phi \\ , \\ \\psi _ { i } \\rangle$ ; however, we can constrain the geometry of the class embeddings $\\{ \\boldsymbol { \\phi } \\} _ { j = 1 } ^ { d }$ to in principle respect label symmetry. Specifically for $i \\neq j \\neq k$ , $\\langle \\phi _ { i } \\ , \\ \\phi _ { j } \\rangle = \\langle \\phi _ { i } \\ , \\ \\phi _ { k } \\rangle$ and $\\lVert \\dot { \\phi _ { i } } \\rVert = \\lVert \\phi _ { j } \\rVert$ ."
+    },
+    {
+      "text": "Similar to a convolutional filter learning to match a pattern within an image, our analysis assumes the learnable $\\left[ \\psi _ { 1 } \\quad \\ldots \\quad \\psi _ { k } \\right]$ will converge to vectors that maximize the inner product with a single class embedding subject to certain constraints. Under this assumption, we ask what geometry of the $d$ -class embeddings $\\bar { \\{ \\phi \\} } _ { j = 1 } ^ { d }$ allows a learnable $\\psi _ { i }$ vector to most unambiguously detect a single class embedding. To answer this question, we define a probability mass function for each $\\psi _ { i }$ over the set of $d -$ classes so that maximizing the probability of the $j ^ { t h }$ class aligns with maximizing $\\langle \\phi _ { j } \\ , \\ \\psi _ { i } \\rangle$ and equally minimizing $\\langle \\phi _ { k } \\ , \\ \\psi _ { i } \\rangle$ for $k \\neq j$ ."
+    },
+    {
+      "text": "Definition 2. Let $X$ be a discrete Random Variable taking on values in $\\{ 1 , 2 , . . . , d \\}$ . For learnable vector $\\psi _ { i ; }$ , define probability mass function $p _ { \\psi _ { i } } ( X = j )$ as the softmax over $[ \\langle \\phi _ { 1 } \\ , \\ \\bar { \\psi } _ { i } \\rangle$ ... $\\left. \\phi _ { d } \\mathrm { ~ , ~ } \\psi _ { i } \\right. ]$ so that:"
+    },
+    {
+      "text": "$$\np _ { \\psi _ { i } } ( X = j ) = { \\frac { e ^ { \\| { \\psi _ { i } } \\| \\| \\phi _ { j } \\| \\cos ( \\theta _ { i , j } ) } } { \\sum _ { k = 1 } ^ { d } e ^ { \\| \\psi _ { i } \\| \\| \\phi _ { j } \\| \\cos ( \\theta _ { i , k } ) } } }\n$$"
+    },
+    {
+      "text": "where $\\theta _ { i , j }$ is the angle between $\\phi _ { j }$ and $\\psi _ { i }$"
+    },
+    {
+      "text": "We say $\\psi _ { i }$ learns to detect class $j$ when $p _ { \\psi _ { i } } ( X = j ) > p _ { \\psi _ { i } } ( X = k )$ for $1 \\leq k \\leq d$ with $k \\neq j$ . By symmetry in the assignment of class embeddings to support classes, we can assume that the number of $\\psi _ { i }$ learned to detect class $i$ is similar to the number of $\\psi _ { j }$ learned to detect class $j$ for all pairs $( i , j )$ . We also leverage symmetry in the assignment of labels to support set classes to make the following assumptions. A justification for each assumption is located in Appendix A.1."
+    },
+    {
+      "text": "Assumption 1. Suppose $\\{ \\psi _ { i } \\} _ { i = 1 } ^ { k }$ are learnable class detectors of unit norm with at least one $\\psi _ { i }$ detecting each class $1 \\leq i \\leq d$ . The probability $p _ { \\psi _ { j } } ( X = j ) = p _ { \\psi _ { i } } ( X = i ) f o r 1 \\leq i , j \\leq$ ."
+    },
+    {
+      "text": "Assumption 2. Define $p _ { \\psi _ { i } } ( X = i ) \\backslash \\{ \\phi _ { l } \\} _ { l = ( m + 1 ) } ^ { d }$ as the probability of $\\psi _ { i }$ detecting $\\phi _ { i }$ from the set of vectors $\\{ \\phi _ { j } \\} _ { j = 1 } ^ { m }$ , $m \\ < \\ d$ . Then the probability $p _ { \\psi _ { j } } ( X = j ) \\backslash \\{ \\phi _ { l } \\} _ { l = ( m + 1 ) } ^ { d } = p _ { \\psi _ { i } } ( X =$ $i ) \\backslash \\{ \\phi _ { l } \\} _ { l = ( m + 1 ) } ^ { d }$ for $1 \\leq i , j \\leq m$ and $m \\geq 2$ ."
+    },
+    {
+      "text": "Assumption 3. When $\\begin{array} { r } { \\psi _ { i } = \\frac { \\phi _ { i } } { \\parallel \\phi _ { i } \\parallel } } \\end{array}$ , $p _ { \\psi _ { i } } ( X = i )$ is maximized."
+    },
+    {
+      "text": "When Assumption 1, Assumption 2, and Assumption 3 hold, the set of class embeddings that maximize the probability of a learnable $\\psi _ { i }$ detecting class $i$ is necessarily an ELMES."
+    },
+    {
+      "text": "Theorem 1. The set of class embeddings $\\{ \\phi _ { j } \\} _ { j = 1 } ^ { d } \\forall j , 1 \\le j \\le d$ that maximizes $p _ { \\psi _ { j } } ( X = j )$ is necessarily an ELMES."
+    },
+    {
+      "text": "Alternatively when viewed through the lens of information theory, we can interpret an ELMES as the class embedding that minimizes the entropy of $\\psi _ { i }$ detecting class $i$ . Informally, ELMES causes $\\psi _ { i }$ to have the least uncertainty when detecting class $i$ ."
+    },
+    {
+      "text": "Proposition 1. Let $H _ { \\psi _ { i } } ( X )$ be the entropy of $p _ { \\psi _ { i } } ( X )$ . An ELMES minimizes $H _ { \\psi _ { i } } ( X )$ ."
+    },
+    {
+      "text": "# 4.3 PERMUTATION INVARIANCE."
+    },
+    {
+      "text": "In addition to label symmetry, it is also desirable for the output prediction of CAML to not depend on the order of demonstrations in the sequence. For example, if we have the support set classes $\\{$ {tower, bear, tree}, the sequence $\\{ ( \\mathrm { b e a r } \\mathord { \\sim } 1 )$ , (tower $- > 2$ ), (tree $\\left. - > 3 ) \\right\\}$ should produce the same output as the permuted sequence $\\{ ( \\mathrm { t r e e } \\to 3 )$ , (bear $- > 1$ ), (tower $- > 2$ )}. Building on the prior work of Kossen et al. (2021); Fifty et al. (2023), it suffices to show to show that the ELMES label encoder is equivariant to permutations in the input sequence to show that CAML is invariant to permutations."
+    },
+    {
+      "text": "Proposition 2. Consider an $n$ -sequence of one-hot labels stacked into a matrix $\\mathcal { S } \\in \\mathbb { R } ^ { n \\times w }$ , and an ELMES label encoder denoted by $W \\in \\bar { \\mathbb { R } ^ { w \\times d } }$ with w denoting “way” and $d$ the dimension of the label embedding. The label embedding $s W$ is equivariant to permutations."
+    },
+    {
+      "text": "# 5 EXPERIMENTS"
+    },
+    {
+      "text": "To quantify universal image classification performance, we evaluate a diverse set of 11 meta-learning benchmarks divided across 4 different categories:"
+    },
+    {
+      "text": "1. Generic Object Recognition: mini-ImageNet (Vinyals et al., 2016), tiered-ImageNet (Ren et al., 2018), CIFAR-fs (Bertinetto et al., 2018), and Pascal VOC (Everingham et al.)"
+    }
+  ],
+  "url": ""
+}

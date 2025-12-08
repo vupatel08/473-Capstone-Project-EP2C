@@ -1,0 +1,8 @@
+# requirements.txt
+
+torch>=1.9
+torch_geometric
+rdkit-pypi
+ray[rllib]
+numpy
+scipy

@@ -1,0 +1,251 @@
+```python
+## dataset_loader.py
+import os
+import os.path as osp
+import urllib.request
+import shutil
+import tempfile
+import numpy as np
+import torch
+from torch_geometric.data import Data
+from torch_geometric.datasets import Planetoid, Amazon, Coauthor, Reddit
+from torch_geometric.utils import to_scipy_sparse_matrix, add_self_loops
+from scipy.sparse.linalg import eigsh
+from scipy.sparse import csr_matrix
+from sklearn.preprocessing import StandardScaler
+import logging
+
+# Set up logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
+
+class DatasetLoader:
+    """
+    Responsible for downloading, loading, preprocessing datasets, and spectral decomposition.
+    """
+    def __init__(self, dataset_paths: dict, K: int = 500):
+        """
+        Initialize DatasetLoader with dataset URLs and spectral eigenvector count.
+
+        Args:
+            dataset_paths (dict): Dictionary with dataset URLs, keys like 'citeseer_url', etc.
+            K (int): Number of eigenvectors to compute for eigenbasis matching.
+        """
+        self.dataset_paths = dataset_paths
+        self.K = K
+
+        # Placeholders for data
+        self.data = None  # torch_geometric.data.Data object
+        self.eigenvalues = None  # Tensor of eigenvalues
+        self.eigenvectors = None  # Tensor of eigenvectors
+        self.adj = None  # scipy sparse adjacency matrix
+        self.features = None  # torch tensor, normalized node features
+        self.labels = None  # tensor labels
+        self.train_idx = None
+        self.val_idx = None
+        self.test_idx = None
+
+        # Directory to store datasets
+        self.data_dir = osp.join(os.getcwd(), 'datasets')
+        os.makedirs(self.data_dir, exist_ok=True)
+
+        # Load dataset
+        self.load_dataset()
+
+    def download_dataset(self, url: str, name: str):
+        """
+        Download dataset from URL if not present locally.
+
+        Args:
+            url (str): URL to download.
+            name (str): Name to save the dataset as.
+        """
+        dataset_path = osp.join(self.data_dir, name)
+        if not osp.exists(dataset_path):
+            logger.info(f"Downloading {name} from {url}...")
+            # For simplicity, assume URLs point to datasets compatible with torch_geometric or direct file links.
+            try:
+                # Download file
+                filename = url.split('/')[-1]
+                file_path = osp.join(self.data_dir, filename)
+                if not osp.exists(file_path):
+                    with urllib.request.urlopen(url) as response, open(file_path, 'wb') as out_file:
+                        shutil.copyfileobj(response, out_file)
+                # Extract if needed
+                # Assuming datasets are compressed (zip, tar), handle accordingly
+                # For the scope, assume datasets are provided in uncompressed form or handled manually.
+                # Here, just move the file.
+                shutil.move(file_path, dataset_path)
+                logger.info(f"Saved dataset {name} at {dataset_path}")
+            except Exception as e:
+                logger.warning(f"Failed to download {name}: {e}")
+        else:
+            logger.info(f"Dataset {name} already exists.")
+        return dataset_path
+
+    def load_dataset(self):
+        """
+        Load datasets based on URLs provided in config, process into PyG Data object.
+        """
+        # Example for Planetoid datasets: citeseer, pubmed
+        # For more datasets, implement respective loaders.
+        # Check for dataset keys
+        dataset_key_map = {
+            'citeseer_url': ('CiteSeer', lambda: Planetoid(osp.join(self.data_dir, 'CiteSeer'), 'CiteSeer')),
+            'pubmed_url': ('PubMed', lambda: Planetoid(osp.join(self.data_dir, 'PubMed'), 'PubMed')),
+            'ogbn_arxiv_url': ('OGBN-ARXIV', lambda: self.load_ogbn_arxiv()),
+            'flickr_url': ('Flickr', lambda: self.load_flickr()),
+            'reddit_url': ('Reddit', lambda: self.load_reddit()),
+            'squirrel_url': ('Squirrel', lambda: self.load_squirrel()),
+            'gamers_url': ('Gamers', lambda: self.load_gamers())
+        }
+
+        # Select dataset to load (for simplicity, load Citeseer as default)
+        # In practice, user should specify which dataset to load.
+        # Here, assuming only Citeseer for demo:
+        dataset_spec = dataset_key_map.get('citeseer_url')
+        name, loader_func = dataset_spec
+        dataset_obj = loader_func()
+        data = dataset_obj[0]
+        logger.info(f"Loaded dataset {name} with {data.num_nodes} nodes, {data.edge_index.shape[1]} edges.")
+
+        self.data = data
+
+        # Extract adjacency matrix
+        self.adj = to_scipy_sparse_matrix(data.edge_index, num_nodes=data.num_nodes)
+        # Add self-loops if necessary
+        self.adj, _ = add_self_loops(self.adj, fill_value=1.0)
+        # Get features and normalize
+        self.features = data.x
+        self.features = self.normalize_features(self.features)
+        # Store labels
+        self.labels = data.y
+        # Compute train/val/test splits if available
+        if hasattr(data, 'train_mask'):
+            # For datasets with masks
+            self.train_idx = torch.where(data.train_mask)[0]
+            self.val_idx = torch.where(data.val_mask)[0]
+            self.test_idx = torch.where(data.test_mask)[0]
+        elif hasattr(data, 'train_mask'):
+            # For other with split indices
+            self.train_idx = data.train_idx
+            self.val_idx = data.val_idx
+            self.test_idx = data.test_idx
+        else:
+            # Fallback: use all nodes for train
+            self.train_idx = torch.arange(data.num_nodes)
+            self.val_idx = torch.tensor([])
+            self.test_idx = torch.tensor([])
+
+        # Store eigen-decomposition
+        self.compute_spectrum(self.K)
+
+    def normalize_features(self, features):
+        """
+        Normalize node features row-wise or to zero mean/unit variance.
+
+        Args:
+            features (torch.Tensor): Node features (N x d).
+
+        Returns:
+            torch.Tensor: Normalized features.
+        """
+        scaler = StandardScaler()
+        features_np = features.cpu().numpy()
+        features_scaled = scaler.fit_transform(features_np)
+        return torch.tensor(features_scaled, dtype=features.dtype)
+
+    def compute_spectrum(self, K: int = 500):
+        """
+        Compute the eigenvalues and eigenvectors of the normalized Laplacian matrix.
+
+        Args:
+            K (int): Number of eigenvectors/eigenvalues to compute.
+        """
+        # Compute normalized Laplacian in sparse form
+        # Already have self.adj, compute degree matrix
+        try:
+            # Using eigsh for symmetric matrices, smallest eigenvalues
+            # If large graph, consider approximate methods
+            logger.info(f"Computing the {K} smallest eigenvalues and eigenvectors for spectral decomposition...")
+            eigenvalues, eigenvectors = eigsh(self.adj, k=K, which='SM', tol=1e-3)
+            # Ensure eigenvalues are sorted
+            idx = np.argsort(eigenvalues)
+            eigenvalues = eigenvalues[idx]
+            eigenvectors = eigenvectors[:, idx]
+            # Convert to torch tensors
+            self.eigenvalues = torch.tensor(eigenvalues, dtype=torch.float32)
+            self.eigenvectors = torch.tensor(eigenvectors, dtype=torch.float32)
+            logger.info(f"Eigen decomposition successful. Eigenvalues: {self.eigenvalues[:5]} ...")
+        except Exception as e:
+            logger.warning(f"Eigen decomposition failed: {e}")
+            # Fallback: Use eigenvalues/eigenvectors from dense, or approximate
+            # For large graphs, consider hybrid approaches or approximate methods
+            raise e
+
+    def get_data(self):
+        """
+        Return preprocessed Data object with normalized features.
+
+        Returns:
+            torch_geometric.data.Data
+        """
+        return self.data
+
+    def get_spectrum(self):
+        """
+        Return eigenvalues and eigenvectors for spectral matching.
+
+        Returns:
+            Tuple[torch.Tensor, torch.Tensor]
+        """
+        return self.eigenvalues, self.eigenvectors
+
+    def load_ogbn_arxiv(self):
+        """
+        Load OGBN-ArXiv dataset via torch_geometric.
+
+        Returns:
+            Dataset object
+        """
+        from ogb.nodeproppred import PygNodePropPredDataset
+        dataset = PygNodePropPredDataset(name='ogbn-arxiv')
+        data = dataset[0]
+        # Convert to torch_geometric.data.Data
+        # The dataset already provides data with edge_index, features, labels
+        data.x = data.x
+        data.y = data.y.squeeze()
+        return [data]
+
+    def load_flickr(self):
+        """
+        Placeholder: Implement or load Flickr dataset similarly.
+        """
+        # For simplicity, raise NotImplementedError
+        raise NotImplementedError("Flickr dataset loader not implemented; replace with appropriate loader.")
+
+    def load_reddit(self):
+        """
+        Load Reddit dataset via torch_geometric.
+        """
+        dataset = Reddit(self.data_dir)
+        data = dataset[0]
+        data.x = data.x
+        data.y = data.y
+        return [data]
+
+    def load_squirrel(self):
+        """
+        Placeholder for Squirrel dataset.
+        """
+        # For simplicity, raise NotImplementedError
+        raise NotImplementedError("Squirrel dataset loader not implemented; replace with dataset-specific code.")
+
+    def load_gamers(self):
+        """
+        Placeholder for Gamers dataset.
+        """
+        # For simplicity, raise NotImplementedError
+        raise NotImplementedError("Gamers dataset loader not implemented; replace with dataset-specific code.")
+```

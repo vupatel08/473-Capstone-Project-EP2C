@@ -1,0 +1,448 @@
+{
+  "code_to_paper": {
+    "dataset_loader.py:CustomCIFAR10": [
+      "The provided information does not include specific paper section names/titles. Please provide the titles of the paper sections to proceed."
+    ],
+    "dataset_loader.py:CelebADataset": [
+      "Without the full list of paper sections",
+      "it's hard to provide an accurate answer. However",
+      "based on the code component description",
+      "the most relevant sections could be \"Dataset Description\"",
+      "\"Methodology\"",
+      "and \"Experimental Setup\"."
+    ],
+    "dataset_loader.py:ImageNetDataset": [
+      "The code component provided does not give enough information to link it to specific paper sections. Please provide more details."
+    ],
+    "dataset_loader.py:DatasetLoader": [
+      "Methodology",
+      "Dataset",
+      "Implementation Details"
+    ],
+    "dataset_loader.py:__init__": [
+      "Dataset Description",
+      "Methodology",
+      "Experimental Setup"
+    ],
+    "evaluation.py:Evaluator": [
+      "Methodology",
+      "Experiment Setup",
+      "Model Architecture"
+    ],
+    "evaluation.py:__init__": [
+      "Methodology",
+      "Experiment Setup",
+      "Model Architecture"
+    ],
+    "main.py:parse_args": [
+      "The provided information is insufficient to determine the relevance of the paper sections to the code component. Please provide more details about the function in the main.py file or the content of the paper sections."
+    ],
+    "main.py:set_seed": [
+      "The provided information is insufficient to determine the most relevant paper sections for the code component. Please provide more details about the function in the main.py file."
+    ],
+    "main.py:get_device": [
+      "The provided information is insufficient to determine the relevance of the paper sections to the code component. Please provide more details about the function in the main.py file or the content of the paper sections."
+    ],
+    "main.py:main": [
+      "The provided information does not contain any specific code or paper sections to analyze. Please provide the necessary details for a proper analysis."
+    ],
+    "model.py:ConvBlock": [
+      "Methodology",
+      "Implementation Details",
+      "Experimental Setup"
+    ],
+    "model.py:UpSampleBlock": [
+      "Methodology",
+      "Implementation Details",
+      "Experimental Setup"
+    ],
+    "model.py:MaskUNet": [
+      "Methodology",
+      "Implementation Details",
+      "Experimental Results"
+    ],
+    "model.py:ResNetClassifier": [
+      "Methodology",
+      "Implementation Details",
+      "Experimental Setup"
+    ],
+    "model.py:__init__": [
+      "Methodology",
+      "Implementation Details",
+      "Experimental Setup"
+    ],
+    "trainer.py:Trainer": [
+      "Methodology",
+      "Implementation Details",
+      "Experiment Setup"
+    ],
+    "trainer.py:__init__": [
+      "Methodology",
+      "Implementation Details",
+      "Experiment Setup"
+    ],
+    "trainer.py:main": [
+      "The provided information is insufficient to determine the most relevant paper sections for the code component. Please provide more details about the function in the trainer.py file."
+    ],
+    "utils.py:probabilities": [
+      "The provided information is insufficient to determine the most relevant paper sections for the code component. Please provide more details about the code component and the paper sections."
+    ],
+    "utils.py:compute_coefficients": [
+      "Methodology",
+      "Results and Discussion",
+      "Algorithm Implementation"
+    ],
+    "utils.py:search_sigma": [
+      "Methodology",
+      "Experiment Results",
+      "Discussion"
+    ],
+    "utils.py:search_beta": [
+      "Methodology",
+      "Results and Discussion",
+      "Model Tuning and Validation"
+    ]
+  },
+  "paper_to_code": {
+    "The provided information does not include specific paper section names/titles. Please provide the titles of the paper sections to proceed.": [
+      {
+        "component": "dataset_loader.py:CustomCIFAR10",
+        "description": "CIFAR-10 dataset with optional background augmentation.\n    If background images are provided, overlays CIFAR images onto background edges at random positions.",
+        "file": "dataset_loader.py"
+      }
+    ],
+    "Without the full list of paper sections": [
+      {
+        "component": "dataset_loader.py:CelebADataset",
+        "description": "CelebA dataset with optional spatial variation via random crops.",
+        "file": "dataset_loader.py"
+      }
+    ],
+    "it's hard to provide an accurate answer. However": [
+      {
+        "component": "dataset_loader.py:CelebADataset",
+        "description": "CelebA dataset with optional spatial variation via random crops.",
+        "file": "dataset_loader.py"
+      }
+    ],
+    "based on the code component description": [
+      {
+        "component": "dataset_loader.py:CelebADataset",
+        "description": "CelebA dataset with optional spatial variation via random crops.",
+        "file": "dataset_loader.py"
+      }
+    ],
+    "the most relevant sections could be \"Dataset Description\"": [
+      {
+        "component": "dataset_loader.py:CelebADataset",
+        "description": "CelebA dataset with optional spatial variation via random crops.",
+        "file": "dataset_loader.py"
+      }
+    ],
+    "\"Methodology\"": [
+      {
+        "component": "dataset_loader.py:CelebADataset",
+        "description": "CelebA dataset with optional spatial variation via random crops.",
+        "file": "dataset_loader.py"
+      }
+    ],
+    "and \"Experimental Setup\".": [
+      {
+        "component": "dataset_loader.py:CelebADataset",
+        "description": "CelebA dataset with optional spatial variation via random crops.",
+        "file": "dataset_loader.py"
+      }
+    ],
+    "The code component provided does not give enough information to link it to specific paper sections. Please provide more details.": [
+      {
+        "component": "dataset_loader.py:ImageNetDataset",
+        "description": "Standard ImageNet dataset loader.",
+        "file": "dataset_loader.py"
+      }
+    ],
+    "Methodology": [
+      {
+        "component": "dataset_loader.py:DatasetLoader",
+        "description": "Encapsulates dataset loading, optional background embedding, and provides data loaders.",
+        "file": "dataset_loader.py"
+      },
+      {
+        "component": "dataset_loader.py:__init__",
+        "description": "CelebA dataset with optional spatial variation via random crops.",
+        "file": "dataset_loader.py"
+      },
+      {
+        "component": "evaluation.py:Evaluator",
+        "description": "Initialize the evaluator with trained models and parameters.\n        Args:\n            mask_unet (nn.Module): Mask model w (predicts mask w(m1))\n            classifier (nn.Module): Base classifier g\n            sigma1 (float): Noise scale for first step (mask generation)\n            sigma2 (float): Noise scale for second step (masked image)\n            device (torch.device): Computation device\n            background_scale (int): Scale factor for background in certification formulas",
+        "file": "evaluation.py"
+      },
+      {
+        "component": "evaluation.py:__init__",
+        "description": "Initialize the evaluator with trained models and parameters.\n        Args:\n            mask_unet (nn.Module): Mask model w (predicts mask w(m1))\n            classifier (nn.Module): Base classifier g\n            sigma1 (float): Noise scale for first step (mask generation)\n            sigma2 (float): Noise scale for second step (masked image)\n            device (torch.device): Computation device\n            background_scale (int): Scale factor for background in certification formulas",
+        "file": "evaluation.py"
+      },
+      {
+        "component": "model.py:ConvBlock",
+        "description": "Basic convolutional block: Conv -> BN -> ReLU",
+        "file": "model.py"
+      },
+      {
+        "component": "model.py:UpSampleBlock",
+        "description": "Upsampling block: ConvTranspose -> Conv -> BN -> ReLU",
+        "file": "model.py"
+      },
+      {
+        "component": "model.py:MaskUNet",
+        "description": "UNet architecture for pixel-wise mask prediction.",
+        "file": "model.py"
+      },
+      {
+        "component": "model.py:ResNetClassifier",
+        "description": "Instantiate ResNet backbone (from torchvision.models),\n        optionally load pretrained weights or custom state dict.",
+        "file": "model.py"
+      },
+      {
+        "component": "model.py:__init__",
+        "description": "Upsampling block: ConvTranspose -> Conv -> BN -> ReLU",
+        "file": "model.py"
+      },
+      {
+        "component": "trainer.py:Trainer",
+        "description": "Initialize training with configuration loaded from config.yaml.",
+        "file": "trainer.py"
+      },
+      {
+        "component": "trainer.py:__init__",
+        "description": "Initialize training with configuration loaded from config.yaml.",
+        "file": "trainer.py"
+      },
+      {
+        "component": "utils.py:compute_coefficients",
+        "description": "Computes pixel-wise coefficients c1 and c2 for unbiased combination of m1 and m2 predictions,\n    minimizing variance under the constraint c1 + w * c2 = 1.\n    \n    Args:\n        w (torch.Tensor): mask weights, shape (B, 1, H, W), values in [0,1].\n        sigma1 (float): Standard deviation used in m1.\n        sigma2 (float): Standard deviation used in m2.\n        epsilon (float): Small constant for numerical stability.\n    \n    Returns:\n        Tuple[torch.Tensor, torch.Tensor]: c1 and c2 tensors, shape matching w, suitable for combining m1 and m2.",
+        "file": "utils.py"
+      },
+      {
+        "component": "utils.py:search_sigma",
+        "description": "Performs grid search over sigma values for the best certified accuracy.\n    \n    Args:\n        validation_function (callable): Function to evaluate model performance at given sigma.\n        sigma_values (list): List of sigma values to evaluate.\n        *args, **kwargs: Additional arguments for validation_function.\n    \n    Returns:\n        float: Best sigma value.\n        dict: Performance metrics for each sigma.",
+        "file": "utils.py"
+      },
+      {
+        "component": "utils.py:search_beta",
+        "description": "Performs grid search over beta (distribution tail parameter) for tuning.\n    \n    Args:\n        validation_function (callable): Function to evaluate model at given beta.\n        beta_values (list): List of beta values.\n        *args, **kwargs: Additional args.\n    \n    Returns:\n        float: Best beta.\n        dict: Performance metrics per beta.",
+        "file": "utils.py"
+      }
+    ],
+    "Dataset": [
+      {
+        "component": "dataset_loader.py:DatasetLoader",
+        "description": "Encapsulates dataset loading, optional background embedding, and provides data loaders.",
+        "file": "dataset_loader.py"
+      }
+    ],
+    "Implementation Details": [
+      {
+        "component": "dataset_loader.py:DatasetLoader",
+        "description": "Encapsulates dataset loading, optional background embedding, and provides data loaders.",
+        "file": "dataset_loader.py"
+      },
+      {
+        "component": "model.py:ConvBlock",
+        "description": "Basic convolutional block: Conv -> BN -> ReLU",
+        "file": "model.py"
+      },
+      {
+        "component": "model.py:UpSampleBlock",
+        "description": "Upsampling block: ConvTranspose -> Conv -> BN -> ReLU",
+        "file": "model.py"
+      },
+      {
+        "component": "model.py:MaskUNet",
+        "description": "UNet architecture for pixel-wise mask prediction.",
+        "file": "model.py"
+      },
+      {
+        "component": "model.py:ResNetClassifier",
+        "description": "Instantiate ResNet backbone (from torchvision.models),\n        optionally load pretrained weights or custom state dict.",
+        "file": "model.py"
+      },
+      {
+        "component": "model.py:__init__",
+        "description": "Upsampling block: ConvTranspose -> Conv -> BN -> ReLU",
+        "file": "model.py"
+      },
+      {
+        "component": "trainer.py:Trainer",
+        "description": "Initialize training with configuration loaded from config.yaml.",
+        "file": "trainer.py"
+      },
+      {
+        "component": "trainer.py:__init__",
+        "description": "Initialize training with configuration loaded from config.yaml.",
+        "file": "trainer.py"
+      }
+    ],
+    "Dataset Description": [
+      {
+        "component": "dataset_loader.py:__init__",
+        "description": "CelebA dataset with optional spatial variation via random crops.",
+        "file": "dataset_loader.py"
+      }
+    ],
+    "Experimental Setup": [
+      {
+        "component": "dataset_loader.py:__init__",
+        "description": "CelebA dataset with optional spatial variation via random crops.",
+        "file": "dataset_loader.py"
+      },
+      {
+        "component": "model.py:ConvBlock",
+        "description": "Basic convolutional block: Conv -> BN -> ReLU",
+        "file": "model.py"
+      },
+      {
+        "component": "model.py:UpSampleBlock",
+        "description": "Upsampling block: ConvTranspose -> Conv -> BN -> ReLU",
+        "file": "model.py"
+      },
+      {
+        "component": "model.py:ResNetClassifier",
+        "description": "Instantiate ResNet backbone (from torchvision.models),\n        optionally load pretrained weights or custom state dict.",
+        "file": "model.py"
+      },
+      {
+        "component": "model.py:__init__",
+        "description": "Upsampling block: ConvTranspose -> Conv -> BN -> ReLU",
+        "file": "model.py"
+      }
+    ],
+    "Experiment Setup": [
+      {
+        "component": "evaluation.py:Evaluator",
+        "description": "Initialize the evaluator with trained models and parameters.\n        Args:\n            mask_unet (nn.Module): Mask model w (predicts mask w(m1))\n            classifier (nn.Module): Base classifier g\n            sigma1 (float): Noise scale for first step (mask generation)\n            sigma2 (float): Noise scale for second step (masked image)\n            device (torch.device): Computation device\n            background_scale (int): Scale factor for background in certification formulas",
+        "file": "evaluation.py"
+      },
+      {
+        "component": "evaluation.py:__init__",
+        "description": "Initialize the evaluator with trained models and parameters.\n        Args:\n            mask_unet (nn.Module): Mask model w (predicts mask w(m1))\n            classifier (nn.Module): Base classifier g\n            sigma1 (float): Noise scale for first step (mask generation)\n            sigma2 (float): Noise scale for second step (masked image)\n            device (torch.device): Computation device\n            background_scale (int): Scale factor for background in certification formulas",
+        "file": "evaluation.py"
+      },
+      {
+        "component": "trainer.py:Trainer",
+        "description": "Initialize training with configuration loaded from config.yaml.",
+        "file": "trainer.py"
+      },
+      {
+        "component": "trainer.py:__init__",
+        "description": "Initialize training with configuration loaded from config.yaml.",
+        "file": "trainer.py"
+      }
+    ],
+    "Model Architecture": [
+      {
+        "component": "evaluation.py:Evaluator",
+        "description": "Initialize the evaluator with trained models and parameters.\n        Args:\n            mask_unet (nn.Module): Mask model w (predicts mask w(m1))\n            classifier (nn.Module): Base classifier g\n            sigma1 (float): Noise scale for first step (mask generation)\n            sigma2 (float): Noise scale for second step (masked image)\n            device (torch.device): Computation device\n            background_scale (int): Scale factor for background in certification formulas",
+        "file": "evaluation.py"
+      },
+      {
+        "component": "evaluation.py:__init__",
+        "description": "Initialize the evaluator with trained models and parameters.\n        Args:\n            mask_unet (nn.Module): Mask model w (predicts mask w(m1))\n            classifier (nn.Module): Base classifier g\n            sigma1 (float): Noise scale for first step (mask generation)\n            sigma2 (float): Noise scale for second step (masked image)\n            device (torch.device): Computation device\n            background_scale (int): Scale factor for background in certification formulas",
+        "file": "evaluation.py"
+      }
+    ],
+    "The provided information is insufficient to determine the relevance of the paper sections to the code component. Please provide more details about the function in the main.py file or the content of the paper sections.": [
+      {
+        "component": "main.py:parse_args",
+        "description": "",
+        "file": "main.py"
+      },
+      {
+        "component": "main.py:get_device",
+        "description": "",
+        "file": "main.py"
+      }
+    ],
+    "The provided information is insufficient to determine the most relevant paper sections for the code component. Please provide more details about the function in the main.py file.": [
+      {
+        "component": "main.py:set_seed",
+        "description": "",
+        "file": "main.py"
+      }
+    ],
+    "The provided information does not contain any specific code or paper sections to analyze. Please provide the necessary details for a proper analysis.": [
+      {
+        "component": "main.py:main",
+        "description": "",
+        "file": "main.py"
+      }
+    ],
+    "Experimental Results": [
+      {
+        "component": "model.py:MaskUNet",
+        "description": "UNet architecture for pixel-wise mask prediction.",
+        "file": "model.py"
+      }
+    ],
+    "The provided information is insufficient to determine the most relevant paper sections for the code component. Please provide more details about the function in the trainer.py file.": [
+      {
+        "component": "trainer.py:main",
+        "description": "",
+        "file": "trainer.py"
+      }
+    ],
+    "The provided information is insufficient to determine the most relevant paper sections for the code component. Please provide more details about the code component and the paper sections.": [
+      {
+        "component": "utils.py:probabilities",
+        "description": "",
+        "file": "utils.py"
+      }
+    ],
+    "Results and Discussion": [
+      {
+        "component": "utils.py:compute_coefficients",
+        "description": "Computes pixel-wise coefficients c1 and c2 for unbiased combination of m1 and m2 predictions,\n    minimizing variance under the constraint c1 + w * c2 = 1.\n    \n    Args:\n        w (torch.Tensor): mask weights, shape (B, 1, H, W), values in [0,1].\n        sigma1 (float): Standard deviation used in m1.\n        sigma2 (float): Standard deviation used in m2.\n        epsilon (float): Small constant for numerical stability.\n    \n    Returns:\n        Tuple[torch.Tensor, torch.Tensor]: c1 and c2 tensors, shape matching w, suitable for combining m1 and m2.",
+        "file": "utils.py"
+      },
+      {
+        "component": "utils.py:search_beta",
+        "description": "Performs grid search over beta (distribution tail parameter) for tuning.\n    \n    Args:\n        validation_function (callable): Function to evaluate model at given beta.\n        beta_values (list): List of beta values.\n        *args, **kwargs: Additional args.\n    \n    Returns:\n        float: Best beta.\n        dict: Performance metrics per beta.",
+        "file": "utils.py"
+      }
+    ],
+    "Algorithm Implementation": [
+      {
+        "component": "utils.py:compute_coefficients",
+        "description": "Computes pixel-wise coefficients c1 and c2 for unbiased combination of m1 and m2 predictions,\n    minimizing variance under the constraint c1 + w * c2 = 1.\n    \n    Args:\n        w (torch.Tensor): mask weights, shape (B, 1, H, W), values in [0,1].\n        sigma1 (float): Standard deviation used in m1.\n        sigma2 (float): Standard deviation used in m2.\n        epsilon (float): Small constant for numerical stability.\n    \n    Returns:\n        Tuple[torch.Tensor, torch.Tensor]: c1 and c2 tensors, shape matching w, suitable for combining m1 and m2.",
+        "file": "utils.py"
+      }
+    ],
+    "Experiment Results": [
+      {
+        "component": "utils.py:search_sigma",
+        "description": "Performs grid search over sigma values for the best certified accuracy.\n    \n    Args:\n        validation_function (callable): Function to evaluate model performance at given sigma.\n        sigma_values (list): List of sigma values to evaluate.\n        *args, **kwargs: Additional arguments for validation_function.\n    \n    Returns:\n        float: Best sigma value.\n        dict: Performance metrics for each sigma.",
+        "file": "utils.py"
+      }
+    ],
+    "Discussion": [
+      {
+        "component": "utils.py:search_sigma",
+        "description": "Performs grid search over sigma values for the best certified accuracy.\n    \n    Args:\n        validation_function (callable): Function to evaluate model performance at given sigma.\n        sigma_values (list): List of sigma values to evaluate.\n        *args, **kwargs: Additional arguments for validation_function.\n    \n    Returns:\n        float: Best sigma value.\n        dict: Performance metrics for each sigma.",
+        "file": "utils.py"
+      }
+    ],
+    "Model Tuning and Validation": [
+      {
+        "component": "utils.py:search_beta",
+        "description": "Performs grid search over beta (distribution tail parameter) for tuning.\n    \n    Args:\n        validation_function (callable): Function to evaluate model at given beta.\n        beta_values (list): List of beta values.\n        *args, **kwargs: Additional args.\n    \n    Returns:\n        float: Best beta.\n        dict: Performance metrics per beta.",
+        "file": "utils.py"
+      }
+    ]
+  },
+  "paper_sections": [
+    {
+      "section": "Abstract",
+      "text": "Saiyue Lyu1\u2217, Shadab Shaikh1\u2217, Frederick Shpilevskiy1\u2217, Evan Shelhamer2, Mathias L\u00e9cuyer1 1University of British Columbia, 2Google DeepMind   \n{saiyuel, shadabs3, fshpil}@cs.ubc.ca, shelhamer@deepmind.com, mathias.lecuyer@ubc.ca \u2217equal contribution",
+      "ontology": "abstract"
+    }
+  ],
+  "coverage_score": 26.0
+}

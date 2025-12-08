@@ -1,0 +1,126 @@
+```python
+## evaluation.py
+import os
+from typing import List, Dict, Tuple, Optional
+import torch
+import numpy as np
+import matplotlib.pyplot as plt
+from utils import normalize_attention, save_attention_map, plot_attention_overlay
+from PIL import Image
+
+class Evaluation:
+    """
+    Handles evaluation of the trained INTR model, including accuracy, attention map visualization,
+    and optional faithfulness metrics for interpretability.
+    """
+    def __init__(
+        self,
+        model,
+        data_loader,
+        config: Dict,
+        device: str = 'cuda'
+    ):
+        """
+        Initializes the evaluator with model, data loader, configuration, and device.
+        Args:
+            model (INTRModel): The trained model for evaluation.
+            data_loader (DataLoader): DataLoader for validation/test data.
+            config (dict): Configuration parameters.
+            device (str): 'cuda' or 'cpu'.
+        """
+        self.model = model
+        self.data_loader = data_loader
+        self.device = torch.device(device)
+        self.save_attention_maps = config.get('save_attention_maps', True)
+        self.visualization_overlay = config.get('visualization_overlay', True)
+        self.evaluation_metrics = config.get('evaluation_metrics', ['accuracy'])
+        self.save_dir = config.get('save_dir', 'outputs/evaluation')
+        os.makedirs(self.save_dir, exist_ok=True)
+
+        # For storing results
+        self.all_preds = []
+        self.all_labels = []
+        self.attention_maps: List[Dict] = []  # To store attention maps per sample if needed
+
+    def evaluate(self) -> Dict[str, float]:
+        """
+        Runs evaluation over the dataset, computes accuracy, and visualizes attention maps.
+        Returns:
+            metrics_dict (dict): Dictionary with evaluation results.
+        """
+        self.model.eval()
+        correct = 0
+        total = 0
+
+        with torch.no_grad():
+            for batch_idx, (images, labels) in enumerate(self.data_loader):
+                images = images.to(self.device)
+                labels = labels.to(self.device)
+
+                # Forward pass with return_attention=True for interpretability
+                logits, preds, attn_maps = self.model(images, return_attention=True)
+
+                # Collect predictions and labels for accuracy
+                self.all_preds.extend(preds.cpu().tolist())
+                self.all_labels.extend(labels.cpu().tolist())
+
+                # Compute accuracy
+                correct += (preds == labels).sum().item()
+                total += labels.size(0)
+
+                # Save attention maps for visualization if enabled
+                if self.save_attention_maps and attn_maps is not None:
+                    # attn_maps: [B, C, heads, N], process each sample
+                    for i in range(images.size(0)):
+                        input_image = self._denormalize_image(images[i])
+                        # For each class, save its attention map overlay
+                        num_classes = attn_maps.shape[1]
+                        for c_idx in range(num_classes):
+                            attn_map = attn_maps[i, c_idx]  # [heads, N]
+                            # Average over heads or pick the head with max weight for visualization
+                            attn_mean = attn_map.mean(dim=0)  # [N]
+                            # Save attention overlay map
+                            save_path = os.path.join(
+                                self.save_dir,
+                                f"attention_img{batch_idx}_{i}_class{c_idx}.png"
+                            )
+                            save_attention_map(attn_mean, input_image, save_path)
+                            if self.visualization_overlay:
+                                overlay_path = save_path.replace('.png', '_overlay.png')
+                                plot_attention_overlay([attn_mean], input_image, headers=None, save_path=overlay_path)
+
+        accuracy = correct / total if total > 0 else 0.0
+        metrics_result = {'accuracy': accuracy}
+
+        # Compute additional interpretability metrics if included
+        if 'faithfulness' in self.evaluation_metrics:
+            metrics_result['faithfulness'] = self._compute_faithfulness()
+
+        return metrics_result
+
+    def _denormalize_image(self, image_tensor: torch.Tensor) -> Image.Image:
+        """
+        Converts a normalized tensor to a PIL Image for visualization.
+        Args:
+            image_tensor (Tensor): [3, H, W]
+        Returns:
+            PIL.Image.Image
+        """
+        mean = np.array([0.485, 0.456, 0.406])
+        std = np.array([0.229, 0.224, 0.225])
+        img = image_tensor.cpu().permute(1,2,0).numpy()
+        img = std * img + mean
+        img = np.clip(img * 255, 0, 255).astype(np.uint8)
+        return Image.fromarray(img)
+
+    def _compute_faithfulness(self) -> float:
+        """
+        Placeholder for faithfulness metric computation (e.g., insertion/deletion scores).
+        Implementation requires detailed attribute masks or object bounding boxes.
+        Since dataset may lack attribute labels, returns a dummy score.
+        """
+        # For actual implementation, would need attribute masks or object bounding boxes
+        # For now, return a placeholder value
+        return 0.0
+
+```

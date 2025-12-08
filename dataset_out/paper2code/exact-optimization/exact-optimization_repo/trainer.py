@@ -1,0 +1,167 @@
+## trainer.py
+import torch
+import torch.nn as nn
+import torch.optim as optim
+from typing import List, Tuple
+import numpy as np
+from utils import importance_weights, log_probabilities, importance_weights
+from tqdm import tqdm
+
+class ModelTrainer:
+    """
+    Implements the core training routine for EXO: the importance-weighted maximum likelihood
+    of responses per prompt, guided by the theoretical gradient alignment with the reversed KL.
+    Manages response sampling, importance weight computation, gradient updates, and periodic evaluation.
+    """
+
+    def __init__(
+        self,
+        lm,  # LanguageModel instance
+        reward_model,  # RewardModel instance
+        dataset_loader,  # DatasetLoader instance
+        config: dict  # loaded from config.yaml
+    ):
+        self.lm = lm
+        self.reward_model = reward_model
+        self.dataset_loader = dataset_loader
+
+        # Hyperparameters from config with defaults
+        self.lr = config.get("training", {}).get("learning_rate", 1e-5)
+        self.batch_size = config.get("training", {}).get("batch_size", 64)
+        self.response_samples = config.get("training", {}).get("response_samples", 8)
+        self.response_temperature = config.get("training", {}).get("response_temperature", 0.8)
+        self.importance_beta = config.get("training", {}).get("importance_sampling_beta", 0.5)
+        self.divergence_beta = config.get("training", {}).get("divergence_regularization_beta", 0.1)
+        self.max_steps = config.get("training", {}).get("max_training_steps", 5000)
+        self.eval_interval = config.get("evaluation", {}).get("eval_steps", 3000)
+
+        # Initialize optimizer for the language model parameters
+        self.optimizer = optim.Adam(self.lm.model.parameters(), lr=self.lr)
+
+        # Storage for step count
+        self.global_step = 0
+
+        # For evaluation
+        self.evaluator = None  # Will instantiate later if needed
+
+    def train(self):
+        """
+        Main training loop: for each iteration, sample prompts, responses, compute weights,
+        update model, and periodically evaluate.
+        """
+        prompts = self.dataset_loader.get_prompts()
+
+        for step in range(1, self.max_steps + 1):
+            self.global_step = step
+            # Sample batch prompts
+            batch_prompts = np.random.choice(prompts, size=self.batch_size, replace=True)
+
+            # Collect responses per prompt
+            all_responses = []
+            all_response_logits = []  # Store logits for importance weights
+            for prompt in batch_prompts:
+                responses = self.lm.generate_responses(
+                    prompt,
+                    num_responses=self.response_samples,
+                    temperature=self.response_temperature
+                )
+                all_responses.append(responses)
+
+            # Compute reward scores
+            reward_scores_list = []
+            for prompt, responses in zip(batch_prompts, all_responses):
+                scores = self.reward_model.score_responses(prompt, responses)
+                reward_scores_list.append(scores)
+
+            # Flatten responses and scores for weight computation
+            # We process one prompt at a time
+            total_loss = 0.0
+            self.optimizer.zero_grad()
+
+            # Accumulate gradients over batch
+            for prompt, responses, scores in zip(batch_prompts, all_responses, reward_scores_list):
+                # Get token IDs of responses
+                # Compute log_probs for responses
+                log_probs = self.lm.log_probs(prompt, responses)
+                # Simulate response logits for importance weights (or recompute as needed)
+                # For this implementation, assume we can get token logits via log_probs
+                # (alternatively, store logits during generation if available)
+                # For simplification, we'll skip recomputing logits and use log_probs directly.
+
+                # Compute f_theta(y) as scaled reward
+                f_theta_y = (1.0 / self.importance_beta) * np.array(scores)
+                # Compute importance weights
+                weights = importance_weights(responses, f_theta_y, None, self.importance_beta)
+
+                # Compute log probabilities of responses (already available)
+                # Convert responses to token IDs to get exact log probs if needed
+                # For simplicity, assume log_probs are total log likelihoods per response
+                log_p_resp = torch.tensor(log_probs, dtype=torch.float32, device='cpu')
+
+                # Compute weighted log-likelihood
+                weighted_log_likelihood = torch.dot(
+                    torch.tensor(weights, dtype=torch.float32),
+                    log_p_resp
+                )
+
+                # Accumulate negative for loss (maximize likelihood)
+                loss = -weighted_log_likelihood
+                loss.backward()
+                total_loss += loss.item()
+
+            # Step optimizer
+            self.optimizer.step()
+
+            # Periodic evaluation
+            if self.global_step % self.eval_interval == 0:
+                self.evaluate()
+
+    def evaluate(self):
+        """
+        Perform evaluation: estimate divergence (reverse KL), reward, etc.
+        Can be extended to include metrics, plotting, or saving checkpoints.
+        """
+        # This function is a placeholder illustrating the evaluation logic
+        # For actual implementation, generate responses, estimate divergence, compute reward
+        prompts = self.dataset_loader.get_prompts()
+
+        # Sample responses from current policy
+        responses_by_prompt = []
+        for prompt in prompts:
+            responses = self.lm.generate_responses(
+                prompt,
+                num_responses=self.response_samples,
+                temperature=self.response_temperature
+            )
+            responses_by_prompt.append(responses)
+
+        # For divergence estimation:
+        # Sample responses from a reference policy if available (e.g., SFT)
+        # Here, for simplicity, assume responses are from current policy and reference is known
+        # Use importance sampling to estimate reverse KL (see utils.py)
+
+        # Placeholder: Compute an average reward score over validation set
+        total_reward = 0.0
+        total_responses = 0
+        for prompt, responses in zip(prompts, responses_by_prompt):
+            scores = self.reward_model.score_responses(prompt, responses)
+            total_reward += sum(scores)
+            total_responses += len(scores)
+
+        avg_reward = total_reward / max(1, total_responses)
+        print(f"Step {self.global_step}: Avg Reward = {avg_reward:.4f}")
+
+        # Optional: estimate divergence if reference responses available
+        # divergence = utils.estimate_reverse_kl(responses, reference_responses, prompts)
+
+    def save_checkpoint(self, path: str):
+        """
+        Save model checkpoint.
+        """
+        torch.save(self.lm.model.state_dict(), path)
+
+    def load_checkpoint(self, path: str):
+        """
+        Load model checkpoint.
+        """
+        self.lm.model.load_state_dict(torch.load(path))

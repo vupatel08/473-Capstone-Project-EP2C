@@ -1,0 +1,284 @@
+```python
+## model_evaluator.py
+import os
+import json
+import re
+import logging
+from typing import List, Dict, Optional, Union
+import numpy as np
+
+# External dependencies
+import openai
+
+# Import internal modules and classes
+from utils import load_config
+from dataset_loader import DataPoint
+from reasoning_graph import ReasoningGraph
+
+# Initialize logger
+logger = logging.getLogger(__name__)
+logging.basicConfig(level=logging.INFO)
+
+class EvaluationMetrics:
+    """
+    Data class to hold evaluation metrics for a dataset and model,
+    including accuracy, bias score, and CIARR.
+    """
+    def __init__(
+        self,
+        overall_accuracy: float = 0.0,
+        bias_score: float = 0.0,
+        ciarr: float = 0.0,
+        accuracy_per_level: Optional[Dict[str, float]] = None,
+        bias_per_level: Optional[Dict[str, float]] = None
+    ):
+        self.overall_accuracy = overall_accuracy
+        self.bias_score = bias_score
+        self.ciarr = ciarr
+        self.accuracy_per_level = accuracy_per_level if accuracy_per_level else {}
+        self.bias_per_level = bias_per_level if bias_per_level else {}
+
+class ModelEvaluator:
+    """
+    Class to evaluate multiple large language models across a dataset.
+    Implements inference, output parsing, metrics computation, and result storage.
+    """
+    def __init__(
+        self,
+        model_names: List[str],
+        model_api_keys: Dict[str, str],
+        prompt_template: str = "",
+        config_path: str = "config.yaml",
+        task_type: str = "generic",
+        complexity_levels: List[int] = [0, 1, 2, 4, 8],
+        metrics_output_path: str = "evaluation_results.json",
+        batch_size: int = 8,
+        inference_timeout: int = 300
+    ):
+        """
+        Initialize the evaluator with models, APIs, prompts, and config.
+        Args:
+            model_names (List[str]): List of model identifiers.
+            model_api_keys (Dict[str, str]): Mapping model IDs to API keys.
+            prompt_template (str): Prompt template for inference.
+            config_path (str): Path to configuration file.
+            task_type (str): Type of reasoning task, influences parsing.
+            complexity_levels (List[int]): Levels of complexity for evaluation.
+            metrics_output_path (str): Path to save metrics JSON.
+            batch_size (int): Batch size for inference.
+            inference_timeout (int): Timeout in seconds for API calls.
+        """
+        self.model_names = model_names
+        self.model_api_keys = model_api_keys
+        self.prompt_template = prompt_template
+        self.config = load_config(config_path)
+        self.task_type = task_type
+        self.complexity_levels = complexity_levels
+        self.metrics_output_path = metrics_output_path
+        self.batch_size = batch_size
+        self.inference_timeout = inference_timeout
+
+        # Initialize API clients for each model
+        self.api_clients = {}
+        for model_name in self.model_names:
+            # For openai models
+            if 'gpt' in model_name.lower() or 'openai' in model_name.lower():
+                api_key = self.model_api_keys.get(model_name, "")
+                # set up api key globally
+                openai.api_key = api_key
+                self.api_clients[model_name] = 'openai'
+            else:
+                # For local models, placeholder for actual inference implementation
+                self.api_clients[model_name] = 'local'
+
+    def load_dataset(self, dataset_path: str) -> List[DataPoint]:
+        """
+        Load dataset from a JSON file path into list of DataPoint objects.
+        Args:
+            dataset_path (str): Path to dataset JSON file.
+        Returns:
+            List[DataPoint]: Loaded dataset.
+        """
+        with open(dataset_path, 'r', encoding='utf-8') as f:
+            raw_data = json.load(f)
+        data_points = []
+        for entry in raw_data:
+            data_points.append(DataPoint.from_json(entry))
+        return data_points
+
+    def evaluate(self, dataset: List[DataPoint]) -> Dict[str, Dict[str, float]]:
+        """
+        Evaluate all models on the dataset across all complexity levels.
+        Records accuracy, bias scores, and CIARRs.
+        Returns:
+            dict: Nested dict with metrics per model and per complexity level.
+        """
+        results = {}
+        for model_name in self.model_names:
+            logger.info(f"Evaluating model: {model_name}")
+            model_res = {
+                'accuracy': {},
+                'bias_score': {},
+                'ciarr': {}
+            }
+            # For each complexity level
+            for level in self.complexity_levels:
+                logger.info(f"Processing complexity level: {level}")
+                total_points = 0
+                correct_points = 0
+                bias_scores = []
+                accuracy_per_point = []
+                # For CIARR calculation, store accuracy at previous levels
+                prev_accuracy = None
+                acc_list = []
+
+                for point in dataset:
+                    # Generate prompt for current point
+                    prompt_input = self._prepare_prompt(point, level, model_name)
+                    # Run inference
+                    output_text = self._run_model(prompt_input, model_name)
+                    # Parse answer from output
+                    answer = self.parse_output(output_text, point)
+                    # Check correctness
+                    is_correct = self.check_answer(answer, point.answer)
+                    accuracy_per_point.append(1 if is_correct else 0)
+                    total_points += 1
+                    if is_correct:
+                        correct_points += 1
+                    # Possibly compute bias score
+                    bias_score = self.estimate_bias(output_text, point)
+                    bias_scores.append(bias_score)
+                    # For CIARR computation
+                overall_acc = (correct_points / total_points) * 100 if total_points > 0 else 0.0
+                model_res['accuracy'][str(level)] = overall_acc
+                # Compute bias score average
+                bias_avg = np.mean(bias_scores) if bias_scores else 0.0
+                model_res['bias_score'][str(level)] = bias_avg
+                # Compute CIARR across levels
+                if len(self.complexity_levels) > 1:
+                    accuracies = [model_res['accuracy'][str(l)] for l in self.complexity_levels]
+                    ciarr_value = self._compute_ciarr(accuracies)
+                else:
+                    ciarr_value = 0.0
+                model_res['ciarr'][str(level)] = ciarr_value
+            results[model_name] = model_res
+        # Save to file
+        with open(self.metrics_output_path, 'w', encoding='utf-8') as f:
+            json.dump(results, f, indent=2)
+        return results
+
+    def _prepare_prompt(self, data_point: DataPoint, level: int, model_name: str) -> str:
+        """
+        Prepare the prompt for inference, possibly including context, prompt template,
+        and complexity-specific modifications.
+        """
+        # Use prompt template, insert question, reasoning, other info as needed
+        prompt = self.prompt_template
+        # Replace placeholders or format prompt with data point
+        # For demonstration, we assume prompt has {question}, {reasoning}, {level}
+        prompt = prompt.replace("{question}", data_point.question_text)
+        prompt = prompt.replace("{reasoning}", data_point.reasoning_text)
+        prompt = prompt.replace("{answer}", data_point.answer)
+        prompt = prompt.replace("{complexity_level}", str(level))
+        return prompt
+
+    def _run_model(self, prompt: str, model_name: str) -> str:
+        """
+        Run inference on model, handle API or local inference.
+        """
+        if self.api_clients[model_name] == 'openai':
+            # Use openai SDK
+            try:
+                response = openai.ChatCompletion.create(
+                    model=model_name,
+                    messages=[
+                        {"role": "system", "content": "You are an reasoning model."},
+                        {"role": "user", "content": prompt}
+                    ],
+                    temperature=self.config.get('model', {}).get('temperature', 0.0),
+                    max_tokens=self.config.get('model', {}).get('max_tokens', 1024),
+                    top_p=0.95
+                )
+                answer_text = response.choices[0].message['content'].strip()
+                return answer_text
+            except Exception as e:
+                logger.warning(f"API call failed for model {model_name}: {e}")
+                return ""
+        else:
+            # Placeholder for local model inference
+            # Implement local inference as needed
+            return ""
+
+    def parse_output(self, output_text: str, data_point: DataPoint) -> Union[str, float, dict]:
+        """
+        Parse the model output to extract the final answer, formatted as numeric or string.
+        Implement dataset-specific parsing if needed.
+        """
+        # Example: extract answer from response
+        # For GSM8K, extract numeric answer with regex
+        answer_match = re.search(r'(?i)answer[:\s]*([-\d\.]+)', output_text)
+        if answer_match:
+            answer = answer_match.group(1)
+            try:
+                answer_value = float(answer)
+                return answer_value
+            except:
+                return answer  # fallback to string if float conversion fails
+        # For multiple-choice or other datasets, implement accordingly
+        # Fallback: use last line or entire output
+        lines = output_text.strip().splitlines()
+        if lines:
+            return lines[-1].strip()
+        return output_text.strip()
+
+    def check_answer(self, model_ans: Union[str, float, dict], correct_answer: str) -> bool:
+        """
+        Check if model's answer matches the ground truth.
+        For numerical answers, allow small tolerance.
+        """
+        if isinstance(model_ans, float):
+            try:
+                correct_value = float(correct_answer)
+                return abs(model_ans - correct_value) <= 1e-2
+            except:
+                return False
+        elif isinstance(model_ans, str):
+            # For exact match
+            return model_ans.strip() == correct_answer.strip()
+        else:
+            # For other types, fallback
+            return False
+
+    def estimate_bias(self, output_text: str, data_point: DataPoint) -> float:
+        """
+        Placeholder for bias estimate: could analyze the output for biased terms,
+        attribute mentions or use a bias scoring model.
+        """
+        # Simplified: 0.0 bias score; in practice, may require additional analysis
+        return 0.0
+
+    def _compute_ciarr(self, accuracies: List[float]) -> float:
+        """
+        Compute the CIARR metric: average percentage retention of accuracy over levels.
+        """
+        ciarr_value = 0.0
+        n = len(accuracies)
+        if n < 2:
+            return ciarr_value
+        for i in range(n - 1):
+            if accuracies[i] == 0:
+                # avoid division by zero; define as 0 in that case
+                continue
+            ratio = accuracies[i+1] / accuracies[i]
+            ciarr_value += ratio
+        ciarr_value /= (n - 1)
+        ciarr_percentage = ciarr_value * 100
+        return ciarr_percentage
+
+    def save_results(self, results: Dict[str, Dict]) -> None:
+        """
+        Save the computed metrics dictionary to the designated output path.
+        """
+        with open(self.metrics_output_path, 'w', encoding='utf-8') as f:
+            json.dump(results, f, indent=2)
+```

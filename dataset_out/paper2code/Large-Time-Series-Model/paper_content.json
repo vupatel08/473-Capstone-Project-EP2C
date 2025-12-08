@@ -1,0 +1,158 @@
+{
+  "title": "Timer: Generative Pre-trained Transformers Are Large Time Series Models",
+  "abstract": "Yong Liu \\* 1 Haoran Zhang \\* 1 Chenyu Li \\* 1 Xiangdong Huang 1 Jianmin Wang 1 Mingsheng Long 1",
+  "authors": [],
+  "body_text": [
+    {
+      "text": "# Timer: Generative Pre-trained Transformers Are Large Time Series Models"
+    },
+    {
+      "text": "Yong Liu \\* 1 Haoran Zhang \\* 1 Chenyu Li \\* 1 Xiangdong Huang 1 Jianmin Wang 1 Mingsheng Long 1"
+    },
+    {
+      "text": "# Abstract"
+    },
+    {
+      "text": "Deep learning has contributed remarkably to the advancement of time series analysis. Still, deep models can encounter performance bottlenecks in real-world data-scarce scenarios, which can be concealed due to the performance saturation with small models on current benchmarks. Meanwhile, large models have demonstrated great powers in these scenarios through large-scale pre-training. Continuous progress has been achieved with the emergence of large language models, exhibiting unprecedented abilities such as few-shot generalization, scalability, and task generality, which are however absent in small deep models. To change the status quo of training scenario-specific small models from scratch, this paper aims at the early development of large time series models (LTSM). During pre-training, we curate large-scale datasets with up to 1 billion time points, unify heterogeneous time series into single-series sequence (S3) format, and develop the GPT-style architecture toward LTSMs. To meet diverse application needs, we convert forecasting, imputation, and anomaly detection of time series into a unified generative task. The outcome of this study is a Time Series Transformer (Timer), which is generative pretrained by next token prediction and adapted to various downstream tasks with promising capabilities as an LTSM. Code and datasets are available at: https://github.com/thuml/Large-Time-SeriesModel."
+    },
+    {
+      "text": "# 1. Introduction"
+    },
+    {
+      "text": "Time series analysis encompasses a broad range of critical tasks, including time series forecasting (Box et al., 2015), imputation (Friedman, 1962), anomaly detection (Breunig et al., 2000), etc. Despite the ubiquity of real-world time series, training samples can be scarce in specific applications. While remarkable advances have been made in deep time series models (Wu et al., 2022; Zeng et al., 2023; Liu et al., 2023b), the accuracy of state-of-the-art deep models (Nie et al., 2022) can still deteriorate drastically in such scenarios, even within prevalent benchmarks as shown in Figure 1. Concurrently, we are witnessing rapid progress of large language models (Radford et al., 2018), involving training on large-scale text corpora and exhibiting remarkable few-shot and zero-shot capabilities (Radford et al., 2019). It can be indicative for the community to develop large time series models (LTSM) that are transferable on various data-scarce scenarios by pre-training on numerous time series data."
+    },
+    {
+      "text": "![](images/0e1f6974bdff974251c164336377b9bd101e3d485fd9bbc47d709d96786f73ec.jpg)  \nFigure 1. Performance of PatchTST (2022) on different data scarcities. The degradation is reported as the relative increase in MSE compared with training on full samples."
+    },
+    {
+      "text": "Further, large models evolved by generative pre-training (GPT) have demonstrated several advanced capabilities that are absent in small models: the generalization ability that one model fits many domains, the versatility that one model copes with various scenarios and tasks, and the scalability that performance improves with the scale of parameters and pre-training corpora. Fascinating capabilities have fostered the advancement of artificial general intelligence (OpenAI, 2023). Time series holds comparable practical value to natural language. Essentially, they exhibit inherent similarities in generative modeling (Bengio et al., 2000) and autoregression (Box, 2013). Consequently, the unprecedented success of the generative pre-trained large language models (Zhao et al., 2023) serves as a blueprint for the progress of LTSMs."
+    },
+    {
+      "text": "Although unsupervised pre-training on time series data has been widely explored, yielding breakthroughs based on the masked modeling (Zerveas et al., 2021) and contrastive learning (Woo et al., 2022), there are still unsolved fundamental issues for developing LTSMs. Firstly, the dataset infrastructure and unified treatment for heterogeneous time series are lagging behind other fields. As a result, prior unsupervised pre-training methods are typically constrained to a small scale and primarily focus on in-dataset transfer (Zhang et al., 2022; Nie et al., 2022). Secondly, the architecture of scalable large models remains underexplored in the field of time series. It is observed that non-autoregressive structures, which are prevalent and effective in small time series models, may not be suitable for LTSMs. Thirdly, existing large-scale pre-trained models (Woo et al., 2023; Das et al., 2023b) primarily concentrated on a single task (e.g., forecasting), and have scarcely addressed task unification. Consequently, the applicability of LTSMs remains elevatable."
+    },
+    {
+      "text": "In this paper, we dive into the pre-training and adaptation of large time series models. By aggregating publicly available time series datasets and following curated data processing, we construct Unified Time Series Dataset (UTSD) of hierarchical capacities to facilitate the research on the scalability of LTSMs. To pre-train large models on heterogeneous time series data, we propose the single-series sequence (S3) format that converts multivariate series with reserved patterns into unified token sequences. For better generalization and versatility, we adopt the GPT-style objective that predicts the next token (Bengio et al., 2000). Eventually, we present Timer, a large-scale pre-trained Time Series Transformer. Unlike prevalent encoder-only architecture (Nie et al., 2022; Wu et al., 2022; Das et al., 2023a), Timer exhibits similar characteristics as large language models such as flexible context length and autoregressive generation. It also presents notable few-shot generalization, scalability, and task generality, outperforming state-of-the-art task-specific models on forecasting, imputation, and anomaly detection. Overall, our contributions can be summarized as follows:"
+    },
+    {
+      "text": "• We delve into the LTSM development by curating largescale datasets comprised of 1B time points, proposing a unified sequence format to cope with data heterogeneity, and presenting Timer, a generative pre-trained Transformer for general time series analysis."
+    },
+    {
+      "text": "• We apply Timer on various tasks, which is realized in our unified generative approach. Timer exhibits notable feasibility and generalization in each task, achieving state-of-the-art performance with few samples."
+    },
+    {
+      "text": "• By pre-training on increasing available time series data, Timer exhibits zero-shot forecasting capability. Quantitative evaluations and quality assessments are provided among concurrent large time series models."
+    },
+    {
+      "text": "# 2. Related Work"
+    },
+    {
+      "text": "# 2.1. Unsupervised Pre-training on Sequences"
+    },
+    {
+      "text": "Unsupervised pre-training on large-scale data is the essential step for modality understanding for downstream applications, which has achieved substantial success in sequences, covering natural language (Radford et al., 2021), patchlevel image (Bao et al., 2021) and video (Yan et al., 2021). Supported by powerful backbones (Vaswani et al., 2017) for sequential modeling, the paradigms of unsupervised pre-training on sequences have been extensively studied in recent years, which can be categorized into the masked modeling (Devlin et al., 2018), contrastive learning (Chen et al., 2020), and generative pre-training (Radford et al., 2018)."
+    },
+    {
+      "text": "Inspired by significant progress achieved in relevant fields, masked modeling and contrastive learning have been welldeveloped for time series. TST (Zerveas et al., 2021) and PatchTST (Nie et al., 2022) adopt the BERT-style masked pre-training to reconstruct several time points and patches respectively. LaST (Wang et al., 2022b) proposes to learn the representations of decomposed time series based on variational inference. Contrastive learning is also well incorporated in prior works (Woo et al., 2022; Yue et al., 2022). TF-C (Zhang et al., 2022) constrains the time-frequency consistency by temporal variations and frequency spectrums. SimMTM (Dong et al., 2023) combines masked modeling and contrastive approach within the neighbors of time series."
+    },
+    {
+      "text": "However, generative pre-training has received relatively less attention in the field of time series despite its prevalence witnessed in developing large language models (Touvron et al., 2023; OpenAI, 2023). Most large language models are generative pre-trained (Zhao et al., 2023) with token-level supervision, where each token is generated based on the previous context and independently supervised (Bengio et al., 2000). Consequently, they are not constrained by specific input and output lengths and excel at multi-step generation. Furthermore, prior studies (Wang et al., 2022a; Dai et al., 2022) have demonstrated that scalability and generalization largely stem from generative pre-training, which requires more training data than other pre-training paradigms. Thus, our work aims to investigate and revitalize generative pretraining towards LTSMs, facilitated by extensive time series and deftly designed adaptation on downstream tasks."
+    },
+    {
+      "text": "# 2.2. Large Time Series Models"
+    },
+    {
+      "text": "Pre-trained models with scalability can evolve to large foundation models (Bommasani et al., 2021), featured by increasing model capacity and pre-training scale to solve various data and tasks. Large language models even demonstrate advanced capabilities such as in-context learning and emergent abilities (Wei et al., 2022). As of present, research on large time series models remains at a nascent stage. Existing efforts towards LTSMs can be categorized into two groups, with one being large language models for time series. FPT (Zhou et al., 2023) regards GPT-2 as a representation extractor of sequences, which is respectively fine-tuned on different downstream tasks. LLMTime (Chang et al., 2023) encodes time series into numerical tokens for LLMs, exhibiting model scalability in the forecasting task. TimeLLM (Jin et al., 2023) investigates prompting techniques to enhance prediction, demonstrating the generalization ability of LLMs. Unlike these methods, Timer is pre-trained natively on time series and free from extra modality alignment."
+    },
+    {
+      "text": "![](images/4ca705c9a17f762a4d6df4e96febac4d489992facbc4cabc62a0dc0fb085c840.jpg)  \nFigure 2. Illustration of Unified Time Series Dataset (UTSD) that is composed of various time series domains with hierarchical capacities."
+    },
+    {
+      "text": "Another category includes pre-trained models on large-scale time series. ForecastFPN (Dooley et al., 2023) is trained on synthetic series for zero-shot forecasting. CloudOps (Woo et al., 2023) adopts masked modeling on Transformer for domain-specific forecaster. Lag-Llama (Rasul et al., 2023) is a probabilistic univariate forecaster that adopts lags as covariates. PreDcT (Das et al., 2023b) is a decoder-only Transformer pre-trained on Google Trends, exhibiting notable zero-shot ability. TimeGPT-1 (Garza & MergenthalerCanseco, 2023) releases the first commercial API for zeroshot forecasting. Different from prior works, our UTSD contains 1B real-world time points, which is not a simple aggregation but follows curated data processing. Timer is applicable to downstream tasks beyond forecasting and exhibits promising scalability. We are also the first to establish a zero-shot forecasting benchmark on concurrent LTSMs."
+    },
+    {
+      "text": "# 3. Approach"
+    },
+    {
+      "text": "Inspired by the sequential structure inherent in language and time series, we leverage the advancement of large language models for developing LTSMs. In this paper, we advocate the development of large models for time series with (1) the utilization of extensive time series corpora, (2) the adoption of a standardized format for diverse time series data, and (3) the generative pre-training on the decoder-only Transformer that autoregressively predict the next time series token."
+    },
+    {
+      "text": "# 3.1. Data"
+    },
+    {
+      "text": "Large-scale datasets are of paramount importance for pretraining large models. However, the curation of time series datasets can be prohibitively challenging. In spite of their ubiquity, there are numerous data of low quality, including missing values, unpredictability, variance in shape, and irregular frequencies, which significantly impact the efficacy of pre-training. Therefore, we establish the criteria for filtering high-quality data and stacking up the hierarchy of time series corpora. Concretely, we record the statistics of each dataset, including (1) basic properties, such as time steps, variate number, file size, frequency, etc; and (2) time series characteristics: periodicity, stationarity, and predictability. This also allows us to assess the complexity of different datasets and progressively conduct scalable pre-training."
+    },
+    {
+      "text": "We curate Unified Time Series Dataset (UTSD) as shown in Figure 2. UTSD is constructed with hierarchical capacities to facilitate the scalability research of large models. UTSD encompasses seven domains with up to 1 billion time points (UTSD-12G), covering typical scenarios of time series analysis. Following the principle of keeping pattern diversity, we include as diverse datasets as possible in each hierarchy, ensure the data size of each domain is nearly balanced when scaling up, and the complexity gradually increases in accordance with the calculated statistics. We release four volumes on https://huggingface.co/datasets/thuml/UTSD."
+    },
+    {
+      "text": "Notably, we make our curation applicable to the increasing open-source datasets, which is beneficial for the continuous expansion of time series corpora. Particularly, we conduct the same procedure on the recent LOTSA (Woo et al., 2024), a great endeavor with 27B time points, to explore zero-shot forecasting and establish the benchmark of LTSMs. Detailed construction and statistics are provided in Appendix A."
+    },
+    {
+      "text": "# 3.2. Training Strategy"
+    },
+    {
+      "text": "Different from natural language, which has been facilitated by the well-established discrete tokenization and sequential structure with the regular shape, constructing unified time series sequences is not straightforward due to the heterogeneity of series such as amplitude, frequency, stationarity, and disparities of the datasets in the variate number, series length and purpose. To promote pre-training on extensive time series, we propose to convert heterogeneous time series into single-series sequence (S3), which reserves the patterns of series variations with the unified context length."
+    },
+    {
+      "text": "![](images/f00aed024612f94a5b3ca0ddd27061537ad34ed5487f79e57d2ec33ac0df0c73.jpg)  \nFigure 3. Pre-training strategy for heterogeneous time series."
+    },
+    {
+      "text": "As depicted in Figure 3, our initial step involves normalizing and merging at the level of variates. Each series representing a variate will be divided into training and validation splits at a ratio of 9:1 for pre-training. We apply the statistics of the training split to normalize the entire series. The normalized time series are merged into a pool of single-variate series. The time points of single-variate series for training follow the normal distribution, which mitigates the discrepancies in the amplitude and variate numbers across multiple datasets."
+    },
+    {
+      "text": "We uniformly sample sequences from the pool by a window, obtaining single-series sequences with a fixed context length, as the format of S3. The proposed format is essentially an extension of Channel Independence CI (Nie et al., 2022). However, CI necessitates time-aligned multivariate series and flattens the variate dimension to the same batch, thereby requiring the batch of samples to originate from the same dataset. Based on our format, the model observes sequences from different periods and different datasets, thus increasing the pre-training difficulty and directing more attention to the temporal variation. S3 does not require time alignment, which applies to broad univariate and irregular time series. We then employ generative pre-training, where single-series sequences are regarded as standard sentences of time series."
+    },
+    {
+      "text": "# 3.3. Model Design"
+    },
+    {
+      "text": "Given the limited exploration of the backbone for large time series models, we extensively evaluate candidate backbones on the same pre-training scale in Section 4.5, which validates Transformer as the scalable choice. Further, we review Transformer-based models in time series forecasting, which have experienced notable development in recent years. They can be categorized into encoder-only and decoder-only architectures following a similar pipeline. As illustrated in Figure 4, prevalent small time series forecasters, the encoderonly non-autoregressive models, generate predictions with the globally flattened representation of lookback series. Although direct projection may benefit from end-to-end supervision, flattening can also wipe out sequential dependencies modeled by attention, thereby weakening Transformer layers to reveal the patterns of temporal variations."
+    },
+    {
+      "text": "![](images/df964fd8766f3aa57587dd63af82a8191d0dcc97dc19652b41da220b3d1d3aba.jpg)  \nFigure 4. Architectures of typical Transformer-based forecasters."
+    },
+    {
+      "text": "Inspired by the substantial progress of decode-only LLMs with the ability for iterative generation, we opt for an underexplored autoregressive approach for generative pre-training. As language models autoregressively predict the next token:"
+    },
+    {
+      "text": "$$\nP ( \\mathcal { U } ) = \\prod _ { i = 1 } ^ { N } p ( u _ { i } | \\boldsymbol { u } _ { < i } )\n$$"
+    },
+    {
+      "text": "on the token sequence $\\mathcal { U } = \\{ u _ { 1 } , . . . , u _ { N } \\}$ , we first establish the tokenization of the given single-series sequence (S3) $\\mathbf { X } = \\{ x _ { 1 } , \\dots , x _ { N S } \\}$ with the unified context length $N S$ We define the time series token as consecutive time points (segment) of length $S$ that encompass the series variations:"
+    },
+    {
+      "text": "$$\n\\mathbf { s } _ { i } = \\{ x _ { ( i - 1 ) S + 1 } , \\dotsc , x _ { i S } \\} \\in \\mathbb { R } ^ { S } , i = 1 , \\dotsc , N .\n$$"
+    },
+    {
+      "text": "We adopt the decoder-only Transformer with dimension $D$ and $L$ layers and apply generative pre-training (GPT) on $N$ tokens in the single-series sequence (sentence):"
+    },
+    {
+      "text": "$$\n\\begin{array} { r l } & { \\mathbf { h } _ { i } ^ { 0 } = \\mathbf { W } _ { e } \\mathbf { s } _ { i } + \\mathbf { T } \\mathbf { E } _ { i } , i = 1 , \\ldots , N , } \\\\ & { \\mathbf { H } ^ { l } = \\mathrm { T r m B l o c k } ( \\mathbf { H } ^ { l - 1 } ) , l = 1 , \\ldots , L , } \\\\ & { \\left\\{ \\hat { \\mathbf { s } } _ { i + 1 } \\right\\} = \\mathbf { H } ^ { L } \\mathbf { W } _ { d } , i = 1 , \\ldots , N , } \\end{array}\n$$"
+    },
+    {
+      "text": "where $\\mathbf { W } _ { e } , \\mathbf { W } _ { d } \\in \\mathbb { R } ^ { D \\times S }$ encode and decode token embeddings in ${ \\bf H } = \\{ { \\bf h } _ { i } \\} \\in \\mathbb { R } ^ { N \\times D }$ indepedently, and $\\mathbf { T E } _ { i }$ denotes the optional timestamp embedding. Via the causal attention of the decoder-only Transformer, the autoregressively generated $\\hat { \\bf s } _ { i + 1 }$ is obtained as the next token of $\\mathbf { s } _ { i }$ Thus, we formulate the pre-training objective as follows:"
+    },
+    {
+      "text": "$$\n\\mathcal { L } _ { \\mathrm { M S E } } = \\frac { 1 } { N S } \\sum | | \\mathbf { s } _ { i } - \\hat { \\mathbf { s } } _ { i } | | _ { 2 } ^ { 2 } , i = 2 , . . . , N .\n$$"
+    },
+    {
+      "text": "Equation 4 yields token-wise supervising signals, where generated tokens of each position are independently supervised."
+    },
+    {
+      "text": "Consequently, generative pre-trained models are endowed with the flexibility to address unfixed context length during inference and excel at multi-step generation by iteratively sliding and enlarging input tokens. While small time series models generally refrain from iterative multi-step prediction to mitigate error accumulations, our experiments reveal that autoregressive models pre-trained on large-scale data can also perform as competitively as direct multi-step predictors."
+    },
+    {
+      "text": "# 4. Experiments"
+    },
+    {
+      "text": "We demonstrate Timer as a large time series model in time series forecasting, imputation, and anomaly detection by tackling them in a unified generative scheme, which is described in Figure 5. We compare Timer with state-of-the-art task-specific models and present the benefit of pre-training on data-scarce scenarios, known as the few-shot ability of large models. Furthermore, we delve into the model scalability, including model/data size, and try to build a comprehensive zero-shot evaluation across concurrent large time series models. All the downstream datasets are not included in the pre-training stage to prevent data leakage. We provide the detailed implementation and model configurations of pre-training and adaptation in Appendix B.1 and B.2."
+    },
+    {
+      "text": "![](images/1a1285e53d3eb85869f18569221b6a1efd065b1e4eeb07d055f3658904590ab9.jpg)  \nFigure 5. Illustration of our generative task unification: (1) Generative pre-trained Timer can naturally predict the next series by the iterative autoregression; (2) By introducing masked tokens during adaptation, Timer generates imputations with the previous context and assemble them with the observed part; (3) We propose predictive anomaly detection by predicting normal series in advance."
+    },
+    {
+      "text": "# 4.1. Time Series Forecasting"
+    }
+  ],
+  "url": ""
+}

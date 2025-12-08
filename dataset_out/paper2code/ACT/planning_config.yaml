@@ -1,0 +1,48 @@
+training:
+  learning_rate: 3e-5  # Not explicitly specified in the paper, typical for inference-focused finetuning
+  batch_size: 32       # Common batch size, adjustable based on hardware resources
+  epochs: 3            # Finetuning epochs; optional, as the method is inference-only, so set minimal
+  weight_decay: 0.01   # Standard weight decay; optional, not explicitly specified
+model:
+  name: "Llama-7b"       # Example model, can be replaced with other models as needed
+  device: "cuda"         # Run on GPU for performance
+  model_path: "path_to_huggingface_model"  # Path or identifier to model weights
+attention_calibration:
+  alpha: 5               # Attention sink detection threshold (hyperparameter; try {3,5,7})
+  suppress_factor: 0.4 # Suppression factor \u03b2 for reducing sink attention (hyperparameter)
+  subset_percent: 0.4  # Percentage of top attention tokens considered sinks (e.g., 40%)
+  calibrate_layers:
+    - 1
+    - 2
+    - 3
+    - 4              # Layers to calibrate; configurable
+  calibrate_heads:
+    - 0
+    - 1
+    - 2
+    - 3              # Heads to calibrate; configurable
+evaluation:
+  datasets:
+    classification:
+      - name: "SST2"
+        split: "test"
+        metric: "accuracy"
+      - name: "AGNews"
+        split: "test"
+        metric: "accuracy"
+    qa:
+      - name: "SQuAD"
+        split: "dev"
+        metric: "EM/F1"
+    multi_turn:
+      - name: "MT-Bench"
+        split: "test"
+        metric: "score"
+hyperparameters:
+  learning_rate: 3e-5
+  batch_size: 32
+  num_epochs: 3
+  max_input_length: 1024
+  attention_threshold: 5
+  suppression_factor: 0.4
+  subset_cutoff: 0.4

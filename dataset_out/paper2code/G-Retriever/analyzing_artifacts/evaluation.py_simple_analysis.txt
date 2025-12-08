@@ -1,0 +1,217 @@
+# Evaluation.py Logical Analysis for G-Retriever Experimental Framework
+
+This document provides a detailed, step-by-step logical blueprint for implementing the `evaluation.py` module, specifically the `Evaluation` class, which is critical for assessing the performance and hallucination mitigation capabilities of the G-Retriever pipeline as described in the paper. The analysis aligns strictly with the paper’s methodology, datasets, experimental configurations, and the provided `config.yaml`, ensuring reproducibility and fidelity.
+
+---
+
+## 1. Objectives of evaluation.py
+
+The core purpose of the `Evaluation` class is to:
+
+- Compute **accuracy-based metrics** for downstream question-answering tasks (classification, retrieval, etc.).
+- Measure **hallucination** levels, specifically:
+  - Valid nodes fraction
+  - Valid edges fraction
+  - Fully valid graph (both nodes and edges are correct)
+- Provide detailed diagnostics to understand the model’s faithfulness in referencing actual graph elements.
+- Support batch/step-wise evaluation aligned with dataset splits.
+
+---
+
+## 2. Inputs to Evaluation Class
+
+### 2.1. Data
+- **Test or validation dataset**, structured as:
+  - For each sample, the *question text*, *graph description or subgraph*, *ground truth answer(s)*.
+  - *Model predictions* for each sample, typical as textual responses, plus the referenced nodes and edges (extracted from responses) for hallucination assessment.
+
+### 2.2. Configuration Parameters
+- Metrics to compute, from `config['evaluation']['metrics']`:
+  - Accuracy (or task-specific metrics like Hit@1)
+  - Hallucination metrics: fractions for valid nodes, valid edges, and fully valid graphs
+- Evaluation batch size (`eval_batch_size`)
+- Evaluation steps or total number of samples to evaluate (`eval_steps`)
+
+### 2.3. Model & System
+- Access to the **model inference outputs**:
+  - Predicted answer text
+  - Optional: Rationale or cited graph elements as part of the output (either extracted from responses or stored separately)
+- Ground-truth labels and data for accuracy evaluation
+
+---
+
+## 3. Key Functional Components and Logical Flow
+
+### 3.1. Data Loading & Preparation
+- Input: The evaluation dataset split (test/validation).
+- For hallucination metrics, additionally:
+  - Maintain a **reference graph** for each sample, possibly in a structured format (list of nodes, edges, attributes).
+  - Extract from the model's predicted response the **referenced nodes and edges**:
+    - Use regex or structured parsing (e.g., if responses include explicit mention of node IDs or labels).
+    - Or, if the model outputs citations explicitly, decode this linking.
+
+### 3.2. Metric Computation
+
+**(A) Accuracy Metrics**
+- Based on ground truth and predicted answers:
+  - For classification: match predicted answer to ground truth label(s).
+  - For multiple-choice or top-k metrics, compare index or label accuracy.
+- Use metrics such as:
+  - Exact match
+  - Top-1 accuracy (or specified by task)
+
+**(B) Hallucination Metrics**
+- **Valid Nodes Fraction**:
+  - For each predicted node citation:
+    - Check if the node ID/label exists in the reference graph.
+    - Count how many predicted nodes are valid (true positives).
+  - Compute fraction: (number of valid nodes) / (total predicted nodes).
+
+- **Valid Edges Fraction**:
+  - Repeat as above for edges:
+    - Validate each referenced edge against the reference graph.
+    - Count valid edges.
+
+- **Fully Valid Graphs Fraction**:
+  - Both node and edge sets are fully correct for the sample:
+    - Count as valid only if **all** cited nodes and edges are correct.
+    - Compute fraction over total evaluated samples.
+
+**(C) Overall Faithfulness Measure**
+- This encompasses the combined correctness of referenced nodes and edges per sample.
+
+### 3.3. Implementation Strategy for Hallucination
+- To assess cited graph elements:
+  - Develop a **extraction method**:
+    - Parse model responses to extract cited node IDs/labels and edge IDs/labels.
+    - For example, responses might follow a template:
+      - "The nodes supporting this are: node1, node2, node3; The edges supporting this are: edge1, edge2."
+    - The code should accommodate flexible parsing or rely on model outputs formatted accordingly.
+- Cross-reference these citations with the **ground truth graph** stored per sample.
+- Derive validation flags for each citation, accumulate counts.
+
+### 3.4. Automation of Metrics Calculation
+- Perform batch evaluation for efficiency.
+- Store metrics in a dictionary or structured object for reporting.
+
+### 3.5. Result Aggregation & Reporting
+- Aggregate metrics:
+  - Mean and standard deviation across samples.
+  - For hallucination metrics: overall fractions.
+- Generate a summary report, including:
+  - Accuracy statistics (mean/std).
+  - Hallucination metrics (fractions per category).
+  - Optional: per-sample breakdown for deeper diagnostics.
+
+---
+
+## 4. Specific Implementation Details Based on the Paper & YAML
+
+- Use `numpy` for numerical computations (means, std).
+- Use `scipy` if needed for statistical tests (not explicitly required, but optional).
+- Follow strict definitions:
+  - Valid nodes/edges: must match the reference graph exactly (string label or node ID).
+  - Fully valid: both node set and edge set are completely accurate.
+  - Use a `smoothing_epsilon` from config to prevent division errors if necessary.
+- Use `pandas` or structured data access if datasets are CSV/JSON.
+
+---
+
+## 5. Additional Considerations
+
+- Log intermediate statistics for debugging.
+- Handle cases where citations are missing or malformed.
+- Consider model responses that do not cite any graph elements; treat these as invalid.
+- For multi-modal models, ensure the references are reliably parsed.
+
+---
+
+## 6. Example Pseudocode for the Evaluation Class
+
+```python
+class Evaluation:
+    def __init__(self, dataset, model_outputs, ground_truths, config):
+        self.dataset = dataset
+        self.model_outputs = model_outputs
+        self.ground_truths = ground_truths
+        self.metrics_config = config['evaluation']['metrics']
+        self.results = {}
+
+    def compute_accuracy(self):
+        # Compare predicted answers to ground truth labels.
+        correct = 0
+        for pred, true in zip(self.model_outputs, self.ground_truths):
+            if self.match_answers(pred, true):
+                correct += 1
+        accuracy = correct / len(self.ground_truths)
+        self.results['accuracy'] = accuracy
+
+    def match_answers(self, pred_answer, true_answer):
+        # Exact, top-k, or semantic matching as required.
+        return pred_answer.strip().lower() == true_answer.strip().lower()
+
+    def evaluate_hallucination(self):
+        valid_nodes_counts = []
+        valid_edges_counts = []
+        fully_valid_counts = []
+
+        for sample_idx, sample in enumerate(self.dataset):
+            ref_graph = sample['graph']
+            pred_response = self.model_outputs[sample_idx]
+            cited_nodes, cited_edges = self.extract_citations(pred_response)
+
+            # Count valid nodes
+            valid_nodes = sum(1 for n in cited_nodes if n in ref_graph['nodes'])
+            # Count valid edges
+            valid_edges = sum(1 for e in cited_edges if e in ref_graph['edges'])
+
+            # Check if ALL cited nodes and edges are valid
+            all_nodes_valid = (valid_nodes == len(cited_nodes))
+            all_edges_valid = (valid_edges == len(cited_edges))
+            fully_valid = all([all_nodes_valid, all_edges_valid])
+
+            valid_nodes_counts.append(valid_nodes / max(len(cited_nodes), 1))
+            valid_edges_counts.append(valid_edges / max(len(cited_edges), 1))
+            if fully_valid:
+                fully_valid_counts.append(1)
+            else:
+                fully_valid_counts.append(0)
+
+        # Aggregate
+        self.results['valid_node_fraction'] = np.mean(valid_nodes_counts)
+        self.results['valid_edge_fraction'] = np.mean(valid_edges_counts)
+        self.results['full_graph_fraction'] = np.mean(fully_valid_counts)
+
+    def extract_citations(self, response_text):
+        # Parse the answer to find cited nodes and edges.
+        # Implementation depends on response format, e.g.:
+        # Use regex or structured extraction if responses are formatted.
+        cited_nodes = []  # parsed from response
+        cited_edges = []
+        return cited_nodes, cited_edges
+
+    def evaluate_all(self):
+        self.compute_accuracy()
+        if 'hallucination' in self.metrics_config:
+            self.evaluate_hallucination()
+        return self.results
+```
+
+---
+
+## 7. Final notes
+
+- Ensure the code is compatible with `numpy` and `scipy`.
+- The class should support batch processing and cumulative metrics for multiple samples.
+- Design to output metrics with mean and std if multiple runs/samples are involved.
+- Incorporate detailed logs for debugging and per-sample diagnostics.
+
+---
+
+## Summary
+
+This logic analysis provides a comprehensive, clear, and actionable plan for implementing `evaluation.py`. It emphasizes alignment with paper methodology, dataset formats, model outputs, and hyperparameters. Strict adherence to these points will enable the accurate reproduction of the experimental evaluation, especially the critical hallucination mitigation metrics.
+
+---
+
+Would you like me to proceed with the actual code implementation based on this analysis?

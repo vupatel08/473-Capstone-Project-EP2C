@@ -1,0 +1,59 @@
+dataset:
+  citeseer_url: "https://github.com/kimiyoung/planetoid"
+  pubmed_url: "https://github.com/kimiyoung/planetoid"
+  ogbn_arxiv_url: "https://github.com/snap-stanford/ogb"
+  flickr_url: "https://github.com/GraphSAINT/GraphSAINT"
+  reddit_url: "https://github.com/williamleif/GraphSAGE"
+  squirrel_url: "https://github.com/benedekrozemberczki/MUSAE"
+  gamers_url: "https://github.com/benedekrozemberczki/datasets"
+
+training:
+  ########################################
+  # No explicit hyperparameters provided in the paper.
+  # Use default values consistent with common practice:
+  optimizer: "Adam"
+  learning_rate: 0.001
+  epochs: 2000
+  batch_size: 128
+  weight_decay: 5e-4
+  dropout: 0.5
+  train_val_test_split:
+    train_ratio: 0.6
+    val_ratio: 0.2
+    test_ratio: 0.2
+
+distillation:
+  K: 500  # Use 500 eigenvectors (adjusted per dataset as needed)
+  spectrum_truncate_size: 500
+  eigenbasis_match_steps: 3000  # Number of optimization steps for eigenbasis
+  feature_opt_steps: 3000  # Number of optimization steps for node features
+  lambda_e: 1.0  # Regularization weight for eigenbasis matching
+  lambda_d: 1.0  # Discrimination loss weight
+  lambda_o: 1.0  # Orthogonality regularization weight
+  alpha: 1.0  # Weight for eigenbasis matching loss
+  beta: 1.0   # Weight for discrimination loss
+  gamma: 1.0  # Weight for orthogonality loss
+  eigenbasis_match_lr: 1e-3
+  feature_update_lr: 1e-3
+
+evaluation:
+  gnn_architectures:
+    spatial:
+      GCN: {hidden_units: 256, layers: 2}
+      SGC: {hidden_units: 256, layers: 2}
+      PPNP: {hidden_units: 256, layers: 2}
+    spectral:
+      ChebyNet: {poly_order: 10}
+      BernNet: {poly_order: 10}
+      GPR-GNN: {poly_order: 10}
+  train_epochs: 200
+  validation_interval: 10
+  test_batch_size: 128
+
+reproducibility:
+  random_seed: 42
+
+misc:
+  spectrum_eigenvectors: "Bottom 500 or dataset-specific eigenvectors for eigenbasis matching"
+  spectrum_eigenvalues: "Real eigenvalues used for spectrum replication"
+  visualization_metrics: "Total Variation (TV), accuracy"

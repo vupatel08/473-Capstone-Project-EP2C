@@ -1,0 +1,328 @@
+{
+  "code_to_paper": {
+    "dataset_loader.py:DatasetLoader": [
+      "The provided paper sections are not sufficient to link with the given code component. Please provide more detailed sections such as \"Methodology\"",
+      "\"Data Preprocessing\"",
+      "\"Experimental Setup\"",
+      "etc."
+    ],
+    "dataset_loader.py:__init__": [
+      "The provided information does not include specific paper sections. Please provide the relevant paper sections to proceed with the analysis."
+    ],
+    "evaluation.py:Evaluation": [
+      "The provided paper sections are not sufficient to link with the code component. Please provide more detailed sections such as 'Methodology'",
+      "'Results'",
+      "'Discussion'",
+      "'Model Evaluation'",
+      "'Experimental Setup'",
+      "etc."
+    ],
+    "evaluation.py:__init__": [
+      "The provided paper sections are not sufficient to link with the given code component. Please provide more detailed sections such as 'Methodology'",
+      "'Experiment Setup'",
+      "'Results and Discussion'",
+      "etc."
+    ],
+    "main.py:main": [
+      "The provided information is insufficient to determine the most relevant paper sections for the code component. Please provide more details about the function in the main.py file and its purpose."
+    ],
+    "model.py:LayerNorm": [
+      "The provided paper sections are not sufficient to link with the given code component. Please provide more relevant paper sections such as \"Methodology\"",
+      "\"Implementation Details\"",
+      "\"Model Architecture\"",
+      "etc."
+    ],
+    "model.py:MLP": [
+      "The provided paper sections are not sufficient to link with the given code component. Please provide more detailed sections such as \"Methodology\"",
+      "\"Implementation Details\"",
+      "\"Model Architecture\"",
+      "etc."
+    ],
+    "model.py:MultiHeadAttention": [
+      "The provided paper sections are not sufficient to link with the given code component. Please provide more relevant paper sections such as 'Methodology'",
+      "'Implementation Details'",
+      "'Model Architecture'",
+      "etc."
+    ],
+    "model.py:FeedForwardNetwork": [
+      "The provided paper sections are not sufficient to link with the given code component. Please provide more detailed sections such as \"Methodology\"",
+      "\"Implementation Details\"",
+      "\"Model Architecture\"",
+      "etc."
+    ],
+    "model.py:TransformLayer": [
+      "The provided paper sections are not sufficient to link with the given code component. Please provide more detailed sections of the paper."
+    ],
+    "model.py:InvertedTransformer": [
+      "The provided information does not include any paper sections. Please provide the relevant paper sections to proceed."
+    ],
+    "model.py:__init__": [
+      "The provided paper sections are not sufficient to link with the given code component. Please provide more detailed sections such as \"Methodology\"",
+      "\"Implementation Details\"",
+      "\"Model Architecture\"",
+      "etc."
+    ],
+    "trainer.py:Trainer": [
+      "The provided paper sections are not sufficient to link with the given code component. Please provide more detailed sections of the paper."
+    ],
+    "trainer.py:__init__": [
+      "The code component provided does not match with the given paper section. Please provide relevant paper sections."
+    ]
+  },
+  "paper_to_code": {
+    "The provided paper sections are not sufficient to link with the given code component. Please provide more detailed sections such as \"Methodology\"": [
+      {
+        "component": "dataset_loader.py:DatasetLoader",
+        "description": "Class: DatasetLoader\n    Purpose: Load datasets from specified paths, normalize variates (channel-wise), generate sequences for training, validation, and testing,\n             and provide batch iteration for training and evaluation.",
+        "file": "dataset_loader.py"
+      },
+      {
+        "component": "model.py:MLP",
+        "description": "Multi-Layer Perceptron with configurable layers and activations.",
+        "file": "model.py"
+      },
+      {
+        "component": "model.py:FeedForwardNetwork",
+        "description": "FFN module with two linear layers and activation.",
+        "file": "model.py"
+      },
+      {
+        "component": "model.py:__init__",
+        "description": "Multi-Layer Perceptron with configurable layers and activations.",
+        "file": "model.py"
+      }
+    ],
+    "\"Data Preprocessing\"": [
+      {
+        "component": "dataset_loader.py:DatasetLoader",
+        "description": "Class: DatasetLoader\n    Purpose: Load datasets from specified paths, normalize variates (channel-wise), generate sequences for training, validation, and testing,\n             and provide batch iteration for training and evaluation.",
+        "file": "dataset_loader.py"
+      }
+    ],
+    "\"Experimental Setup\"": [
+      {
+        "component": "dataset_loader.py:DatasetLoader",
+        "description": "Class: DatasetLoader\n    Purpose: Load datasets from specified paths, normalize variates (channel-wise), generate sequences for training, validation, and testing,\n             and provide batch iteration for training and evaluation.",
+        "file": "dataset_loader.py"
+      }
+    ],
+    "etc.": [
+      {
+        "component": "dataset_loader.py:DatasetLoader",
+        "description": "Class: DatasetLoader\n    Purpose: Load datasets from specified paths, normalize variates (channel-wise), generate sequences for training, validation, and testing,\n             and provide batch iteration for training and evaluation.",
+        "file": "dataset_loader.py"
+      },
+      {
+        "component": "evaluation.py:Evaluation",
+        "description": "Class: Evaluation\n    Purpose:\n        Load a trained iTransformer model, run inference on validation or test datasets,\n        compute metrics (MSE, MAE), and visualize attention maps and forecasted series.",
+        "file": "evaluation.py"
+      },
+      {
+        "component": "evaluation.py:__init__",
+        "description": "Initialize Evaluation object.\n\n        Args:\n            model (InvertedTransformer): The trained model instance.\n            data_paths (dict): Paths to datasets (train/val/test).\n            dataset_split (str): 'val' or 'test'.\n            config_path (str): Path to config.yaml file.\n            device (str): 'cpu' or 'cuda'.\n            attention_maps (bool): Whether to visualize attention weights.\n            forecast_plots (bool): Whether to plot predicted series vs true.\n            num_samples_to_plot (int): Number of samples to visualize.",
+        "file": "evaluation.py"
+      },
+      {
+        "component": "model.py:LayerNorm",
+        "description": "Implements Layer Normalization over the feature dimension.",
+        "file": "model.py"
+      },
+      {
+        "component": "model.py:MLP",
+        "description": "Multi-Layer Perceptron with configurable layers and activations.",
+        "file": "model.py"
+      },
+      {
+        "component": "model.py:MultiHeadAttention",
+        "description": "Multi-Head Attention module over variate tokens (sequence length = number of variates).",
+        "file": "model.py"
+      },
+      {
+        "component": "model.py:FeedForwardNetwork",
+        "description": "FFN module with two linear layers and activation.",
+        "file": "model.py"
+      },
+      {
+        "component": "model.py:__init__",
+        "description": "Multi-Layer Perceptron with configurable layers and activations.",
+        "file": "model.py"
+      }
+    ],
+    "The provided information does not include specific paper sections. Please provide the relevant paper sections to proceed with the analysis.": [
+      {
+        "component": "dataset_loader.py:__init__",
+        "description": "Initialize DatasetLoader.\n\n        Args:\n            data_paths (dict): Dictionary with keys 'train', 'val', 'test' mapping to dataset file paths.\n            seq_len (int): Length of input sequence (T).\n            pred_len (int): Length of prediction horizon (S).\n            variate_normalization (bool): Whether to normalize variates independently.",
+        "file": "dataset_loader.py"
+      }
+    ],
+    "The provided paper sections are not sufficient to link with the code component. Please provide more detailed sections such as 'Methodology'": [
+      {
+        "component": "evaluation.py:Evaluation",
+        "description": "Class: Evaluation\n    Purpose:\n        Load a trained iTransformer model, run inference on validation or test datasets,\n        compute metrics (MSE, MAE), and visualize attention maps and forecasted series.",
+        "file": "evaluation.py"
+      }
+    ],
+    "'Results'": [
+      {
+        "component": "evaluation.py:Evaluation",
+        "description": "Class: Evaluation\n    Purpose:\n        Load a trained iTransformer model, run inference on validation or test datasets,\n        compute metrics (MSE, MAE), and visualize attention maps and forecasted series.",
+        "file": "evaluation.py"
+      }
+    ],
+    "'Discussion'": [
+      {
+        "component": "evaluation.py:Evaluation",
+        "description": "Class: Evaluation\n    Purpose:\n        Load a trained iTransformer model, run inference on validation or test datasets,\n        compute metrics (MSE, MAE), and visualize attention maps and forecasted series.",
+        "file": "evaluation.py"
+      }
+    ],
+    "'Model Evaluation'": [
+      {
+        "component": "evaluation.py:Evaluation",
+        "description": "Class: Evaluation\n    Purpose:\n        Load a trained iTransformer model, run inference on validation or test datasets,\n        compute metrics (MSE, MAE), and visualize attention maps and forecasted series.",
+        "file": "evaluation.py"
+      }
+    ],
+    "'Experimental Setup'": [
+      {
+        "component": "evaluation.py:Evaluation",
+        "description": "Class: Evaluation\n    Purpose:\n        Load a trained iTransformer model, run inference on validation or test datasets,\n        compute metrics (MSE, MAE), and visualize attention maps and forecasted series.",
+        "file": "evaluation.py"
+      }
+    ],
+    "The provided paper sections are not sufficient to link with the given code component. Please provide more detailed sections such as 'Methodology'": [
+      {
+        "component": "evaluation.py:__init__",
+        "description": "Initialize Evaluation object.\n\n        Args:\n            model (InvertedTransformer): The trained model instance.\n            data_paths (dict): Paths to datasets (train/val/test).\n            dataset_split (str): 'val' or 'test'.\n            config_path (str): Path to config.yaml file.\n            device (str): 'cpu' or 'cuda'.\n            attention_maps (bool): Whether to visualize attention weights.\n            forecast_plots (bool): Whether to plot predicted series vs true.\n            num_samples_to_plot (int): Number of samples to visualize.",
+        "file": "evaluation.py"
+      }
+    ],
+    "'Experiment Setup'": [
+      {
+        "component": "evaluation.py:__init__",
+        "description": "Initialize Evaluation object.\n\n        Args:\n            model (InvertedTransformer): The trained model instance.\n            data_paths (dict): Paths to datasets (train/val/test).\n            dataset_split (str): 'val' or 'test'.\n            config_path (str): Path to config.yaml file.\n            device (str): 'cpu' or 'cuda'.\n            attention_maps (bool): Whether to visualize attention weights.\n            forecast_plots (bool): Whether to plot predicted series vs true.\n            num_samples_to_plot (int): Number of samples to visualize.",
+        "file": "evaluation.py"
+      }
+    ],
+    "'Results and Discussion'": [
+      {
+        "component": "evaluation.py:__init__",
+        "description": "Initialize Evaluation object.\n\n        Args:\n            model (InvertedTransformer): The trained model instance.\n            data_paths (dict): Paths to datasets (train/val/test).\n            dataset_split (str): 'val' or 'test'.\n            config_path (str): Path to config.yaml file.\n            device (str): 'cpu' or 'cuda'.\n            attention_maps (bool): Whether to visualize attention weights.\n            forecast_plots (bool): Whether to plot predicted series vs true.\n            num_samples_to_plot (int): Number of samples to visualize.",
+        "file": "evaluation.py"
+      }
+    ],
+    "The provided information is insufficient to determine the most relevant paper sections for the code component. Please provide more details about the function in the main.py file and its purpose.": [
+      {
+        "component": "main.py:main",
+        "description": "",
+        "file": "main.py"
+      }
+    ],
+    "The provided paper sections are not sufficient to link with the given code component. Please provide more relevant paper sections such as \"Methodology\"": [
+      {
+        "component": "model.py:LayerNorm",
+        "description": "Implements Layer Normalization over the feature dimension.",
+        "file": "model.py"
+      }
+    ],
+    "\"Implementation Details\"": [
+      {
+        "component": "model.py:LayerNorm",
+        "description": "Implements Layer Normalization over the feature dimension.",
+        "file": "model.py"
+      },
+      {
+        "component": "model.py:MLP",
+        "description": "Multi-Layer Perceptron with configurable layers and activations.",
+        "file": "model.py"
+      },
+      {
+        "component": "model.py:FeedForwardNetwork",
+        "description": "FFN module with two linear layers and activation.",
+        "file": "model.py"
+      },
+      {
+        "component": "model.py:__init__",
+        "description": "Multi-Layer Perceptron with configurable layers and activations.",
+        "file": "model.py"
+      }
+    ],
+    "\"Model Architecture\"": [
+      {
+        "component": "model.py:LayerNorm",
+        "description": "Implements Layer Normalization over the feature dimension.",
+        "file": "model.py"
+      },
+      {
+        "component": "model.py:MLP",
+        "description": "Multi-Layer Perceptron with configurable layers and activations.",
+        "file": "model.py"
+      },
+      {
+        "component": "model.py:FeedForwardNetwork",
+        "description": "FFN module with two linear layers and activation.",
+        "file": "model.py"
+      },
+      {
+        "component": "model.py:__init__",
+        "description": "Multi-Layer Perceptron with configurable layers and activations.",
+        "file": "model.py"
+      }
+    ],
+    "The provided paper sections are not sufficient to link with the given code component. Please provide more relevant paper sections such as 'Methodology'": [
+      {
+        "component": "model.py:MultiHeadAttention",
+        "description": "Multi-Head Attention module over variate tokens (sequence length = number of variates).",
+        "file": "model.py"
+      }
+    ],
+    "'Implementation Details'": [
+      {
+        "component": "model.py:MultiHeadAttention",
+        "description": "Multi-Head Attention module over variate tokens (sequence length = number of variates).",
+        "file": "model.py"
+      }
+    ],
+    "'Model Architecture'": [
+      {
+        "component": "model.py:MultiHeadAttention",
+        "description": "Multi-Head Attention module over variate tokens (sequence length = number of variates).",
+        "file": "model.py"
+      }
+    ],
+    "The provided paper sections are not sufficient to link with the given code component. Please provide more detailed sections of the paper.": [
+      {
+        "component": "model.py:TransformLayer",
+        "description": "Single transformer layer (attention + FFN) with residual and variate-wise normalization.",
+        "file": "model.py"
+      },
+      {
+        "component": "trainer.py:Trainer",
+        "description": "Class: Trainer\n    Purpose:\n        Manage the training loop for the InvertedTransformer model.\n        Handles per-epoch training, logging, validation, and checkpointing.",
+        "file": "trainer.py"
+      }
+    ],
+    "The provided information does not include any paper sections. Please provide the relevant paper sections to proceed.": [
+      {
+        "component": "model.py:InvertedTransformer",
+        "description": "Inverted Transformer for multivariate time series forecasting.\n    Embeds each variate series independently, models multivariate correlations via attention\n    over variates, and learns series representations via FFN.",
+        "file": "model.py"
+      }
+    ],
+    "The code component provided does not match with the given paper section. Please provide relevant paper sections.": [
+      {
+        "component": "trainer.py:__init__",
+        "description": "Initialize the trainer.\n\n        Args:\n            model (torch.nn.Module): The model to train.\n            optimizer (torch.optim.Optimizer): Optimizer instance.\n            loss_fn (callable): Loss function, e.g., nn.MSELoss().\n            data_loader (Any): Dataset loader object providing get_*__batches methods.\n            device (str): Device to run computation on ('cpu' or 'cuda').\n            config (dict): Configuration dictionary, optional, including training hyperparams.",
+        "file": "trainer.py"
+      }
+    ]
+  },
+  "paper_sections": [
+    {
+      "section": "Abstract",
+      "text": "Yong Liu\u2217, Tengge Hu\u2217, Haoran Zhang\u2217, Haixu Wu, Shiyu Wang\u00a7, Lintao $\\mathbf { M a } ^ { \\ S }$ , Mingsheng LongB",
+      "ontology": "abstract"
+    }
+  ],
+  "coverage_score": 23.0
+}

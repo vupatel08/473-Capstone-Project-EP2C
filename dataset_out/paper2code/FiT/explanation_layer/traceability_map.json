@@ -1,0 +1,734 @@
+{
+  "code_to_paper": {
+    "dataset_loader.py:DatasetLoader": [
+      "Dataset Preparation",
+      "Methodology",
+      "Experiment Setup"
+    ],
+    "dataset_loader.py:_load_dataset": [
+      "The paper sections are not properly provided. Please provide the correct paper sections to proceed."
+    ],
+    "diffusion_pipeline.py:DiffusionSampler": [
+      "Without specific section names",
+      "it's impossible to accurately link the code component to the paper sections. However",
+      "typically",
+      "sections like \"Methodology\"",
+      "\"Implementation Details\"",
+      "or \"Experimental Setup\" might contain relevant information about the code component."
+    ],
+    "diffusion_pipeline.py:_get_schedule": [
+      "Without more specific section titles",
+      "it's impossible to accurately link the code component to the paper sections. Please provide more detailed section titles."
+    ],
+    "evaluation.py:InceptionFeatureExtractor": [
+      "The provided information is insufficient to determine the most relevant paper sections for the code component. Please provide more details about the code component and the paper sections."
+    ],
+    "evaluation.py:__init__": [
+      "As an AI",
+      "I need more specific information about the code component and the paper sections to provide an accurate answer. However",
+      "typically",
+      "a file named \"evaluation.py\" might be most relevant to sections like \"Methodology\"",
+      "\"Results\"",
+      "\"Evaluation\"",
+      "or \"Experiment\"."
+    ],
+    "evaluation.py:extract_features": [
+      "The paper sections are not clearly defined in the provided information. Please provide the titles of the paper sections."
+    ],
+    "evaluation.py:compute_mean_covariance": [
+      "Without more specific information about the paper sections",
+      "it's hard to accurately determine which sections are most relevant to the code component. However",
+      "based on the code's function",
+      "the following sections could potentially be relevant:\n\n- Methodology/Methods\n- Results/Analysis\n- Data Preprocessing/Feature Extraction"
+    ],
+    "evaluation.py:calculate_fid": [
+      "Without specific section names",
+      "it's hard to provide an accurate answer. However",
+      "based on the code component's description",
+      "the most relevant sections would likely be something like \"Methodology\"",
+      "\"Evaluation\"",
+      "or \"Results and Discussion\"."
+    ],
+    "evaluation.py:compute_fid": [
+      "\"Methodology\"",
+      "\"Experiment Results\"",
+      "\"Evaluation Metrics\""
+    ],
+    "evaluation.py:compute_inception_score": [
+      "The paper sections are not clearly defined in the provided information. However",
+      "based on the code component",
+      "the most relevant sections could be \"Methodology\"",
+      "\"Results and Discussion\"",
+      "and \"Evaluation Metrics\"."
+    ],
+    "evaluation.py:compute_precision_recall": [
+      "Without the full list of paper sections",
+      "it's hard to provide an accurate answer. However",
+      "based on the code component",
+      "the most relevant sections could be \"Methodology\"",
+      "\"Evaluation\"",
+      "\"Results and Discussion\"."
+    ],
+    "evaluation.py:evaluate_metrics": [
+      "Evaluation",
+      "Results and Discussion",
+      "Methodology"
+    ],
+    "main.py:EMAModel": [
+      "The provided information is insufficient to determine the most relevant paper sections for the code component. Please provide more details about the code component and the paper sections."
+    ],
+    "main.py:main": [
+      "The provided information is insufficient to determine the most relevant paper sections for the code component. Please provide more details about the function in the main.py file and its purpose."
+    ],
+    "model.py:SwiGLU": [
+      "Without specific section names",
+      "it's hard to provide an accurate answer. However",
+      "based on the code description",
+      "the most relevant sections could be \"Methodology\"",
+      "\"Model Implementation\"",
+      "\"Transformer FFN Blocks\"",
+      "or \"SwiGLU Activation Module\". Please provide the actual section names for a more accurate match."
+    ],
+    "model.py:AttentionLayer": [
+      "The paper sections are not provided in the question. Please provide the paper sections to proceed."
+    ],
+    "model.py:FiTTransformer": [
+      "Methodology",
+      "Implementation Details",
+      "Experiment Setup"
+    ],
+    "model.py:__init__": [
+      "Without more specific section titles",
+      "it's hard to accurately determine the most relevant sections for the given code component. However",
+      "typically",
+      "sections like \"Methodology\"",
+      "\"Implementation Details\"",
+      "\"Model Architecture\"",
+      "or \"Experimental Setup\" might contain details about the function described in the code. Please provide more detailed section titles for a more accurate analysis."
+    ],
+    "model.py:layer_self_attn_with_rotary": [
+      "Without specific section names",
+      "it's impossible to accurately link the code component to the paper sections. However",
+      "typically",
+      "sections like \"Methodology\"",
+      "\"Implementation Details\"",
+      "\"Model Architecture\"",
+      "or \"Experimental Setup\" could be relevant for a code component like this."
+    ],
+    "positional_encoding.py:Decoupled2DRoPE": [
+      "Without specific section names related to the code component",
+      "it's impossible to accurately identify the most relevant sections. However",
+      "typically",
+      "sections like \"Methodology\"",
+      "\"Implementation Details\"",
+      "or \"Experimental Setup\" might contain relevant information about a class implementing 2D rotary position embeddings. Please provide the actual section names for a more accurate answer."
+    ],
+    "positional_encoding.py:_initialize_bases": [
+      "Without the specific titles of the paper sections",
+      "it's impossible to accurately identify the most relevant sections for the given code component. However",
+      "typically",
+      "sections like \"Methodology\"",
+      "\"Implementation Details\"",
+      "\"Experimental Setup\" or \"Results and Discussion\" might contain relevant information about the code component. Please provide the actual titles of the paper sections for a more accurate analysis."
+    ],
+    "trainer.py:EMAModel": [
+      "As an AI",
+      "I need more specific information about the code component and the paper sections to provide an accurate analysis. The provided information does not give enough context to determine the relevance of the paper sections to the code component. Please provide more details about the code in 'trainer.py' and the content of the paper sections."
+    ],
+    "trainer.py:lr_lambda": [
+      "As an AI",
+      "I need more specific information about the function in the file \"trainer.py\" and its purpose to accurately link it to the relevant paper sections. However",
+      "the provided information does not include any details about the function or the purpose of the file. Please provide more details."
+    ]
+  },
+  "paper_to_code": {
+    "Dataset Preparation": [
+      {
+        "component": "dataset_loader.py:DatasetLoader",
+        "description": "Initializes the DatasetLoader for ImageNet.\n\n        Args:\n            dataset_path (str): Root directory of ImageNet dataset.\n            resolution (Tuple[int, int]): Target resolution (H, W) for evaluation; used for center cropping.\n            split (str): 'train' or 'val' (validation).\n            short_side (int): The size the shortest side will be resized to during training.\n            max_resolution_constraint (Tuple[int, int]): Max allowed H x W for images, used during evaluation.\n            is_training (bool): Whether dataset is for training or evaluation.",
+        "file": "dataset_loader.py"
+      }
+    ],
+    "Methodology": [
+      {
+        "component": "dataset_loader.py:DatasetLoader",
+        "description": "Initializes the DatasetLoader for ImageNet.\n\n        Args:\n            dataset_path (str): Root directory of ImageNet dataset.\n            resolution (Tuple[int, int]): Target resolution (H, W) for evaluation; used for center cropping.\n            split (str): 'train' or 'val' (validation).\n            short_side (int): The size the shortest side will be resized to during training.\n            max_resolution_constraint (Tuple[int, int]): Max allowed H x W for images, used during evaluation.\n            is_training (bool): Whether dataset is for training or evaluation.",
+        "file": "dataset_loader.py"
+      },
+      {
+        "component": "evaluation.py:evaluate_metrics",
+        "description": "Compute all metrics: FID, IS, Precision, Recall.",
+        "file": "evaluation.py"
+      },
+      {
+        "component": "model.py:FiTTransformer",
+        "description": "Initialize the FiT backbone transformer.\n        Args:\n            config (dict): configuration dictionary for architecture.\n            max_resolution (Tuple[int, int]): maximum resolution for training.",
+        "file": "model.py"
+      }
+    ],
+    "Experiment Setup": [
+      {
+        "component": "dataset_loader.py:DatasetLoader",
+        "description": "Initializes the DatasetLoader for ImageNet.\n\n        Args:\n            dataset_path (str): Root directory of ImageNet dataset.\n            resolution (Tuple[int, int]): Target resolution (H, W) for evaluation; used for center cropping.\n            split (str): 'train' or 'val' (validation).\n            short_side (int): The size the shortest side will be resized to during training.\n            max_resolution_constraint (Tuple[int, int]): Max allowed H x W for images, used during evaluation.\n            is_training (bool): Whether dataset is for training or evaluation.",
+        "file": "dataset_loader.py"
+      },
+      {
+        "component": "model.py:FiTTransformer",
+        "description": "Initialize the FiT backbone transformer.\n        Args:\n            config (dict): configuration dictionary for architecture.\n            max_resolution (Tuple[int, int]): maximum resolution for training.",
+        "file": "model.py"
+      }
+    ],
+    "The paper sections are not properly provided. Please provide the correct paper sections to proceed.": [
+      {
+        "component": "dataset_loader.py:_load_dataset",
+        "description": "Defines the transformation pipeline based on whether it's training or evaluation.",
+        "file": "dataset_loader.py"
+      }
+    ],
+    "Without specific section names": [
+      {
+        "component": "diffusion_pipeline.py:DiffusionSampler",
+        "description": "Implements the core diffusion sampling process for FiT.\n    Supports flexible resolution inference with dynamic rotary bases scaling\n    and guidance.",
+        "file": "diffusion_pipeline.py"
+      },
+      {
+        "component": "evaluation.py:calculate_fid",
+        "description": "Calculate Frechet Inception Distance between two distributions.",
+        "file": "evaluation.py"
+      },
+      {
+        "component": "model.py:SwiGLU",
+        "description": "SwiGLU activation module as used in transformer FFN blocks.",
+        "file": "model.py"
+      },
+      {
+        "component": "model.py:layer_self_attn_with_rotary",
+        "description": "Perform attention within a layer, applying rotary embeddings.",
+        "file": "model.py"
+      }
+    ],
+    "it's impossible to accurately link the code component to the paper sections. However": [
+      {
+        "component": "diffusion_pipeline.py:DiffusionSampler",
+        "description": "Implements the core diffusion sampling process for FiT.\n    Supports flexible resolution inference with dynamic rotary bases scaling\n    and guidance.",
+        "file": "diffusion_pipeline.py"
+      },
+      {
+        "component": "model.py:layer_self_attn_with_rotary",
+        "description": "Perform attention within a layer, applying rotary embeddings.",
+        "file": "model.py"
+      }
+    ],
+    "typically": [
+      {
+        "component": "diffusion_pipeline.py:DiffusionSampler",
+        "description": "Implements the core diffusion sampling process for FiT.\n    Supports flexible resolution inference with dynamic rotary bases scaling\n    and guidance.",
+        "file": "diffusion_pipeline.py"
+      },
+      {
+        "component": "evaluation.py:__init__",
+        "description": "",
+        "file": "evaluation.py"
+      },
+      {
+        "component": "model.py:__init__",
+        "description": "Applies SwiGLU activation: (xW) * \u03c3(xV)",
+        "file": "model.py"
+      },
+      {
+        "component": "model.py:layer_self_attn_with_rotary",
+        "description": "Perform attention within a layer, applying rotary embeddings.",
+        "file": "model.py"
+      },
+      {
+        "component": "positional_encoding.py:Decoupled2DRoPE",
+        "description": "Implements decoupled 2D rotary position embeddings with support for resolution\n    extrapolation methods: NTK-aware, YaRN, or direct.",
+        "file": "positional_encoding.py"
+      },
+      {
+        "component": "positional_encoding.py:_initialize_bases",
+        "description": "Initializes the rotary bases for height and width at training resolution.",
+        "file": "positional_encoding.py"
+      }
+    ],
+    "sections like \"Methodology\"": [
+      {
+        "component": "diffusion_pipeline.py:DiffusionSampler",
+        "description": "Implements the core diffusion sampling process for FiT.\n    Supports flexible resolution inference with dynamic rotary bases scaling\n    and guidance.",
+        "file": "diffusion_pipeline.py"
+      },
+      {
+        "component": "model.py:__init__",
+        "description": "Applies SwiGLU activation: (xW) * \u03c3(xV)",
+        "file": "model.py"
+      },
+      {
+        "component": "model.py:layer_self_attn_with_rotary",
+        "description": "Perform attention within a layer, applying rotary embeddings.",
+        "file": "model.py"
+      },
+      {
+        "component": "positional_encoding.py:Decoupled2DRoPE",
+        "description": "Implements decoupled 2D rotary position embeddings with support for resolution\n    extrapolation methods: NTK-aware, YaRN, or direct.",
+        "file": "positional_encoding.py"
+      },
+      {
+        "component": "positional_encoding.py:_initialize_bases",
+        "description": "Initializes the rotary bases for height and width at training resolution.",
+        "file": "positional_encoding.py"
+      }
+    ],
+    "\"Implementation Details\"": [
+      {
+        "component": "diffusion_pipeline.py:DiffusionSampler",
+        "description": "Implements the core diffusion sampling process for FiT.\n    Supports flexible resolution inference with dynamic rotary bases scaling\n    and guidance.",
+        "file": "diffusion_pipeline.py"
+      },
+      {
+        "component": "model.py:__init__",
+        "description": "Applies SwiGLU activation: (xW) * \u03c3(xV)",
+        "file": "model.py"
+      },
+      {
+        "component": "model.py:layer_self_attn_with_rotary",
+        "description": "Perform attention within a layer, applying rotary embeddings.",
+        "file": "model.py"
+      },
+      {
+        "component": "positional_encoding.py:Decoupled2DRoPE",
+        "description": "Implements decoupled 2D rotary position embeddings with support for resolution\n    extrapolation methods: NTK-aware, YaRN, or direct.",
+        "file": "positional_encoding.py"
+      },
+      {
+        "component": "positional_encoding.py:_initialize_bases",
+        "description": "Initializes the rotary bases for height and width at training resolution.",
+        "file": "positional_encoding.py"
+      }
+    ],
+    "or \"Experimental Setup\" might contain relevant information about the code component.": [
+      {
+        "component": "diffusion_pipeline.py:DiffusionSampler",
+        "description": "Implements the core diffusion sampling process for FiT.\n    Supports flexible resolution inference with dynamic rotary bases scaling\n    and guidance.",
+        "file": "diffusion_pipeline.py"
+      }
+    ],
+    "Without more specific section titles": [
+      {
+        "component": "diffusion_pipeline.py:_get_schedule",
+        "description": "Return cumulative alpha schedule for diffusion.\n        For simplicity, we implement linear or cosine schedule.",
+        "file": "diffusion_pipeline.py"
+      },
+      {
+        "component": "model.py:__init__",
+        "description": "Applies SwiGLU activation: (xW) * \u03c3(xV)",
+        "file": "model.py"
+      }
+    ],
+    "it's impossible to accurately link the code component to the paper sections. Please provide more detailed section titles.": [
+      {
+        "component": "diffusion_pipeline.py:_get_schedule",
+        "description": "Return cumulative alpha schedule for diffusion.\n        For simplicity, we implement linear or cosine schedule.",
+        "file": "diffusion_pipeline.py"
+      }
+    ],
+    "The provided information is insufficient to determine the most relevant paper sections for the code component. Please provide more details about the code component and the paper sections.": [
+      {
+        "component": "evaluation.py:InceptionFeatureExtractor",
+        "description": "",
+        "file": "evaluation.py"
+      },
+      {
+        "component": "main.py:EMAModel",
+        "description": "",
+        "file": "main.py"
+      }
+    ],
+    "As an AI": [
+      {
+        "component": "evaluation.py:__init__",
+        "description": "",
+        "file": "evaluation.py"
+      },
+      {
+        "component": "trainer.py:EMAModel",
+        "description": "",
+        "file": "trainer.py"
+      },
+      {
+        "component": "trainer.py:lr_lambda",
+        "description": "",
+        "file": "trainer.py"
+      }
+    ],
+    "I need more specific information about the code component and the paper sections to provide an accurate answer. However": [
+      {
+        "component": "evaluation.py:__init__",
+        "description": "",
+        "file": "evaluation.py"
+      }
+    ],
+    "a file named \"evaluation.py\" might be most relevant to sections like \"Methodology\"": [
+      {
+        "component": "evaluation.py:__init__",
+        "description": "",
+        "file": "evaluation.py"
+      }
+    ],
+    "\"Results\"": [
+      {
+        "component": "evaluation.py:__init__",
+        "description": "",
+        "file": "evaluation.py"
+      }
+    ],
+    "\"Evaluation\"": [
+      {
+        "component": "evaluation.py:__init__",
+        "description": "",
+        "file": "evaluation.py"
+      },
+      {
+        "component": "evaluation.py:calculate_fid",
+        "description": "Calculate Frechet Inception Distance between two distributions.",
+        "file": "evaluation.py"
+      },
+      {
+        "component": "evaluation.py:compute_precision_recall",
+        "description": "Compute Precision and Recall between generated and real features.\n    Implementation as in Kynk\u00e4\u00e4nniemi et al., 2019\n    Args:\n        generated_features: numpy array (N, D)\n        real_features: numpy array (M, D)\n        k_neighbors: number of neighbors for k-NN coverage\n    Returns:\n        tuple: (precision, recall)",
+        "file": "evaluation.py"
+      }
+    ],
+    "or \"Experiment\".": [
+      {
+        "component": "evaluation.py:__init__",
+        "description": "",
+        "file": "evaluation.py"
+      }
+    ],
+    "The paper sections are not clearly defined in the provided information. Please provide the titles of the paper sections.": [
+      {
+        "component": "evaluation.py:extract_features",
+        "description": "Extract features (activations from pool3 layer) for a list of images.\n    Args:\n        images (List or np.ndarray): list of PIL Images or numpy arrays in [0,1]\n        batch_size (int): batch size for processing\n    Returns:\n        numpy.ndarray: shape (N, feature_dim)",
+        "file": "evaluation.py"
+      }
+    ],
+    "Without more specific information about the paper sections": [
+      {
+        "component": "evaluation.py:compute_mean_covariance",
+        "description": "Compute mean and covariance of features.\n    Args:\n        features: numpy array (N, D)\n    Returns:\n        mean: (D,)\n        cov: (D, D)",
+        "file": "evaluation.py"
+      }
+    ],
+    "it's hard to accurately determine which sections are most relevant to the code component. However": [
+      {
+        "component": "evaluation.py:compute_mean_covariance",
+        "description": "Compute mean and covariance of features.\n    Args:\n        features: numpy array (N, D)\n    Returns:\n        mean: (D,)\n        cov: (D, D)",
+        "file": "evaluation.py"
+      }
+    ],
+    "based on the code's function": [
+      {
+        "component": "evaluation.py:compute_mean_covariance",
+        "description": "Compute mean and covariance of features.\n    Args:\n        features: numpy array (N, D)\n    Returns:\n        mean: (D,)\n        cov: (D, D)",
+        "file": "evaluation.py"
+      }
+    ],
+    "the following sections could potentially be relevant:\n\n- Methodology/Methods\n- Results/Analysis\n- Data Preprocessing/Feature Extraction": [
+      {
+        "component": "evaluation.py:compute_mean_covariance",
+        "description": "Compute mean and covariance of features.\n    Args:\n        features: numpy array (N, D)\n    Returns:\n        mean: (D,)\n        cov: (D, D)",
+        "file": "evaluation.py"
+      }
+    ],
+    "it's hard to provide an accurate answer. However": [
+      {
+        "component": "evaluation.py:calculate_fid",
+        "description": "Calculate Frechet Inception Distance between two distributions.",
+        "file": "evaluation.py"
+      },
+      {
+        "component": "evaluation.py:compute_precision_recall",
+        "description": "Compute Precision and Recall between generated and real features.\n    Implementation as in Kynk\u00e4\u00e4nniemi et al., 2019\n    Args:\n        generated_features: numpy array (N, D)\n        real_features: numpy array (M, D)\n        k_neighbors: number of neighbors for k-NN coverage\n    Returns:\n        tuple: (precision, recall)",
+        "file": "evaluation.py"
+      },
+      {
+        "component": "model.py:SwiGLU",
+        "description": "SwiGLU activation module as used in transformer FFN blocks.",
+        "file": "model.py"
+      }
+    ],
+    "based on the code component's description": [
+      {
+        "component": "evaluation.py:calculate_fid",
+        "description": "Calculate Frechet Inception Distance between two distributions.",
+        "file": "evaluation.py"
+      }
+    ],
+    "the most relevant sections would likely be something like \"Methodology\"": [
+      {
+        "component": "evaluation.py:calculate_fid",
+        "description": "Calculate Frechet Inception Distance between two distributions.",
+        "file": "evaluation.py"
+      }
+    ],
+    "or \"Results and Discussion\".": [
+      {
+        "component": "evaluation.py:calculate_fid",
+        "description": "Calculate Frechet Inception Distance between two distributions.",
+        "file": "evaluation.py"
+      }
+    ],
+    "\"Methodology\"": [
+      {
+        "component": "evaluation.py:compute_fid",
+        "description": "Compute FID score between generated images and reference images.\n    Args:\n        generated_images: list of PIL images or numpy arrays in [0,1]\n        reference_images: list of images in the same format\n        batch_size: batch size for feature extraction\n    Returns:\n        float: FID score",
+        "file": "evaluation.py"
+      }
+    ],
+    "\"Experiment Results\"": [
+      {
+        "component": "evaluation.py:compute_fid",
+        "description": "Compute FID score between generated images and reference images.\n    Args:\n        generated_images: list of PIL images or numpy arrays in [0,1]\n        reference_images: list of images in the same format\n        batch_size: batch size for feature extraction\n    Returns:\n        float: FID score",
+        "file": "evaluation.py"
+      }
+    ],
+    "\"Evaluation Metrics\"": [
+      {
+        "component": "evaluation.py:compute_fid",
+        "description": "Compute FID score between generated images and reference images.\n    Args:\n        generated_images: list of PIL images or numpy arrays in [0,1]\n        reference_images: list of images in the same format\n        batch_size: batch size for feature extraction\n    Returns:\n        float: FID score",
+        "file": "evaluation.py"
+      }
+    ],
+    "The paper sections are not clearly defined in the provided information. However": [
+      {
+        "component": "evaluation.py:compute_inception_score",
+        "description": "Compute the Inception Score (IS) for generated images.\n    Args:\n        generated_images: list of PIL images or np arrays\n        batch_size: batch size\n        splits: number of splits for estimation\n    Returns:\n        float: average IS",
+        "file": "evaluation.py"
+      }
+    ],
+    "based on the code component": [
+      {
+        "component": "evaluation.py:compute_inception_score",
+        "description": "Compute the Inception Score (IS) for generated images.\n    Args:\n        generated_images: list of PIL images or np arrays\n        batch_size: batch size\n        splits: number of splits for estimation\n    Returns:\n        float: average IS",
+        "file": "evaluation.py"
+      },
+      {
+        "component": "evaluation.py:compute_precision_recall",
+        "description": "Compute Precision and Recall between generated and real features.\n    Implementation as in Kynk\u00e4\u00e4nniemi et al., 2019\n    Args:\n        generated_features: numpy array (N, D)\n        real_features: numpy array (M, D)\n        k_neighbors: number of neighbors for k-NN coverage\n    Returns:\n        tuple: (precision, recall)",
+        "file": "evaluation.py"
+      }
+    ],
+    "the most relevant sections could be \"Methodology\"": [
+      {
+        "component": "evaluation.py:compute_inception_score",
+        "description": "Compute the Inception Score (IS) for generated images.\n    Args:\n        generated_images: list of PIL images or np arrays\n        batch_size: batch size\n        splits: number of splits for estimation\n    Returns:\n        float: average IS",
+        "file": "evaluation.py"
+      },
+      {
+        "component": "evaluation.py:compute_precision_recall",
+        "description": "Compute Precision and Recall between generated and real features.\n    Implementation as in Kynk\u00e4\u00e4nniemi et al., 2019\n    Args:\n        generated_features: numpy array (N, D)\n        real_features: numpy array (M, D)\n        k_neighbors: number of neighbors for k-NN coverage\n    Returns:\n        tuple: (precision, recall)",
+        "file": "evaluation.py"
+      },
+      {
+        "component": "model.py:SwiGLU",
+        "description": "SwiGLU activation module as used in transformer FFN blocks.",
+        "file": "model.py"
+      }
+    ],
+    "\"Results and Discussion\"": [
+      {
+        "component": "evaluation.py:compute_inception_score",
+        "description": "Compute the Inception Score (IS) for generated images.\n    Args:\n        generated_images: list of PIL images or np arrays\n        batch_size: batch size\n        splits: number of splits for estimation\n    Returns:\n        float: average IS",
+        "file": "evaluation.py"
+      }
+    ],
+    "and \"Evaluation Metrics\".": [
+      {
+        "component": "evaluation.py:compute_inception_score",
+        "description": "Compute the Inception Score (IS) for generated images.\n    Args:\n        generated_images: list of PIL images or np arrays\n        batch_size: batch size\n        splits: number of splits for estimation\n    Returns:\n        float: average IS",
+        "file": "evaluation.py"
+      }
+    ],
+    "Without the full list of paper sections": [
+      {
+        "component": "evaluation.py:compute_precision_recall",
+        "description": "Compute Precision and Recall between generated and real features.\n    Implementation as in Kynk\u00e4\u00e4nniemi et al., 2019\n    Args:\n        generated_features: numpy array (N, D)\n        real_features: numpy array (M, D)\n        k_neighbors: number of neighbors for k-NN coverage\n    Returns:\n        tuple: (precision, recall)",
+        "file": "evaluation.py"
+      }
+    ],
+    "\"Results and Discussion\".": [
+      {
+        "component": "evaluation.py:compute_precision_recall",
+        "description": "Compute Precision and Recall between generated and real features.\n    Implementation as in Kynk\u00e4\u00e4nniemi et al., 2019\n    Args:\n        generated_features: numpy array (N, D)\n        real_features: numpy array (M, D)\n        k_neighbors: number of neighbors for k-NN coverage\n    Returns:\n        tuple: (precision, recall)",
+        "file": "evaluation.py"
+      }
+    ],
+    "Evaluation": [
+      {
+        "component": "evaluation.py:evaluate_metrics",
+        "description": "Compute all metrics: FID, IS, Precision, Recall.",
+        "file": "evaluation.py"
+      }
+    ],
+    "Results and Discussion": [
+      {
+        "component": "evaluation.py:evaluate_metrics",
+        "description": "Compute all metrics: FID, IS, Precision, Recall.",
+        "file": "evaluation.py"
+      }
+    ],
+    "The provided information is insufficient to determine the most relevant paper sections for the code component. Please provide more details about the function in the main.py file and its purpose.": [
+      {
+        "component": "main.py:main",
+        "description": "",
+        "file": "main.py"
+      }
+    ],
+    "based on the code description": [
+      {
+        "component": "model.py:SwiGLU",
+        "description": "SwiGLU activation module as used in transformer FFN blocks.",
+        "file": "model.py"
+      }
+    ],
+    "\"Model Implementation\"": [
+      {
+        "component": "model.py:SwiGLU",
+        "description": "SwiGLU activation module as used in transformer FFN blocks.",
+        "file": "model.py"
+      }
+    ],
+    "\"Transformer FFN Blocks\"": [
+      {
+        "component": "model.py:SwiGLU",
+        "description": "SwiGLU activation module as used in transformer FFN blocks.",
+        "file": "model.py"
+      }
+    ],
+    "or \"SwiGLU Activation Module\". Please provide the actual section names for a more accurate match.": [
+      {
+        "component": "model.py:SwiGLU",
+        "description": "SwiGLU activation module as used in transformer FFN blocks.",
+        "file": "model.py"
+      }
+    ],
+    "The paper sections are not provided in the question. Please provide the paper sections to proceed.": [
+      {
+        "component": "model.py:AttentionLayer",
+        "description": "Custom MultiHead Self-Attention with support for rotary positional embedding.",
+        "file": "model.py"
+      }
+    ],
+    "Implementation Details": [
+      {
+        "component": "model.py:FiTTransformer",
+        "description": "Initialize the FiT backbone transformer.\n        Args:\n            config (dict): configuration dictionary for architecture.\n            max_resolution (Tuple[int, int]): maximum resolution for training.",
+        "file": "model.py"
+      }
+    ],
+    "it's hard to accurately determine the most relevant sections for the given code component. However": [
+      {
+        "component": "model.py:__init__",
+        "description": "Applies SwiGLU activation: (xW) * \u03c3(xV)",
+        "file": "model.py"
+      }
+    ],
+    "\"Model Architecture\"": [
+      {
+        "component": "model.py:__init__",
+        "description": "Applies SwiGLU activation: (xW) * \u03c3(xV)",
+        "file": "model.py"
+      },
+      {
+        "component": "model.py:layer_self_attn_with_rotary",
+        "description": "Perform attention within a layer, applying rotary embeddings.",
+        "file": "model.py"
+      }
+    ],
+    "or \"Experimental Setup\" might contain details about the function described in the code. Please provide more detailed section titles for a more accurate analysis.": [
+      {
+        "component": "model.py:__init__",
+        "description": "Applies SwiGLU activation: (xW) * \u03c3(xV)",
+        "file": "model.py"
+      }
+    ],
+    "or \"Experimental Setup\" could be relevant for a code component like this.": [
+      {
+        "component": "model.py:layer_self_attn_with_rotary",
+        "description": "Perform attention within a layer, applying rotary embeddings.",
+        "file": "model.py"
+      }
+    ],
+    "Without specific section names related to the code component": [
+      {
+        "component": "positional_encoding.py:Decoupled2DRoPE",
+        "description": "Implements decoupled 2D rotary position embeddings with support for resolution\n    extrapolation methods: NTK-aware, YaRN, or direct.",
+        "file": "positional_encoding.py"
+      }
+    ],
+    "it's impossible to accurately identify the most relevant sections. However": [
+      {
+        "component": "positional_encoding.py:Decoupled2DRoPE",
+        "description": "Implements decoupled 2D rotary position embeddings with support for resolution\n    extrapolation methods: NTK-aware, YaRN, or direct.",
+        "file": "positional_encoding.py"
+      }
+    ],
+    "or \"Experimental Setup\" might contain relevant information about a class implementing 2D rotary position embeddings. Please provide the actual section names for a more accurate answer.": [
+      {
+        "component": "positional_encoding.py:Decoupled2DRoPE",
+        "description": "Implements decoupled 2D rotary position embeddings with support for resolution\n    extrapolation methods: NTK-aware, YaRN, or direct.",
+        "file": "positional_encoding.py"
+      }
+    ],
+    "Without the specific titles of the paper sections": [
+      {
+        "component": "positional_encoding.py:_initialize_bases",
+        "description": "Initializes the rotary bases for height and width at training resolution.",
+        "file": "positional_encoding.py"
+      }
+    ],
+    "it's impossible to accurately identify the most relevant sections for the given code component. However": [
+      {
+        "component": "positional_encoding.py:_initialize_bases",
+        "description": "Initializes the rotary bases for height and width at training resolution.",
+        "file": "positional_encoding.py"
+      }
+    ],
+    "\"Experimental Setup\" or \"Results and Discussion\" might contain relevant information about the code component. Please provide the actual titles of the paper sections for a more accurate analysis.": [
+      {
+        "component": "positional_encoding.py:_initialize_bases",
+        "description": "Initializes the rotary bases for height and width at training resolution.",
+        "file": "positional_encoding.py"
+      }
+    ],
+    "I need more specific information about the code component and the paper sections to provide an accurate analysis. The provided information does not give enough context to determine the relevance of the paper sections to the code component. Please provide more details about the code in 'trainer.py' and the content of the paper sections.": [
+      {
+        "component": "trainer.py:EMAModel",
+        "description": "",
+        "file": "trainer.py"
+      }
+    ],
+    "I need more specific information about the function in the file \"trainer.py\" and its purpose to accurately link it to the relevant paper sections. However": [
+      {
+        "component": "trainer.py:lr_lambda",
+        "description": "",
+        "file": "trainer.py"
+      }
+    ],
+    "the provided information does not include any details about the function or the purpose of the file. Please provide more details.": [
+      {
+        "component": "trainer.py:lr_lambda",
+        "description": "",
+        "file": "trainer.py"
+      }
+    ]
+  },
+  "paper_sections": [
+    {
+      "section": "Abstract",
+      "text": "Zeyu Lu 1 2 \\* Zidong Wang 1 3 \\* Di Huang 1 4 Chengyue Wu 5 Xihui Liu 5 Wanli Ouyang 1 Lei Bai 1",
+      "ontology": "abstract"
+    }
+  ],
+  "coverage_score": 60.0
+}

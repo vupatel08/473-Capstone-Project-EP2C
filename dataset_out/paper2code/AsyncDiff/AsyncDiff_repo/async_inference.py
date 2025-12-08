@@ -1,0 +1,260 @@
+## async_inference.py
+import torch
+import torch.nn as nn
+import torch.distributed as dist
+import threading
+import time
+from typing import List, Dict, Tuple, Optional
+
+from communication import Communication
+from dataset_loader import DatasetLoader
+from model import DiffusionComponent
+from utils import (
+    get_device_for_component,
+    generate_schedules,
+    estimate_model_time,
+    merge_hidden_states,
+    freeze_model_parameters,
+)
+from PIL import Image
+
+class AsyncScheduler:
+    """
+    Orchestrates the asynchronous, stride-aware diffusion denoising inference across multiple GPUs.
+    Implements warm-up, parallel steps, stride skipping, and inter-device communication,
+    aligning with the AsyncDiff methodology.
+    """
+
+    def __init__(
+        self,
+        model_params: Dict,
+        device_ids: List[int],
+        total_steps: int,
+        warmup_steps: int,
+        num_components: int,
+        stride: int,
+        dataset: DatasetLoader,
+        guidance_scale: float = 7.5,
+        num_threads: int = 1,
+    ):
+        """
+        Initialize the AsyncScheduler with configuration and required modules.
+
+        Args:
+            model_params (Dict): Parameters for the diffusion model.
+            device_ids (List[int]): List of GPU device IDs.
+            total_steps (int): Total diffusion steps T.
+            warmup_steps (int): Warm-up steps W.
+            num_components (int): N, number of model components.
+            stride (int): S, stride for stride denoising.
+            dataset (DatasetLoader): Dataset loader instance.
+            guidance_scale (float): Guidance scale for sampling.
+            num_threads (int): Number of parallel threads for component execution.
+        """
+        self.model_params = model_params
+        self.device_ids = device_ids
+        self.num_devices = len(device_ids)
+        self.total_steps = total_steps
+        self.warmup_steps = warmup_steps
+        self.N = num_components
+        self.S = stride
+        self.dataset = dataset
+        self.guidance_scale = guidance_scale
+        self.num_threads = num_threads
+
+        # Initialize communication primitives
+        self.comm = Communication()
+
+        # Initialize model components on assigned devices
+        self.components: List[DiffusionComponent] = []
+        self.device_managers: List['DeviceManager'] = []
+
+        # Load full model parameters and construct components
+        self._initialize_components()
+
+        # Initialize high similarity feature buffers
+        # For stride S, pre-allocate buffers
+        self.hidden_state_buffers: List[Optional[torch.Tensor]] = [None] * self.N
+
+        # Generate scheduling info: step-wise input and feature planning if necessary
+        self._prepare_schedules()
+
+        # Latency tracking if needed
+        self.latency_log: List[float] = []
+
+        # Device assignment for components
+        for idx, dev_id in enumerate(self.device_ids):
+            device = torch.device(f"cuda:{dev_id}")
+            manager = DeviceManager(device=device, component=self.components[idx])
+            self.device_managers.append(manager)
+
+    def _initialize_components(self):
+        """
+        Instantiate model components by dividing the full diffusion model.
+        Uses utils functions and model.py definitions.
+        """
+        # Assuming model_params contains pretrained model and layer division info
+        full_model = self.model_params.get('full_model', None)
+        if full_model is None:
+            raise ValueError("Full model must be provided in model_params as 'full_model'.")
+
+        # Use utils to split model into N components
+        layer_slices = generate_schedules(full_model, self.N)
+        self.components = []
+        for i in range(self.N):
+            comp = DiffusionComponent(
+                component_id=i,
+                model_params={
+                    'full_model': full_model,
+                    'layer_slices': layer_slices,
+                    'num_components': self.N,
+                }
+            )
+            # Freeze if desired
+            freeze_model_parameters(comp)
+            self.components.append(comp)
+
+    def _prepare_schedules(self):
+        """
+        Generate and store any scheduling or timing info needed for the denoising process.
+        """
+        # For simplicity, assuming linear schedule
+        self.time_schedule = list(reversed(range(1, self.total_steps + 1)))  # t decreasing from T to 1
+        # Store warm-up steps
+        self.warmup_time_steps = self.time_schedule[:self.warmup_steps]
+        self.inference_time_steps = self.time_schedule[self.warmup_steps:]
+
+    def warmup(self, data_loader):
+        """
+        Run initial warm-up steps sequentially to establish high similarity hidden states.
+        Args:
+            data_loader: DatasetLoader instance providing validation or input batch.
+        """
+        print("Starting warm-up phase...")
+        start_time = time.time()
+
+        for step_idx, t in enumerate(self.warmup_time_steps):
+            batch = next(iter(data_loader.load_data()[0]))  # Get a batch (assuming validation loader)
+            x_t = batch['noisy_input'].to(next(self.components[0].parameters()).device)
+
+            # Run each component sequentially on its device
+            for comp_idx, comp in enumerate(self.components):
+                # Each component runs forward with current x_t and stored high_sim_feature
+                with torch.no_grad():
+                    high_sim_feature = self.hidden_state_buffers[comp_idx] if self.hidden_state_buffers[comp_idx] is not None else torch.zeros_like(x_t)
+                    output = comp.forward(x_t, high_sim_feature)
+                    # Save new hidden state for subsequent use
+                    self.hidden_state_buffers[comp_idx] = output.detach()
+
+            # After each step, perform communication to share high similarity features
+            self.comm.broadcast_hidden_state(self.hidden_state_buffers[0], self.device_ids)
+            # Record latency
+            self.latency_log.append(time.time() - start_time)
+            start_time = time.time()
+        print("Warm-up phase completed in {:.2f} seconds.".format(sum(self.latency_log)))
+
+    def run_denoising(self):
+        """
+        Main function to execute asynchronous denoising with stride S using the configured schedule.
+        """
+        print("Starting asynchronous denoising with stride S={}".format(self.S))
+        start_time = time.time()
+
+        # Initialize buffers for broadcasted features at stride intervals
+        broadcast_buffer: List[Optional[torch.Tensor]] = [None] * self.N
+
+        # Run over all inference steps
+        for t_idx, t in enumerate(self.inference_time_steps):
+            # Prepare inputs for each component using high similarity approximation
+            inputs = []
+
+            # Conditions for stride: whether to broadcast new features
+            if t_idx % self.S == 0:
+                # Compute and broadcast new high similarity features for the block of steps
+                # For simplicity, use current t to run model components
+                batch = next(iter(self.dataset.load_data()[0]))
+                x_t = batch['noisy_input'].to(next(self.components[0].parameters()).device)
+
+                # Run each component to get hidden states
+                for comp_idx, comp in enumerate(self.components):
+                    with torch.no_grad():
+                        high_sim_feat = self.hidden_state_buffers[comp_idx] if self.hidden_state_buffers[comp_idx] is not None else torch.zeros_like(x_t)
+                        output = comp.forward(x_t, high_sim_feat)
+                        self.hidden_state_buffers[comp_idx] = output.detach()
+
+                # Broadcast these features across devices
+                self.comm.broadcast_hidden_state(self.hidden_state_buffers[0], self.device_ids)
+                # Save to buffer for stride
+                broadcast_buffer = self.hidden_state_buffers.copy()
+
+            else:
+                # For skipped steps, use cached high similarity features
+                for comp_idx, comp in enumerate(self.components):
+                    # Use previous broadcasted features as approximation
+                    self.components[comp_idx].set_hidden_state(broadcast_buffer[comp_idx])
+
+            # Run all components in parallel for current step
+            threads = []
+            outputs: List[torch.Tensor] = [None] * self.N
+
+            def run_component(idx: int):
+                device = self.device_managers[idx].device
+                with torch.cuda.device(device):
+                    comp = self.components[idx]
+                    # Input is the high similarity feature (cached or computed)
+                    input_tensor = self.hidden_state_buffers[idx] if self.hidden_state_buffers[idx] is not None else torch.zeros_like(x_t)
+                    out = comp.forward(input_tensor, input_tensor)
+                    outputs[idx] = out
+
+            # Launch threads for parallel execution
+            for i in range(self.N):
+                t_i = threading.Thread(target=run_component, args=(i,))
+                t_i.start()
+                threads.append(t_i)
+
+            # Wait for all components to finish
+            for t_i in threads:
+                t_i.join()
+
+            # After all components run, gather hidden states via communication
+            self.comm.broadcast_hidden_state(outputs[0], self.device_ids)
+            # Update buffers
+            for idx in range(self.N):
+                self.hidden_state_buffers[idx] = outputs[idx].detach()
+
+            # Optional: store intermediate results for evaluation or visualize
+
+        end_time = time.time()
+        total_time = end_time - start_time
+        print(f"Asynchronous denoising completed in {total_time:.2f} seconds.")
+
+    def execute(self, data_loader):
+        """
+        Run the complete inference pipeline: warm-up + main asynchronous denoising.
+        """
+        self.warmup(data_loader)
+        self.run_denoising()
+
+# Additional supporting class for device management
+class DeviceManager:
+    def __init__(self, device: torch.device, component: DiffusionComponent):
+        self.device = device
+        self.component = component
+
+    def run_forward(self, input_tensor: torch.Tensor) -> torch.Tensor:
+        """
+        Run the forward pass of the component on its device.
+        """
+        with torch.cuda.device(self.device):
+            output = self.component(input_tensor)
+        return output
+
+# Utility functions (for example, in utils.py):
+# def get_device_for_component(index: int, total_devices: int) -> torch.device
+# def generate_schedules(full_model, num_components)
+# def estimate_model_time(component: DiffusionComponent) -> float
+# def merge_hidden_states(states_list)
+# def freeze_model_parameters(model)
+
+# This implementation provides a high-level, flexible approach to orchestrate asynchronous, stride-aware
+# diffusion denoising inference using multi-GPU resources in accordance with AsyncDiff strategies.

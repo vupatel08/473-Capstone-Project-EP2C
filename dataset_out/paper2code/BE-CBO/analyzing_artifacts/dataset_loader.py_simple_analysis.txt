@@ -1,0 +1,135 @@
+**Logic Analysis for dataset_loader.py**
+
+---
+
+### Purpose:
+The `dataset_loader.py` module defines the `DatasetLoader` class, responsible for generating initial samples, loading or creating datasets, and evaluating sample points for both synthetic and real-world benchmark problems. It should support flexible dataset creation, sampling strategies, and evaluation procedures compatible with the experimental framework described in the paper.
+
+---
+
+### Core Responsibilities:
+1. **Initialization:**
+   - Input:
+     - `bounds`: a dictionary defining variable bounds for each dimension (including data type considerations for integer/continuous variables).
+     - `init_samples`: number of initial samples to generate.
+   - Actions:
+     - Store the bounds.
+     - Generate initial sample points within bounds.
+
+2. **Sample Generation:**
+   - Method:
+     - `initialize_samples() -> Tuple[np.ndarray, np.ndarray]`
+       - Generate `init_samples` points uniformly (e.g., Latin Hypercube Sampling or quasi-random Sobol sequences) within the variable bounds.
+     - For synthetic functions, generate samples purely within the bounds.
+     - For real-world datasets:
+       - Either load from pre-existing datasets or generate via sampling methods inside specified bounds.
+       - Handle continuous versus integer variables accordingly.
+   
+3. **Sample Evaluation:**
+   - Method:
+     - `get_evaluations(x: np.ndarray) -> Tuple[float, bool]`
+       - For *synthetic functions*:
+         - Evaluate the true objective function `f(x)` using the known analytical form.
+         - Evaluate the constraints `c(x)`, returning feasibility (boolean: `True` if feasible, `False` if infeasible).
+       - For *real-world benchmark problems*:
+         - Call the specific evaluation function or interface (possibly a simulation or surrogate model).
+         - Determine feasibility based on the constraints' evaluation.
+         - Note: when an evaluation determines infeasibility *before* measuring the objective, return no objective value or a special indicator (e.g., None or np.nan).
+   
+4. **Data Storage:**
+   - Maintain internal data structures:
+     - `X`: array of evaluated sample points (shape: n_eval x d)
+     - `Y`: array of results, which can be:
+       - Objective values for feasible points
+       - Feasibility labels (binary) for all evaluated points
+   - Update with new evaluations during Bayesian Optimization iterations.
+
+5. **Support for Different Problem Types:**
+   - Synthetic benchmarks:
+     - Pre-coded functions: Townsend, Simionescu, LSQ, Ackley functions.
+     - Functions are fully known; evaluation is straightforward.
+   - Real-world benchmarks:
+     - Load functions or evaluate via API, simulation, or specific routines.
+     - Handle specific variable types, constraints, and bounds as provided in the problem description.
+   
+6. **Handling Variable Types:**
+   - Some variables are *integer*: sample as floats within bounds, convert to int before evaluation.
+   - Mixed variables: ensure sampling generates valid data types.
+   
+7. **Sampling Strategy:**
+   - Use quasi-random sequences (Sobol) or Latin Hypercube Sampling for initial points.
+   - Ensure coverage across the variable domain.
+   - Maintain reproducibility by fixing or setting random seed accordingly (aligned with overall experiment seed).
+
+8. **Reproducibility & Seeds:**
+   - Accept an optional seed parameter to ensure consistent initial sampling per seed.
+   
+9. **Flexibility & Extensibility:**
+   - Design to accommodate new synthetic functions or real-world datasets with minimal modification.
+   - Support dataset loading from files if needed.
+   - Modular evaluation functions.
+
+---
+
+### Implementation Details:
+- **Constructor (`__init__`)**
+  - Parameters:
+    - `bounds`: dict with variable bounds, e.g.,
+      ```python
+      bounds = {
+        'x1': (min, max, type='float'/'int'), ...
+      }
+      ```
+    - `initial_samples`: int
+  
+  - Actions:
+    - Parse bounds, decide on sampling for each variable (uniform, Sobol, etc.).
+    - Generate initial points (`X_init`).
+
+- **`initialize_samples()`**
+  - Use numpy or scipy to generate `initial_samples` points uniformly across the domain.
+  - For Sobol: use `scipy.stats.qmc.Sobol`.
+  - For Latin Hypercube: use `scipy.stats.qmc.LatinHypercube`.
+  - Convert sampled points to correct data types (float or int).
+
+- **`get_evaluations(x)`**
+  - Input:
+    - `x`: a 1D numpy array representing a sample.
+  - For synthetic functions:
+    - Evaluate `f(x)` directly (implement specific function).
+    - Evaluate constraints `c(x)` (specific formula), determine feasibility.
+  - For real benchmarks:
+    - Call evaluation routines (possibly placeholder functions or API calls).
+    - Return:
+      - `float` objective if feasible,
+      - `np.nan` or `None` if infeasible.
+      - Also return a boolean indicating feasibility if needed downstream.
+
+- **Data Management:**
+  - Store data:
+    - `self.X`: numpy array, shape `(n_samples, d)`
+    - `self.Y_obj`: list/array of objective values
+    - `self.Y_feasibility`: list/array of boolean feasibility labels
+  
+- **Utilities:**
+  - Methods to update datasets after each evaluation.
+  - Optional: save and load datasets.
+
+---
+
+### Constraints:
+- Ensure consistent sample generation:
+  - Respect variable bounds (including integer constraints).
+- Ensure reproducibility via seed setting.
+- Modular design to support synthetic and real-world data.
+
+---
+
+### Summary:
+The `DatasetLoader` class should:
+- Generate initial datasets with reproducibility.
+- Evaluate samples via problem-specific functions.
+- Provide methods for sampling and evaluation that integrate seamlessly with the main optimization loop.
+- Support both synthetic benchmark evaluation functions and real-world problem evaluation routines.
+
+This detailed logic will guide the precise implementation of the class, ensuring alignment with the methodology, data requirements, and reproducibility goals outlined in the paper and plan.

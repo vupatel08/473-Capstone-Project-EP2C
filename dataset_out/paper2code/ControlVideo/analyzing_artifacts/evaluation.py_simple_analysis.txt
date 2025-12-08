@@ -1,0 +1,101 @@
+{
+  "evaluation.py": "Contains classes/functions to calculate metrics like FID, CLIP similarity, and temporal consistency from generated videos for evaluation. Depends on pretrained feature extractors (e.g., CLIP, video feature extractors).",
+  "Detailed Analysis": [
+    {
+      "Purpose": "Implement evaluation routines to quantitatively assess the quality, prompt fidelity, and temporal consistency of generated videos, as outlined in the paper.",
+      "Primary Metrics": [
+        "FID (Fréchet Inception Distance): Measures the distribution similarity between generated and real videos, reflecting overall realism.",
+        "CLIP Similarity: Calculates the cosine similarity between the CLIP embeddings of the input prompt and each generated frame, measuring text-to-video alignment.",
+        "Temporal Consistency (TC): Measures the stability over time, often computed as the average cosine similarity between features of consecutive frames."
+      ],
+      "Pretrained Models and Dependencies": [
+        "CLIP model (e.g., CLIP ViT-B/32) for text and image embeddings.",
+        "Video feature extractors (e.g., I3D, SlowFast, or an appropriate model from torchvision or similar libraries) for temporal features.",
+        "FID calculation requires a reference dataset of real videos or precomputed features (features of real videos).",
+        "Image features for prompt similarity can be computed using CLIP's image encoder.",
+        "Embedding extraction should be consistent: use the same normalization, input preprocessing, and model version as used during training or as per the official CLIP implementation."
+      ],
+      "Implementation Details": [
+        "Loading Pretrained Models:",
+        " - Load CLIP via transformers library or CLIP package, ensuring the correct model version (e.g., ViT-B/32).",
+        " - Load video feature extractors if used (e.g., from torchvision or a custom implementation).",
+        " - For FID: load the dataset of real videos and precompute features; if not, compute features on-the-fly.",
+        "",
+        "Feature Extraction Functions:",
+        " - For each generated video:",
+        "  - Extract frame-wise features using CLIP's image encoder:",
+        "    - Resize frames to model's expected input size (~224x224).",
+        "    - Normalize images based on CLIP's preprocessing pipeline.",
+        "  - Compute temporal features if applicable, using a video backbone (optional).",
+        " - For real videos (if FID): perform the same feature extraction procedure to obtain reference features.",
+        "",
+        "Metrics Calculation:",
+        " - FID:",
+        "  - Compute the mean and covariance of features of generated videos.",
+        "  - Compute mean and covariance of features of real videos (or use precomputed statistics).",
+        "  - Calculate FID using the standard formula:",
+        "    - FID = ||μ_real - μ_generated||^2 + Trace(Cov_real + Cov_generated - 2 * sqrt(Cov_real * Cov_generated))",
+        " - CLIP Similarity:",
+        "  - Embed each frame's image into CLIP's image space.",
+        "  - Embed the input prompt into CLIP's text space.",
+        "  - Normalize both embeddings.",
+        "  - Calculate cosine similarity for each frame and average over all frames in the video.",
+        " - Temporal Consistency (TC):",
+        "  - Extract features (e.g., CLIP or other features) for each frame.",
+        "  - For each pair of consecutive frames:",
+        "    - Compute cosine similarity between their features.",
+        "  - Average these similarities over the entire video to get a stability score.",
+        "",
+        "Aggregate Results and Visualization:",
+        " - Store the individual metrics per video for analysis.",
+        " - Provide summaries (mean, standard deviation).",
+        " - Optionally, generate visualizations like feature similarity plots over time.",
+        "",
+        "Additional considerations:",
+        " - Ensure consistent device placement (GPU/CPU).",
+        " - Batch processing for efficiency.",
+        " - Handle potential mismatches in resolution or format.",
+        " - Implement error handling for model loading and feature extraction failures.",
+        " - Use clear interfaces: e.g., functions like `compute_fid(real_features, generated_features)`, `get_clip_embeddings(video_frames, model)`, `compute_temporal_consistency(features_list)`.",
+        " - Accept paths/configurations for real dataset features, generated videos paths, and model weights via function arguments or config files.",
+        " - Maintain compatibility with the existing code structure, e.g., integrate with main evaluation pipeline.",
+        " - Ensure reproducibility by fixing random seeds if necessary during feature extraction.",
+        " - Document optionally used thresholds or parameters for defining quality cutoffs."
+      ],
+      "Sample High-level Function Outline": [
+        "class EvaluationMetrics:",
+        "    def __init__(self, config):",
+        "        - Load or initialize the pretrained models (CLIP, video backbone).",
+        "    def extract_frame_features(self, frames):",
+        "        - Process list of frames to obtain embeddings.",
+        "    def compute_clip_similarity(self, prompt_embedding, frame_embeddings):",
+        "        - Compute cosine similarity for each frame against the prompt.",
+        "    def compute_temporal_consistency(self, features):",
+        "        - Compute similarities between consecutive frames.",
+        "    def compute_fid(self, real_features, gen_features):",
+        "        - Calculate FID given real and generated feature distributions.",
+        "    def evaluate_video(self, generated_video, real_video_features=None):",
+        "        - Extract features for video frames.",
+        "        - Compute CLIP similarity.",
+        "        - Compute TC.",
+        "        - If real_feature stats available, compute FID.",
+        "        - Return all metric scores.",
+        "    def evaluate_batch(self, videos, real_features=None):",
+        "        - Loop over batch, perform evaluation for each video.",
+        "        - Aggregate results.",
+        "    def save_results(self, results, output_path):",
+        "        - Save metrics in structured format (JSON, CSV)."
+      ]
+    },
+    {
+      "Notes": [
+        "Ensure to align with the paper's mention of using CLIP for text-image similarity, possibly using the 'ViT-B/32' model with standard preprocessing.",
+        "For FID: if reference dataset features are not provided, optionally compute from a set of real videos aligned with the source domain.",
+        "Use batch processing where possible for efficiency.",
+        "Maintain strict consistency with the provided config (e.g., paths, model names).",
+        "Incorporate logging for transparency on processing steps, especially for large batches.",
+        "Any additional metric (e.g., LPIPS) can be added following similar procedures, but focus on the three primary metrics as per the paper."
+      ]
+    }
+  ]
+}

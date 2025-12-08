@@ -1,0 +1,43 @@
+dataset:
+  name: CIFAR10
+  dataset_path: ./data/cifar10
+  batch_size: 128
+  num_workers: 4
+  normalization_mean: [0.4914, 0.4822, 0.4465]
+  normalization_std: [0.2023, 0.1994, 0.2010]
+  encoding_scheme: direct_spike_encoding # placeholder, specify actual scheme in code
+  
+training:
+  optimizer: SGD
+  learning_rate: 0.01
+  momentum: 0.9
+  weight_decay: 5e-5
+  epochs: 200
+  scheduler: step  # placeholder, set schedule as per paper if specified
+  step_size: 50
+  gamma: 0.1
+  surrogate_alpha: 1.0 # set to 1 (threshold V_th), modify if sweep needed
+  time_constant_tau: 1.5 # default, sweep over 1.1 to 2.0
+  seed: 2022
+
+model:
+  architecture: ResNet18
+  timesteps: 6
+  input_channels: 3
+  num_classes: 10
+
+neuron:
+  type: CLIF
+  threshold: 1.0
+  tau: 1.5
+  reset_bias_base: 0.0  # for initial, tune for ablation if needed
+  
+evaluation:
+  metrics: accuracy
+  energy_estimation: true
+  convert_for_inference: true
+
+logging:
+  save_dir: ./checkpoints
+  log_interval: 10
+  verbose: true

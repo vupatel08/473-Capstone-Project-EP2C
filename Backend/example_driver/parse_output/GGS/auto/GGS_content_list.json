@@ -1,0 +1,2083 @@
+[
+    {
+        "type": "text",
+        "text": "IMPROVING PROTEIN OPTIMIZATION WITH SMOOTHED FITNESS LANDSCAPES ",
+        "text_level": 1,
+        "bbox": [
+            174,
+            101,
+            823,
+            146
+        ],
+        "page_idx": 0
+    },
+    {
+        "type": "text",
+        "text": "Andrew Kirjner∗   \nMassachusetts Institute of Technology   \nkirjner@mit.edu   \nJason Yim∗   \nMassachusetts Institute of Technology   \njyim@mit.edu ",
+        "bbox": [
+            184,
+            170,
+            436,
+            218
+        ],
+        "page_idx": 0
+    },
+    {
+        "type": "text",
+        "text": "",
+        "bbox": [
+            562,
+            170,
+            813,
+            218
+        ],
+        "page_idx": 0
+    },
+    {
+        "type": "text",
+        "text": "Raman Samusevich IOCB Prague, Czech Academy of Sciences, CIIRC, Czech Technical University in Prague, University of Chemistry and Technology, Prague raman.samusevich@uochb.cas.cz ",
+        "bbox": [
+            183,
+            239,
+            504,
+            320
+        ],
+        "page_idx": 0
+    },
+    {
+        "type": "text",
+        "text": "Shahar Bracha   \nMassachusetts Institute of Technology   \nshaharbr@mit.edu ",
+        "bbox": [
+            562,
+            239,
+            813,
+            286
+        ],
+        "page_idx": 0
+    },
+    {
+        "type": "text",
+        "text": "Tommi Jaakkola† Massachusetts Institute of Technology tommi@csail.mit.edu ",
+        "bbox": [
+            184,
+            342,
+            436,
+            390
+        ],
+        "page_idx": 0
+    },
+    {
+        "type": "text",
+        "text": "Regina Barzilay† Massachusetts Institute of Technology regina@csail.mit.edu ",
+        "bbox": [
+            562,
+            342,
+            813,
+            390
+        ],
+        "page_idx": 0
+    },
+    {
+        "type": "text",
+        "text": "Ila Fiete†   \nMassachusetts Institute of Technology   \nfiete@mit.edu ",
+        "bbox": [
+            184,
+            411,
+            436,
+            459
+        ],
+        "page_idx": 0
+    },
+    {
+        "type": "text",
+        "text": "ABSTRACT ",
+        "text_level": 1,
+        "bbox": [
+            454,
+            497,
+            544,
+            512
+        ],
+        "page_idx": 0
+    },
+    {
+        "type": "text",
+        "text": "The ability to engineer novel proteins with higher fitness for a desired property would be revolutionary for biotechnology and medicine. Modeling the combinatorially large space of sequences is infeasible; prior methods often constrain optimization to a small mutational radius, but this drastically limits the design space. Instead of heuristics, we propose smoothing the fitness landscape to facilitate protein optimization. First, we formulate protein fitness as a graph signal then use Tikunov regularization to smooth the fitness landscape. We find optimizing in this smoothed landscape leads to improved performance across multiple methods in the GFP and AAV benchmarks. Second, we achieve state-of-the-art results utilizing discrete energy-based models and MCMC in the smoothed landscape. Our method, called Gibbs sampling with Graph-based Smoothing (GGS), demonstrates a unique ability to achieve 2.5 fold fitness improvement (with in-silico evaluation) over its training set. GGS demonstrates potential to optimize proteins in the limited data regime. Code: https://github.com/kirjner/GGS ",
+        "bbox": [
+            233,
+            527,
+            766,
+            722
+        ],
+        "page_idx": 0
+    },
+    {
+        "type": "text",
+        "text": "1 INTRODUCTION ",
+        "text_level": 1,
+        "bbox": [
+            176,
+            746,
+            336,
+            762
+        ],
+        "page_idx": 0
+    },
+    {
+        "type": "text",
+        "text": "In protein engineering, fitness can be defined as performance on a desired property or function. Examples of fitness include catalytic activity for enzymes (Anderson et al., 2021) and fluorescence for biomarkers (Remington, 2011). Protein optimization seeks to improve protein fitness by altering the underlying sequences of amino acids. However, the number of possible proteins increases exponentially with sequence length, rendering it infeasible to perform brute-force search to engineer novel functions, which often require multiple mutations from the starting sequence (i.e. at least 3 (Ghafari & Weissman, 2019)). Directed evolution (Arnold, 1998) has been successful in improving protein fitness, but it requires substantial labor and time. ",
+        "bbox": [
+            174,
+            776,
+            825,
+            888
+        ],
+        "page_idx": 0
+    },
+    {
+        "type": "image",
+        "img_path": "images/025783afbf219925c333a34a041715639e6f6b78f67ae99099f92dd74ce9597a.jpg",
+        "image_caption": [
+            "Figure 1: Overview. (A) Protein optimization is challenging due to a noisy fitness landscape where the starting dataset (unblurred) is a fraction of the landscape with the highest fitness sequences hidden (blurred). (B) We develop Graph-based Smoothing (GS) to estimate a smoothed fitness landscape from the starting data. (C) A model is trained on the smoothed fitness landscape to infer the rest of the landscape. (D) Gradients from the model are used in Gibbs With Gradients (GWG) where on each step a new mutation is proposed. (E) The goal of sampling is for each trajectory to gradually head towards higher fitness. "
+        ],
+        "image_footnote": [],
+        "bbox": [
+            174,
+            101,
+            820,
+            351
+        ],
+        "page_idx": 1
+    },
+    {
+        "type": "text",
+        "text": "We aim to computationally generate high-fitness proteins by optimizing a learned model of the fitness landscape, but face several challenges. Proteins can be notorious for highly non-smooth fitness landscapes1: fitness can change dramatically with single mutations, fitness measurements contain experimental noise, and most protein sequences have zero fitness (Brookes et al., 2022). Furthermore, protein fitness datasets are scarce and difficult to generate due to their high costs (Dallago et al., 2021). As a result, machine learning (ML) methods are susceptible to predicting false positives and getting stuck in local optima (Brookes et al., 2019). The 3D protein structure, if available, can provide information in navigating the noisy fitness landscape such as identifying hot spot residues (Zerbe et al., 2012), but high quality structures are not available in many cases. ",
+        "bbox": [
+            173,
+            494,
+            825,
+            619
+        ],
+        "page_idx": 1
+    },
+    {
+        "type": "text",
+        "text": "One way to deal with noisy and limited data is to regularize the fitness landscape model2. Our work considers a smoothing regularizer in which similar sequences (based on a distance measure) are predicted to have similar predicted fitness. While actual fitness lanscapes are not smooth, smoothing can be an important tool in the context of optimization, allowing gradient-based methods to reach higher peaks by avoiding local optima, especially in discrete optimization (Zanella, 2020). A few works have studied properties of protein fitness landscapes (Section 2), but none have directly applied smoothing with a graph framework during optimization. ",
+        "bbox": [
+            173,
+            627,
+            825,
+            724
+        ],
+        "page_idx": 1
+    },
+    {
+        "type": "text",
+        "text": "We propose a novel method for applying smoothing to protein sequence and fitness data together with an optimization technique that takes advantage of the smoothing. First, we formulate sequences as a graph with fitness values as node attributes and apply Tikunov regularization to smooth the topological signal measured by the graph Laplacian. The smoothed data is then fitted with a neural network to be used as a model for discrete optimization (Figure 1 top). Second, we sample over the energy function for high fitness sequences by using the model’s gradients in a Gibbs With Gradients (GWG) procedure (Grathwohl et al., 2021). In GWG, a discrete distribution is constructed based on the model’s gradients where mutations with improved fitness will correlate with higher probability. The process of taking gradients and sampling mutations is performed in an iterative fashion where subsequent mutations will guide towards higher fitness (Figure 1 bottom). ",
+        "bbox": [
+            173,
+            732,
+            825,
+            871
+        ],
+        "page_idx": 1
+    },
+    {
+        "type": "text",
+        "text": "Figure 1 shows an overview of the method. We refer to the procedure of smoothing then sampling as Gibbs sampling with Graph-based Smoothing (GGS). To evaluate our method, we introduce a set of tasks using the well studied Green Fluorescent Proteins (GFP) (Sarkisyan et al., 2016) and Adeno-Associated Virus (AAV) (Bryant et al., 2021) proteins. We chose GFP and AAV because of their real-world importance and availability of large mutational data. We design a set of tasks that emulate starting with noisy and limited data and evaluate with a trained model (as done in most prior works). We evaluate GGS and prior works on our proposed benchmarks to show that GGS is state-of-the-art in GFP and AAV fitness optimization. Our contributions are summarized as follows: ",
+        "bbox": [
+            173,
+            103,
+            825,
+            215
+        ],
+        "page_idx": 2
+    },
+    {
+        "type": "text",
+        "text": "• We develop a novel sequence-based protein optimization algorithm, GGS, which uses graph-based smoothing to train a smoothed fitness model. The model is used as a discrete energy function to progressively sample mutations towards higher-fitness sequences with GWG (Section 3). • We develop a set of tasks that measure a method’s ability to extrapolate towards higher fitness. We use publicly available GFP and AAV datasets to emulate difficult optimization scenarios of starting with limited and noisy data (Section 4.1). • Our benchmark shows prior methods fail to extrapolate towards higher fitness. However, we show graph-based smoothing can drastically improve their performance; in one baseline, the fitness jumps from $18 \\%$ to $39 \\%$ in GFP and $4 \\%$ to $44 \\%$ in AAV after smoothing (Section 4.2). • Our method GGS directly exploits smoothness to achieve state-of-the-art results with 5 times higher fitness in GFP and 2 times higher in AAV compared to the next best method (Section 4.2). ",
+        "bbox": [
+            183,
+            227,
+            826,
+            395
+        ],
+        "page_idx": 2
+    },
+    {
+        "type": "text",
+        "text": "2 RELATED WORK ",
+        "text_level": 1,
+        "bbox": [
+            176,
+            415,
+            339,
+            431
+        ],
+        "page_idx": 2
+    },
+    {
+        "type": "text",
+        "text": "Protein optimization and design. Approaches can broadly be categorized using sequence, structure or both. Sequence-based methods have been explored through the lens of reinforcement learning (Angermueller et al., 2020), latent space optimization (Stanton et al., 2022; Lee et al.; Maus et al., 2022), generative models (Notin et al., 2022; Meier et al., 2021; Jain et al., 2022; Gruver et al., 2023), and model-based directed evolution (Sinai et al., 2020; Padmakumar et al., 2023; Ren et al., 2022). Together they face the issue of a noisy fitness landscape to optimize. We focus on sequence-based methods using Gibbs With Gradients (GWG) (Grathwohl et al., 2021) which can perform stateof-the-art in discrete optimization but requires a smooth energy function for strong performance. Concurrently, Emami et al. (2023) used GWG for protein optimization with a product of experts distribution using a protein language model. However, they achieved subpar results. ",
+        "bbox": [
+            173,
+            446,
+            826,
+            585
+        ],
+        "page_idx": 2
+    },
+    {
+        "type": "text",
+        "text": "Previous methods focused on developing new sampling and optimization techniques. Our work is complimentary by addressing the need for improved regularization and smoothing. We show in our experiments that our smoothing technique can enhance the performance of prior methods. ",
+        "bbox": [
+            178,
+            593,
+            821,
+            635
+        ],
+        "page_idx": 2
+    },
+    {
+        "type": "text",
+        "text": "Protein fitness regularization. The NK model was an early attempt to model smoothness of protein fitness through a statistical model of epistasis (Kauffman & Weinberger, 1989). Brookes et al. (2022) proposed a framework to approximate the sparsity of protein fitness using a generalized NK model (Buzas & Dinitz, 2013). Concurrently, dWJS (Frey et al., 2023) is most related to our work by utilizing Gaussian noise to regularize the discrete energy function during Langevin MCMC. dWJS trains by denoising to smooth a energy-based model whereas we apply discrete regularization using graph-based smoothing techniques. ",
+        "bbox": [
+            174,
+            642,
+            825,
+            739
+        ],
+        "page_idx": 2
+    },
+    {
+        "type": "text",
+        "text": "Finally, we distinguish our smoothing method from traditional regularizers applied during training such as dropout (Srivastava et al., 2014). Our goal is to smooth the fitness landscape in a way that is amenable for iterative optimization. We enforce similar sequences to have similar fitness which is not guaranteed with dropout or similar regularizers applied in minibatch training. Evaluating multiple smoothing strategies is not the focus of our work, but rather to demonstrate their importance. ",
+        "bbox": [
+            174,
+            746,
+            825,
+            815
+        ],
+        "page_idx": 2
+    },
+    {
+        "type": "text",
+        "text": "3 METHOD ",
+        "text_level": 1,
+        "bbox": [
+            176,
+            835,
+            281,
+            852
+        ],
+        "page_idx": 2
+    },
+    {
+        "type": "text",
+        "text": "The following describes our method. Section 3.1 details the problem formulation. Next section 3.2 describes the procedure for training a smoothed model. Lastly, section 3.3 provides background on Gibbs With Gradients (GWG) which is adapted for protein optimization. The full algorithm, Gibbs sampling with Graph-based Smoothing (GGS), is presented in Algorithm 1. ",
+        "bbox": [
+            174,
+            867,
+            823,
+            924
+        ],
+        "page_idx": 2
+    },
+    {
+        "type": "text",
+        "text": "3.1 PROBLEM FORMULATION ",
+        "text_level": 1,
+        "bbox": [
+            174,
+            103,
+            390,
+            117
+        ],
+        "page_idx": 3
+    },
+    {
+        "type": "text",
+        "text": "We denote the starting set of $N$ proteins as ${ \\mathcal { D } } = ( X , Y )$ where $X = \\{ x _ { 1 } , \\ldots , x _ { N } \\} \\subset \\mathcal { V } ^ { M }$ are the sequences and $Y = \\{ y _ { 1 } , \\dots , y _ { N } \\}$ are corresponding real-valued scalar fitness measurements. Each sequence $x _ { i } \\in \\mathcal { V } ^ { M }$ is composed of $M$ residues from a vocabulary $\\nu$ of 20 amino acids. Subscripts refer to different sequences. Note our method can be extended to other modalities, e.g. nucleic acids. ",
+        "bbox": [
+            174,
+            128,
+            825,
+            185
+        ],
+        "page_idx": 3
+    },
+    {
+        "type": "text",
+        "text": "For in-silico evaluation, we denote the set of all known sequences and fitness measurements as $\\mathcal { D } ^ { * } = ( X ^ { * } , Y ^ { * } )$ . We assume there exists a unknown black-box function $g : \\mathcal { V } ^ { M } \\to \\mathbb { R }$ such that $g ( x ^ { * } ) = y ^ { * }$ . In practice, $g$ needs to be approximated by a evaluator model, $g _ { \\phi }$ , trained with weights $\\phi$ to minimize prediction error on $\\mathcal { D } ^ { * }$ . $g _ { \\phi }$ poses a limitation to evaluation since the true fitness needs to be verified with biological experiments. Nevertheless, an in-silico approximation provides a accessible way for evaluation and is done in all prior works. The starting dataset is a strict subset of the known dataset $\\mathcal { D } \\subset \\mathcal { D } ^ { * }$ to simulate fitness optimization scenarios. Given $\\mathcal { D }$ , our task is to generate a set of sequences with higher fitness than the starting set. ",
+        "bbox": [
+            173,
+            191,
+            825,
+            304
+        ],
+        "page_idx": 3
+    },
+    {
+        "type": "text",
+        "text": "3.2 GRAPH-BASED SMOOTHING ON PROTEINS ",
+        "text_level": 1,
+        "bbox": [
+            174,
+            321,
+            503,
+            335
+        ],
+        "page_idx": 3
+    },
+    {
+        "type": "text",
+        "text": "Our goal is to develop a model of the sequence-to-fitness mapping that can be utilized when sampling higher fitness sequences. Unfortunately, the high-dimensional sequence space coupled with few data points and noisy labels can result in a noisy model that is prone to sampling false positives or getting stuck in local optima. To address this, we use smoothing techniques from graph signal processing. ",
+        "bbox": [
+            174,
+            347,
+            825,
+            402
+        ],
+        "page_idx": 3
+    },
+    {
+        "type": "text",
+        "text": "The smoothing process is depicted in Figure 2. First, we train a noisy fitness model $f _ { \\tilde { \\theta } } : \\mathcal { V } ^ { M }  \\mathbb { R }$ with weights $\\tilde { \\theta }$ on the initial dataset $\\mathcal { D }$ using Mean-Squared Error (MSE). $\\mathcal { D }$ is usually very small in real-world scenarios. We augment the dataset by using $f _ { \\tilde { \\theta } }$ to infer the fitness of neighboring sequences which we do not have labels for – known as transductive inference. Neighboring sequences are generated by randomly applying point mutations to each sequence in $X$ . The augmented and original sequences become nodes, $V$ , in our graph while their fitness labels are node attributes. Edges, $\\mathcal { E }$ , are constructed with a $k$ -nearest neighbor (kNN) graph around each node based on the Levenshtein distance3. The graph construction algorithm can be found in Algorithm 4. ",
+        "bbox": [
+            173,
+            409,
+            825,
+            525
+        ],
+        "page_idx": 3
+    },
+    {
+        "type": "text",
+        "text": "The following borrows techniques from Isufi et al. (2022). The smoothness of the fitness variability in our protein graph is defined as the sum over the square of all local variability, ",
+        "bbox": [
+            173,
+            530,
+            823,
+            560
+        ],
+        "page_idx": 3
+    },
+    {
+        "type": "equation",
+        "img_path": "images/fa75ba66177a6e2a09ce80b188e7b1aa6363b0cd92f1368925049a324ec355f4.jpg",
+        "text": "$$\n\\mathsf { T V } _ { 2 } ( Y ) = \\frac { 1 } { 2 } \\sum _ { i \\in \\mathcal { V } } ( \\Delta y _ { i } ) ^ { 2 } , \\quad \\Delta y _ { i } = \\sqrt { \\sum _ { ( i , j ) \\in \\mathcal { E } } ( y _ { i } - y _ { j } ) ^ { 2 } } .\n$$",
+        "text_format": "latex",
+        "bbox": [
+            313,
+            565,
+            683,
+            609
+        ],
+        "page_idx": 3
+    },
+    {
+        "type": "text",
+        "text": "TV refers to Total Variation and $\\Delta y _ { i }$ is the local variability of node $i$ that measures local changes in fitness. Using $\\mathsf { T V } _ { 2 }$ as a regularizer, we solve the following optimization problem, known as Tikhunov regularization (Zhou & Scholkopf, 2004), for a new set of smoothed fitness labels, ¨ ",
+        "bbox": [
+            174,
+            614,
+            825,
+            657
+        ],
+        "page_idx": 3
+    },
+    {
+        "type": "equation",
+        "img_path": "images/fa807d8f563feec03f7163398822c9fd7e6e0715a7fdce96d9cb7005205defdf.jpg",
+        "text": "$$\n\\operatorname * { a r g m i n } _ { \\hat { Y } \\in \\mathbb { R } ^ { | V | } } \\Vert Y - \\hat { Y } \\Vert _ { 2 } ^ { 2 } + \\gamma \\mathsf { T V } _ { 2 } ( \\hat { Y } ) .\n$$",
+        "text_format": "latex",
+        "bbox": [
+            385,
+            662,
+            611,
+            694
+        ],
+        "page_idx": 3
+    },
+    {
+        "type": "text",
+        "text": "With abuse of notation, we represent $Y$ as a vector with each node’s fitness. $\\gamma$ is a hyperparameter set to control the smoothness; too high can lead to underfitting. We experiment with different $\\gamma$ ’s in Section 4. Since eq. (1) is a quadratic convex problem, it has a closed form solution, $\\hat { Y } = ( \\mathbb { I } + \\gamma L ) ^ { - 1 } Y$ where $L$ is the graph Laplacian and $\\mathbb { I }$ is the identity matrix. The final step is to retrain the model on the sequences in the graph and their smoothed fitness labels. The result will be a model $f _ { \\theta }$ with lower $\\mathsf { T V } _ { 2 }$ than before and thus improved smoothness. The smoothing algorithm is in Algorithm 2. ",
+        "bbox": [
+            173,
+            699,
+            825,
+            786
+        ],
+        "page_idx": 3
+    },
+    {
+        "type": "text",
+        "text": "3.3 SAMPLING IMPROVED FITNESS WITH GIBBS ",
+        "text_level": 1,
+        "bbox": [
+            176,
+            803,
+            516,
+            818
+        ],
+        "page_idx": 3
+    },
+    {
+        "type": "text",
+        "text": "Equipped with model $f _ { \\theta }$ from section 3.2, we apply it in a procedure to sample mutations that improve the starting sequences’ fitness. $f _ { \\theta }$ can also be viewed as an energy-based model (EBM) that defines a Boltzmann distribution $\\log p ( x ) = f _ { \\theta } ( x ) - \\log Z$ where $Z$ is the normalization constant. Higher fitness sequences will be more likely under this distribution, while sampling will induce diversity and novelty. To sample from $p ( x )$ , we use Gibbs With Gradients (GWG) Grathwohl et al. (2021) which has attracted significant interest due to its simplicity and state-of-the-art performance in discrete optimization. In this section, we describe the GWG procedure for protein sequences. GWG uses Gibbs sampling with approximations of locally informed proposals (Zanella, 2020): ",
+        "bbox": [
+            174,
+            829,
+            825,
+            900
+        ],
+        "page_idx": 3
+    },
+    {
+        "type": "image",
+        "img_path": "images/4789c0da20a3be9b6cd9a3f5686ea271f4e3bc1679df935939e040fcea430cd9.jpg",
+        "image_caption": [
+            "Figure 2: Steps in graph-based smoothing on proteins illustrated with a fictitious data of length 2 sequences with vocabulary $\\{ A , B \\}$ . Above each node are corresponding fitness values. Solid nodes are those in our training set while dashed nodes are augmented via point mutations to increase the smoothing effectiveness. See section 3.2 for description of each step. "
+        ],
+        "image_footnote": [],
+        "bbox": [
+            176,
+            101,
+            826,
+            193
+        ],
+        "page_idx": 4
+    },
+    {
+        "type": "text",
+        "text": "",
+        "bbox": [
+            174,
+            282,
+            825,
+            325
+        ],
+        "page_idx": 4
+    },
+    {
+        "type": "equation",
+        "img_path": "images/9cf99bac8247e7f1fbf551a64e61cfad1be223e3079c72fbcc9143c78d59089b.jpg",
+        "text": "$$\nq ( x ^ { \\prime } | x ) \\propto \\exp \\left( \\frac { 1 } { 2 } \\sum _ { i } ( x _ { i } ^ { \\prime } ) ^ { \\top } d _ { \\theta } ( x ) _ { i } \\right) \\mathbb { 1 } ( x ^ { \\prime } \\in H ( x ) ) , \\quad d _ { \\theta } ( x ) _ { i } = [ \\nabla _ { x } f _ { \\theta } ( x ) ] _ { i } - x _ { i } \\odot [ \\nabla f _ { \\theta } ( x ) ] _ { i } .\n$$",
+        "text_format": "latex",
+        "bbox": [
+            183,
+            328,
+            813,
+            371
+        ],
+        "page_idx": 4
+    },
+    {
+        "type": "text",
+        "text": "With slight abuse of notation, we use the one-hot sequence representation $x \\in \\{ 0 , 1 \\} ^ { M \\times | \\mathcal { V } | }$ where $x _ { i } \\in \\{ 0 , 1 \\} ^ { | \\nu | }$ represents the ith index of the sequence with 1 at its amino acid index and 0 elsewhere. $\\odot$ is the element wise product. $H ( x ) = \\{ y \\in \\mathcal { V } ^ { M } : d _ { \\mathrm { H a m m i n g } } ( x , y ) \\leq 1 \\}$ is the 1-ball around $x$ using Hamming distance. The core idea of GWG is to use $d _ { \\theta } ( \\bar { x } ) _ { i }$ as the first order approximation of a continuous gradient of the change in likelihood from mutating the $i$ th index of $x$ to a different amino acid. The quality of the proposals in eq. (2) rely on the smoothness of the energy $f _ { \\theta }$ (Theorem 1 in Grathwohl et al. (2021)). If the gradients, $\\nabla f _ { \\boldsymbol { \\theta } }$ , are noisy, then the proposal distributions are ineffective in sampling better sequences. Hence, smoothing $f _ { \\theta }$ is desirable (see section 4). ",
+        "bbox": [
+            173,
+            378,
+            825,
+            496
+        ],
+        "page_idx": 4
+    },
+    {
+        "type": "text",
+        "text": "The choice of $H ( \\cdot )$ as the 1-Hamming ball limits $x ^ { \\prime }$ to point mutations from $x$ and only requires $\\mathcal { O } \\left( M \\times \\left| \\mathcal { V } \\right| \\right)$ compute to construct. Let the point mutation where $x$ and $x ^ { \\prime }$ differ be defined by the residue location, $i ^ { \\mathrm { I o c } } \\in \\{ 1 , \\ldots , M \\}$ , and amino acid substitution, $j ^ { \\mathrm { s u b } } \\in \\{ 1 , \\ldots , | \\mathcal { V } | \\}$ . By limiting $x ^ { \\prime }$ to point mutants $( i ^ { \\mathrm { l o c } } , j ^ { \\mathrm { s u b } } )$ , sampling $q ( x ^ { \\prime } | x )$ is equivalent to sampling the following, ",
+        "bbox": [
+            173,
+            501,
+            825,
+            559
+        ],
+        "page_idx": 4
+    },
+    {
+        "type": "equation",
+        "img_path": "images/911960dfade217fc072f3bedb39191f5831ff104992c12037b862d8a6c7c7902.jpg",
+        "text": "$$\n( i ^ { \\mathrm { l o c } } , j ^ { \\mathrm { s u b } } ) \\sim q ( \\cdot | x ) = \\mathrm { C a t } \\left( \\mathrm { S o f t m a x } \\left( \\left\\{ \\frac { d _ { \\theta } ( x ) _ { i , j } } { \\tau } \\right\\} _ { i = 1 , j = 1 } ^ { M , | \\mathcal { V } | } \\right) \\right)\n$$",
+        "text_format": "latex",
+        "bbox": [
+            287,
+            560,
+            709,
+            604
+        ],
+        "page_idx": 4
+    },
+    {
+        "type": "text",
+        "text": "where $\\tau$ is the sampling temperature and $d _ { \\theta } ( x ) _ { i , j }$ is the logits of mutating to $( i , j )$ . The proposal sequence $x ^ { \\prime }$ is constructed by setting its $i ^ { \\mathrm { l o c } }$ residue to $j ^ { \\mathrm { s u b } }$ and equal to $x$ elsewhere. Each proposed sequence is accepted or rejected using Metropolis-Hasting (MH), ",
+        "bbox": [
+            173,
+            607,
+            825,
+            651
+        ],
+        "page_idx": 4
+    },
+    {
+        "type": "equation",
+        "img_path": "images/804198467708a4bbc51ad9ac2d6c73aa534a5ae6b59e2baa6c47eb6fb6750666.jpg",
+        "text": "$$\n\\operatorname* { m i n } \\left( \\exp ( f _ { \\theta } ( x ^ { \\prime } ) - f _ { \\theta } ( x ) ) { \\frac { q ( x | x ^ { \\prime } ) } { q ( x ^ { \\prime } | x ) } } , 1 \\right) .\n$$",
+        "text_format": "latex",
+        "bbox": [
+            359,
+            655,
+            637,
+            689
+        ],
+        "page_idx": 4
+    },
+    {
+        "type": "text",
+        "text": "We provide the GWG algorithm in Algorithm 3. ",
+        "bbox": [
+            174,
+            691,
+            488,
+            707
+        ],
+        "page_idx": 4
+    },
+    {
+        "type": "text",
+        "text": "Clustered sampling. GWG requires a starting sequence to start mutating. A reasonable starting set are the sequences $X$ used to train the model. On each round $r$ , we use eq. (3) to propose $N _ { \\mathrm { p r o p } }$ mutations for each sequence. If accepted via eq. (4), then the mutated sequence will be added to the next round. However, this procedure can lead to an intractable number of sequences to consider. ",
+        "bbox": [
+            173,
+            720,
+            825,
+            777
+        ],
+        "page_idx": 4
+    },
+    {
+        "type": "text",
+        "text": "To control compute bandwidth, we perform hierarchical clustering (Mullner, 2011) on all the se- ¨ quences in a round and take the sequence of each cluster with the highest predicted fitness using $f _ { \\theta }$ . Let $\\mathcal { C }$ be the number of clusters which we set based on amount of available compute. This procedure, known as Reduce, is, ",
+        "bbox": [
+            174,
+            784,
+            825,
+            840
+        ],
+        "page_idx": 4
+    },
+    {
+        "type": "equation",
+        "img_path": "images/3a83f01002fc165bfec6710c9d55eaad4aa7f547e4d37f22b427362044ca3f5b.jpg",
+        "text": "$$\n\\mathtt { R e d u c e } ( X ; \\theta ) = \\bigcup _ { c = 1 } ^ { \\mathcal { C } } \\{ \\operatorname { a r g m a x } _ { x \\in X ^ { c } } f _ { \\theta } ( x ) \\} \\ \\mathrm { w h e r e } \\ \\{ X ^ { c } \\} _ { c = 1 } ^ { \\mathcal { C } } = \\mathtt { C l u s t e r } ( X ; \\mathcal { C } ) .\n$$",
+        "text_format": "latex",
+        "bbox": [
+            238,
+            842,
+            759,
+            886
+        ],
+        "page_idx": 4
+    },
+    {
+        "type": "text",
+        "text": "Each round $r$ reduces the sequences from the previous round and performs GWG sampling. ",
+        "bbox": [
+            168,
+            887,
+            774,
+            904
+        ],
+        "page_idx": 4
+    },
+    {
+        "type": "equation",
+        "img_path": "images/1d758fc34a769b0fe31833012e2dcf51a3a87cff140dcb8bf1d00339bf39484e.jpg",
+        "text": "$$\n\\tilde { X } _ { r } = \\mathtt { R e d u c e } ( X _ { r } ; \\theta ) , \\quad X _ { r + 1 } = \\mathtt { G W G } ( \\tilde { X } _ { r } ; \\theta )\n$$",
+        "text_format": "latex",
+        "bbox": [
+            341,
+            906,
+            656,
+            925
+        ],
+        "page_idx": 4
+    },
+    {
+        "type": "text",
+        "text": "To summarize, we adapted GWG for protein optimization by developing a smoothed model to satisfy GWG’s smoothness assumptions and use clustering during sampling to reduce redundancy and compute. An illustration of clustered sampling is provided in Figure 5. ",
+        "bbox": [
+            173,
+            103,
+            823,
+            146
+        ],
+        "page_idx": 5
+    },
+    {
+        "type": "text",
+        "text": "The full algorithm for smoothing and clustered sampling is provided in Algorithm 1. ",
+        "bbox": [
+            174,
+            152,
+            725,
+            167
+        ],
+        "page_idx": 5
+    },
+    {
+        "type": "table",
+        "img_path": "images/505ac862e9d03b35b1da8ba221264fdcd16aff3243f83733443f16304bd362de.jpg",
+        "table_caption": [],
+        "table_footnote": [],
+        "table_body": "<table><tr><td colspan=\"2\">Algorithm 1 GGS: Gibbs sampling with Graph-based Smoothing</td></tr><tr><td>Require: Starting dataset: D = (X, Y )</td><td></td></tr><tr><td>1: θ ← arg maxj E(x,y)∼D [(y − f¯(x))2]</td><td> Initial training</td></tr><tr><td>2: θ ← Smooth(D; θ)</td><td> GS algorithm 2</td></tr><tr><td>3: for r = 0, . . . , R − 1 do</td><td></td></tr><tr><td>4: Xr ← Reduce(Xr; θ)</td><td></td></tr><tr><td>5:</td><td>Xr+1 ← GWG(Xr; θ) GWG algorithm 3</td></tr><tr><td>6end for</td><td></td></tr><tr><td>7: Return TopK(XR)</td><td> Return Top-K best sequences based on predicted fitness fθ</td></tr></table>",
+        "bbox": [
+            174,
+            180,
+            825,
+            329
+        ],
+        "page_idx": 5
+    },
+    {
+        "type": "text",
+        "text": "4 EXPERIMENTS ",
+        "text_level": 1,
+        "bbox": [
+            174,
+            354,
+            326,
+            371
+        ],
+        "page_idx": 5
+    },
+    {
+        "type": "text",
+        "text": "Our experiments demonstrate the benefits of smoothing in protein optimization. Section 4.1 presents a set of challenging tasks based on the GFP and AAV proteins that emulate starting with experimental noise and a sparsely sampled fitness landscape. Section 4.2 evaluates the performance of baselines and our method, GGS, on our benchmark. In addition, we find applying smoothing improves performance for two baselines. Section 4.3 provides sweeps over hyperparameters and analysis of GGS. ",
+        "bbox": [
+            173,
+            386,
+            825,
+            455
+        ],
+        "page_idx": 5
+    },
+    {
+        "type": "text",
+        "text": "Baselines. We choose a representative set of prior works that evaluated on GFP and AAV: GFlowNets (GFN-AL) (Jain et al., 2022), model-based adaptive sampling (CbAS) (Brookes et al., 2019), greedy search (AdaLead) (Sinai et al., 2020), bayesian optimization (BO-qei) (Wilson et al., 2017), conservative model-based optimization (CoMs) (Trabucco et al., 2021), and proximal exploration (PEX) (Ren et al., 2022). NOS (Gruver et al., 2023) performs protein optimization with diffusion models. However, their framework is tailored to antibody optimization and requires non-trivial modifications for general proteins. We were unable to evaluate Song & Li (2023) due to unrunnable public code. ",
+        "bbox": [
+            174,
+            462,
+            825,
+            560
+        ],
+        "page_idx": 5
+    },
+    {
+        "type": "text",
+        "text": "GGS implementation. We use a 1D CNN (see Appendix B.1 for architecture and training) for model $f _ { \\theta }$ . To ensure a fair comparison, we use the same model architecture in baselines when possible. In graph-based smoothing (GS), we augment the graph until it has $N _ { \\mathrm { n o d e s } } = 2 5 0 , 0$ 00 nodes. We found larger graphs to not give improvements. Similarly, we use $\\tau = 0 . 1$ , $R = 1 5$ rounds and $N _ { \\mathrm { p r o p } } = 1 0 0$ proposals per round during GWG at which sequences would converge and more sampling did not give improvements. We choose the smoothing weight $\\gamma = 1 . 0$ through grid search. We study sensitivity to hyperparameters, especially $\\gamma _ { - }$ , in Section 4.3. ",
+        "bbox": [
+            174,
+            566,
+            825,
+            665
+        ],
+        "page_idx": 5
+    },
+    {
+        "type": "text",
+        "text": "4.1 BENCHMARK ",
+        "text_level": 1,
+        "bbox": [
+            174,
+            681,
+            307,
+            695
+        ],
+        "page_idx": 5
+    },
+    {
+        "type": "text",
+        "text": "We develop a set of tasks based on two well-studied protein systems: Green Fluoresent Protein (GFP) and Adeno-Associated Virus (AAV) (Sarkisyan et al., 2016; Bryant et al., 2021). These were chosen due to their relatively large amount of measurements, 56,806 and 44,156 respectively, with sequence variability of up to 15 mutations from the wild-type. Other datasets are either too small or do not have enough sequence variability. GFP’s fitness is its fluorescence properties as a biomarker while for AAV’s is the ability to package a DNA payload, i.e. for gene delivery. We found GFP and AAV to suffice in demonstrating how prior methods fail to extrapolate. ",
+        "bbox": [
+            173,
+            707,
+            825,
+            805
+        ],
+        "page_idx": 5
+    },
+    {
+        "type": "text",
+        "text": "One measure of difficulty is the number of mutations required to achieve the highest known fitness; this assesses a method’s exploration capability. We designate the set of optimal proteins, $X ^ { 9 9 \\mathrm { t h } }$ , as any sequence in the 99th fitness percentile in the entire dataset4. Quantitatively, we compute the minimum number of mutations required from the training set to achieve the optimal fitness: ",
+        "bbox": [
+            174,
+            810,
+            825,
+            867
+        ],
+        "page_idx": 5
+    },
+    {
+        "type": "equation",
+        "img_path": "images/99fc40c43e923571991ea55193a6caa00dc1d4dd63341c9df6741b1a8cba6972.jpg",
+        "text": "$$\n\\mathrm { G a p } ( X _ { 0 } ; X ^ { 9 9 \\mathrm { t h } } ) = \\operatorname* { m i n } ( \\{ \\mathrm { d i s t } ( x , { \\tilde { x } } ) : x \\in X , { \\tilde { x } } \\in X ^ { 9 9 \\mathrm { t h } } \\} ) .\n$$",
+        "text_format": "latex",
+        "bbox": [
+            299,
+            871,
+            697,
+            890
+        ],
+        "page_idx": 5
+    },
+    {
+        "type": "text",
+        "text": "A high mutational gap would require the method discovering many mutations in a high dimensional space. A second measure of difficulty is the fitness range of the starting set of sequences. Starting with a low range of fitness requires the method to learn from barely functional proteins and exploit limited knowledge to find mutations that confer higher fitness. Appendix A shows Gap and starting rate are necessary as we found the previous GFP benchmark (Trabucco et al., 2022) as too “easy” by only requiring one mutation to achieve the optimal fitness. ",
+        "bbox": [
+            174,
+            103,
+            825,
+            188
+        ],
+        "page_idx": 6
+    },
+    {
+        "type": "text",
+        "text": "Recall the protein optimization task is to use the starting set $\\mathcal { D }$ to propose a set of sequences with higher fitness. We design two difficulties, medium and hard, for GFP and AAV based on the properties of $\\mathcal { D }$ . We restricted the range and the mutational gap to modulate task difficulty. We found $\\mathrm { G a p } \\mathrm { = } 7$ and Range $< 3 0 \\%$ to suffice in finding where our baseline methods fail to discover better proteins. We use this setting as the hard difficulty and sought to develop GGS to solve it. ",
+        "bbox": [
+            174,
+            194,
+            825,
+            263
+        ],
+        "page_idx": 6
+    },
+    {
+        "type": "table",
+        "img_path": "images/379b03ff343c4795b962f02649e9fd7389fe6e9feddc8b3ed926d95c3f4049c4.jpg",
+        "table_caption": [
+            "Table 1: GFP tasks "
+        ],
+        "table_footnote": [],
+        "table_body": "<table><tr><td>Difficulty</td><td>Range (%)</td><td>Gap</td><td>|D|</td></tr><tr><td>Medium</td><td>20th-40th</td><td>6</td><td>2828</td></tr><tr><td>Hard</td><td>&lt; 30th</td><td>7</td><td>2426</td></tr></table>",
+        "bbox": [
+            191,
+            305,
+            468,
+            372
+        ],
+        "page_idx": 6
+    },
+    {
+        "type": "table",
+        "img_path": "images/26aee02cbd697b0e7d3fe7f8ceadb536b18f204f1e54b6dbe6f7d182574ef7d1.jpg",
+        "table_caption": [
+            "Table 2: AAV tasks "
+        ],
+        "table_footnote": [],
+        "table_body": "<table><tr><td>Difficulty</td><td>Range (%)</td><td>Gap</td><td>|D|</td></tr><tr><td>Medium</td><td>20th-40th</td><td>6</td><td>2139</td></tr><tr><td>Hard</td><td>&lt; 30th</td><td>7</td><td>3448</td></tr></table>",
+        "bbox": [
+            508,
+            305,
+            782,
+            372
+        ],
+        "page_idx": 6
+    },
+    {
+        "type": "text",
+        "text": "In-silico evaluation. We follow prior works in using a trained evaluator model as a proxy for realworld experimental validation. A popular model choice is the TAPE transformer (Rao et al., 2019). However, we noticed a poor performance of the transformer compared to a simpler CNN that matches the findings of Dallago et al. (2021). We use CNN architecture for the evaluator due to its superior performance. Following Jain et al. (2022), each method generates 128 samples $\\hat { X } = \\{ \\hat { x } _ { i } \\} _ { i = 1 } ^ { 1 2 8 }$ whose approximated fitness is predicted with the evaluator. We additionally report Diversity and Novelty that are also used in Jain et al. (2022). Descriptions of these metrics can be found in Appendix B.2 We emphasize that higher diversity and novelty are not equivalent to better performance, but provide insight into the exploration and exploitation trade-offs of different methods. For instance, a random algorithm would achieve maximum diversity and novelty. ",
+        "bbox": [
+            173,
+            407,
+            825,
+            549
+        ],
+        "page_idx": 6
+    },
+    {
+        "type": "text",
+        "text": "4.2 RESULTS ",
+        "text_level": 1,
+        "bbox": [
+            174,
+            569,
+            277,
+            583
+        ],
+        "page_idx": 6
+    },
+    {
+        "type": "text",
+        "text": "We run 5 seeds and report the average metric across all seeds including the standard deviation in parentheses. We evaluate GGS and previously described baselines. To ensure a fair comparison, we use the same CNN architecture as the model across all methods – all our baselines (and GGS) perform model-based optimization. Since graph-based smoothing (GS) is a general technique, we sought to evaluate its effectiveness in each of our baselines. To incorporate GS, we used the smoothed predictor as a replacement in each baseline which will be denoted with $\\ddot { \\mathbf { \\Omega } } ^ { 6 } + \\mathbf { G } \\mathbf { S } ^ { \\ ' }$ . Table 3 summarizes GFP results while table 4 summarizes AAV. ",
+        "bbox": [
+            174,
+            595,
+            825,
+            693
+        ],
+        "page_idx": 6
+    },
+    {
+        "type": "text",
+        "text": "GGS substantially outperforms all unsmoothed baselines, consistently achieving a improvement in fitness from the starting range of fitness in each difficulty. However, the smoothed baselines (lines with $+ \\mathrm { G } S$ ) demonstrated a up to three fold improvement for CbAS, AdaLead. We find larger improvements in GFP where the sequence space is far larger than AAV – suggesting the GFP fitness landscape is harder to optimize over. ",
+        "bbox": [
+            174,
+            700,
+            825,
+            770
+        ],
+        "page_idx": 6
+    },
+    {
+        "type": "text",
+        "text": "The most difficult task is clearly hard difficulty on GFP where all the baselines without smoothing cannot achieve fitness higher than the training set. With smoothing, GGS achieves the best fitness since the sampling procedure uses gradient-based proposals that benefit from a smooth model. Appendix C.2.1 presents results on additional difficulties to analyze GGS beyond hard.. ",
+        "bbox": [
+            174,
+            776,
+            825,
+            833
+        ],
+        "page_idx": 6
+    },
+    {
+        "type": "text",
+        "text": "We observe GGS is able to achieve the highest fitness while exhibiting respectable diversity and novelty. Notably, GGS’s novelty falls within the range of the mutational gap in each difficulty, suggesting it is extrapolating an appropriate amount for each task. Our sampling procedure, GWG, fails to perform without smoothing which agrees with its theoretical requirements of requiring a smooth model for good performance. We conclude smoothing is a beneficial technique not only for GGS but also for some baselines. GGS is able to achieve state-of-the-art results in our benchmark. ",
+        "bbox": [
+            174,
+            840,
+            825,
+            922
+        ],
+        "page_idx": 6
+    },
+    {
+        "type": "table",
+        "img_path": "images/359c8902ac4e0a34419aa7493e6545b58492159e42856ae3b414e9d363f764a3.jpg",
+        "table_caption": [
+            "Table 3: GFP optimization results. Bold indicates improvement with smoothing. "
+        ],
+        "table_footnote": [],
+        "table_body": "<table><tr><td rowspan=\"2\">Method</td><td colspan=\"3\">Medium difficulty</td><td colspan=\"3\">Hard difficulty</td></tr><tr><td>Fitness</td><td>Diversity</td><td>Novelty</td><td>Fitness</td><td>Diversity</td><td>Novelty</td></tr><tr><td>GFN-AL</td><td>0.09 (0.1)</td><td>25.1 (0.5)</td><td>213 (2.2)</td><td>0.1 (0.2)</td><td>23.6 (1.0)</td><td>214 (4.2)</td></tr><tr><td>GFN-AL + GS</td><td>0.15 (0.1)</td><td>16.3 (1.6)</td><td>213 (2.7)</td><td>0.16 (0.2)</td><td>22.2 (0.8)</td><td>215 (4.6)</td></tr><tr><td>CbAS</td><td>0.14 (0.0)</td><td>9.7 (1.1)</td><td>7.2 (0.4)</td><td>0.18 (0.0)</td><td>9.6 (1.3)</td><td>7.8 (0.4)</td></tr><tr><td>CbAS + GS</td><td>0.66 (0.1)</td><td>3.8 (0.4)</td><td>5.0 (0.0)</td><td>0.57 (0.0)</td><td>4.2 (0.17)</td><td>6.3 (0.6)</td></tr><tr><td>AdaLead</td><td>0.56 (0.0)</td><td>3.5 (0.1)</td><td>2.0 (0.0)</td><td>0.18 (0.0)</td><td>5.6 (0.5)</td><td>2.8 (0.4)</td></tr><tr><td>AdaLead + GS</td><td>0.59 (0.0)</td><td>5.5 (0.3)</td><td>2.0 (0.0)</td><td>0.39 (0.0)</td><td>3.5 (0.1)</td><td>2.0 (0.0)</td></tr><tr><td>BOqei</td><td>0.20 (0.0)</td><td>) 19.3 (0.0)</td><td>0.0 (0.0)</td><td>0.0 (0.5) </td><td>94.6 (71)</td><td> 54.1 (81)</td></tr><tr><td>BOqei + GS</td><td>0.08 (0.0)</td><td>19.3 (0.0)</td><td>0.0 (0.0)</td><td>0.01 (0.0)</td><td>13.4 (0.0)</td><td>0.0 (0.0)</td></tr><tr><td>CoMS</td><td>0.0 (0.1)</td><td>133 (25)</td><td>192 (12)</td><td>0.0 (0.1)</td><td>144 (7.5)</td><td>201 (3.0)</td></tr><tr><td>CoMS + GS</td><td>0.0 (0.5)</td><td>129 (25)</td><td>128 (84)</td><td>0.0 (0.1)</td><td>114 (36)</td><td>187 (5.7)</td></tr><tr><td>PEX</td><td>0.47 (0.0)</td><td>3.0 (0.0)</td><td>1.4 (0.2)</td><td>0.0 (0.0)</td><td>3.0 (0.0</td><td>1.3 (0.3)</td></tr><tr><td>PEX + GS</td><td>0.45 (0.0)</td><td>2.9 (0.0)</td><td>1.2 (0.3)</td><td>0.0 (0.0)</td><td>2.9 (0.0)</td><td>1.2 (0.3)</td></tr><tr><td>GWG</td><td>0.1 (0.0)</td><td>33.0 (0.8)</td><td>12.8 (0.4)</td><td>0.0 (0.0)</td><td>4.2 (7.0)</td><td>7.6 (1.1)</td></tr><tr><td>GGS (ours)</td><td>0.76 (0.0)</td><td>3.7 (0.2)</td><td>5.0 (0.0)</td><td>0.74 (0.0)</td><td>3.6 (0.1)</td><td>8.0 (0.0)</td></tr></table>",
+        "bbox": [
+            189,
+            126,
+            808,
+            422
+        ],
+        "page_idx": 7
+    },
+    {
+        "type": "table",
+        "img_path": "images/b2a417e99c017dca6f3a5374946dda9946868855fcaa539650aebf5a1421ba71.jpg",
+        "table_caption": [
+            "Table 4: AAV optimization results. Bold indicates improvement with smoothing. "
+        ],
+        "table_footnote": [],
+        "table_body": "<table><tr><td rowspan=\"2\">Method</td><td colspan=\"3\">Medium difficulty</td><td colspan=\"3\">Hard difficulty</td></tr><tr><td>Fitness</td><td>Diversity</td><td>Novelty</td><td>Fitness</td><td>Diversity</td><td>Novelty</td></tr><tr><td>GFN-AL</td><td>0.2 (0.1)</td><td>9.6 (1.2)</td><td>19.4 (1.1)</td><td>0.1 (0.1)</td><td>11.6 (1.4)</td><td>19.6 (1.1)</td></tr><tr><td>GFN-AL + GS</td><td>0.18 (0.1)</td><td>9.0 (1.1)</td><td>20.6 (0.5)</td><td>0.1 (0.1)</td><td>9.5 (2.5)</td><td>19.4 (1.1)</td></tr><tr><td>CbAS</td><td>0.43 (0.0)</td><td>12.7 (0.7)</td><td>7.2 (0.4)</td><td>0.36 (0.0)</td><td>14.4 (0.7)</td><td>8.6 (0.5)</td></tr><tr><td>CbAS + GS</td><td>0.47 (0.1)</td><td>8.8 (0.9)</td><td>5.3 (0.6)</td><td>0.4 (0.0)</td><td>12.5 (0.4)</td><td>7.0 (0.0)</td></tr><tr><td>AdaLead</td><td>0.46 (0.0)</td><td>8.5 (0.8)</td><td>2.8 (0.4)</td><td>0.4 (0.0)</td><td>8.53 (0.1)</td><td>3.4 (0.5)</td></tr><tr><td>AdaLead + GS</td><td>0.43 (0.0)</td><td>3.77 (0.2)</td><td>2.0 (0.0)</td><td>0.44 (0.0)</td><td>2.9 (0.1)</td><td>2.0 (0.0)</td></tr><tr><td>BOqei</td><td>0.38 (0.0)</td><td>15.22 (0.8)</td><td>0.0 (0.0)</td><td>0.32 (0.0)</td><td>17.9 (0.3)</td><td>0.0 (0.0)</td></tr><tr><td>BOqei + GS</td><td>0.34 (0.0)</td><td>12.2 (0.3)</td><td>0.0 (0.0)</td><td>0.32 (0.0)</td><td>17.2 (0.7)</td><td>0.0 (0.0)</td></tr><tr><td>TCoMS</td><td>0.37 (0.1)</td><td>10.1 (55.9)</td><td>8.2 (3.5)</td><td>0.26 (0.0)</td><td> 10.7 (3.5)</td><td> 10.0 (2.8)</td></tr><tr><td>CoMS + GS</td><td>0.37 (0.1)</td><td>9.0 (3.6)</td><td>8.6 (3.7)</td><td>0.22 (0.1)</td><td>13.2 (1.9)</td><td>12.6 (2.4)</td></tr><tr><td>PEX</td><td>0.4 (0.0)</td><td>2.8 (0.0)</td><td>1.4 (0.2)</td><td>0.3 (0.0)</td><td>2.8 (0.0)</td><td>1.3 (0.3)</td></tr><tr><td>PEX + GS</td><td>0.4 (0.0)</td><td>2.8 (0.0)</td><td>1.4 (0.2)</td><td>0.3 (0.0)</td><td>2.8 (0.0)</td><td>1.1 (0.2)</td></tr><tr><td>GWG</td><td>0.43 (0.1)</td><td>6.6 (6.3)</td><td>7.7 (0.8)</td><td>0.33 (0.0)</td><td>12.0 (0.4)</td><td>12.2 (0.4)</td></tr><tr><td>GGS (ours)</td><td>0.51 (0.0)</td><td>4.0 (0.2)</td><td>5.4 (0.5)</td><td>0.60 (0.0)</td><td>4.5 (0.5)</td><td>7.0 (0.0)</td></tr></table>",
+        "bbox": [
+            183,
+            462,
+            815,
+            758
+        ],
+        "page_idx": 7
+    },
+    {
+        "type": "text",
+        "text": "4.3 ANALYSIS ",
+        "text_level": 1,
+        "bbox": [
+            174,
+            786,
+            287,
+            800
+        ],
+        "page_idx": 7
+    },
+    {
+        "type": "text",
+        "text": "We analyze the effect of varying the following hyperparameters: number of nodes $N _ { \\mathrm { n o d e s } }$ in the protein graph, smoothness weight $\\gamma$ in eq. (1), and number of sampling rounds $R$ during GWG sampling. For space, we leave the analysis of the sampling temperature $\\tau$ in appendix C.1. Figure 3 presents the results of running GGS with different hyperparameters on the hard difficulty of GFP and AAV. Along the $\\mathrm { X }$ -axis, we plot the median performance of the sequences during each round of GWG where $r = 0$ is initialization and $r = 1 5$ are the sequences and the end of GWG. The Y-axis shows the predicted fitness of the smoothed model in blue while the fitness scored with our is shown in red. Interestingly, we find in the majority of cases the smoothed model’s predictions are highly correlated with the evaluator along the sampling trajectory. This is despite the model being trained on $4 \\%$ of the data with the hard filtering. Appendix C.2.2 shows the prediction error where we find smoothing greatly improves in predicting the fitness of unseen sequences despite having higher train error. ",
+        "bbox": [
+            173,
+            811,
+            825,
+            924
+        ],
+        "page_idx": 7
+    },
+    {
+        "type": "text",
+        "text": "",
+        "bbox": [
+            174,
+            103,
+            823,
+            146
+        ],
+        "page_idx": 8
+    },
+    {
+        "type": "text",
+        "text": "Graph size. We find $N _ { \\mathrm { n o d e s } } = 2 5 0 , 0 0 0$ nodes to have the best performance over a smaller graph with 100,000 nodes. Larger graphs allow for better approximation of the fitness landscape. However, larger graphs require more compute. A future direction could be to determine optimal graph size with different node augmentations strategies than random mutations. ",
+        "bbox": [
+            174,
+            161,
+            825,
+            217
+        ],
+        "page_idx": 8
+    },
+    {
+        "type": "text",
+        "text": "Smoothing. Too much smoothing $\\gamma = 1 0 . 0$ can lead to worse performance in AAV while GFP is not sensitive. This suggests the optimal $\\gamma$ is dependent on the particular fitness landscape. Since real proteins landscapes are unknown, the biggest limitation of our method is determining the optimal $\\gamma$ An important extension of GGS is to theoretically characterize landscapes (Buzas & Dinitz, 2013) and provide guidelines of selecting $\\gamma$ . ",
+        "bbox": [
+            173,
+            232,
+            825,
+            303
+        ],
+        "page_idx": 8
+    },
+    {
+        "type": "text",
+        "text": "Sampling convergence. We find a set number of rounds are required for GWG sampling to converge when the landscape is smooth enough (middle and right column). We find additional rounds are unnecessary; in practice, more rounds can be ran to ensure convergence. Results on sweeping the temperature are in Appendix C.1 where we see 0.1 clearly performs the best for GFP and AAV. ",
+        "bbox": [
+            173,
+            318,
+            825,
+            375
+        ],
+        "page_idx": 8
+    },
+    {
+        "type": "image",
+        "img_path": "images/b7163cac548aa10fe67daf68a19e19e61f513ba8918414e359cacd065288fd19.jpg",
+        "image_caption": [
+            "Figure 3: GGS hyperparameter analysis on GFP and AAV hard difficulty. See Section 4.3. "
+        ],
+        "image_footnote": [],
+        "bbox": [
+            178,
+            388,
+            823,
+            734
+        ],
+        "page_idx": 8
+    },
+    {
+        "type": "text",
+        "text": "5 DISCUSSION ",
+        "text_level": 1,
+        "bbox": [
+            174,
+            794,
+            310,
+            810
+        ],
+        "page_idx": 8
+    },
+    {
+        "type": "text",
+        "text": "We present Gibbs sampling with Graph-based Smoothing (GGS) for protein optimization with a smoothed fitness landscape. Our main contribution and insight is a novel application of graph signal processing to protein optimization. We show smoothing is not only beneficial to our method but also to our baselines. To evaluate, we designed a suite of tasks around two measure of difficulty: number of edits to achieve the 99th percentile (mutational gap) and starting range of fitness. All baselines struggled to achieve good performance on our tasks. However, some baselines showed a three fold improvement with smoothing. GGS performed the best by combining Gibbs with gradients with a smoothed model – demonstrating the synergy of gradient-based sampling with a smooth discrete energy-based model. Our results highlight the benefits of optimizing over a smooth landscape that may not be reflective of the true fitness landscape. We believe it’s important to investigate how regularization can be used to transform protein fitness data to be compatible with modern optimization algorithms. Our goal is to not learn the excess biological noise, but find the signal in the data to discover the best protein. We conclude with limitations. ",
+        "bbox": [
+            173,
+            825,
+            825,
+            924
+        ],
+        "page_idx": 8
+    },
+    {
+        "type": "text",
+        "text": "",
+        "bbox": [
+            174,
+            103,
+            823,
+            186
+        ],
+        "page_idx": 9
+    },
+    {
+        "type": "text",
+        "text": "Evaluation limitations. The results demonstrate strong evidence of using smoothing given its improvement in multiple methods. Despite this, our evaluations follow prior works by utilizing an trained model for evaluation. This can be unreliable compared to testing out sequences with wet-lab validation. Unfortunately, wet-lab validation can be cost and time intensive. The ultimate test would be to use GGS in an active learning or experimental pipeline with wet-lab validation in the loop. ",
+        "bbox": [
+            174,
+            203,
+            825,
+            272
+        ],
+        "page_idx": 9
+    },
+    {
+        "type": "text",
+        "text": "Method limitations. Our method utilizes several hyperparameters such as the graph size and smoothing parameter $\\gamma$ . We demonstrated the effects of each hyperparameter in Section 4.3. Given the success of smoothing, it is desirable to find systematic ways to determine optimal hyperparameters based on an approximation of the underlying fitness landscape. We demonstrated our hyperparameter choices are not specific to either AAV or GFP, but this does not guarantee optimality for new landscapes. We believe the connections between spectral graph theory and protein optimization has more to give in advancing the important problem of protein optimization. ",
+        "bbox": [
+            174,
+            289,
+            825,
+            386
+        ],
+        "page_idx": 9
+    },
+    {
+        "type": "text",
+        "text": "ACKNOWLEDGMENTS ",
+        "text_level": 1,
+        "bbox": [
+            176,
+            404,
+            326,
+            416
+        ],
+        "page_idx": 9
+    },
+    {
+        "type": "text",
+        "text": "The authors thank Hannes Stark, Rachel Wu, Nathaniel Bennett, Sean Murphy, Jaedong Hwang, ¨ Josef Sivic, and Tom ˇ a´s Pluskal for helpful discussion and feedback. ˇ ",
+        "bbox": [
+            174,
+            426,
+            823,
+            455
+        ],
+        "page_idx": 9
+    },
+    {
+        "type": "text",
+        "text": "JY was supported in part by an NSF-GRFP. JY, RB, and TJ acknowledge support from NSF Expeditions grant (award 1918839: Collaborative Research: Understanding the World Through Code), Machine Learning for Pharmaceutical Discovery and Synthesis (MLPDS) consortium, the Abdul Latif Jameel Clinic for Machine Learning in Health, the DTRA Discovery of Medical Countermeasures Against New and Emerging (DOMANE) threats program, the DARPA Accelerated Molecular Discovery program and the Sanofi Computational Antibody Design grant. IF is supported by the Office of Naval Research, the Howard Hughes Medical Institute (HHMI), and NIH (NIMH-MH129046). RS was partly supported by the European Regional Development Fund under the project IMPACT (reg. no. CZ.02.1.01/0.0/0.0/15 003/0000468), the Ministry of Education, Youth and Sports of the Czech Republic through the e-INFRA CZ (ID:90254), and the MISTI Global Seed Funds under the MIT-Czech Republic Seed Fund. ",
+        "bbox": [
+            174,
+            463,
+            826,
+            616
+        ],
+        "page_idx": 9
+    },
+    {
+        "type": "text",
+        "text": "REFERENCES ",
+        "text_level": 1,
+        "bbox": [
+            176,
+            637,
+            285,
+            652
+        ],
+        "page_idx": 9
+    },
+    {
+        "type": "text",
+        "text": "Dave W Anderson, Florian Baier, Gloria Yang, and Nobuhiko Tokuriki. The adaptive landscape of a metallo-enzyme is shaped by environment-dependent epistasis. Nature Communications, 12(1): 3867, 2021. ",
+        "bbox": [
+            174,
+            661,
+            825,
+            703
+        ],
+        "page_idx": 9
+    },
+    {
+        "type": "text",
+        "text": "Christof Angermueller, David Dohan, David Belanger, Ramya Deshpande, Kevin Murphy, and Lucy Colwell. Model-based reinforcement learning for biological sequence design. 2020. ",
+        "bbox": [
+            176,
+            713,
+            825,
+            742
+        ],
+        "page_idx": 9
+    },
+    {
+        "type": "text",
+        "text": "Frances H Arnold. Design by directed evolution. Accounts of chemical research, 31(3):125–131, 1998. ",
+        "bbox": [
+            171,
+            752,
+            825,
+            780
+        ],
+        "page_idx": 9
+    },
+    {
+        "type": "text",
+        "text": "David Brookes, Hahnbeom Park, and Jennifer Listgarten. Conditioning by adaptive sampling for robust design. In International conference on machine learning, pp. 773–782. PMLR, 2019. ",
+        "bbox": [
+            173,
+            790,
+            825,
+            819
+        ],
+        "page_idx": 9
+    },
+    {
+        "type": "text",
+        "text": "David H Brookes, Amirali Aghazadeh, and Jennifer Listgarten. On the sparsity of fitness functions and implications for learning. Proceedings of the National Academy of Sciences, 119(1):e2109649118, 2022. ",
+        "bbox": [
+            176,
+            829,
+            823,
+            871
+        ],
+        "page_idx": 9
+    },
+    {
+        "type": "text",
+        "text": "Drew H Bryant, Ali Bashir, Sam Sinai, Nina K Jain, Pierce J Ogden, Patrick F Riley, George M Church, Lucy J Colwell, and Eric D Kelsic. Deep diversification of an aav capsid protein by machine learning. Nature Biotechnology, 39(6):691–696, 2021. ",
+        "bbox": [
+            176,
+            881,
+            825,
+            924
+        ],
+        "page_idx": 9
+    },
+    {
+        "type": "text",
+        "text": "Jeffrey Buzas and Jeffrey Dinitz. An analysis of nk landscapes: Interaction structure, statistical properties, and expected number of local optima. IEEE Transactions on Evolutionary Computation, 18(6):807–818, 2013. ",
+        "bbox": [
+            173,
+            103,
+            823,
+            146
+        ],
+        "page_idx": 10
+    },
+    {
+        "type": "text",
+        "text": "Christian Dallago, Jody Mou, Kadina E Johnston, Bruce J Wittmann, Nicholas Bhattacharya, Samuel Goldman, Ali Madani, and Kevin K Yang. Flip: Benchmark tasks in fitness landscape inference for proteins. bioRxiv, pp. 2021–11, 2021. ",
+        "bbox": [
+            173,
+            157,
+            825,
+            200
+        ],
+        "page_idx": 10
+    },
+    {
+        "type": "text",
+        "text": "Patrick Emami, Aidan Perreault, Jeffrey Law, David Biagioni, and Peter St John. Plug & play directed evolution of proteins with gradient-based discrete mcmc. Machine Learning: Science and Technology, 4(2):025014, 2023. ",
+        "bbox": [
+            173,
+            212,
+            825,
+            255
+        ],
+        "page_idx": 10
+    },
+    {
+        "type": "text",
+        "text": "Nathan C Frey, Daniel Berenberg, Karina Zadorozhny, Joseph Kleinhenz, Julien Lafrance-Vanasse, Isidro Hotzel, Yan Wu, Stephen Ra, Richard Bonneau, Kyunghyun Cho, et al. Protein discovery with discrete walk-jump sampling. arXiv preprint arXiv:2306.12360, 2023. ",
+        "bbox": [
+            171,
+            267,
+            825,
+            310
+        ],
+        "page_idx": 10
+    },
+    {
+        "type": "text",
+        "text": "Mahan Ghafari and Daniel B. Weissman. The expected time to cross extended fitness plateaus. Theoretical Population Biology, 129:54–67, 2019. ISSN 0040-5809. doi: https://doi.org/10.1016/j.tpb. 2019.03.008. URL https://www.sciencedirect.com/science/article/pii/ S0040580918301011. Special issue in honor of Marcus Feldman’s 75th birthday. ",
+        "bbox": [
+            173,
+            321,
+            826,
+            378
+        ],
+        "page_idx": 10
+    },
+    {
+        "type": "text",
+        "text": "Will Grathwohl, Kevin Swersky, Milad Hashemi, David Duvenaud, and Chris Maddison. Oops i took a gradient: Scalable sampling for discrete distributions. In International Conference on Machine Learning, pp. 3831–3841. PMLR, 2021. ",
+        "bbox": [
+            176,
+            390,
+            823,
+            433
+        ],
+        "page_idx": 10
+    },
+    {
+        "type": "text",
+        "text": "Nate Gruver, Samuel Stanton, Nathan C Frey, Tim GJ Rudner, Isidro Hotzel, Julien Lafrance-Vanasse, Arvind Rajpal, Kyunghyun Cho, and Andrew Gordon Wilson. Protein design with guided discrete diffusion. arXiv preprint arXiv:2305.20009, 2023. ",
+        "bbox": [
+            174,
+            444,
+            826,
+            487
+        ],
+        "page_idx": 10
+    },
+    {
+        "type": "text",
+        "text": "Elvin Isufi, Fernando Gama, David I Shuman, and Santiago Segarra. Graph filters for signal processing and machine learning on graphs. arXiv preprint arXiv:2211.08854, 2022. ",
+        "bbox": [
+            173,
+            500,
+            823,
+            529
+        ],
+        "page_idx": 10
+    },
+    {
+        "type": "text",
+        "text": "Moksh Jain, Emmanuel Bengio, Alex Hernandez-Garcia, Jarrid Rector-Brooks, Bonaventure F. P. Dossou, Chanakya Ajit Ekbote, Jie Fu, Tianyu Zhang, Michael Kilgour, Dinghuai Zhang, Lena Simine, Payel Das, and Yoshua Bengio. Biological sequence design with GFlowNets. In Kamalika Chaudhuri, Stefanie Jegelka, Le Song, Csaba Szepesvari, Gang Niu, and Sivan Sabato (eds.), Proceedings of the 39th International Conference on Machine Learning, volume 162 of Proceedings of Machine Learning Research, pp. 9786–9801. PMLR, 17–23 Jul 2022. URL https://proceedings.mlr.press/v162/jain22a.html. ",
+        "bbox": [
+            174,
+            540,
+            825,
+            638
+        ],
+        "page_idx": 10
+    },
+    {
+        "type": "text",
+        "text": "Stuart A Kauffman and Edward D Weinberger. The nk model of rugged fitness landscapes and its application to maturation of the immune response. Journal of theoretical biology, 141(2):211–245, 1989. ",
+        "bbox": [
+            174,
+            650,
+            826,
+            691
+        ],
+        "page_idx": 10
+    },
+    {
+        "type": "text",
+        "text": "Diederik P Kingma and Jimmy Ba. Adam: A method for stochastic optimization. arXiv preprint arXiv:1412.6980, 2014. ",
+        "bbox": [
+            173,
+            704,
+            823,
+            733
+        ],
+        "page_idx": 10
+    },
+    {
+        "type": "text",
+        "text": "Minji Lee, Luiz Felipe Vecchietti, Hyunkyu Jung, Hyunjoo Ro, Meeyoung Cha, and Ho Min Kim. Protein sequence design in a latent space via model-based reinforcement learning. ",
+        "bbox": [
+            173,
+            744,
+            825,
+            775
+        ],
+        "page_idx": 10
+    },
+    {
+        "type": "text",
+        "text": "Natalie Maus, Haydn Jones, Juston Moore, Matt J Kusner, John Bradshaw, and Jacob Gardner. Local latent space bayesian optimization over structured inputs. Advances in Neural Information Processing Systems, 35:34505–34518, 2022. ",
+        "bbox": [
+            173,
+            786,
+            826,
+            829
+        ],
+        "page_idx": 10
+    },
+    {
+        "type": "text",
+        "text": "Joshua Meier, Roshan Rao, Robert Verkuil, Jason Liu, Tom Sercu, and Alex Rives. Language models enable zero-shot prediction of the effects of mutations on protein function. Advances in Neural Information Processing Systems, 34:29287–29303, 2021. ",
+        "bbox": [
+            173,
+            840,
+            825,
+            883
+        ],
+        "page_idx": 10
+    },
+    {
+        "type": "text",
+        "text": "Daniel Mullner. Modern hierarchical, agglomerative clustering algorithms. ¨ arXiv preprint arXiv:1109.2378, 2011. ",
+        "bbox": [
+            171,
+            895,
+            823,
+            924
+        ],
+        "page_idx": 10
+    },
+    {
+        "type": "text",
+        "text": "Pascal Notin, Mafalda Dias, Jonathan Frazer, Javier Marchena Hurtado, Aidan N Gomez, Debora Marks, and Yarin Gal. Tranception: protein fitness prediction with autoregressive transformers and inference-time retrieval. In International Conference on Machine Learning, pp. 16990–17017. PMLR, 2022. ",
+        "bbox": [
+            174,
+            103,
+            826,
+            159
+        ],
+        "page_idx": 11
+    },
+    {
+        "type": "text",
+        "text": "Vishakh Padmakumar, Richard Yuanzhe Pang, He He, and Ankur P Parikh. Extrapolative controlled sequence generation via iterative refinement. arXiv preprint arXiv:2303.04562, 2023. ",
+        "bbox": [
+            171,
+            167,
+            825,
+            196
+        ],
+        "page_idx": 11
+    },
+    {
+        "type": "text",
+        "text": "Roshan Rao, Nicholas Bhattacharya, Neil Thomas, Yan Duan, Xi Chen, John Canny, Pieter Abbeel, and Yun S Song. Evaluating protein transfer learning with tape. In Advances in Neural Information Processing Systems, 2019. ",
+        "bbox": [
+            174,
+            205,
+            825,
+            247
+        ],
+        "page_idx": 11
+    },
+    {
+        "type": "text",
+        "text": "S James Remington. Green fluorescent protein: a perspective. Protein Science, 20(9):1509–1519, 2011. ",
+        "bbox": [
+            173,
+            256,
+            826,
+            285
+        ],
+        "page_idx": 11
+    },
+    {
+        "type": "text",
+        "text": "Zhizhou Ren, Jiahan Li, Fan Ding, Yuan Zhou, Jianzhu Ma, and Jian Peng. Proximal exploration for model-guided protein sequence design. In Kamalika Chaudhuri, Stefanie Jegelka, Le Song, Csaba Szepesvari, Gang Niu, and Sivan Sabato (eds.), Proceedings of the 39th International Conference on Machine Learning, volume 162 of Proceedings of Machine Learning Research, pp. 18520–18536. PMLR, 17–23 Jul 2022. URL https://proceedings.mlr.press/v162/ ren22a.html. ",
+        "bbox": [
+            173,
+            292,
+            826,
+            377
+        ],
+        "page_idx": 11
+    },
+    {
+        "type": "text",
+        "text": "Karen S Sarkisyan, Dmitry A Bolotin, Margarita V Meer, Dinara R Usmanova, Alexander S Mishin, George V Sharonov, Dmitry N Ivankov, Nina G Bozhanova, Mikhail S Baranov, Onuralp Soylemez, et al. Local fitness landscape of the green fluorescent protein. Nature, 533(7603):397–401, 2016. ",
+        "bbox": [
+            174,
+            385,
+            826,
+            429
+        ],
+        "page_idx": 11
+    },
+    {
+        "type": "text",
+        "text": "Sam Sinai, Richard Wang, Alexander Whatley, Stewart Slocum, Elina Locane, and Eric D Kelsic. Adalead: A simple and robust adaptive greedy search algorithm for sequence design. arXiv preprint arXiv:2010.02141, 2020. ",
+        "bbox": [
+            174,
+            436,
+            826,
+            479
+        ],
+        "page_idx": 11
+    },
+    {
+        "type": "text",
+        "text": "Zhenqiao Song and Lei Li. Importance weighted expectation-maximization for protein sequence design. arXiv preprint arXiv:2305.00386, 2023. ",
+        "bbox": [
+            171,
+            487,
+            823,
+            517
+        ],
+        "page_idx": 11
+    },
+    {
+        "type": "text",
+        "text": "Nitish Srivastava, Geoffrey Hinton, Alex Krizhevsky, Ilya Sutskever, and Ruslan Salakhutdinov. Dropout: a simple way to prevent neural networks from overfitting. The journal of machine learning research, 15(1):1929–1958, 2014. ",
+        "bbox": [
+            173,
+            525,
+            826,
+            568
+        ],
+        "page_idx": 11
+    },
+    {
+        "type": "text",
+        "text": "Samuel Stanton, Wesley Maddox, Nate Gruver, Phillip Maffettone, Emily Delaney, Peyton Greenside, and Andrew Gordon Wilson. Accelerating bayesian optimization for biological sequence design with denoising autoencoders. arXiv preprint arXiv:2203.12742, 2022. ",
+        "bbox": [
+            174,
+            575,
+            825,
+            618
+        ],
+        "page_idx": 11
+    },
+    {
+        "type": "text",
+        "text": "Brandon Trabucco, Aviral Kumar, Xinyang Geng, and Sergey Levine. Conservative objective models for effective offline model-based optimization. In Marina Meila and Tong Zhang (eds.), Proceedings of the 38th International Conference on Machine Learning, volume 139 of Proceedings of Machine Learning Research, pp. 10358–10368. PMLR, 18–24 Jul 2021. URL https://proceedings. mlr.press/v139/trabucco21a.html. ",
+        "bbox": [
+            173,
+            626,
+            826,
+            696
+        ],
+        "page_idx": 11
+    },
+    {
+        "type": "text",
+        "text": "Brandon Trabucco, Xinyang Geng, Aviral Kumar, and Sergey Levine. Design-bench: Benchmarks for data-driven offline model-based optimization. CoRR, abs/2202.08450, 2022. URL https: //arxiv.org/abs/2202.08450. ",
+        "bbox": [
+            174,
+            705,
+            823,
+            747
+        ],
+        "page_idx": 11
+    },
+    {
+        "type": "text",
+        "text": "James T Wilson, Riccardo Moriconi, Frank Hutter, and Marc Peter Deisenroth. The reparameterization trick for acquisition functions. arXiv preprint arXiv:1712.00424, 2017. ",
+        "bbox": [
+            169,
+            756,
+            823,
+            785
+        ],
+        "page_idx": 11
+    },
+    {
+        "type": "text",
+        "text": "Giacomo Zanella. Informed proposals for local mcmc in discrete spaces. Journal of the American Statistical Association, 115(530):852–865, 2020. ",
+        "bbox": [
+            171,
+            792,
+            823,
+            821
+        ],
+        "page_idx": 11
+    },
+    {
+        "type": "text",
+        "text": "Brandon S Zerbe, David R Hall, Sandor Vajda, Adrian Whitty, and Dima Kozakov. Relationship between hot spot residues and ligand binding hot spots in protein–protein interfaces. Journal of chemical information and modeling, 52(8):2236–2244, 2012. ",
+        "bbox": [
+            174,
+            830,
+            823,
+            873
+        ],
+        "page_idx": 11
+    },
+    {
+        "type": "text",
+        "text": "Dengyong Zhou and Bernhard Scholkopf. A regularization framework for learning from graph data. ¨ In ICML 2004 Workshop on Statistical Relational Learning and Its Connections to Other Fields (SRL 2004), pp. 132–137, 2004. ",
+        "bbox": [
+            174,
+            882,
+            825,
+            924
+        ],
+        "page_idx": 11
+    },
+    {
+        "type": "text",
+        "text": "A ADDITIONAL GFP ANALYSIS ",
+        "text_level": 1,
+        "bbox": [
+            178,
+            102,
+            450,
+            118
+        ],
+        "page_idx": 12
+    },
+    {
+        "type": "text",
+        "text": "Design-bench difficulty. Prior works have used the GFP task introduced by design-bench (DB), a suite of model-based reinforcement learning tasks (Trabucco et al., 2022), which samples a starting set of 5,000 sequences from the 50-60th percentile fitness range. However, we found this task to be too easy in the sense only one mutation was required from sequences in the training set to achieve the 99th percentile. We quantify this difficulty using the mutational gap described in eq. (6). Our proposed medium and hard difficulties (Section 4.1) require many more mutations to reach the top fitness percentile, see Figure 4. Similar issues may be present in other benchmarks. ",
+        "bbox": [
+            173,
+            133,
+            825,
+            231
+        ],
+        "page_idx": 12
+    },
+    {
+        "type": "image",
+        "img_path": "images/78137e40d34d973a3138e3f4f34e02d4766e466695b910206a2f0437195e0b46.jpg",
+        "image_caption": [
+            "Figure 4: Easy is taken from design-bench where sequences between the 50-60th percentile are used in training regardless of edit distance to sequences in the 99th percentile. Data leakage is present due to multiple measurements that allows the wild-type and other top sequences to be included during training. Medium filters the training dataset to have sequences in the 20-40th percentile and be 6 or more mutations away from anything in the top 99th percentile. Hard similarly filters for sequences in at most the 30th percentile and 7 or more mutations away. "
+        ],
+        "image_footnote": [],
+        "bbox": [
+            178,
+            250,
+            821,
+            444
+        ],
+        "page_idx": 12
+    },
+    {
+        "type": "text",
+        "text": "B ADDITIONAL METHODS ",
+        "text_level": 1,
+        "bbox": [
+            176,
+            102,
+            406,
+            117
+        ],
+        "page_idx": 13
+    },
+    {
+        "type": "text",
+        "text": "B.1 CNN ARCHITECTURE ",
+        "text_level": 1,
+        "bbox": [
+            176,
+            137,
+            367,
+            152
+        ],
+        "page_idx": 13
+    },
+    {
+        "type": "text",
+        "text": "We utilize a 1D convolutional neural network (CNN) architecture in our model and oracle. The CNN takes in a one-hot encoded sequence as input then applies a 1D convolution with kernel width 5 followed by max-pooling and a dense layer to a single node that outputs a scalar value. It uses 256 channels throughout for a total of 157,000 parameters. Despite its simplicity, we find the CNN to outperform Transformers. Indeed, this corroborates the results in Dallago et al. (2021) that a simple CNN can be effective in low data regimes. ",
+        "bbox": [
+            174,
+            166,
+            825,
+            250
+        ],
+        "page_idx": 13
+    },
+    {
+        "type": "text",
+        "text": "Training is performed with batch size 1024, ADAM optimizer (Kingma & Ba, 2014) (with $\\beta _ { 1 } =$ $0 . 9 , \\beta _ { 2 } = 0 . 9 9 9 )$ , learning rate 0.0001, and 50 epochs, using a single A6000 Nvidia GPU. ",
+        "bbox": [
+            174,
+            256,
+            821,
+            285
+        ],
+        "page_idx": 13
+    },
+    {
+        "type": "text",
+        "text": "B.2 METRICS ",
+        "text_level": 1,
+        "bbox": [
+            174,
+            309,
+            282,
+            323
+        ],
+        "page_idx": 13
+    },
+    {
+        "type": "text",
+        "text": "We provide mathematical definitions of each metric. Note $g _ { \\phi }$ is the evaluator trained to predict the approximate fitness as a proxy for experimental validation. ",
+        "bbox": [
+            174,
+            337,
+            823,
+            366
+        ],
+        "page_idx": 13
+    },
+    {
+        "type": "text",
+        "text": "• (Normalized) Fitness $= \\mathrm { m e d i a n } ( \\{ \\xi ( \\hat { x } _ { i } ; Y ^ { * } ) \\} _ { i = 1 } ^ { N _ { \\mathrm { s a m p l e s } } } )$ where $\\begin{array} { r } { \\xi ( \\hat { x } ; Y ^ { * } ) ~ = ~ \\frac { g _ { \\phi } ( \\hat { x } _ { i } ) - \\operatorname* { m i n } ( Y ^ { * } ) } { \\operatorname* { m a x } ( Y ^ { * } ) - \\operatorname* { m i n } ( Y ^ { * } ) } } \\end{array}$ is the min-max normalized fitness based on the lowest and highest known fitness in $Y ^ { * }$ . ",
+        "bbox": [
+            183,
+            381,
+            826,
+            416
+        ],
+        "page_idx": 13
+    },
+    {
+        "type": "text",
+        "text": "• Diversity $=$ median $( \\{ \\mathrm { d i s t } ( x , \\tilde { x } ) : x , \\tilde { x } \\in \\hat { X } , x \\neq \\tilde { x } \\} )$ ) is the average sample similarity. ",
+        "bbox": [
+            181,
+            425,
+            782,
+            444
+        ],
+        "page_idx": 13
+    },
+    {
+        "type": "text",
+        "text": "• Noveltyis the m $= \\mathrm { m e d i a n } ( \\{ \\eta ( \\hat { x } _ { i } ; X ) \\} _ { i = 1 } ^ { N _ { \\mathrm { s a m p l e s } } } )$ whereo any o $\\eta ( x ; X ) = \\operatorname* { m i n } ( \\left\\{ \\operatorname { d i } { \\mathfrak { s } } \\ t ( x , { \\tilde { x } } ) : { \\tilde { x } } \\in X ^ { * } , { \\tilde { x } } \\neq x \\right\\}$ $x$ $X$ ",
+        "bbox": [
+            186,
+            453,
+            825,
+            486
+        ],
+        "page_idx": 13
+    },
+    {
+        "type": "text",
+        "text": "Algorithm 2 Smooth: Graph-based Smoothing ",
+        "text_level": 1,
+        "bbox": [
+            176,
+            516,
+            490,
+            530
+        ],
+        "page_idx": 13
+    },
+    {
+        "type": "text",
+        "text": "Require: Sequences: $X$   \nRequire: Noisy model weights: $\\tilde { \\theta }$   \n1: $V , E \\gets \\mathsf { C r e a t e G r a p h } ( X )$   \n2: L ← GraphLaplacian $( V , { \\underline { { E } } } )$   \n3: $Y \\gets [ f _ { \\tilde { \\theta } } ( x _ { 1 } ) , \\dots , f _ { \\tilde { \\theta } } ( x _ { N _ { \\mathrm { n o d e s } } } ) ] ^ { \\top }$   \n4: $\\hat { Y } \\gets ( \\mathbb { I } + \\gamma L ) ^ { - 1 } Y$   \n5: $\\theta \\gets \\arg \\operatorname* { m a x } _ { \\theta } \\mathbb { E } _ { ( x , \\hat { y } ) \\sim ( V , \\hat { Y } ) } \\left[ ( \\hat { y } - f _ { \\theta } ( x ) ) ^ { 2 } \\right]$   \n6: Return θ ",
+        "bbox": [
+            173,
+            535,
+            490,
+            656
+        ],
+        "page_idx": 13
+    },
+    {
+        "type": "text",
+        "text": "▷ Construct graph (Algorithm 4). ▷ Compute graph Laplacian. ▷ Compute smoothed fitness labels. ▷ Train on smoothed dataset. ",
+        "bbox": [
+            591,
+            537,
+            826,
+            655
+        ],
+        "page_idx": 13
+    },
+    {
+        "type": "text",
+        "text": "Algorithm 3 GWG: Gibbs With Gradients ",
+        "text_level": 1,
+        "bbox": [
+            176,
+            702,
+            444,
+            717
+        ],
+        "page_idx": 13
+    },
+    {
+        "type": "text",
+        "text": "Require: Parent sequences: $X$   \nRequire: Model weights: $\\theta$   \n1: $\\bar { X } ^ { \\prime }  \\varnothing$   \n2: for $x \\in X$ do   \n3: for $\\begin{array} { r l } & { i = 1 , \\dots , N _ { \\mathrm { p r o p } } \\ \\mathbf { d o } } \\\\ & { x ^ { \\prime }  x } \\\\ & { ( i ^ { \\mathrm { l o c } } , j ^ { \\mathrm { s u b } } ) \\sim q ( \\cdot | x ) } \\\\ & { x _ { i ^ { \\mathrm { l o c } } } ^ { \\prime }  \\mathcal { V } _ { j ^ { \\mathrm { s u b } } } } \\end{array}$   \n4:   \n5:   \n6:   \n7: if accept using eq. (4) then   \n8: $X ^ { \\prime }  X ^ { \\prime } \\cup \\{ x ^ { \\prime } \\}$   \n9: end if   \n10: end for   \n11: end for   \n12: Return $X ^ { \\prime }$ ",
+        "bbox": [
+            176,
+            720,
+            429,
+            920
+        ],
+        "page_idx": 13
+    },
+    {
+        "type": "text",
+        "text": "▷ Return accepted sequences. ",
+        "bbox": [
+            633,
+            902,
+            823,
+            915
+        ],
+        "page_idx": 13
+    },
+    {
+        "type": "text",
+        "text": "Algorithm 4 CreateGraph ",
+        "text_level": 1,
+        "bbox": [
+            174,
+            104,
+            372,
+            118
+        ],
+        "page_idx": 14
+    },
+    {
+        "type": "text",
+        "text": "Require: Sequences: $X$ ",
+        "bbox": [
+            176,
+            123,
+            338,
+            137
+        ],
+        "page_idx": 14
+    },
+    {
+        "type": "text",
+        "text": "1: $V  X$   \n2: while $| V | \\leq N _ { \\mathrm { n o d e s } }$ do   \n3: x ∼ U (V )   \n4: x′ ← PointMutation(x)   \n5: end while   \n6: $\\begin{array} { r } { E  \\bigcup _ { x \\in V } \\mathrm { k N N } ( x ; V ) } \\end{array}$   \n7: Return $( \\bar { V } , E )$ ",
+        "bbox": [
+            178,
+            137,
+            416,
+            237
+        ],
+        "page_idx": 14
+    },
+    {
+        "type": "text",
+        "text": "▷ Construct nodes. ▷ Sample a point mutation uniformly at random. ▷ Construct edges (Algorithm 5). ",
+        "bbox": [
+            508,
+            131,
+            826,
+            239
+        ],
+        "page_idx": 14
+    },
+    {
+        "type": "text",
+        "text": "Algorithm 5 kNN ",
+        "text_level": 1,
+        "bbox": [
+            174,
+            304,
+            294,
+            318
+        ],
+        "page_idx": 14
+    },
+    {
+        "type": "text",
+        "text": "Require: Current node: $x$ Require: All nodes: $V$ 1: $\\begin{array} { r } { \\mathcal { D } ( x )  \\bigcup _ { x ^ { \\prime } \\in V / \\{ x \\} } \\mathrm { d i s t } ( x ^ { \\prime } , x ) } \\end{array}$ 2: ${ \\mathcal { X } } ^ { \\prime } \\gets \\mathrm { T o p K } ( { \\mathcal { D } } ( x ) , V )$ 3: $\\textstyle \\operatorname { E } ( x ) \\gets \\bigcup _ { x ^ { \\prime } \\in { \\mathcal { X } } ^ { \\prime } } ( x , x ^ { \\prime } )$ 4: Return $\\operatorname { E } ( x )$ ",
+        "bbox": [
+            174,
+            323,
+            408,
+            412
+        ],
+        "page_idx": 14
+    },
+    {
+        "type": "text",
+        "text": "▷ Levenstein distance between every pair of sequences. ▷ Compute K closest sequences to $x$ . ▷ Construct neighborhood around $x$ . ",
+        "bbox": [
+            462,
+            351,
+            825,
+            397
+        ],
+        "page_idx": 14
+    },
+    {
+        "type": "image",
+        "img_path": "images/5174113a28ffbfeb086ad7f32101c3a08b95030ac39b80eb761dc063ea554438.jpg",
+        "image_caption": [
+            "Figure 5: Illustration of clustered sampling. $\\tilde { V } _ { r }$ is the starting set of sequences for sampling in round $r$ . GWG (Algorithm 3) is ran to generate many sample sequences, $V _ { r + 1 }$ . To control computation, we hierarchically cluster all sampled sequences based on Levenshtein distance and take the top fitness sequence in each cluster, using our trained fitness prediction model $f _ { \\theta }$ to score each sequence – we refer to this subroutine as Reduce (eq. (5)). The top sequences, $\\tilde { V } _ { r + 1 }$ are used for the next round. "
+        ],
+        "image_footnote": [],
+        "bbox": [
+            178,
+            481,
+            812,
+            674
+        ],
+        "page_idx": 14
+    },
+    {
+        "type": "text",
+        "text": "C ADDITIONAL RESULTS ",
+        "text_level": 1,
+        "bbox": [
+            174,
+            806,
+            397,
+            823
+        ],
+        "page_idx": 14
+    },
+    {
+        "type": "text",
+        "text": "C.1 SAMPLING TEMPERATURE SWEEP",
+        "text_level": 1,
+        "bbox": [
+            176,
+            848,
+            449,
+            863
+        ],
+        "page_idx": 14
+    },
+    {
+        "type": "text",
+        "text": "We determine the effect of different tmperatures $\\gamma$ when running GGS on the hard difficulty for GFP and AAV. All other hyperparameters follow those used in the main results, see Section 4.2. Table 5 shows the results where clearly $\\gamma = 0 . 1$ performs the best for both AAV and GFP. ",
+        "bbox": [
+            176,
+            881,
+            825,
+            924
+        ],
+        "page_idx": 14
+    },
+    {
+        "type": "table",
+        "img_path": "images/1cf72c0d871464e3e0e91c2bd5e2a6a68c522caa295335299a3014812ea19e71.jpg",
+        "table_caption": [
+            "Table 5: Temperature sweep. "
+        ],
+        "table_footnote": [],
+        "table_body": "<table><tr><td></td><td colspan=\"3\">GFP hard</td><td colspan=\"3\">AAV hard</td></tr><tr><td>Temperature (γ)</td><td>Fitness</td><td>Diversity</td><td>Novelty</td><td>Fitness</td><td>Diversity</td><td>Novelty</td></tr><tr><td>0.01</td><td>0.65 (0.0)</td><td>5.3 (0.8)</td><td>7.4 (0.5)</td><td>0.45 (0.0)</td><td>15.2 (1.1)</td><td>9.0 (0.0)</td></tr><tr><td>0.1</td><td>0.74 (0.0)</td><td>3.6 (0.1)</td><td>8.0 (0.0)</td><td>0.6 (0.0)</td><td>4.5 (0.2)</td><td>7.0 (0.0)</td></tr><tr><td>1.0</td><td>0.0 (0.1)</td><td>28.2 (0.8)</td><td>11.4 (0.5)</td><td>0.45 (0.0)</td><td>11.9 (0.5)</td><td>8.0 (0.0)</td></tr><tr><td>2.0</td><td>0.0 (0.1)</td><td>36.1 (1.0)</td><td>13.0 (0.0)</td><td>0.33 (0.0)</td><td>16.7 (0.9)</td><td>8.5 (0.5)</td></tr></table>",
+        "bbox": [
+            187,
+            126,
+            810,
+            247
+        ],
+        "page_idx": 15
+    },
+    {
+        "type": "text",
+        "text": "C.2 SMOOTHING ANALYSIS ",
+        "text_level": 1,
+        "bbox": [
+            174,
+            301,
+            379,
+            315
+        ],
+        "page_idx": 15
+    },
+    {
+        "type": "text",
+        "text": "In this section, we provide further analyses into the effect of smoothing on performance of GGS, extrapolation to unseen data, and acceptance rate of the GWG sampling procedure. Throughout, we use the same parameters $\\tau = 0 . 1 , \\gamma = 1 , r = 1 5 , N _ { n o d e s } = 2 5 0 , 0 0 0$ as in the main text. ",
+        "bbox": [
+            174,
+            340,
+            828,
+            383
+        ],
+        "page_idx": 15
+    },
+    {
+        "type": "text",
+        "text": "C.2.1 ADDITIONAL BENCHMARKS ",
+        "text_level": 1,
+        "bbox": [
+            176,
+            433,
+            426,
+            446
+        ],
+        "page_idx": 15
+    },
+    {
+        "type": "text",
+        "text": "We first define additional benchmarks, one easier, and three harder, for each protein dataset. ",
+        "bbox": [
+            169,
+            469,
+            772,
+            484
+        ],
+        "page_idx": 15
+    },
+    {
+        "type": "table",
+        "img_path": "images/afd1ce68ed2af21887c5b5f067432c5e5b727588af71edf609625f3a73fe2fc6.jpg",
+        "table_caption": [
+            "Table 6: GFP extra tasks "
+        ],
+        "table_footnote": [],
+        "table_body": "<table><tr><td>Difficulty</td><td>Range (%)</td><td>Gap</td><td>|D|</td></tr><tr><td>Easy</td><td>50th-60th</td><td>0</td><td>5609</td></tr><tr><td>Harder1</td><td>&lt; 30th</td><td>8</td><td>1129</td></tr><tr><td>Harder2</td><td>&lt; 20th</td><td>8</td><td>792</td></tr><tr><td>Harder3</td><td>&lt; 10th</td><td>8</td><td>397</td></tr></table>",
+        "bbox": [
+            192,
+            553,
+            468,
+            654
+        ],
+        "page_idx": 15
+    },
+    {
+        "type": "table",
+        "img_path": "images/875317b067a7b09b22f8268c4150e97d24039ee23d56b532f98d3a7e098b4a3b.jpg",
+        "table_caption": [
+            "Table 7: AAV extra tasks "
+        ],
+        "table_footnote": [],
+        "table_body": "<table><tr><td>Difficulty</td><td>Range (%)</td><td>Gap</td><td>|D|</td></tr><tr><td>Easy</td><td>50th-60th</td><td>0</td><td>4413</td></tr><tr><td>Harder1</td><td>&lt; 30th</td><td>13</td><td>1157</td></tr><tr><td>Harder2</td><td>&lt; 20th</td><td>13</td><td>920</td></tr><tr><td>Harder3</td><td>&lt; 10th</td><td>13</td><td>476</td></tr></table>",
+        "bbox": [
+            506,
+            554,
+            782,
+            654
+        ],
+        "page_idx": 15
+    },
+    {
+        "type": "text",
+        "text": "We note that the “easy” GFP task is equivalent to the design-bench baseline that is sometimes used as a benchmark in protein engineering tasks. Due to experimental noise, protein variants are assayed multiple times, and can be assigned multiple fitness values, which means the fitness values of one sequence may occupy a large percentile range. In the case of this task, multiple measurements of the wildtype GFP fitness are found in the 50th-60th percentile range. Because WT GFP is also a “top sequence,” this task necessarily has a mutational gap of 0. Due to this leakage, we develop our own benchmarks in the main text, and extend those to AAV. ",
+        "bbox": [
+            173,
+            696,
+            825,
+            795
+        ],
+        "page_idx": 15
+    },
+    {
+        "type": "text",
+        "text": "C.2.2 HOW SMOOTHING AFFECTS PERFORMANCE ",
+        "text_level": 1,
+        "bbox": [
+            174,
+            844,
+            531,
+            858
+        ],
+        "page_idx": 15
+    },
+    {
+        "type": "text",
+        "text": "The following two tables show how a smoothed model outperforms its unsmoothed counterpart according to our evaluator across all GFP/AAV benchmarks except AAV Harder2 (see $( * ) _ { \\cdot }$ ), and GFP Harder3, where the smoothing was not sufficient to induce successful GWG sampling (see Table 10). ",
+        "bbox": [
+            176,
+            882,
+            825,
+            924
+        ],
+        "page_idx": 15
+    },
+    {
+        "type": "table",
+        "img_path": "images/0c10f8f1053e96925c5e37b17441ffde813734c0028b91f0e759fd78332a29fb.jpg",
+        "table_caption": [
+            "Table 8: Smoothing improves GGS performance on GFP tasks "
+        ],
+        "table_footnote": [],
+        "table_body": "<table><tr><td>Difficulty</td><td>Smoothed</td><td>Median Fitness</td><td>Diversity</td><td>Novelty</td></tr><tr><td rowspan=\"2\">Easy</td><td>No</td><td>0.05</td><td>24.83</td><td>13.36</td></tr><tr><td>Yes</td><td>0.84</td><td>5.45</td><td>3.51</td></tr><tr><td rowspan=\"2\">Medium</td><td>No</td><td>0.51</td><td>10.5</td><td>15.4</td></tr><tr><td>Yes</td><td>0.76</td><td>3.7</td><td>5.0</td></tr><tr><td rowspan=\"2\">Hard</td><td>No</td><td>0.10</td><td>23.02</td><td>16.8</td></tr><tr><td>Yes</td><td>0.74</td><td>3.6</td><td>8.0</td></tr><tr><td rowspan=\"2\">Harder1</td><td>No</td><td>0.00</td><td>22.86</td><td>17.0</td></tr><tr><td>Yes</td><td>0.67</td><td>4.45</td><td>9.12</td></tr><tr><td rowspan=\"2\">Harder2</td><td>No</td><td>0.00</td><td>22.22</td><td>16.5</td></tr><tr><td>Yes</td><td>0.60</td><td>5.42</td><td>9.82</td></tr><tr><td></td><td>No</td><td>0.00</td><td>23.02</td><td>16.8</td></tr><tr><td rowspan=\"2\">Harder3</td><td></td><td></td><td></td><td></td></tr><tr><td>Yes</td><td>0.00</td><td>15.73</td><td>21.2</td></tr></table>",
+        "bbox": [
+            287,
+            127,
+            712,
+            376
+        ],
+        "page_idx": 16
+    },
+    {
+        "type": "text",
+        "text": "For the GFP task, our model fails (achieves 0 median fitness) when we restrict the data to the 10th percentile and mutation gap 8 for GFP where $| \\mathcal { D } | = 3 9 7$ . ",
+        "bbox": [
+            173,
+            416,
+            825,
+            445
+        ],
+        "page_idx": 16
+    },
+    {
+        "type": "table",
+        "img_path": "images/bc2f8457730c6e165f59c5c47db21305310376e54ef25cf23531f15c12f0c1f5.jpg",
+        "table_caption": [
+            "Table 9: Smoothing improves GGS performance on AAV tasks "
+        ],
+        "table_footnote": [],
+        "table_body": "<table><tr><td>Difficulty</td><td>Smoothed</td><td>Median Fitness</td><td>Diversity</td><td>Novelty</td></tr><tr><td rowspan=\"2\">Easy</td><td>No</td><td>0.47</td><td>2.69</td><td>7.81</td></tr><tr><td>Yes</td><td>0.49</td><td>9.18</td><td>7.99</td></tr><tr><td rowspan=\"2\">Medium</td><td>No</td><td>0.37</td><td>6.60</td><td>6.62</td></tr><tr><td>Yes</td><td>0.48</td><td>4.66</td><td>5.59</td></tr><tr><td rowspan=\"2\">Hard</td><td>No</td><td>0.33</td><td>12.32</td><td>13.8</td></tr><tr><td>Yes</td><td>0.60</td><td>4.5</td><td>7.0</td></tr><tr><td>Harder1</td><td>No</td><td>0.30</td><td>0.53</td><td>6.00</td></tr><tr><td rowspan=\"2\"></td><td>Yes</td><td>0.31</td><td>13.80</td><td>14.679</td></tr><tr><td>No</td><td>0.28*</td><td>4.46</td><td>11.93</td></tr><tr><td>Harder2</td><td>Yes</td><td>0.27</td><td>15.98</td><td>19.41</td></tr><tr><td></td><td></td><td></td><td></td><td></td></tr><tr><td rowspan=\"2\">Harder3</td><td>No</td><td>0.25</td><td>3.08</td><td>5.63</td></tr><tr><td>Yes</td><td>0.38</td><td>7.05</td><td>9.486</td></tr></table>",
+        "bbox": [
+            287,
+            501,
+            712,
+            751
+        ],
+        "page_idx": 16
+    },
+    {
+        "type": "text",
+        "text": "$( \\ast )$ : The unsmoothed model only outperforms its smoothed counterpart when applying GWG to the unsmoothed model generates only a few unique sequences nearby to the starting set (as evidenced by the low novelty for this benchmark) ",
+        "bbox": [
+            173,
+            791,
+            825,
+            833
+        ],
+        "page_idx": 16
+    },
+    {
+        "type": "text",
+        "text": "For AAV, we find the model is able to still find signal and achieve 0.384 evaluated fitness despite the data being limited to the 10th percentile and mutation gap of 13 where $| \\mathcal { D } | = 4 7 6$ . It is notable, though, that the performance improvements gained from smoothing are smaller than in the case of GFP. Presumably, this is due to the vastly reduced dimension of the AAV sequence space in comparison to that of GFP, which may result in a neural network to learn a smoother landscape without any regularization. ",
+        "bbox": [
+            173,
+            839,
+            825,
+            924
+        ],
+        "page_idx": 16
+    },
+    {
+        "type": "text",
+        "text": "C.2.3 HOW SMOOTHING AFFECTS EXTRAPOLATION $^ +$ SAMPLING ",
+        "text_level": 1,
+        "bbox": [
+            181,
+            104,
+            632,
+            117
+        ],
+        "page_idx": 17
+    },
+    {
+        "type": "text",
+        "text": "The following tables show the benefits of smoothing on extrapolation to held out ground truth experimental data, up to a certain difficulty benchmark, as well as how smoothing vastly improves the acceptance rate for the GWG sampling procedure. ",
+        "bbox": [
+            174,
+            127,
+            825,
+            170
+        ],
+        "page_idx": 17
+    },
+    {
+        "type": "table",
+        "img_path": "images/47314303db5aa940c47affc308b94597f54f8a7ecdeac8252521510fc5774942.jpg",
+        "table_caption": [
+            "Table 10: Smoothing improves extrapolation and GWG sampling, up to GFP Harder3 "
+        ],
+        "table_footnote": [],
+        "table_body": "<table><tr><td>Difficulty</td><td>Smoothed</td><td>Train MAE</td><td>Holdout MAE</td><td>Acc. Rate</td></tr><tr><td rowspan=\"2\">Easy</td><td>No</td><td>0.03</td><td>0.99</td><td>0.02</td></tr><tr><td>Yes</td><td>0.71</td><td>0.61</td><td>0.99</td></tr><tr><td rowspan=\"2\">Medium</td><td>No</td><td>0.10</td><td>1.29</td><td>0.61</td></tr><tr><td>Yes</td><td>0.20</td><td>0.88</td><td>0.62</td></tr><tr><td rowspan=\"2\">Hard</td><td>No</td><td>0.06</td><td>1.44</td><td>0.01</td></tr><tr><td>Yes</td><td>0.15</td><td>0.93</td><td>0.43</td></tr><tr><td rowspan=\"2\">Harder1</td><td>No</td><td>0.07</td><td>1.39</td><td>0.01</td></tr><tr><td>Yes</td><td>0.15</td><td>0.94</td><td>0.43</td></tr><tr><td rowspan=\"2\">Harder2</td><td>No</td><td>0.01</td><td>1.41</td><td>0.01</td></tr><tr><td>Yes</td><td>0.12</td><td>0.90</td><td>0.59</td></tr><tr><td rowspan=\"2\">Harder3</td><td>No</td><td>0.01</td><td>1.41</td><td>0.01</td></tr><tr><td>Yes</td><td>0.01</td><td>1.42</td><td>0.01</td></tr></table>",
+        "bbox": [
+            287,
+            224,
+            712,
+            472
+        ],
+        "page_idx": 17
+    },
+    {
+        "type": "table",
+        "img_path": "images/461b541a56b72bc4e13246dd6cb45a919f64aa4dd991f2890175bc9ce400c16a.jpg",
+        "table_caption": [
+            "Table 11: Smoothing improves extrapolation up to AAV Hard and GWG sampling on all AAV tasks "
+        ],
+        "table_footnote": [],
+        "table_body": "<table><tr><td>Difficulty</td><td>Smoothed</td><td>Train MAE</td><td>Holdout MAE</td><td>Acc. Rate</td></tr><tr><td rowspan=\"2\">Easy</td><td>No</td><td>0.28</td><td>2.82</td><td>0.01</td></tr><tr><td>Yes</td><td>1.76</td><td>2.28</td><td>0.99</td></tr><tr><td rowspan=\"2\">Medium</td><td>No</td><td>0.35</td><td>3.12</td><td>0.01</td></tr><tr><td>Yes</td><td>0.44</td><td>2.76</td><td>0.82</td></tr><tr><td rowspan=\"2\">Hard</td><td>No</td><td>0.48</td><td>3.70</td><td>0.30</td></tr><tr><td>Yes</td><td>0.55</td><td>3.09</td><td>0.78</td></tr><tr><td>Harder1</td><td>No</td><td>0.66</td><td>3.99</td><td>0.01</td></tr><tr><td></td><td>Yes</td><td>0.69</td><td>4.24</td><td>0.47</td></tr><tr><td rowspan=\"2\">Harder2</td><td>No</td><td>0.56</td><td>4.13</td><td>0.01</td></tr><tr><td>Yes</td><td>0.58</td><td>4.37</td><td>0.55</td></tr><tr><td rowspan=\"2\">Harder3</td><td>No</td><td>0.47</td><td>4.58</td><td>0.01</td></tr><tr><td>Yes</td><td>0.47</td><td>4.59</td><td>0.64</td></tr></table>",
+        "bbox": [
+            287,
+            539,
+            712,
+            789
+        ],
+        "page_idx": 17
+    },
+    {
+        "type": "text",
+        "text": "For each benchmark category, we evaluated the impact of smoothing on extrapolation abilities by analyzing the Mean Absolute Error (MAE) of the models on that benchmark’s training and holdout datasets from the experimental ground truth. The effectiveness of smoothing was indicated by reduced MAE values on the holdout set. We also find that the MAE on the training set is lower for the unsmoothed models, as expected. In line with the results of the previous section, the effect of smoothing is reduced for AAV. As task difficulty increases, for both proteins, the effectiveness of smoothing on extrapolation decreases, which we expect as any signal leading from the training set to the fitter sequences gets obscured as training set size decreases. ",
+        "bbox": [
+            173,
+            811,
+            825,
+            924
+        ],
+        "page_idx": 17
+    },
+    {
+        "type": "text",
+        "text": "Finally, we note that in every case except two, smoothing dramatically increases acceptance rate of the GWG sampling procedure, which aligns with the inversely proportional relationship between smoothness of the energy function and sampling efficiency. In the case of the hardest GFP task, even the the smoothed model had overfit to the training set. As for the GFP medium task, we suspect that this particular section of the experimental dataset allowed the unsmoothed model to learn a smooth landscape initially. ",
+        "bbox": [
+            174,
+            117,
+            825,
+            202
+        ],
+        "page_idx": 18
+    }
+]

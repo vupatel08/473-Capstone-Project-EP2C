@@ -1,0 +1,206 @@
+```python
+## dataset_loader.py
+
+import os
+import json
+import csv
+from typing import List, Dict, Optional, Union
+from datasets import load_dataset
+
+class DatasetLoader:
+    """
+    Responsible for loading datasets for various NLP tasks, formatting prompts,
+    and returning data samples suitable for inference and evaluation.
+    """
+
+    def __init__(
+        self,
+        dataset_configs: Dict[str, Dict],
+        prompts: Dict[str, str],
+        split: str = 'test',
+        max_input_length: int = 1024
+    ):
+        """
+        Initialize DatasetLoader.
+
+        Args:
+            dataset_configs (Dict[str, Dict]]): Dictionary mapping dataset name to configuration, e.g.,
+                {
+                    "Hellaswag": {"path": "path/to/file.json", "type": "json"},
+                    "SQuAD": {"name": "squad", "split": "validation"},
+                    ...
+                }
+            prompts (Dict[str, str]): Dictionary of prompt templates for each dataset/task.
+            split (str): Dataset split to load, default 'test'.
+            max_input_length (int): Max token length for inputs, truncates if exceeded.
+        """
+        self.dataset_configs = dataset_configs
+        self.prompts = prompts
+        self.split = split
+        self.max_input_length = max_input_length
+
+    def load_data(self) -> List[Dict]:
+        """
+        Load all datasets as per configuration, format prompts, and prepare samples.
+
+        Returns:
+            List of data samples, each as dict with keys:
+            - 'prompt': formatted input string for model
+            - 'label': ground truth answer/label (optional)
+            - 'metadata': additional info (original sample, dataset name)
+        """
+        all_samples = []
+
+        for dataset_name, config in self.dataset_configs.items():
+            source_path = config.get('path', None)
+            dataset_type = config.get('type', 'local')  # 'json', 'csv', or 'hf'
+            hf_name = config.get('name', None)  # For HuggingFace datasets
+            split = config.get('split', self.split)
+
+            # Load dataset based on type
+            if dataset_type == 'hf' and hf_name:
+                dataset = load_dataset(hf_name, split=split)
+                dataset_samples = [dict(row) for row in dataset]
+            elif source_path:
+                ext = os.path.splitext(source_path)[1].lower()
+                if ext == '.json':
+                    with open(source_path, 'r', encoding='utf-8') as f:
+                        data = json.load(f)
+                        if isinstance(data, list):
+                            dataset_samples = data
+                        else:
+                            dataset_samples = data.get(split, [])
+                elif ext == '.csv':
+                    with open(source_path, 'r', encoding='utf-8') as f:
+                        reader = csv.DictReader(f)
+                        dataset_samples = list(reader)
+                else:
+                    # Default: assuming a JSON Lines file
+                    dataset_samples = []
+                    with open(source_path, 'r', encoding='utf-8') as f:
+                        for line in f:
+                            dataset_samples.append(json.loads(line))
+            else:
+                raise ValueError(f"Dataset {dataset_name} has no valid source path or name.")
+
+            # For each sample, generate prompt and extract label
+            for sample in dataset_samples:
+                prompt = self._format_prompt(sample, dataset_name)
+                label = self._extract_label(sample, dataset_name)
+                metadata = {
+                    'original_sample': sample,
+                    'dataset_name': dataset_name
+                }
+                all_samples.append({
+                    'prompt': prompt,
+                    'label': label,
+                    'metadata': metadata
+                })
+
+        # Optional: truncate inputs if exceeding max_input_length
+        # Here, for simplicity, assume inputs are tokenized later with truncation
+        return all_samples
+
+    def _format_prompt(self, sample: Dict, dataset_name: str) -> str:
+        """
+        Apply the dataset-specific prompt template to create the input prompt.
+
+        Args:
+            sample (Dict): raw data sample from dataset
+            dataset_name (str): name of the dataset/task
+
+        Returns:
+            str: formatted prompt string
+        """
+        # Determine prompt template based on dataset/task
+        if dataset_name.lower() in ['hellaswag', 'arce', 'piqa', 'ob', 'arcc', 'copa', 'cqa']:
+            template = self.prompts.get('multiple_choice', None)
+            # Expect sample to have 'sentence', 'choices', 'answer'
+            question_text = sample.get('sentence', '')
+            choices = sample.get('choices', [])
+            answer = sample.get('answer', None)
+            choices_str = ' '.join([f"<choice {i+1}> {choice} " for i, choice in enumerate(choices)])
+            prompt = f"Complete the following sentence with an appropriate ending. {question_text} {choices_str} Answer:"
+            return prompt
+
+        elif dataset_name.lower() == 'mmlu':
+            subject = sample.get('subject', 'general')
+            template = self.prompts.get('mmlu', None)
+            question = sample.get('question', '')
+            choices = sample.get('choices', [])
+            answer = sample.get('answer', None)
+            choices_str = ' '.join([f"<choice {i+1}> {choice} " for i, choice in enumerate(choices)])
+            prompt = f"The following are multiple choice questions (with answers) about {subject}.\n{question} {choices_str} Answer:"
+            return prompt
+
+        elif dataset_name.lower() in ['sst2', 'sst5', 'mr', 'agnews', 'trec', 'cb', 'boolq']:
+            # Text classification datasets
+            sentence = sample.get('sentence') or sample.get('paragraph') or ''
+            if dataset_name.lower() == 'sst2':
+                prompt = f"Classify the sentiment of the user\u2019s message into one of the following categories:\'positive\' or \'negative\'. Sentence: {sentence} Sentiment:"
+            elif dataset_name.lower() == 'sst5':
+                prompt = f"Classify the sentiment of the user\u2019s message into one of the following categories:\'terrible\', \'negative\', \'neutral\', \'positive\', or \'great\'. Sentence: {sentence} Sentiment:"
+            elif dataset_name.lower() == 'mr':
+                prompt = f"Classify the sentiment of the movie\u2019s review into one of the following categories:\'positive\' or \'negative\'. - Review: {sentence} Sentiment:"
+            elif dataset_name.lower() == 'agnews':
+                prompt = f"Classify the news articles into the categories of \'World\', \'Sports\', \'Business\', or \'Technology\'. Article: {sentence} Category:"
+            elif dataset_name.lower() == 'trec':
+                prompt = f"Classify the given questions into the following categories of \'Description\', \'Entity\', \'Expression\', \'Person\', \'Number\', or \'Location\'. Question: {sentence} Type:"
+            elif dataset_name.lower() == 'cb':
+                premise = sample.get('premise', '')
+                hypothesis = sample.get('hypothesis', '')
+                prompt = f"Read the following paragraph and determine if the hypothesis is true. Premise: {premise} Hypothesis: {hypothesis}. Answer:"
+            elif dataset_name.lower() == 'boolq':
+                passage = sample.get('passage', '')
+                question_text = sample.get('question', '')
+                prompt = f"Read the text and answer the question by True or False. Text: {passage} Question: {question_text} ? Answer:"
+            else:
+                prompt = ''
+            return prompt
+
+        elif dataset_name.lower() in ['squad', 'squadv1', 'squadv2']:
+            # QA datasets
+            title = sample.get('title', '')
+            context = sample.get('context', '')
+            question_text = sample.get('question', '')
+            prompt = (
+                f"Answer question using information in the preceding background paragraph. "
+                f"Title: {title}\nBackground: {context}\nQ: {question_text}\nA:"
+            )
+            return prompt
+
+        else:
+            # Default fallback prompt
+            # use available text fields
+            default_text = ''
+            for key in ['sentence', 'question', 'paragraph', 'context']:
+                if key in sample:
+                    default_text = sample[key]
+                    break
+            prompt = f"{default_text}\nAnswer:"
+            return prompt
+
+    def _extract_label(self, sample: Dict, dataset_name: str) -> Optional[Union[str, int]]:
+        """
+        Extract the ground truth label or answer from the raw sample for evaluation.
+
+        Args:
+            sample (Dict): raw dataset sample
+            dataset_name (str): dataset/task name
+
+        Returns:
+            label (str or int) or None if not available
+        """
+        if dataset_name.lower() in ['hellaswag', 'arce', 'piqa', 'ob', 'arcc', 'copa', 'cqa']:
+            # For multiple-choice, answer is index or value
+            return sample.get('answer', None)
+        elif dataset_name.lower() == 'mmlu':
+            return sample.get('answer', None)
+        elif dataset_name.lower() in ['sst2', 'sst5', 'mr', 'agnews', 'trec', 'cb', 'boolq']:
+            return sample.get('label', None)
+        elif dataset_name.lower() in ['squad', 'squadv1', 'squadv2']:
+            return sample.get('answer', None)
+        else:
+            # For other datasets, attempt to retrieve answer label
+            return sample.get('label', None)
+```

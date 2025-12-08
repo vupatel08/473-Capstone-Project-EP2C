@@ -1,0 +1,38 @@
+# requirements.txt
+
+# Core numerical and deep learning frameworks
+numpy==1.21.0                 # For numerical operations, array manipulations, image processing support
+torch==1.9.0                  # Core deep learning framework, enabling tensor computations and model operations
+torchvision==0.10.0           # Utilities for image processing and transformation, possibly augmentations
+transformers==4.12.0          # Underlying CLIP and other pretrained text/image models for prompt embedding
+diffusers==0.3.0              # Diffusion models library, supporting stable diffusion, DDIM, and model pipelines
+opencv-python==4.5.3          # For image and video processing, structure map extraction, and post-processing
+scikit-image==0.18.3          # Additional image processing functions, e.g., Canny edge detection
+scikit-learn==0.24.2            # Optional, for feature extraction or metric calculations if required
+tqdm==4.62.3                  # Progress bars for lengthy processes like denoising or video generation
+PILLOW==8.3.2                 # Image manipulation and conversion utilities
+
+# Additional packages for data handling and evaluation
+# (if used in implementation, not explicitly required by the paper but common in codebases)
+# e.g., imageio, ffmpeg-python, or moviepy for video creation and saving (not mandatory in requirements but likely used)
+
+# Notes:
+# - Since the pipeline heavily relies on pre-trained models, ensure that the correct versions of models (ControlNet, stable diffusion, CLIP, MiDaS, OpenPose) are downloaded separately or integrated accordingly.
+# - The code will require GPU support compatible with PyTorch 1.9.0 and CUDA drivers.
+# - No additional language dependencies are necessary beyond these Python packages, per the task instruction.
+# - For further reproducibility, consider including specific versions for dependencies to match the experimental environment.
+
+# End of requirements.txt
+
+---
+
+# Summary:
+This configuration ensures all essential libraries are available to implement and reproduce the key components:
+- Model loading and inflation (model.py)
+- Cross-frame attention modules
+- Latent and RGB conversions
+- Smoothing and interpolation algorithms
+- Dataset loading and structure extraction
+- Video saving and metrics evaluation
+
+All critical functionalities as described in the paper, plan, and design are supported by the listed packages.

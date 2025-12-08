@@ -1,0 +1,94 @@
+## model.py
+import torch
+import torch.nn as nn
+import torch.nn.functional as F
+from torchvision.models.resnet import ResNet, BasicBlock
+
+class ResNet18(nn.Module):
+    def __init__(self, num_classes: int = 100, expansion_module: nn.Module = None, config: dict = None):
+        """
+        Initialize ResNet-18 model with optional expansion module.
+        Args:
+            num_classes (int): Number of output classes.
+            expansion_module (nn.Module or None): Optional expansion module for model expansion.
+            config (dict or None): Configuration dictionary for architecture variants.
+        """
+        super().__init__()
+        # Base ResNet-18 model using torchvision's implementation
+        # Optionally, you could build your own for more control
+        self.resnet = ResNet(block=BasicBlock, layers=[2, 2, 2, 2], num_classes=num_classes)
+        
+        # If expansion modules or additional components are specified, integrate here
+        self.expansion_module = expansion_module
+        if expansion_module is not None:
+            # For example, expanding features or adding new branches
+            # For now, placeholder: just attach
+            self.expand = expansion_module
+        else:
+            self.expand = None
+
+    def forward(self, x):
+        """
+        Forward pass through the network.
+        Args:
+            x (Tensor): Input images tensor of shape (batch_size, C, H, W).
+        Returns:
+            logits (Tensor): Output classification logits.
+        """
+        features = self.resnet.conv1(x)
+        features = self.resnet.bn1(features)
+        features = self.resnet.relu(features)
+        features = self.resnet.maxpool(features)
+
+        x1 = self.resnet.layer1(features)
+        x2 = self.resnet.layer2(x1)
+        x3 = self.resnet.layer3(x2)
+        x4 = self.resnet.layer4(x3)
+
+        pooled = self.resnet.avgpool(x4)
+        flattened = torch.flatten(pooled, 1)
+        
+        # If expansion module exists, process features accordingly
+        if self.expand is not None:
+            # Example placeholder: concatenation or other processing
+            expanded_feat = self.expand(flattened)
+            logits = self.resnet.fc(expanded_feat)
+        else:
+            logits = self.resnet.fc(flattened)
+        return logits
+
+    def perturb_params(self, rho: float, epsilon: float = 1e-8):
+        """
+        Perturb trainable parameters within a neighborhood radius rho based on current gradients.
+        Args:
+            rho (float): Neighborhood radius.
+            epsilon (float): Small constant to prevent division by zero.
+        """
+        # Collect trainable parameters
+        for name, param in self.named_parameters():
+            if param.requires_grad:
+                if param.grad is None:
+                    continue  # Skip if no gradient computed
+                grad_norm = torch.norm(param.grad, p=2)
+                if grad_norm.item() == 0:
+                    continue  # Skip if gradient is zero
+                # Compute perturbation delta
+                delta = rho * (param.grad / (grad_norm + epsilon))
+                # Perturb parameters in-place
+                param.data.add_(delta)
+
+    def save_checkpoint(self, filepath: str):
+        """
+        Save the model state_dict to filepath.
+        Args:
+            filepath (str): Path to save the model.
+        """
+        torch.save(self.state_dict(), filepath)
+
+    def load_checkpoint(self, filepath: str):
+        """
+        Load model weights from filepath.
+        Args:
+            filepath (str): Path to the saved checkpoint.
+        """
+        self.load_state_dict(torch.load(filepath))

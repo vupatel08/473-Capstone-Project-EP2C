@@ -1,0 +1,278 @@
+```python
+## dataset_loader.py
+import os
+import json
+import csv
+import random
+from typing import List, Dict, Any, Tuple
+import logging
+
+# Set up logging for debugging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
+class DatasetLoader:
+    def __init__(self, dataset_paths: Dict[str, str], dataset_type: str = None,
+                 train_split_ratio: float = 0.6, val_split_ratio: float = 0.2,
+                 test_split_ratio: float = 0.2, seed: int = 42):
+        """
+        Initialize DatasetLoader.
+        Args:
+            dataset_paths (dict): Dictionary with keys 'train', 'val', 'test' pointing to dataset file paths.
+            dataset_type (str): One of 'ExplaGraphs', 'SceneGraphs', 'WebQSP'. If None, inferred from file extension or user.
+            train_split_ratio (float): Ratio for training set.
+            val_split_ratio (float): Ratio for validation set.
+            test_split_ratio (float): Ratio for test set.
+            seed (int): Random seed for reproducibility.
+        """
+        self.dataset_paths = dataset_paths
+        self.dataset_type = dataset_type
+        self.train_split_ratio = train_split_ratio
+        self.val_split_ratio = val_split_ratio
+        self.test_split_ratio = test_split_ratio
+        self.seed = seed
+        # Containers for datasets
+        self.train_data = []
+        self.val_data = []
+        self.test_data = []
+
+    def load_data(self) -> Tuple[List[Dict[str, Any]], List[Dict[str, Any]], List[Dict[str, Any]]]:
+        """
+        Load datasets from provided paths, parse and split into train, val, test.
+        Returns:
+            Tuple of lists: (train_data, val_data, test_data)
+        """
+        all_data = []
+
+        for split_name, path in self.dataset_paths.items():
+            if not os.path.exists(path):
+                logger.warning(f"Dataset file {path} not found.")
+                continue
+            ext = os.path.splitext(path)[1].lower()
+            if ext == '.json':
+                dataset = self._load_json_dataset(path, dataset_type=self.dataset_type)
+            elif ext == '.csv':
+                dataset = self._load_csv_dataset(path, dataset_type=self.dataset_type)
+            else:
+                logger.warning(f"Unknown file extension {ext} for {path}. Skipping.")
+                continue
+
+            # Wrap each data point into standardized dict
+            for item in dataset:
+                graph_data, question, answer, extra = item
+                graph_dict = self._convert_triplet_or_structured_data(graph_data, dataset_type=self.dataset_type)
+                textual_desc = self.convert_graph_to_text(graph_dict)
+                entry = {
+                    'graph_id': extra.get('graph_id', 'unknown'),
+                    'nodes': graph_dict['nodes'],
+                    'edges': graph_dict['edges'],
+                    'text_description': textual_desc,
+                    'question': question,
+                    'answer': answer
+                }
+                all_data.append(entry)
+
+        # Shuffle data for randomness
+        random.seed(self.seed)
+        random.shuffle(all_data)
+
+        total = len(all_data)
+        train_end = int(total * self.train_split_ratio)
+        val_end = train_end + int(total * self.val_split_ratio)
+
+        self.train_data = all_data[:train_end]
+        self.val_data = all_data[train_end:val_end]
+        self.test_data = all_data[val_end:]
+
+        logger.info(f"Loaded {len(self.train_data)} train, {len(self.val_data)} val, {len(self.test_data)} test samples.")
+        return self.train_data, self.val_data, self.test_data
+
+    def _load_json_dataset(self, path: str, dataset_type: str = None) -> List[Tuple]:
+        """
+        Load and parse dataset from JSON file.
+        For each entry, output as tuple: (graph_data, question, answer, extra)
+        """
+        with open(path, 'r', encoding='utf-8') as f:
+            data_json = json.load(f)
+        data_list = []
+
+        # Depending on dataset, parse accordingly
+        if 'ExplaGraphs' in path or (dataset_type and dataset_type.lower() == 'expla'):
+            # ExplaGraphs: dataset with triplets or explanations
+            # Assumed structure: list of dicts with 'triplets' or similar
+            for idx, item in enumerate(data_json):
+                triplets = item.get('triplets') or item.get('triplet_list') or []
+                question = item.get('question', '')
+                answer = item.get('label', '')  # support or contradict
+                extra = {'graph_id': f"expla_{idx}"}
+                data_list.append((triplets, question, answer, extra))
+        elif 'SceneGraphs' in path or (dataset_type and dataset_type.lower() == 'sceneg'):
+            # SceneGraphs: JSON with object nodes, attributes, relations
+            for idx, item in enumerate(data_json):
+                graph_structure = item.get('graph', {})  # assume 'graph' key
+                question = item.get('question', '')
+                answer = item.get('answer', '')
+                extra = {'graph_id': f"scene_{idx}"}
+                data_list.append((graph_structure, question, answer, extra))
+        elif 'WebQSP' in path or (dataset_type and dataset_type.lower() == 'webqsp'):
+            # WebQSP: JSON list of question-answer triples
+            for idx, item in enumerate(data_json):
+                # Assuming item contains 'graph' or 'triplets'
+                triplets = item.get('triplets') or []
+                question = item.get('question', '')
+                answer = item.get('answer', '')
+                extra = {'graph_id': f"webqsp_{idx}"}
+                data_list.append((triplets, question, answer, extra))
+        else:
+            # Fallback: try to parse as list of dicts with 'nodes', 'edges'
+            for idx, item in enumerate(data_json):
+                # Try to interpret as generic graph
+                graph_structure = item.get('graph', {})
+                question = item.get('question', '')
+                answer = item.get('answer', '')
+                extra = {'graph_id': f"fallback_{idx}"}
+                data_list.append((graph_structure, question, answer, extra))
+        return data_list
+
+    def _load_csv_dataset(self, path: str, dataset_type: str = None) -> List[Tuple]:
+        """
+        Load and parse dataset from CSV.
+        """
+        data_list = []
+        with open(path, 'r', encoding='utf-8') as f:
+            reader = csv.DictReader(f)
+            for idx, row in enumerate(reader):
+                # Expect columns like node_id, node_attr, src, dst, edge_attr etc.
+                # For simplicity, treat entire row as graph info
+                nodes = []
+                edges = []
+                # Distinguish node vs edge rows if needed
+                # Here, assume nodes info in certain columns
+                # For specialized datasets, this can be extended
+                node_id = row.get('node_id')
+                node_attr = row.get('node_attr')
+                if node_id is not None:
+                    nodes.append({'node_id': int(node_id), 'attributes': self._parse_attributes(node_attr)})
+                src = row.get('src')
+                dst = row.get('dst')
+                edge_attr = row.get('edge_attr')
+                if src is not None and dst is not None:
+                    edges.append({'src': int(src), 'dst': int(dst), 'attributes': self._parse_attributes(edge_attr)})
+                question = row.get('question', '')
+                answer = row.get('answer', '')
+                extra = {'graph_id': f"csv_{idx}"}
+                graph_struct = {'nodes': nodes, 'edges': edges}
+                data_list.append((graph_struct, question, answer, extra))
+        return data_list
+
+    def _parse_attributes(self, attr_str: str) -> Dict[str, str]:
+        """
+        Parse attribute string into dict. E.g., "color: yellow; size: large"
+        """
+        attributes = {}
+        if not attr_str:
+            return attributes
+        for part in attr_str.split(';'):
+            part = part.strip()
+            if not part:
+                continue
+            if ':' in part:
+                key, val = part.split(':', 1)
+                attributes[key.strip()] = val.strip()
+            else:
+                attributes[part.strip()] = ''
+        return attributes
+
+    def _convert_triplet_or_structured_data(self, data: Any, dataset_type: str = None) -> Dict[str, Any]:
+        """
+        Convert raw triplet or structured data into standard graph dict
+        with 'nodes' and 'edges'.
+        """
+        nodes_dict = {}
+        edges_list = []
+
+        if dataset_type and dataset_type.lower() == 'expla':
+            # Data is list of triplets: [(head, relation, tail), ...]
+            triplets: List = data
+            for triplet in triplets:
+                head, relation, tail = triplet
+                # Add nodes if not exist
+                for n in [head, tail]:
+                    if n not in nodes_dict:
+                        nodes_dict[n] = {'node_id': len(nodes_dict), 'attributes': {'name': n}}
+                src_id = list(nodes_dict.keys()).index(head)
+                dst_id = list(nodes_dict.keys()).index(tail)
+                edge_attr = {'relation': relation}
+                edges_list.append({'src': src_id, 'dst': dst_id, 'attributes': edge_attr})
+            nodes_list = [{'node_id': i, 'attributes': nodes_dict[n]['attributes']} for i, n in enumerate(nodes_dict)]
+            return {'nodes': nodes_list, 'edges': edges_list}
+
+        elif dataset_type and dataset_type.lower() == 'sceneg':
+            # Data is nested JSON with objects, attributes, relations
+            # Expect structure with 'objects', 'attributes', 'relations'
+            # For simplicity, assume 'nodes' and 'edges'
+            objects = data.get('objects', [])
+            for idx, obj in enumerate(objects):
+                node_attr = obj.get('name', '')
+                nodes_dict[idx] = {'node_id': idx, 'attributes': {'name': node_attr}}
+            # Build edges from relations
+            for rel in data.get('relations', []):
+                src_idx = rel.get('src')
+                dst_idx = rel.get('dst')
+                relation_name = rel.get('relation', '')
+                if src_idx is not None and dst_idx is not None:
+                    edges_list.append({'src': src_idx, 'dst': dst_idx, 'attributes': {'relation': relation_name}})
+            nodes_list = [{'node_id': i, 'attributes': nodes_dict[i]['attributes']} for i in nodes_dict]
+            return {'nodes': nodes_list, 'edges': edges_list}
+
+        elif dataset_type and dataset_type.lower() == 'webqsp':
+            # Data is list of triplets with entity info
+            triplets: List = data
+            for trip in triplets:
+                head, relation, tail = trip
+                if head not in nodes_dict:
+                    nodes_dict[head] = {'node_id': len(nodes_dict), 'attributes': {'name': head}}
+                if tail not in nodes_dict:
+                    nodes_dict[tail] = {'node_id': len(nodes_dict), 'attributes': {'name': tail}}
+                src_id = list(nodes_dict.keys()).index(head)
+                dst_id = list(nodes_dict.keys()).index(tail)
+                edge_attr = {'relation': relation}
+                edges_list.append({'src': src_id, 'dst': dst_id, 'attributes': edge_attr})
+            nodes_list = [{'node_id': i, 'attributes': nodes_dict[n]['attributes']} for i, n in enumerate(nodes_dict)]
+            return {'nodes': nodes_list, 'edges': edges_list}
+
+        else:
+            # Default: treat 'data' as structured graph info
+            return data
+
+    def convert_graph_to_text(self, graph: Dict[str, Any]) -> str:
+        """
+        Convert the internal graph representation into a structured natural language description.
+        """
+        nodes = graph.get('nodes', [])
+        edges = graph.get('edges', [])
+
+        node_strings = []
+        for node in nodes:
+            node_id = node.get('node_id')
+            attrs = node.get('attributes', {})
+            attr_str = ', '.join(f"{k}: {v}" for k, v in attrs.items())
+            node_strings.append(f"{node_id}: {attr_str}")
+
+        edge_strings = []
+        for edge in edges:
+            src = edge.get('src')
+            dst = edge.get('dst')
+            attrs = edge.get('attributes', {})
+            relation = attrs.get('relation', 'related to')
+            edge_strings.append(f"{src} -> {dst}: {relation}")
+
+        description_parts = []
+        if node_strings:
+            description_parts.append("Nodes:\n" + "\n".join(node_strings))
+        if edge_strings:
+            description_parts.append("Edges:\n" + "\n".join(edge_strings))
+        # Concatenate with separator
+        full_description = "\n".join(description_parts)
+        return full_description
+```

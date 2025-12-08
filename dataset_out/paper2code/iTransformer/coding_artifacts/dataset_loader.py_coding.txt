@@ -1,0 +1,219 @@
+```python
+## dataset_loader.py
+
+import os
+import pandas as pd
+import numpy as np
+import torch
+from typing import Dict, Tuple, List, Optional
+
+
+class DatasetLoader:
+    """
+    Class: DatasetLoader
+    Purpose: Load datasets from specified paths, normalize variates (channel-wise), generate sequences for training, validation, and testing,
+             and provide batch iteration for training and evaluation.
+    """
+
+    def __init__(self,
+                 data_paths: Dict[str, str],
+                 seq_len: int,
+                 pred_len: int,
+                 variate_normalization: bool = True):
+        """
+        Initialize DatasetLoader.
+
+        Args:
+            data_paths (dict): Dictionary with keys 'train', 'val', 'test' mapping to dataset file paths.
+            seq_len (int): Length of input sequence (T).
+            pred_len (int): Length of prediction horizon (S).
+            variate_normalization (bool): Whether to normalize variates independently.
+        """
+        self.data_paths = data_paths
+        self.seq_len = seq_len
+        self.pred_len = pred_len
+        self.variate_normalization = variate_normalization
+
+        # Placeholders for raw data arrays
+        self.raw_data_train: Optional[np.ndarray] = None
+        self.raw_data_val: Optional[np.ndarray] = None
+        self.raw_data_test: Optional[np.ndarray] = None
+
+        # Normalization parameters
+        self.means: Optional[np.ndarray] = None
+        self.stds: Optional[np.ndarray] = None
+
+        # Sequences for train, val, test: list of (input_seq, target_seq)
+        self.train_sequences: List[Tuple[np.ndarray, np.ndarray]] = []
+        self.val_sequences: List[Tuple[np.ndarray, np.ndarray]] = []
+        self.test_sequences: List[Tuple[np.ndarray, np.ndarray]] = []
+
+        # Load and preprocess data upon initialization
+        self.load_data()
+
+    def load_csv(self, file_path: str) -> np.ndarray:
+        """
+        Load dataset from CSV file.
+        Assumption: The dataset contains only variate columns, no timestamp column.
+        If timestamp exists, it should be excluded beforehand or handled accordingly.
+
+        Args:
+            file_path (str): Path to CSV file.
+
+        Returns:
+            np.ndarray: Data array of shape (time_points, variates)
+        """
+        df = pd.read_csv(file_path)
+        # If there's a timestamp column named 'timestamp' or similar, exclude it
+        # For robustness, drop columns not numeric or with known timestamp name
+        numeric_cols = df.select_dtypes(include=[np.number]).columns
+        data_array = df[numeric_cols].values
+        return data_array
+
+    def compute_normalization(self, data: np.ndarray):
+        """
+        Compute mean and std for each variate (channel).
+        """
+        self.means = np.mean(data, axis=0)
+        self.stds = np.std(data, axis=0)
+        # Prevent division by zero
+        self.stds[self.stds == 0] = 1.0
+
+    def normalize(self, data: np.ndarray):
+        """
+        Normalize data with stored means and stds.
+        """
+        return (data - self.means) / self.stds
+
+    def generate_sequences(self, data: np.ndarray) -> List[Tuple[np.ndarray, np.ndarray]]:
+        """
+        Generate overlapping sequences of input-target pairs from data.
+
+        Args:
+            data (np.ndarray): Data array of shape (time_points, variates)
+
+        Returns:
+            List of tuples: [(input_seq, target_seq), ...]
+            shape of input_seq: (seq_len, variates)
+            shape of target_seq: (pred_len, variates)
+        """
+        sequences = []
+        total_points = data.shape[0]
+        max_idx = total_points - self.seq_len - self.pred_len + 1
+        for i in range(max_idx):
+            input_seq = data[i : i + self.seq_len]  # shape: (T, N)
+            target_seq = data[i + self.seq_len : i + self.seq_len + self.pred_len]  # shape: (S, N)
+            sequences.append((input_seq, target_seq))
+        return sequences
+
+    def load_data(self):
+        """
+        Load raw datasets, compute normalization parameters if enabled, generate sequences.
+        """
+        # Load raw datasets
+        self.raw_data_train = self._load_single_dataset(self.data_paths['train'])
+        if 'val' in self.data_paths:
+            self.raw_data_val = self._load_single_dataset(self.data_paths['val'])
+        if 'test' in self.data_paths:
+            self.raw_data_test = self._load_single_dataset(self.data_paths['test'])
+
+        # Normalization parameters based on training data
+        if self.variate_normalization:
+            self.compute_normalization(self.raw_data_train)
+
+        # Generate sequences for train, val, test
+        self.train_sequences = self.generate_sequences(self._normalize(self.raw_data_train))
+        if self.raw_data_val is not None:
+            self.val_sequences = self.generate_sequences(self._normalize(self.raw_data_val))
+        if self.raw_data_test is not None:
+            self.test_sequences = self.generate_sequences(self._normalize(self.raw_data_test))
+
+    def _load_single_dataset(self, file_path: str) -> np.ndarray:
+        """
+        Load a dataset from CSV, returning np.ndarray.
+
+        Args:
+            file_path (str): Path to dataset CSV file.
+
+        Returns:
+            np.ndarray: Data array (time_points, variates)
+        """
+        data = self.load_csv(file_path)
+        return data
+
+    def _normalize(self, data: np.ndarray) -> np.ndarray:
+        """
+        Normalize data if normalization is enabled.
+
+        Args:
+            data (np.ndarray): Raw data.
+
+        Returns:
+            np.ndarray: Normalized data.
+        """
+        if self.variate_normalization and self.means is not None and self.stds is not None:
+            return self.normalize(data)
+        else:
+            return data
+
+    def get_train_batches(self, batch_size: int) -> Tuple[torch.Tensor, torch.Tensor]:
+        """
+        Generate a batch of training data: input sequences and target sequences.
+
+        Args:
+            batch_size (int): Number of sequences per batch.
+
+        Returns:
+            Tuple[torch.Tensor, torch.Tensor]: (X_batch, Y_batch)
+                - X_batch: shape (batch_size, T, N)
+                - Y_batch: shape (batch_size, pred_len, N)
+        """
+        return self._get_batches(self.train_sequences, batch_size)
+
+    def get_val_batches(self, batch_size: int) -> Tuple[torch.Tensor, torch.Tensor]:
+        """
+        Generate a batch of validation data.
+
+        Args:
+            batch_size (int): Batch size.
+
+        Returns:
+            Tuple[torch.Tensor, torch.Tensor]
+        """
+        return self._get_batches(self.val_sequences, batch_size)
+
+    def get_test_batches(self, batch_size: int) -> Tuple[torch.Tensor, torch.Tensor]:
+        """
+        Generate a batch of testing data.
+
+        Args:
+            batch_size (int): Batch size.
+
+        Returns:
+            Tuple[torch.Tensor, torch.Tensor]
+        """
+        return self._get_batches(self.test_sequences, batch_size)
+
+    def _get_batches(self, sequences: List[Tuple[np.ndarray, np.ndarray]], batch_size: int):
+        """
+        Internal method to generate batched data with shuffling for training.
+
+        Args:
+            sequences (list): List of (input_seq, target_seq) tuples.
+            batch_size (int): Batch size.
+
+        Returns:
+            Tuple[torch.Tensor, torch.Tensor]: batched input and target tensors
+        """
+        indices = np.arange(len(sequences))
+        np.random.shuffle(indices)
+        for start_idx in range(0, len(sequences), batch_size):
+            batch_indices = indices[start_idx : start_idx + batch_size]
+            batch_input_seqs = [sequences[i][0] for i in batch_indices]
+            batch_target_seqs = [sequences[i][1] for i in batch_indices]
+
+            X_batch = torch.tensor(np.stack(batch_input_seqs), dtype=torch.float32)  # shape: (batch, T, N)
+            Y_batch = torch.tensor(np.stack(batch_target_seqs), dtype=torch.float32)  # shape: (batch, pred_len, N)
+
+            yield X_batch, Y_batch
+```

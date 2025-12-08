@@ -1,0 +1,232 @@
+{
+  "code_to_paper": {
+    "evaluation.py:EvaluationMetrics": [
+      "The provided paper sections are not clear. However",
+      "based on the code component description",
+      "the most relevant sections could be \"Methodology\"",
+      "\"Evaluation\"",
+      "and \"Results and Discussion\". Please provide the correct paper sections for a more accurate analysis."
+    ],
+    "evaluation.py:reset": [
+      "The provided paper sections do not seem to match the context of the code component. Please provide relevant paper sections such as \"Methodology\"",
+      "\"Experiment Setup\"",
+      "\"Results and Discussion\"",
+      "etc."
+    ],
+    "main.py:main": [
+      "The provided information is insufficient to determine the most relevant paper sections for the code component. Please provide more details about the function in the main.py file and its purpose."
+    ],
+    "model_api.py:ModelAPI": [
+      "The paper sections are not provided in the question. Please provide the paper sections to proceed."
+    ],
+    "model_api.py:__init__": [
+      "The provided paper sections do not seem to contain any relevant information related to the code component. Please provide the correct paper sections."
+    ],
+    "prompt_engineering.py:PromptTemplate": [
+      "The provided paper sections do not seem to match the code component. Please provide relevant paper sections such as \"Methodology\"",
+      "\"Implementation\"",
+      "\"System Design\"",
+      "etc."
+    ],
+    "prompt_engineering.py:PromptManager": [
+      "The provided paper sections do not seem to contain any relevant information related to the code component. Please provide more relevant paper sections."
+    ],
+    "prompt_engineering.py:__init__": [
+      "The provided paper sections do not seem to contain any relevant information related to the code component. Please provide more relevant paper sections."
+    ],
+    "test_executor.py:TestExecutor": [
+      "The provided paper sections are not relevant to the code component. Please provide the correct paper sections."
+    ],
+    "test_executor.py:__init__": [
+      "The provided paper sections do not seem to contain any relevant information related to the code component. Please provide more relevant paper sections."
+    ],
+    "utils.py:FuncNameReplacer": [
+      "As an AI",
+      "I need more specific information about the content of the paper sections and the code component to accurately determine the most relevant sections. However",
+      "based on the information provided",
+      "I cannot make a valid judgement."
+    ],
+    "utils.py:__init__": [
+      "The provided information is insufficient to determine the most relevant paper sections for the code component. Please provide more details about the function in the utils.py file and the content of the paper sections."
+    ]
+  },
+  "paper_to_code": {
+    "The provided paper sections are not clear. However": [
+      {
+        "component": "evaluation.py:EvaluationMetrics",
+        "description": "Implements self-consistency evaluation logic based on the Test Output Match (TOM) score,\n    as well as aggregation methods for overall scores across multiple inputs/problems.",
+        "file": "evaluation.py"
+      }
+    ],
+    "based on the code component description": [
+      {
+        "component": "evaluation.py:EvaluationMetrics",
+        "description": "Implements self-consistency evaluation logic based on the Test Output Match (TOM) score,\n    as well as aggregation methods for overall scores across multiple inputs/problems.",
+        "file": "evaluation.py"
+      }
+    ],
+    "the most relevant sections could be \"Methodology\"": [
+      {
+        "component": "evaluation.py:EvaluationMetrics",
+        "description": "Implements self-consistency evaluation logic based on the Test Output Match (TOM) score,\n    as well as aggregation methods for overall scores across multiple inputs/problems.",
+        "file": "evaluation.py"
+      }
+    ],
+    "\"Evaluation\"": [
+      {
+        "component": "evaluation.py:EvaluationMetrics",
+        "description": "Implements self-consistency evaluation logic based on the Test Output Match (TOM) score,\n    as well as aggregation methods for overall scores across multiple inputs/problems.",
+        "file": "evaluation.py"
+      }
+    ],
+    "and \"Results and Discussion\". Please provide the correct paper sections for a more accurate analysis.": [
+      {
+        "component": "evaluation.py:EvaluationMetrics",
+        "description": "Implements self-consistency evaluation logic based on the Test Output Match (TOM) score,\n    as well as aggregation methods for overall scores across multiple inputs/problems.",
+        "file": "evaluation.py"
+      }
+    ],
+    "The provided paper sections do not seem to match the context of the code component. Please provide relevant paper sections such as \"Methodology\"": [
+      {
+        "component": "evaluation.py:reset",
+        "description": "Reset diagnostics/results storage for fresh evaluation if needed.",
+        "file": "evaluation.py"
+      }
+    ],
+    "\"Experiment Setup\"": [
+      {
+        "component": "evaluation.py:reset",
+        "description": "Reset diagnostics/results storage for fresh evaluation if needed.",
+        "file": "evaluation.py"
+      }
+    ],
+    "\"Results and Discussion\"": [
+      {
+        "component": "evaluation.py:reset",
+        "description": "Reset diagnostics/results storage for fresh evaluation if needed.",
+        "file": "evaluation.py"
+      }
+    ],
+    "etc.": [
+      {
+        "component": "evaluation.py:reset",
+        "description": "Reset diagnostics/results storage for fresh evaluation if needed.",
+        "file": "evaluation.py"
+      },
+      {
+        "component": "prompt_engineering.py:PromptTemplate",
+        "description": "Represents a prompt template with placeholders for dynamic content.\n    Provides methods to generate complete prompts for NL\u2192PL and PL\u2192NL tasks.",
+        "file": "prompt_engineering.py"
+      }
+    ],
+    "The provided information is insufficient to determine the most relevant paper sections for the code component. Please provide more details about the function in the main.py file and its purpose.": [
+      {
+        "component": "main.py:main",
+        "description": "",
+        "file": "main.py"
+      }
+    ],
+    "The paper sections are not provided in the question. Please provide the paper sections to proceed.": [
+      {
+        "component": "model_api.py:ModelAPI",
+        "description": "This class provides an interface to interact with either an API-based large language model\n    (e.g., OpenAI API) or a local HuggingFace transformers model.\n\n    It supports deterministic decoding (temperature=0), handles prompt sending, and response parsing,\n    following the design and configuration specifications.",
+        "file": "model_api.py"
+      }
+    ],
+    "The provided paper sections do not seem to contain any relevant information related to the code component. Please provide the correct paper sections.": [
+      {
+        "component": "model_api.py:__init__",
+        "description": "Initialize the ModelAPI instance.\n        Args:\n            model_name (str): Model identifier or local model path.\n            api_key (Optional[str]): API key if using API-based models.\n            temperature (float): Decoding temperature; default 0 for deterministic.\n            max_new_tokens (int): Max tokens to generate.\n            model_type (str): \"api\" for API-based, \"local\" for local models.",
+        "file": "model_api.py"
+      }
+    ],
+    "The provided paper sections do not seem to match the code component. Please provide relevant paper sections such as \"Methodology\"": [
+      {
+        "component": "prompt_engineering.py:PromptTemplate",
+        "description": "Represents a prompt template with placeholders for dynamic content.\n    Provides methods to generate complete prompts for NL\u2192PL and PL\u2192NL tasks.",
+        "file": "prompt_engineering.py"
+      }
+    ],
+    "\"Implementation\"": [
+      {
+        "component": "prompt_engineering.py:PromptTemplate",
+        "description": "Represents a prompt template with placeholders for dynamic content.\n    Provides methods to generate complete prompts for NL\u2192PL and PL\u2192NL tasks.",
+        "file": "prompt_engineering.py"
+      }
+    ],
+    "\"System Design\"": [
+      {
+        "component": "prompt_engineering.py:PromptTemplate",
+        "description": "Represents a prompt template with placeholders for dynamic content.\n    Provides methods to generate complete prompts for NL\u2192PL and PL\u2192NL tasks.",
+        "file": "prompt_engineering.py"
+      }
+    ],
+    "The provided paper sections do not seem to contain any relevant information related to the code component. Please provide more relevant paper sections.": [
+      {
+        "component": "prompt_engineering.py:PromptManager",
+        "description": "Manages prompt templates and provides methods to create specific prompts for\n    NL\u2192PL and PL\u2192NL tasks, incorporating configuration parameters and name replacements.",
+        "file": "prompt_engineering.py"
+      },
+      {
+        "component": "prompt_engineering.py:__init__",
+        "description": "Initialize with a raw template string containing placeholders.",
+        "file": "prompt_engineering.py"
+      },
+      {
+        "component": "test_executor.py:__init__",
+        "description": "Initialize the executor with a maximum allowed execution time per test.\n        Args:\n            max_time (float): Timeout in seconds for each code execution.",
+        "file": "test_executor.py"
+      }
+    ],
+    "The provided paper sections are not relevant to the code component. Please provide the correct paper sections.": [
+      {
+        "component": "test_executor.py:TestExecutor",
+        "description": "Executes given code snippets on provided test cases, captures outputs or errors,\n    and returns detailed results suitable for TOM scoring.",
+        "file": "test_executor.py"
+      }
+    ],
+    "As an AI": [
+      {
+        "component": "utils.py:FuncNameReplacer",
+        "description": "",
+        "file": "utils.py"
+      }
+    ],
+    "I need more specific information about the content of the paper sections and the code component to accurately determine the most relevant sections. However": [
+      {
+        "component": "utils.py:FuncNameReplacer",
+        "description": "",
+        "file": "utils.py"
+      }
+    ],
+    "based on the information provided": [
+      {
+        "component": "utils.py:FuncNameReplacer",
+        "description": "",
+        "file": "utils.py"
+      }
+    ],
+    "I cannot make a valid judgement.": [
+      {
+        "component": "utils.py:FuncNameReplacer",
+        "description": "",
+        "file": "utils.py"
+      }
+    ],
+    "The provided information is insufficient to determine the most relevant paper sections for the code component. Please provide more details about the function in the utils.py file and the content of the paper sections.": [
+      {
+        "component": "utils.py:__init__",
+        "description": "",
+        "file": "utils.py"
+      }
+    ]
+  },
+  "paper_sections": [
+    {
+      "section": "Abstract",
+      "text": "Marcus J. Min1 Yangruibo Ding1 Luca Buratti2 Saurabh Pujar2   \nGail Kaiser1 Suman Jana1 Baishakhi Ray1",
+      "ontology": "abstract"
+    }
+  ],
+  "coverage_score": 22.0
+}

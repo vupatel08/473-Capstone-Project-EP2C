@@ -1,0 +1,159 @@
+# Logic Analysis for dataset_loader.py
+
+**Objective**: Implement a `DataLoader` class that efficiently loads, preprocesses, and structures multiple time series datasets, providing an interface to retrieve segmented, normalized series with associated timestamps and metadata for subsequent training and evaluation.
+
+---
+
+## 1. Inputs and Dataset Specifications
+
+- The class should accept `dataset_paths` as a dictionary containing file paths for each dataset (per the plan).
+- Dataset files are CSVs with time series data, including:
+  - *Series data*: multivariate (C variates) or univariate (1 variate).
+  - *Timestamps*: associated date/time info, possibly in textual form (e.g., "2016/07/05 00:00:00").
+- Other relevant info:
+  - Sampling frequency (hourly, 10-min, daily, etc.) should be in dataset description.
+  - No explicit file format given: assume CSV with columns for time and variates.
+  - Provide support for the datasets listed in the configuration yaml.
+
+---
+
+## 2. Data Loading
+
+- Read each dataset file using `pandas.read_csv`.
+- For each dataset:
+  - Identify appropriate columns: timestamp column and variate columns. (Assume common convention or specify column names, e.g., "timestamp" plus variates.)
+  - Load data as a DataFrame, converting timestamps to `datetime` objects (using `pd.to_datetime`).
+- Save raw series: numpy array of shape `(T, C)` with T time points and C variates.
+- Save timestamps as `np.ndarray` of datetime objects for easier manipulation.
+
+---
+
+## 3. Timestamp Conversion and Textual Prompts
+
+- For each timestamp:
+  - Convert to textual format suitable for prompt (e.g., `"YYYY/MM/DD HH:MM:SS"`).
+  - Use `strftime("%Y/%m/%d %H:%M:%S")` on pandas datetime object.
+- Store these textual representations alongside series data for prompt construction.
+
+---
+
+## 4. Data Normalization
+
+- To match paper procedures:
+  - Normalize each series using a standard method, e.g., min-max scaling or z-score.
+  - Since times series vary by dataset, choose normalization per dataset:
+    - **Training/validation/test split**: given as data is split chronologically, normalization should be:
+      - Fit normalization on training set only (for realism and avoiding data leakage).
+      - Apply same normalization parameters to validation and test sets.
+  - Save normalization parameters for consistent processing during evaluation.
+
+---
+
+## 5. Series Segmentation
+
+- Based on the `segment_size` (e.g., 96, 192, etc.):
+  - Divide the entire series into non-overlapping segments:
+    - For a series of length `T`, number of segments `N = floor(T / S)`.
+    - Segment i: `series[(i-1)*S : i*S]`.
+  - For multivariate series:
+    - Each segment is shape `(S, C)`.
+  - Store each segment as a numpy array of shape `(S, C)`.
+
+- Result:
+  - For each series: a list/array of segments:
+    ```python
+    segments = [series[(i-1)*S : i*S] for i in range(1, N+1)]
+    ```
+  - Store index of segments for time alignment with timestamps.
+
+---
+
+## 6. Metadata and Sample Structuring
+
+- For each series:
+  - Store:
+    - *Series name/ID*
+    - *Normalized series data* or list of segments
+    - *Timestamps*: for each segment, represent start, end times, or per segment timestamps (e.g., starting timestamp + S time points).
+    - *Series metadata*: any additional info (e.g., station ID, location, frequency).
+- Encapsulate as a structured object, e.g., `TimeSeriesSample`:
+  ```python
+  class TimeSeriesSample:
+      series: np.ndarray           # Full series data (T, C)
+      timestamps: np.ndarray       # Corresponding datetime objects
+      series_name: str
+      series_metadata: dict
+  ```
+- For dataset loading, return a list of such samples, each representing one time series.
+
+---
+
+## 7. Dataset Standardization & Handling Multiple Datasets
+
+- For code generality:
+  - The loader can accept multiple dataset paths.
+  - Load all datasets into a list of `TimeSeriesSample`.
+  - For datasets with missing or inconsistent timestamp formats, provide options or preprocessing steps.
+  - Use consistent normalization across all datasets or dataset-specific normalization.
+
+---
+
+## 8. Data Splits & Indexing
+
+- Maintain the chronological order:
+  - For training, validation, testing: split based on indices to prevent data leakage.
+- For each series, store:
+  - *Training segment indices*: first part of series.
+  - *Validation & test indices*: later parts.
+
+- For datasets with fixed train/validation/test splits, pre-calculated indices or date ranges should be used.
+
+---
+
+## 9. Supporting Datasets for Experimental Protocols
+
+- Support the following datasets (specified in config):
+  - ETTh1
+  - Weather
+  - ECL
+  - Traffic
+  - Solar-Energy
+  - M4 (yearly, quarterly, monthly, weekly, daily, hourly)
+  - M3 (yearly, quarterly, monthly, others)
+- Each dataset may vary:
+  - Different total length
+  - Different number of variates
+  - Different timestamp formats and granularity
+
+**Implementation tip**: define dataset-specific loaders if needed, or generalize via settings.
+
+---
+
+## 10. Reproducibility & Output
+
+- Provide methods:
+  - `get_dataset()` or `load_all()` to load and process all datasets.
+  - For each dataset, return structured objects (list of samples).
+- Include options for:
+  - Saving preprocessed datasets into cache for faster repeated loadings.
+  - Accessing raw data, normalized data, segments, and timestamps separately.
+
+---
+
+## Summary
+
+- **Main Tasks**:
+  - Read CSVs, convert timestamps to `datetime` and textual formats.
+  - Normalize each series using training set parameters.
+  - Segment series into fixed-length, non-overlapping segments.
+  - Store series, segments, textual timestamps, and metadata.
+  - Return a structured list of `TimeSeriesSample` objects for downstream use.
+  
+- **Key Points**:
+  - Support multiple datasets with flexible formats.
+  - Maintain chronological integrity.
+  - Prepare data for prompt-based models: textual prompt construction will happen downstream, using timestamp strings.
+  - Ensure normalization is only fit on training data to avoid leakage.
+  - Modular functions: load CSV, process timestamps, normalize, segment, package.
+
+This thorough plan ensures the dataset loader serves as a reliable, flexible interface that seamlessly integrates with the training and prompt construction modules, aligning with the paper's methodological specifications.

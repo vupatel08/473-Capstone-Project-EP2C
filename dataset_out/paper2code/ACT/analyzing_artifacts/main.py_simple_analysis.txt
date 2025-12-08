@@ -1,0 +1,150 @@
+# Logic Analysis for main.py
+
+**Objective:**  
+Implement a main script that orchestrates dataset loading, model initialization, attention map extraction and modification, inference with attention calibration (ACT), and evaluation, following the described experimental methodology.
+
+---
+
+# 1. Initialization & Configuration Load
+
+- **Load configuration:**  
+  - Parse 'config.yaml' to extract all hyperparameters, model info, attention calibration settings, evaluation datasets, and other parameters.
+- **Set device:**  
+  - Use `torch.device()` based on 'device' parameter from the config.
+- **Prepare logging and tracking:**  
+  - Set up logging, metrics storage, and visualization directories if needed.
+
+---
+
+# 2. Dataset Loading
+
+- **Instantiate DatasetLoader:**  
+  - Call `DatasetLoader` class with dataset paths and prompts as per config.
+- **Load datasets:**  
+  - Invoke `load_data()` method; get a list of data entries (dicts) with prompt input text and labels.
+- **Preprocessing:**  
+  - For classification, QA, or other tasks: tokenization, considering max input length (e.g., 1024).
+  - For zero-shot/few-shot prompts, assemble the input string accordingly.
+
+---
+
+# 3. Model Initialization
+
+- **Instantiate ModelWrapper:**  
+  - Provide model name/identifier (e.g., "Llama-7b") and device.
+- **Load pre-trained weights:**  
+  - Use Hugging Face transformers AutoModelForCausalLM or similar.
+- **Register attention hooks:**  
+  - Call `register_attention_hooks()` to enable extraction of attention matrices during inference.
+- **Verification:**  
+  - Confirm hook registration (inside ModelWrapper).
+
+---
+
+# 4. Attention Map Extraction & Calibration Preparation
+
+- **Define AttentionCalibrator object:**  
+  - Pass hyperparameters: `alpha`, `suppress_factor`, `subset_percent`, and optionally specific layers/heads to calibrate.
+- **Identify attention sink thresholds:**  
+  - Use attention scores to detect tokens with attention > threshold (\(\alpha\)).  
+  - For each input, the actuator will detect sinks based on attention maps.
+
+---
+
+# 5. Inference Loop with Attention Calibration
+
+- **For each data sample:**  
+  - **Prepare input prompt:**  
+    - Format prompt with the input text, according to the dataset type (e.g., classification, multiple-choice, QA).
+  - **Tokenize input:**  
+    - Use tokenizer, truncate/pad as necessary.
+  - **Extract attention maps:**  
+    - Run `model_wrapper` forward pass with hooks enabled.  
+    - During inference, capture attention matrices (\(\mathbf{A}_h^l\)) for all layers and heads.
+  - **Identify attention sinks:**  
+    - Pass attention maps to `AttentionCalibrator.detect_sinks()`.  
+    - Use threshold \(\alpha\) and subset percentage from config.
+  - **Apply attention calibration:**  
+    - Call `calibrate_attention()` with detected sinks.  
+    - For each sink token, reduce attention weights by factor \(\beta\); re-normalize to sum to 1.
+  - **Modified inference:**  
+    - Run the model's generate method with the **adjusted attention weights**:
+      - *Important:* This may involve temporary overriding the attention matrices before the softmax, which could entail modifying the forward pass or passing modified attention matrices if the model supports it.
+    - **Note:** If direct modification isn't feasible, implement a wrapper or a method to "simulate" attention suppression during inference via hooks or custom attention function.
+  - **Obtain output text:**  
+    - Decode the generated tokens into output string.
+  - **Store predictions:**  
+    - Save output predictions and attention maps for analysis.
+
+---
+
+# 6. Evaluation & Metrics Calculation
+
+- **Compare predictions with ground truth labels:**
+  - For classification and multiple-choice tasks, compute accuracy.
+  - For QA, compute EM and F1 scores.
+  - For open-ended tasks, compute appropriate metrics (e.g., exact match, scores).
+- **Record results:**
+  - Store performance metrics with and without attention calibration.
+  - Track improvements (\( \Delta \) accuracy, F1, etc.).
+
+---
+
+# 7. Aggregation & Reporting
+
+- **Aggregate results:**
+  - Compute mean accuracy/F1 scores, improvements over baseline.
+  - Possibly plot histograms of attention sinks and attention maps before/after ACT.
+- **Optional visualization:**
+  - Save attention heatmaps for selected examples.
+  - Generate diagnostics plots to verify sink detection and suppression effects.
+  
+---
+
+# 8. Final steps
+
+- **Summarize overall performance:**
+  - Print/Log overall improvements.
+  - Save detailed logs and results in structured format (JSON or CSV).
+- **Clean up:**
+  - Remove hooks from model.
+  - Free resources, close files.
+
+---
+
+# 9. Key Implementation Details & Considerations
+
+- **Attention Hook Registration:**
+  - Use `register_forward_hook` or equivalent in HuggingFace/transformers to get attention maps during inference.
+- **Handling attention matrices:**
+  - Ensure the attention matrices are accessible for modification.
+  - Appropriately normalize after modification to maintain valid probability distributions.
+- **Hyperparameters:**
+  - Use set values from 'config.yaml':
+    - `alpha=5`
+    - `suppression_factor=0.4`
+    - `subset_percent=0.4`
+- **Batching:**
+  - Depending on hardware, process samples individually or in batches.
+  - Make sure attention modifications are per-sample.
+
+---
+
+# 10. Summary of Key Logical Steps
+
+```
+Load config → Load dataset → Initialize model → Register attention hooks
+For each sample:
+    Tokenize input prompt
+    Run inference → capture attention maps
+    Detect attention sinks using thresholds
+    Apply ACT → reduce attention in sinks, normalize
+    Generate output with adjusted attention
+    Collect predictions and attention maps
+Evaluate predictions against ground truth
+Report metrics and improvements
+```
+
+---
+
+This comprehensive logic analysis provides all necessary detailed steps and considerations to implement 'main.py' effectively, ensuring alignment with the methodologies and experiments described in the paper.

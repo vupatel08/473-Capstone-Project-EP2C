@@ -1,0 +1,410 @@
+# Unveiling and Harnessing Hidden Attention Sinks: Enhancing Large Language Models without Training through Attention Calibration
+
+Zhongzhi $\mathbf { Y } \mathbf { u } ^ { \mathrm { ~ \ast ~ 1 ~ } }$ Zheng Wang \* 1 Yonggan Fu 1 Huihong Shi 1 Khalid Shaikh 1 Yingyan (Celine) Lin 1
+
+# Abstract
+
+# 1. Introduction
+
+Attention is a fundamental component behind the remarkable achievements of large language models (LLMs). However, our current understanding of the attention mechanism, especially regarding how attention distributions are established, remains limited. Inspired by recent studies that explore the presence of attention sink in the initial token, which receives disproportionately large attention scores despite their lack of semantic importance, this work delves deeper into this phenomenon. We aim to provide a more profound understanding of the existence of attention sinks within LLMs and to uncover ways to enhance the achievable accuracy of LLMs by directly optimizing the attention distributions, without the need for weight finetuning. Specifically, this work begins with comprehensive visualizations of the attention distributions in LLMs during inference across various inputs and tasks. Based on these visualizations, to the best of our knowledge, we are the first to discover that (1) attention sinks occur not only at the start of sequences but also within later tokens of the input, and (2) not all attention sinks have a positive impact on the achievable accuracy of LLMs. Building upon our findings, we propose a training-free Attention Calibration Technique (ACT) that automatically optimizes the attention distributions on the fly during inference in an input-adaptive manner. Extensive experiments validate that ACT consistently enhances the accuracy of various LLMs across different applications. Specifically, ACT achieves an average improvement of up to $7 . 3 0 \%$ in accuracy across different datasets when applied to Llama-30B. Our code is available at https: //github.com/GATECH-EIC/ACT.
+
+In recent days, large language models (LLMs) have garnered significant attention due to their impressive performance across a wide range of tasks (Touvron et al., 2023a;b; OpenAI, 2023a; Waisberg et al., 2023; Fu et al., 2023; OpenAI, 2023b). One of the key components contributing to the remarkable performance of LLMs is the attention mechanism, which effectively identifies relationships among tokens in a sequence. This ability enables LLMs to comprehend intricate contexts and details, greatly enhancing their capacity to process and generate text that closely resembles human language (Vaswani et al., 2017; Radford et al., 2018). However, despite the immense potential of the attention mechanism, our current understanding of how attention distributions are established and their relationship to the achievable performance of LLMs remains inadequately explored.
+
+Along this direction, a pioneering study, StreamLLM (Xiao et al., 2023), has undertaken an initial investigation and improved our understanding of attention distributions by uncovering the existence of attention sinks. In particular, they find that the initial token of an input text receives a disproportionately large attention score, despite often lacking semantic significance. This phenomenon arises from the visibility of the initial token to almost all subsequent tokens in autoregressive language modeling, causing them to become the recipients of these “unnecessary” attention values. Motivated by the impact of attention sinks on attention distributions, we aim to delve deeper into their general existence to gain a better understanding of how they affect LLMs’ reasoning and generation capabilities. This, in turn, will inspire new strategies to enhance the achievable accuracy of LLMs. To achieve this goal, we pose the following three intriguing research questions: Q1: Does an attention sink only exist in the initial token? Q2: Will preserving attention sinks always benefit LLMs’ accuracy in different scenarios? Q3: Can we enhance LLMs’ accuracy by solely manipulating attention sinks without any weight finetuning?
+
+In our endeavor to address the aforementioned three questions, we make the following contributions:
+
+• We conduct comprehensive visualizations of the attention distributions in LLMs across a variety of tasks and inputs. To the best of our knowledge, we are the first to discover that attention sinks manifest not only in the initial token but also within subsequent tokens throughout the input context. Intriguingly, similar to the attention sink observed in the initial token by (Xiao et al., 2023), attention sinks in later tokens also tend to be concentrated on tokens of less semantic importance.
+
+• Excited by the above observation, we further probe into the relationship between attention sinks at different locations and the accuracy of the generated content at those respective locations. Interestingly, we discover that not all attention sinks have a positive impact on maintaining LLMs’ performance, which complements the findings in (Xiao et al., 2023).
+
+• Leveraging the findings above, we have developed a training-free Attention Calibration Technique, named ACT, that automatically optimizes attention distributions on the fly during inference in an input-adaptive manner, improving the achievable accuracy of pretrained LLMs on downstream tasks. Additionally, it can even lead to a comparable accuracy as compared to the commonly used in-context learning technique, and further be combined with the latter for boosted accuracy. As such, our ACT has provided an alternative new design knob for LLM enhancement.
+
+• Extensive experiments and ablation studies validate that our proposed method can achieve up to a $7 . 3 0 \%$ higher accuracy than the vanilla inference baseline across various tasks. Furthermore, ACT is capable of improving LLMs’ performance in challenging multiround conversation tasks. Specifically, applying ACT to different variants of Llama2 boosts the achievable score by up to 0.13 on the challenging MT-Bench dataset.
+
+# 2. Related Works
+
+# 2.1. Large language models
+
+Transformer-based language models (Vaswani et al., 2017; Devlin et al., 2018; Raffel et al., 2020; Roberts et al., 2022) have demonstrated their remarkable ability to effectively extract relationships among tokens from complex input sequences, thanks to the utilization of the attention mechanism in their model architecture. Furthermore, their attentioncentric design enables decent scalability (Qin et al., 2023; Kaplan et al., 2020; Biderman et al., 2023): as the model size and pretraining dataset scale increase, the performance of transformer-based language models continues to improve. This phenomenon has given rise to the emergence of LLMs. One of the earliest impressive LLMs is GPT-3 (Brown et al., 2020), which showcases remarkable zero-shot and fewshot in-context learning capabilities. This achievement has further fueled the development of various LLMs, such as OPT (Zhang et al., 2022), Llama (Touvron et al., 2023a), Llama2 (Touvron et al., 2023b), BLOOM (Workshop et al.,
+
+2022), GPT-J (Wang & Komatsuzaki, 2021), Pythia (Biderman et al., 2023), and GLM (Du et al., 2021). These models have further pushed the boundaries of deep learning, gradually moving us toward achieving artificial general intelligence.
+
+# 2.2. Parameter-efficient tuning
+
+Despite the promising zero-shot and few-shot capabilities of LLMs, one common approach to achieving strong performance in real-world applications is to finetune pretrained LLMs for downstream tasks. However, the enormous size of LLMs makes traditional weight tuning computationally expensive, requiring significant storage and memory overhead. To address this challenge, various parameter-efficient tuning (PET) methods have been proposed (Hu et al., 2021; Lester et al., 2021; Zhang et al., 2020; Sung et al., 2022; Yu et al., 2023a; Fu et al., 2022). Specifically, instead of updating all parameters in the target LLM, PET selectively updates a small set of learnable modules during finetuning (Qi et al., 2023; Xia et al., 2024; Zhao et al., 2024; Yu et al., 2023b; 2024; Zhang et al., 2023a; Li et al., 2023). While PET methods can reduce computational, storage, and memory overheads, even state-of-the-art (SOTA) PET methods still face challenges in efficiently finetuning LLMs (Dettmers et al., 2023). Our proposed method is orthogonal to PET: we aim to enhance the performance of LLMs by directly optimizing attention distributions on the fly during inference, eliminating the need for weight finetuning.
+
+# 2.3. Observations regarding LLMs’ attention
+
+Despite being one of the key components of LLMs, the understanding of the attention mechanism has been slow to evolve compared to the rapid advancement of LLMs themselves. Early works focus on studying attention in small-scale transformers. For instance, (Clark et al., 2019b) visualizes specific types of attention patterns in pretrained BERT (Devlin et al., 2018), and (Vig, 2019) identifies biases and localized relevant attention heads. Additionally, (Sun & Lu, 2020) discovers that the degree of association between a word token and a class label affects their attention score. However, the exploration of the unique attention distribution in LLMs with larger model sizes and datasets is still in its infancy. Along this trajectory, some pioneering works have made interesting observations related to the attention mechanism in LLMs. For instance, (Kou et al., 2023) finds that the attention distribution in LLMs differs from that in humans, and (Zhang et al., 2023b) observes that increasing the attention score of manually defined tokens at specific heads can improve LLMs’ ability to follow instructions. However, determining the relationship between attention distributions and the achievable performance of LLMs, as well as automating the enhancement of LLMs’ performance by calibrating attention distributions during inference, still remain open challenges.
+
+![](images/d0f9f4f1e33851a732e8f1785515c40a2bc8baa896c22b996d8e8a69dae9000d.jpg)  
+Figure 1. Upper: Visualization of the averaged attention maps across all heads and layers of Llama2-7B-chat on different datasets. Lower: Visualization of the averaged attention maps across all heads in each layer when processing a sample from SST2 with Llama2-7B-chat. Identified attention sinks in the averaged attention map from SST2 are bounded with green boxes.
+
+# 3. Preliminaries
+
+LLMs and multi-head attention. LLMs (Touvron et al., 2023a; Brown et al., 2020; OpenAI, 2023b) are typically constructed by stacking $L$ transformer blocks, each comprising a feed-forward network (FFN) and a multi-head attention (MHA) module that captures the pairwise relationships among all $N$ input tokens in the input sequence. Specifically, for a given input $\mathbf { X } ^ { l } \in \mathbb { R } ^ { N \times d }$ to the $l$ -th block, the output feature $\mathbf { \bar { F } } _ { h } ^ { l } \in \bar { \mathbb { R } ^ { N \times d } }$ generated at head $h$ can be represented as:
+
+$$
+\begin{array} { r l } & { \mathbf { A } _ { h } ^ { l } = \mathsf { S o f t m a x } \left( \frac { f _ { Q } ^ { l } ( \mathbf { X } ^ { l } ) \cdot f _ { K } ^ { l } ( \mathbf { X } ^ { l } ) ^ { T } } { \sqrt { d _ { k } } } \right) , } \\ & { \mathbf { F } _ { h } ^ { l } = \mathbf { A } _ { h } ^ { l } \cdot f _ { V } ^ { l } ( \mathbf { X } ^ { l } ) , } \end{array}
+$$
+
+where the em $f _ { Q } ^ { l } , f _ { K } ^ { l }$ , and  dime $f _ { V . } ^ { l }$ are projection laon of each head, $d _ { k } = d / h$ $\bar { \mathbf { A } } _ { h } ^ { l ^ { \kappa } } \in \mathbb { R } ^ { N \times N }$ $h$   
+${ \bf A } _ { h } ^ { l } [ i , j ]$ represents the relationship between the $i$ -th and   
+$j$ -th tokens in $\mathbf { X } ^ { l }$ . The attention score is defined as $a _ { h } ^ { l } =$   
+$[ \textstyle \sum _ { j = 1 } ^ { i } \mathbf { A } _ { h } ^ { l } [ i , j ] / i , \forall i \in \{ 1 , \cdots , N \} ]$ , and $a _ { h } ^ { l } [ i ]$ denotes the   
+attention score for the $i$ -th token at head $h$ , layer $l$ .
+
+Next, the features $\mathbf { F } _ { h } ^ { l }$ of each head $h$ are combined to generate the output $\mathbf { O } ^ { l }$ of MHA by
+
+$$
+\mathbf { O } ^ { l } = f _ { O } ^ { l } ( \mathsf { C o n c a t } ( \mathbf { F } _ { 1 } ^ { l } , \cdot \cdot \cdot , \mathbf { F } _ { h } ^ { l } ) ) ,
+$$
+
+where $f _ { O } ^ { l }$ represents a projection layer. In the remainder O of this paper, we primarily utilize the distribution of $\mathbf { A } _ { h } ^ { \top }$ generated by various inputs $\mathbf { X } ^ { l }$ for all $h$ and $l$ within the
+
+LLM as the key knob to address the three research questions outlined in Sec. 1.
+
+StreamLLM and the attention sink. StreamLLM (Xiao et al., 2023) identifies the presence of an attention sink, which is a token that receives a significantly higher attention score than other tokens but provides limited semantic information. StreamLLM observes that the attention sink only exists in the initial token and suggests always preserving these tokens when processing long input sequences to prevent forgetting.
+
+# 4. Unveil and Harness Hidden Attention Sinks
+
+Overview. We aim to investigate the general existence of attention sinks and explore their impact on the reasoning and generation process of LLMs. To achieve this goal, we adopt a deductive approach by sequentially addressing three intriguing research questions outlined in Sec. 1: Firstly, we address Q1 to investigate whether attention sinks are limited to the initial token or if they persist in various locations, as discussed in Sec. 4.1. Secondly, we explore Q2 to shed light on the effects of these identified attention sinks on the achievable accuracy of LLMs, as discussed in Sec. 4.2. Finally, building upon the findings gained from Q1 and Q2, we address Q3 by developing the ACT to enhance the performance of LLMs in a training-free manner during inference, as discussed in Sec. 4.3. Unless otherwise specified, for the remainder of this section, our exploration is based on one of the SOTA LLMs, Llama2-7B-chat (Touvron et al., 2023b).
+
+Table 1. Frequency of tokens appear with significantly higher attention scores.   
+
+<table><tr><td>Token name</td><td>&#x27;&lt;s&gt;&#x27;</td><td>:&#x27;</td><td>&#x27;&lt; 0x0A &gt;&#x27;</td><td></td><td>&#x27;Answer&#x27;</td></tr><tr><td>Frequency</td><td>1621135</td><td>958992</td><td>636902</td><td>65078</td><td>46297</td></tr><tr><td>Ratio</td><td>48.2%</td><td>28.5%</td><td>18.9%</td><td>1.9%</td><td>1.3%</td></tr><tr><td>Token name</td><td>,</td><td>&#x27;Type&#x27;</td><td>&#x27;iment</td><td>&#x27;D&#x27;</td><td>Total</td></tr><tr><td>Frequency</td><td>21841</td><td>4430</td><td>3896</td><td>2644</td><td>3363296</td></tr><tr><td>Ratio</td><td>0.6%</td><td>0.1%</td><td>0.1%</td><td>0.1%</td><td>100%</td></tr></table>
+
+# 4.1. Q1: Do attention sinks only exist in the initial token?
+
+The attention sink has been observed at the initial token of LLMs (Xiao et al., 2023). However, the presence and distribution of attention sinks in later tokens remain an open yet crucial question, especially considering that these tokens contain ample semantic information. Therefore, our objective is to investigate the overall existence of attention sinks that consistently draw significant attention across the entire input sequence.
+
+Settings. To address Q1, we first visualize two metrics: (1) the averaged attention maps across all heads and layers, denoted a s (PHh=1 PLl=1 Alh)/(H · L), on different datasets, and (2) the averaged attention maps of each layer, i.e., $( \sum _ { h = 1 } ^ { H } \mathbf { A } _ { h } ^ { l } ) / H )$ , when processing a single input sample, as illustrated in Fig. 1. Additional visualizations on various datasets and models can be found in Appendix C. To generalize these observations across a larger range of datasets, we first visualize the distribution of token-wise attention scores across different datasets to validate the significant gap between high-attention and normal tokens. We further determine that the $i \cdot$ -th token has a significantly higher attention score if $a _ { h } ^ { l } [ i ] > \alpha / N$ (i.e., more than $\alpha$ times the average attention score) and is considered an attention sink. Specifically, we set $\alpha = 5$ based on our upcoming visualization in Fig. 2 unless otherwise specified. We summarize the frequency of tokens exhibiting significantly higher attention scores across all samples in a mixed dataset comprising 100 samples collected from each of the 18 datasets mentioned in Sec. 5.1.
+
+Observations. We can draw the following observations from Fig. 1: Obs-(1) several tokens consistently attract significantly higher attention values than other tokens. Moreover, as visualized in Fig. 2, the distribution of highattention tokens’ attention values has a notable boundary with those of other tokens across different datasets, validating that the difference in attention scores between identified high-attention tokens and other tokens is significant; Obs-(2) as illustrated in Table 1, aside from the initial token ${ < } S >$ , which corresponds exactly to the attention sink observed in StreamLLM (Xiao et al., 2023), there also exist a nontrivial number of other attention sinks that contain limited semantic information (e.g., “.”, “:”, and $^ { * * } < 0 x 0 A > " $ ), yet frequently draw significantly higher attention scores at various locations; and Obs-(3) attention sinks often manifest in the intermediate layers of LLMs, while the first two layers exhibit more evenly distributed attention scores, and the final layer focuses more on local information with diagonal attention patterns.
+
+![](images/3aad506f1915cfcbe3e384d2501b1880503235081aac2eded30b826bd735c2af.jpg)  
+Figure 2. Attention score distribution of the initial token (i.e., the attention sink observed in StreamLLM (Xiao et al., 2023)), noninitial high attention tokens, and other tokens for classification tasks (top) and multiple-choice tasks (bottom).
+
+Our answer to Q1. In complement to the observations made in StreamLLM, we conclude that attention sinks are found not only in the initial token but also in later tokens, particularly during the intermediate layers of LLMs.
+
+# 4.2. Q2: Will preserving attention sinks always benefit LLMs’ accuracy in different scenarios?
+
+Considering that the newly identified attention sinks in later tokens, with their substantial attention values, divert a significant portion of attention away from other non-attentionsink tokens, it is imperative to investigate the impact of this notable diversion on the reasoning and generation capabilities of LLMs. While StreamLLM (Xiao et al., 2023) suggests preserving the attention sink of the initial token, it remains unclear whether preserving later attention sinks also enhances the accuracy of LLMs. Therefore, in this subsection, we delve into the impact of attention sinks on LLMs’ accuracy in downstream tasks.
+
+Settings. We make a heuristic attempt to verify the influence of attention sinks by decreasing the attention scores of each attention head associated with attention sinks and examining whether this can enhance the accuracy achieved by LLMs on the MMLU dataset (Hendrycks et al., 2020). Taking into account the various layer-wise attention patterns discussed in Sec. 4.1-Obs-(3), we only apply this operation to attention heads between the third layer and the second-to-last layer.
+
+To effectively reduce the attention scores of attention sink tokens and leverage the reduced attention scores to improve the achievable performance of the target LLM by distributing them across other tokens, we propose a simple calibration technique comprising three steps:
+
+1. Identify a set of attention sink tokens $S _ { h } ^ { l } ~ = ~ \{ t ~ \in$ $\{ 1 , \cdot \cdot \cdot , T \} \mid a _ { h } ^ { l } [ t ] > \alpha \cdot 1 / N \}$ , where $\alpha = 5$ by default.
+
+2. Reduce the attention scores of attention sinks located in later tokens by setting $\hat { A } _ { h } ^ { l } [ k , s ] = A _ { h } ^ { l } [ k , s ] \times \beta$ for all $s \in \mathcal S _ { h } ^ { l }$ for each row $k$ in the attention map $A _ { h } ^ { l }$ , where $\beta$ is a hyperparameter controlling the extent to which we want to eliminate the excessive attention scores of attention sinks.
+
+3. To leverage the reduced attention scores, we propose to maintain the target LLM’s original attention distribution to preserve token-wise relationships while slightly increasing the attention scores to enforce greater focus on the semantic information of non-attention sink tokens by setting $\begin{array} { r } { \hat { A } _ { h } ^ { l } [ k , s ] = A _ { h } ^ { l } [ k , t ] + ( \sum _ { s \in S _ { h } ^ { l } } \hat { A } _ { h } ^ { l } [ k , s ] - \dot { A _ { h } ^ { l } } [ k , s ] ) \times } \end{array}$ $\begin{array} { r } { A _ { h } ^ { l } [ k , t ] \sum _ { i \in 1 , \cdots , T - S _ { h } ^ { l } } A _ { h } ^ { l } [ k , i ] } \end{array}$ for all $s \notin \mathcal { S } _ { h } ^ { l }$ , which ensures that the sum of each row $k$ remains one.
+
+Observations. As demonstrated in Fig. 3, we can make two observations: Obs-(1) despite the simplicity of the calibration technique we propose, in more than $7 6 . 8 \%$ of cases, the LLM after attention calibration can achieve better accuracy compared to the vanilla inference baseline; and $O b s$ -(2) not all heads can benefit from the calibration, for instance, calibrating certain heads can result in an accuracy drop as significant as $0 . 3 9 \%$ .
+
+Our answer to Q2. In contrast to the observation made in StreamLLM (Xiao et al., 2023) that suggests preserving attention sinks to enhance LLMs’ achievable accuracy, we highlight that not all attention sinks are beneficial for LLMs. Specifically, for the majority of attention sinks occurring in the middle or later parts of inputs, reducing their attention scores can result in improved accuracy. We suspect this is because frequently occurring attention sinks excessively divert attention and reducing them can effectively allocate more attention to tokens with richer semantic information.
+
+# 4.3. Q3: Can we enhance LLMs’ accuracy by solely manipulating attention sinks without finetuning?
+
+The observations in Sec. 4.2 highlight the potential for enhancing LLMs’ achievable accuracy by simply calibrating attention sinks in specific heads, even without fine-tuning. This introduces a new design parameter for improving LLMs’ accuracy. However, the challenge lies in identifying the heads that require calibration, especially given that improperly reducing attention sinks in certain heads can significantly degrade LLMs’ accuracy. Therefore, the remaining research question pertains to developing a technique that can automatically identify and calibrate attention sinks in the appropriate heads to enhance LLM accuracy.
+
+# Layer ID
+
+#
+
+![](images/04a60c883b932bc3715c5aad308b790f48685279daded87b3b4e4340489a9dc6.jpg)  
+Figure 3. Visualization of accuracy improvement in the MMLU dataset (Hendrycks et al., 2020) achieved by reducing the attention score of attention sinks in the middle of input sequences for each individual head separately.
+
+Our solution to addressing Q3. To enhance LLMs’ accuracy without the need for finetuning, by directly optimizing attention sinks, we introduce an effective and low-cost attention calibration technique, dubbed ACT. ACT first filters out the heads that need to preserve all the corresponding attention sinks they process offline and then calibrates the attention in the remaining heads during inference.
+
+Specifically, in the first head filtering step, we aim to determine the set of attention heads that need to preserve all the processed attention sinks, meaning that these heads should not undergo any attention calibration during inference. This filtering process can be formally described as follows: For each task $\mathcal { T } = \{ \mathcal { D } _ { 1 } , \cdot \cdot \cdot , \mathcal { D } _ { Q } \}$ , consisting of $Q$ different datasets, we initially create a small held-out dataset $\mathcal { C }$ by uniformly sampling data samples from each dataset $\mathcal { D } _ { q } \in \mathcal { T }$ ensuring that $\| { \mathcal { C } } \cap { \mathcal { D } } _ { q } \| = M$ , $\forall { \mathcal { D } } _ { q } \in { \mathcal { T } }$ (i.e., each dataset $\mathcal { D } _ { q }$ has $M$ samples in $\mathcal { C }$ ). Next, we execute the attention calibration steps as proposed in Sec. 4.2, individually on each attention head, and evaluate the resulting performance on the held-out dataset $\mathcal { C }$ . Finally, we can identify a set of heads $\mathcal { H }$ that can enhance the accuracy of the target LLM after the calibration process.
+
+In the second attention calibration step, we calibrate all $a _ { h } ^ { l } [ t ] \ \forall ( l , h ) \in \mathcal { H }$ on the fly during inference in an inputadaptive manner, leveraging the proposed attention calibration steps in Sec. 4.2 to reduce excessive attention at attention sinks.
+
+# 5. Experimental Results
+
+# 5.1. Evaluation settings
+
+Models, tasks, and datasets. Models: We evaluate ACT on seven models, including Llama2-7B/13B-chat (Touvron et al., 2023b), Mistral-7B (Jiang et al., 2023), Llama30B (Touvron et al., 2023a), GPT-J-6B (Wang & Komatsuzaki, 2021), OPT-2.7B (Zhang et al., 2022), and Vicuna7B (Chiang et al., 2023). Tasks and datasets: To provide a thorough evaluation of ACT, we benchmark ACT on three types of commonly used tasks with 18 different datasets, including Hellaswag (Zellers et al., 2019), ARCE (Clark et al., 2018), PIQA (Bisk et al., 2020), OB (Mihaylov et al., 2018), ARCC (Clark et al., 2018), COPA (Wang et al., 2019), CQA (Talmor et al., 2018), and MMLU (Hendrycks et al., 2020) for domain-specific multiple-choice; SST2 (Socher et al., 2013), SST5 (Socher et al., 2013), MR (Pang & Lee, 2005), AGNews (Zhang et al., 2015), TREC (Voorhees & Tice, 2000), CB (De Marneffe et al., 2019), and BoolQ (Clark et al., 2019a) for text classification; and MT-Bench (Zheng et al., 2024), SQuADv1 (Rajpurkar et al., 2016), and SQuADv2 (Rajpurkar et al., 2018) for open-ended question answering.
+
+Table 2. ACT on domain-specific multiple choice datasets   
+
+<table><tr><td>Model</td><td>Setting</td><td>Method</td><td>Hellaswag</td><td>ARCE</td><td>PIQA</td><td>OB</td><td>ARCC</td><td>COPA</td><td>CQA</td><td>Avg.</td></tr><tr><td rowspan="8">Llama2-7B-chat</td><td rowspan="3">0-shot</td><td>Vanilla</td><td>41.65</td><td>75.61</td><td>63.22</td><td>57.20</td><td>52.17</td><td>85.00</td><td>59.71</td><td>62.08</td></tr><tr><td>ACT</td><td>42.70</td><td>75.79</td><td>66.54</td><td>59.00</td><td>53.85</td><td>89.00</td><td>59.71</td><td>63.80</td></tr><tr><td>Improv.</td><td>1.05</td><td>0.18</td><td>3.32</td><td>1.80</td><td>1.68</td><td>4.00</td><td>0.00</td><td>1.72</td></tr><tr><td rowspan="3">1-shot</td><td>Vanilla</td><td>30.99</td><td>75.44</td><td>59.25</td><td>54.20</td><td>53.51</td><td>72.00</td><td>59.54</td><td>57.85</td></tr><tr><td>ACT</td><td>31.52</td><td>75.79</td><td>60.55</td><td>57.00</td><td>54.52</td><td>76.00</td><td>60.04</td><td>59.35</td></tr><tr><td>Improv.</td><td>0.53</td><td>0.35</td><td>1.30</td><td>2.80</td><td>1.01</td><td>4.00</td><td>0.50</td><td>1.50</td></tr><tr><td rowspan="3">3-shot</td><td>Vanilla</td><td>42.46</td><td>77.54</td><td>65.56</td><td>56.40</td><td>55.52</td><td>69.00</td><td>62.49</td><td>61.28</td></tr><tr><td>ACT</td><td>42.93</td><td>77.19</td><td>66.27</td><td>56.60</td><td>57.19</td><td>69.00</td><td>63.14</td><td>61.76</td></tr><tr><td>Improv.</td><td>0.47</td><td>-0.35</td><td>0.71</td><td>0.20</td><td>1.67</td><td>0.00</td><td>0.65</td><td>0.48</td></tr><tr><td rowspan="3">5-shot</td><td>Vanilla</td><td>44.62</td><td>77.02</td><td>64.58</td><td>59.00</td><td>60.54</td><td>69.00</td><td>62.98</td><td>62.53</td></tr><tr><td>ACT</td><td>45.58</td><td>77.72</td><td>65.02</td><td>59.60</td><td>62.54</td><td>71.00</td><td>63.23</td><td>63.53</td></tr><tr><td>Improv.</td><td>0.96</td><td>0.70</td><td>0.44</td><td>0.60</td><td>2.00</td><td>2.00</td><td>0.25</td><td>0.99</td></tr><tr><td rowspan="8">Llama2-13B-chat</td><td rowspan="3">0-shot</td><td>Vanilla</td><td>41.80</td><td>79.82</td><td>69.80</td><td>63.20</td><td>64.21</td><td>77.00</td><td>64.70</td><td>65.79</td></tr><tr><td>ACT</td><td>48.28</td><td>78.77</td><td>69.21</td><td>63.80</td><td>64.88</td><td>89.00</td><td>64.86</td><td>68.40</td></tr><tr><td>Improv.</td><td>6.48</td><td>-1.05</td><td>-0.59</td><td>0.60</td><td>0.67</td><td>12.00</td><td>0.16</td><td>2.61</td></tr><tr><td rowspan="3">1-shot</td><td>Vanilla</td><td>47.27</td><td>78.07</td><td>69.86</td><td>62.80</td><td>65.89</td><td>85.00</td><td>60.28</td><td>67.02</td></tr><tr><td>ACT</td><td>50.49</td><td>77.19</td><td>70.51</td><td>62.60</td><td>68.23</td><td>87.00</td><td>60.20</td><td>68.03</td></tr><tr><td>Improv.</td><td>3.22</td><td>-0.88</td><td>0.65</td><td>-0.20</td><td>2.34</td><td>2.00</td><td>-0.08</td><td>1.01</td></tr><tr><td>Vanilla</td><td>48.26</td><td>82.28</td><td>69.86</td><td>66.40</td><td>68.90</td><td>85.00</td><td>66.83</td><td>69.65</td></tr><tr><td rowspan="3">3-shot 5-shot</td><td>ACT Improv.</td><td>51.64 3.38</td><td>82.82 0.54</td><td>70.95</td><td>67.60</td><td>68.90</td><td>85.00</td><td>66.53</td><td>70.49</td></tr><tr><td>Vanilla</td><td></td><td></td><td>1.09</td><td>1.20</td><td>0.00</td><td>0.00</td><td>-0.30</td><td>0.84</td></tr><tr><td>ACT</td><td>51.26 52.67</td><td>82.81</td><td>67.19</td><td>69.60</td><td>68.23</td><td>91.00</td><td>66.34</td><td>70.92</td></tr><tr><td rowspan="3">Mistral-7B 0-shot</td><td>Improv.</td><td>1.41</td><td>82.11 -0.70</td><td>67.46 0.27</td><td>68.80 -0.80</td><td>69.23 1.00</td><td>91.00 0.00</td><td>67.24 0.90</td><td>71.22 0.30</td></tr><tr><td>Vanilla</td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr><tr><td>ACT</td><td>49.68 55.82</td><td>85.96 87.19</td><td>72.31 79.22</td><td>72.00 74.00</td><td>76.25 77.26</td><td>87.00 95.00</td><td>69.21 70.60</td><td>73.20</td></tr><tr><td rowspan="3">Llama-30B</td><td></td><td>Improv.</td><td>6.14</td><td>1.23</td><td>6.91</td><td>2.00</td><td>1.01</td><td>8.00</td><td>1.39</td><td>77.01 3.79</td></tr><tr><td>Vanilla</td><td>42.18</td><td>81.75</td><td>55.44</td><td>53.40</td><td></td><td>64.55</td><td>82.60</td><td>53.32</td><td>61.89</td></tr><tr><td>ACT</td><td>55.44</td><td>83.16</td><td>67.46</td><td>62.80</td><td>67.89</td><td>90.40</td><td></td><td>57.17</td><td>69.19</td></tr><tr><td rowspan="3"></td><td>0-shot</td><td>Improv.</td><td>13.26</td><td>1.41</td><td>12.02</td><td>9.40</td><td>3.34</td><td>7.80</td><td>3.85</td><td>7.30</td></tr><tr><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr><tr><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr></table>
+
+Table 3. ACT in boosting different LLMs on the MMLU dataset   
+
+<table><tr><td>Model</td><td>Llama2 7B</td><td>GPT-J 7B</td><td>Vicuna-7B</td><td>opt-2.7B</td><td>Average</td></tr><tr><td>zero-shot</td><td>46.50</td><td>26.53</td><td>48.73</td><td>25.46</td><td>36.80</td></tr><tr><td>zero-shot-aug</td><td>46.82</td><td>27.62</td><td>49.15</td><td>25.94</td><td>37.38</td></tr><tr><td>Improv.</td><td>0.32</td><td>1.09</td><td>0.42</td><td>0.48</td><td>0.58</td></tr></table>
+
+Baselines and evaluation metrics. Baselines: We benchmark ACT against the vanilla inference baseline under different shot settings, including zero-shot and 1/3/5-shot incontext learning as the baseline settings. Evaluation metrics: We use accuracy as the metric for domain-specific multiple choice and text classification tasks, and F1 score with exact match score for the open-ended question-answering task.
+
+Implementation details. We implement our ACT framework on top of PyTorch and Huggingface. For all datasets, we use the standard prompting template provided in (Ouyang et al., 2022; Sanh et al., 2021; Hao et al., 2022). Detailed prompts we used can be found in Appendix B.
+
+Table 4. ACT on text classification datasets   
+
+<table><tr><td>Model</td><td>Setting</td><td>Method</td><td>SST2</td><td>SST5</td><td>MR</td><td>AGNews</td><td>TREC</td><td>CB</td><td>BoolQ</td><td>Avg.</td></tr><tr><td rowspan="10">Llama2-7B-chat</td><td rowspan="3">0-shot</td><td>Vanilla</td><td>92.78</td><td>47.87</td><td>90.99</td><td>78.17</td><td>11.80</td><td>69.64</td><td>77.68</td><td>65.07</td></tr><tr><td>ACT</td><td>93.23</td><td>47.59</td><td>91.74</td><td>81.76</td><td>18.80</td><td>69.64</td><td>76.48</td><td>66.36</td></tr><tr><td>Improv.</td><td>0.45</td><td>-0.28</td><td>0.75</td><td>3.59</td><td>7.00</td><td>0.00</td><td>-1.20</td><td>1.29</td></tr><tr><td rowspan="3">1-shot</td><td>Vanilla</td><td>87.50</td><td>44.69</td><td>82.93</td><td>84.87</td><td>21.60</td><td>76.79</td><td>38.87</td><td>61.11</td></tr><tr><td>ACT</td><td>89.33</td><td>45.69</td><td>84.33</td><td>85.62</td><td>23.00</td><td>78.57</td><td>41.74</td><td>62.49</td></tr><tr><td>Improv.</td><td>1.83</td><td>1.00</td><td>1.40</td><td>0.75</td><td>1.40</td><td>1.78</td><td>2.87</td><td>1.38</td></tr><tr><td rowspan="3">3-shot</td><td>Vanilla</td><td>92.08</td><td>42.62</td><td>92.87</td><td>75.09</td><td>24.20</td><td>67.86</td><td>68.42</td><td>64.35</td></tr><tr><td>ACT</td><td>92.78</td><td>42.51</td><td>92.21</td><td>76.36</td><td>25.00</td><td>73.21</td><td>72.52</td><td>65.78</td></tr><tr><td>Improv.</td><td>0.70</td><td>-0.11</td><td>-0.66</td><td>1.27</td><td>0.80</td><td>5.35</td><td>4.10</td><td>1.43</td></tr><tr><td rowspan="3">5-shot</td><td>Vanilla</td><td>93.69</td><td>46.87</td><td>90.62</td><td>85.59</td><td>29.60</td><td>69.64</td><td>81.55</td><td>67.79</td></tr><tr><td>ACT</td><td>94.04</td><td>46.62</td><td>90.71</td><td>86.04</td><td>30.60</td><td>69.64</td><td>81.58</td><td>68.38</td></tr><tr><td>Improv.</td><td>0.35</td><td>-0.25</td><td>0.09</td><td>0.45</td><td>1.00</td><td>0.00</td><td>0.03</td><td>0.58</td></tr><tr><td rowspan="9">Llama2-13B-chat</td><td rowspan="3">0-shot</td><td>Vanilla</td><td>91.86</td><td>46.23</td><td>90.71</td><td>81.07</td><td>18.00</td><td>66.07</td><td>80.76</td><td>67.81</td></tr><tr><td>ACT</td><td>92.20</td><td>46.16</td><td>90.43</td><td>82.37</td><td>29.00</td><td>75.00</td><td>81.68</td><td>70.98</td></tr><tr><td>Improv.</td><td>0.34</td><td>-0.07</td><td>-0.28</td><td>1.30</td><td>11.00</td><td>8.93</td><td>0.92</td><td>3.16</td></tr><tr><td rowspan="3">1-shot</td><td>Vanilla</td><td>93.69</td><td>42.69</td><td>86.59</td><td>82.51</td><td>17.20</td><td>75.00</td><td>64.74</td><td>66.06</td></tr><tr><td>ACT</td><td>94.27</td><td>42.96</td><td>87.05</td><td>83.57</td><td>23.40</td><td>75.00</td><td>65.75</td><td>67.43</td></tr><tr><td>Improv.</td><td>0.58</td><td>0.27</td><td>0.46</td><td>1.06</td><td>6.20</td><td>0.00</td><td>1.01</td><td>1.37</td></tr><tr><td rowspan="3">3-shot</td><td>Vanilla</td><td>92.09</td><td>48.14</td><td>87.52</td><td>80.36</td><td>15.20</td><td>82.14</td><td>76.87</td><td>68.90</td></tr><tr><td>ACT</td><td>92.78</td><td>48.23</td><td>87.62</td><td>80.36</td><td>22.40</td><td>82.14</td><td>77.29</td><td>70.12</td></tr><tr><td>Improv.</td><td>0.69</td><td>0.09</td><td>0.10</td><td>0.00</td><td>7.20</td><td>0.00</td><td>0.42</td><td>1.21</td></tr><tr><td rowspan="3">5-shot</td><td>Vanilla</td><td>93.23</td><td>47.96</td><td>92.87</td><td>85.95</td><td>16.40</td><td>73.21</td><td></td><td>81.55</td><td>70.17</td></tr><tr><td>ACT</td><td>93.46</td><td>47.59</td><td>93.06</td><td>85.97</td><td>17.20</td><td>76.79</td><td></td><td>81.58</td><td>70.81</td></tr><tr><td>Improv.</td><td>0.23</td><td>-0.37</td><td>0.19</td><td>0.02</td><td>0.80</td><td>3.58</td><td>0.03</td><td>0.64</td></tr><tr><td rowspan="3">Mistral-7B</td><td rowspan="3">0-shot</td><td>Vanilla</td><td>92.43</td><td>44.96</td><td>89.02</td><td>85.09</td><td>22.00</td><td>91.07</td><td>85.84</td><td>72.91</td></tr><tr><td>ACT</td><td>92.78</td><td>47.14</td><td>90.02</td><td>85.59</td><td>23.00</td><td>91.07</td><td>85.96</td><td>73.65</td></tr><tr><td>Improv.</td><td>0.35</td><td>2.18</td><td>1.00</td><td>0.50</td><td>1.00</td><td>0.00</td><td>0.12</td><td>0.74</td></tr><tr><td rowspan="3">Llama-30B</td><td rowspan="3">0-shot</td><td>Vanilla</td><td>80.53</td><td>41.78</td><td>81.05</td><td>64.37</td><td>28.60</td><td>42.86</td><td>65.17</td><td>60.25</td></tr><tr><td>ACT</td><td>85.09</td><td>45.59</td><td>85.37</td><td>80.53</td><td>29.80</td><td>41.07</td><td>65.85</td><td>65.37</td></tr><tr><td>Improv.</td><td>4.56</td><td>3.81</td><td>5.32</td><td>16.16</td><td>1.20</td><td>-1.79</td><td>0.68</td><td>5.12</td></tr></table>
+
+In all our experiments, unless otherwise specified, we use $\beta = 0 . 4$ and $\| { \mathcal { C } } \| = 1 0 0 0 \times Q$ , which is less than $10 \%$ of the size of the validation datasets. During head filtering, regardless of the number of shots we evaluate, we only perform head filtering with samples using zero-shot prompts.
+
+# 5.2. Enhancing LLM accuracy with ACT
+
+Domain-specific multiple choice. We first validate ACT on a set of commonly used domain-specific multiplechoice datasets under different settings as shown in Table 2. ACT on average achieves an accuracy improvement of $0 . 3 0 \% { \sim } 7 . 3 0 \%$ across different models and numbers of shots. The accuracy improvement can be as high as $1 3 . 2 6 \%$ on a single dataset (i.e., leveraging ACT to boost Llama-30B on Hellaswag (Zellers et al., 2019) under the zero-shot setting), and applying ACT for PIQA (Bisk et al., 2020) under a zero-shot setting can achieve a $1 . 9 6 \%$ higher accuracy than the vanilla inference baseline under the 5-shot in-context learning setting. Moreover, it is worth noticing that ACT has a strong ability to adapt to different evaluation settings. Specifically, although ACT only performs head filtering using samples with a zero-shot setting, ACT not only achieves average accuracy improvements of $1 . 7 2 \%$ and $2 . 6 1 \%$ when applied to Llama2-7B-chat and Llama2-13B-chat under the zero-shot setting, respectively, but also achieves average accuracy improvements of $1 . 2 6 \%$ , $0 . 6 6 \%$ , and $0 . 6 5 \%$ when enhancing the two models under 1/3/5-shots, respectively.
+
+To further validate ACT’s versatility and effectiveness in enhancing the performance of different types of LLMs, we apply ACT to four different kinds of LLMs including Llama2-7B-chat (Touvron et al., 2023b), GPT-J-6B (Wang & Komatsuzaki, 2021), OPT-2.7B (Zhang et al., 2022), and Vicuna-7B (Chiang et al., 2023), and evaluate their achieved accuracy on the representative MMLU dataset (Hendrycks et al., 2020). As shown in Table 3, despite different model selections, ACT consistently achieves a $0 . 3 2 \% { \sim } 1 . 0 9 \%$ higher accuracy over the vanilla inference baseline, proving that our proposed ACT is a general framework capable of enhancing the performance of different kinds of LLMs despite their pretraining processes, finetuning techniques, model structures, and model sizes.
+
+Table 5. ACT on open-ended question-answering datasets using Llama2-chat with different sizes. Each result for SQuADv1/v2 is presented as the exact match score/F1 score.   
+
+<table><tr><td>Model</td><td>Method</td><td>MT-Bench</td><td>SQuAD v1</td><td>SQuAD v2</td></tr><tr><td rowspan="3">Llama2-7B-chat</td><td>Vanilla</td><td>6.272</td><td>31.64/47.88</td><td>4.36/24.42</td></tr><tr><td>ACT</td><td>6.406</td><td>41.78/64.30</td><td>19.52/31.30</td></tr><tr><td>Improv.</td><td>0.134</td><td>10.14/16.42</td><td>5.16/6.88</td></tr><tr><td rowspan="3">Llama2-13B-chat</td><td>Vanilla</td><td>6.602</td><td>41.77/56.00</td><td>19.69/27.02</td></tr><tr><td>ACT</td><td>6.690</td><td>45.89/58.57</td><td>21.42/28.15</td></tr><tr><td>Improv.</td><td>0.088</td><td>4.12/2.57</td><td>1.73/1.13</td></tr></table>
+
+Text classification. We further validate ACT on a set of text classification datasets under different numbers of shots and across Llama2-7B/13B-chat as shown in Table 4. ACT shows consistent accuracy improvement over the vanilla inference baseline across different numbers of shots, datasets, and models. Under the zero-shot setting, ACT achieves average accuracy improvements of $1 . 2 9 \%$ , $3 . 1 6 \%$ , $0 . 7 4 \%$ and $5 . 1 2 \%$ for Llama2-7B-chat, Llama2-13B-chat, Mistral7B, and Llama-30B, respectively. Remarkably, the application of ACT leads to a peak accuracy improvement of $1 6 . 1 6 \%$ when boosting the Llama-30B model on the AGNews dataset (Zhang et al., 2015) under the zero-shot condition. This set of experiments further validates the robustness of ACT in transferring between different validation scenarios. Despite its primary application of head filtering in the zero-shot scenario, ACT not only procures average accuracy improvements of $1 . 2 9 \%$ and $3 . 1 6 \%$ with the Llama2- 7B-chat and Llama2-13B-chat models, respectively, under zero-shot conditions, but also facilitates average accuracy gains of $1 . 3 8 \%$ , $1 . 4 3 \%$ , and $0 . 5 8 \%$ across 1-shot, 3-shot, and 5-shot settings for the Llama2-7B-chat. Similarly, for the Llama2-13B-chat model, ACT achieves average accuracy enhancements of $1 . 3 7 \%$ , $1 . 2 1 \%$ , and $0 . 6 4 \%$ across the 1-shot, 3-shot, and 5-shot configurations, respectively.
+
+Open-ended question-answering. To better validate ACT’s ability to enhance LLM accuracy across different application scenarios, we further evaluate our proposed ACT performance on open-ended question-answering task using widely used SQuADv1 (Rajpurkar et al., 2016) and SQuADv2 (Rajpurkar et al., 2018) datasets, and a more challenging multi-round conversation dataset from MTBench (Zheng et al., 2023). As shown in Table 5, ACT consistently achieves superior performance in all metrics of MT-Bench and SQuAD v1/v2 compared to vanilla inference. Specifically, ACT achieves a $0 . 0 8 8 { \sim } 0 . 1 3 4$ higher MT-Bench score, a $1 . 7 3 \sim 1 0 . 1 4$ higher exact match score, and a $1 . 1 3 \sim 1 6 . 4 2$ higher F1 score over the benchmarked vanilla LLMs, respectively. It is also worth noting that an improvement of $0 . 0 8 8 { \sim } 0 . 1 3 4$ on MT-Bench achieved by ACT is non-trivial. The difference in MT-Bench scores between Llama2-7B-chat and Llama2-13B-chat is 0.38, while the difference between Llama2-13B-chat and Llama2-70B-chat is 0.21. This suggests that applying ACT can mitigate around one-third of the difference between a smaller model and its larger counterpart. This proves that for the more complicated autoregressive generation task, the phenomenon that attention sinks appears in the middle part of the input sequence and draws an excessive amount of attention, sabotaging the achievable performance of LLMs still exists. Moreover, using our proposed ACT can calibrate the attention and enhance the generation quality of LLMs.
+
+Table 6. Ablate on attention calibration methods   
+
+<table><tr><td>Calibrate method</td><td>Temp</td><td>Inv-temp</td><td>Inv-ours</td><td>Ours</td></tr><tr><td>Acc.</td><td>44.89</td><td>44.06</td><td>46.21</td><td>46.82</td></tr></table>
+
+![](images/61d253cf08b563b4c79519fce4aa38f40ebbbfc31bee5b98a672ce04a0f1c63c.jpg)  
+Figure 4. Visualization on the model’s averaged attention map before (left) and after (right) our proposed ACT.
+
+# 5.3. Ablation studies
+
+Ways to calibrate attention. We further validate whether our answers to Q2 in Sec. 4.2 and Q3 in Sec. 4.3 is correct. Specifically, we assess whether reducing the attention score at attention sinks helps improve LLM performance. To this end, we evaluate the performance of our method against three other methods: (1) Temp, which directly applies a temperature $\theta = 1 . 1$ to all tokens except the attention sink at the initial token; (2) Inv-temp, similar to temp but with $\theta = 1 / 1 . 1$ ; and (3) Inv-ours, the inverse process of our proposed method, which reduces the attention value of other tokens and redistributes it to the attention sink. As shown in Table 6: (1) Our method achieves better results on MMLU compared to Temp. We attribute this improvement to our method’s superior ability to preserve the original attention distribution across other tokens. (2) Inv-temp and inv-ours perform worse than temp and our method, respectively, on MMLU, indicating the importance of reducing the attention values of attention sinks in the middle part of the input.
+
+Ways to distribute the additional attention. After reducing the excessive attention value at attention sinks, how to distribute them across other tokens is an important question.
+
+Table 7. Ablate on how to distribute the additional attention.   
+
+<table><tr><td>Method</td><td>Uniform</td><td>Question-only</td><td>Choices-only</td><td>Ours</td></tr><tr><td>Acc.</td><td>46.49</td><td>46.10</td><td>45.24</td><td>46.82</td></tr></table>
+
+Table 8. Ablate on α selection.   
+
+<table><tr><td>α</td><td>SST2</td><td>SST5</td><td>MR</td><td>AGNews</td><td>TREC</td><td>CB</td><td>BoolQ</td></tr><tr><td>Vanilla</td><td>92.78</td><td>47.87</td><td>90.99</td><td>78.17</td><td>11.80</td><td>69.64</td><td>77.68</td></tr><tr><td>3</td><td>93.23</td><td>47.59</td><td>91.74</td><td>81.74</td><td>19.00</td><td>69.64</td><td>76.26</td></tr><tr><td>5</td><td>93.23</td><td>47.59</td><td>91.74</td><td>81.76</td><td>18.80</td><td>69.64</td><td>76.48</td></tr><tr><td>7</td><td>93.12</td><td>47.68</td><td>91.74</td><td>81.29</td><td>18.80</td><td>69.64</td><td>76.62</td></tr></table>
+
+Considering that the input of the multiple-choice dataset MMLU consists of a question and a set of choices, we evaluate three different ways to distribute the additional attention on MMLU: (1) uniform, where we uniformly distribute the additional attention across all tokens; (2) question-only, where we apply the additional attention only to the tokens corresponding to the questions; and (3) choice-only, where we apply the additional attention only to the tokens corresponding to the provided choices. As shown in Table 7, we observe that distributing attention to all tokens (i.e., uniform and our method) is important for preserving performance. We suspect this is because drastically changing the attention distribution across too many tokens should be avoided.
+
+$\alpha$ selection. $\alpha$ defines the criteria of attention sink in ACT. In this paper, we empirically set $\alpha = 5$ based on the visualization of the attention score distribution across different tokens, as shown in Fig. 2. To better understand the robustness of ACT across different selections of $\alpha$ , we test ACT under the zero-shot setting with Llama2-7B-chat using various values of $\alpha$ . As shown in Table 8, despite different selections of $\alpha$ , ACT consistently achieves similar performance with a steady $1 . 2 4 \% \sim 1 . 2 9 \%$ higher average accuracy than the vanilla Llama2-7B-chat baseline. This demonstrates that the attention sinks identified in our work have distinct values compared to other non-attention sink tokens, and thus, the selection of $\alpha$ plays a minor role in the performance of ACT.
+
+$\beta$ selection. $\beta$ determines how drastically we want to reduce the attention sinks that occur in the middle of the input. In this paper, we set $\beta \ : = \ : 0 . 4$ , but we want to explore the impact of $\beta$ selection on the final achieved accuracy on MMLU with Llama2-7B-chat. As shown in Table 9, despite different selections of $\beta$ result in varied accuracies, they all achieve better accuracies than the vanilla inference baseline, showing ACT is robust to different hyperparameter selections.
+
+Size of $\mathcal { C }$ . We ablate the appropriate size of $\| { \mathcal { C } } \|$ , which controls nearly the only source of overhead in ACT. We ablate different selections of $\| \mathcal C \|$ by sampling different numbers of samples in each $\mathcal { D } _ { q } \in \mathcal { Q }$ (i.e., $\| \mathcal { C } \| / Q )$ and evaluating their achieved accuracy on the MMLU dataset using Llama2-7Bchat. As shown in Table 10, a larger $\mathcal { C }$ helps with ACT’s performance, but when $\| \mathcal C \| / Q$ scales up to around 1000 (e.g., more than 10 times smaller than the validation dataset), the further performance improvement is marginal.
+
+Table 9. Ablate on $\beta$ selection.   
+
+<table><tr><td>β</td><td>Vanilla</td><td>0.7</td><td>0.5</td><td>0.4 (Ours) 0.3</td><td>0.1</td></tr><tr><td>Acc.</td><td>46.50</td><td>46.77</td><td>46.81</td><td>46.82 46.79</td><td>46.65</td></tr><tr><td colspan="6">Table 10. Ablate on M selection.</td></tr><tr><td>M</td><td>Vanilla</td><td></td><td>300</td><td>600 1000</td><td>All</td></tr><tr><td>Acc.</td><td>46.50</td><td></td><td>46.50</td><td>46.56 46.82</td><td>46.91</td></tr></table>
+
+Table 11. Ablate on the performance of ACT when only calibrating on a subset of the selected attention heads.   
+
+<table><tr><td>Subset size</td><td>SST2</td><td>AGNews</td><td>PIQA</td><td>ARCC</td><td>Avg.</td></tr><tr><td>0% (Vanilla)</td><td>92.78</td><td>78.17</td><td>63.22</td><td>52.10</td><td>71.57</td></tr><tr><td>40%</td><td>92.78</td><td>80.16</td><td>66.92</td><td>53.51</td><td>73.34</td></tr><tr><td>60%</td><td>92.89</td><td>81.12</td><td>65.34</td><td>52.17</td><td>72.88</td></tr><tr><td>80%</td><td>93.23</td><td>81.08</td><td>66.63</td><td>52.84</td><td>73.44</td></tr><tr><td>100% (ACT)</td><td>93.23</td><td>81.76</td><td>66.54</td><td>53.85</td><td>73.84</td></tr></table>
+
+Number of heads to calibrate. To verify whether the performance improvement achieved by calibrating each individual attention head as in Fig. 3 can be accumulated, we validate ACT’s performance when calibrating on subsets of $\mathcal { H }$ of different sizes. As shown in Table 11, the achieved performance of attention calibration gradually increases as the size of the subsets increases, validating that the effectiveness of calibrating each attention head in $\mathcal { H }$ can be accumulated and that calibrating all heads in $\mathcal { H }$ leads to optimal performance.
+
+# 5.4. Attention map visualization before and after ACT
+
+To better understand the role of our proposed ACT in reducing the excessive attention at attention sinks in the middle of inputs, we further visualize the attention map of Llama2- 7B-chat before and after performing ACT with the same input sample. As shown in Fig. 4, after performing ACT, the original attention sink that occurs in the middle of the input sequence is almost eliminated, while the attention distribution of other tokens remains the same.
+
+# 6. Conclusion
+
+In this paper, we conduct comprehensive visualizations of the attention distributions in LLMs during inference across various inputs and tasks. Based on these visualizations, for the first time, we discover that (1) attention sinks occur not only at the start of sequences but also within later tokens of the input, and (2) not all attention sinks have a positive impact on the achievable accuracy of LLMs. Building upon our findings, we propose a training-free technique, dubbed ACT, that automatically optimizes the attention distributions on the fly during inference in an input-adaptive manner. Extensive experiments validate that ACT consistently enhances the accuracy of various LLMs across different applications.
+
+# Impact Statement
+
+The recent advancements in LLMs have triggered various application scenarios that require an affordable LLM with superior performance to serve as a backbone. This calls for (1) LLMs with better performance under comparable computation costs and (2) a better understanding of the behavior of LLMs, facilitating a trustworthy generation process. In this paper, we cater to both of the aforementioned calls.
+
+For (1), our proposed ACT can improve the performance of LLMs on downstream tasks not only in a training-free manner but also with almost no additional inference cost. The proposed ACT leverages the design knob on attention manipulation, which is also orthogonal to most techniques improving the performance of LLMs, such as in-context learning, prompting, and finetuning, making ACT a generally applicable technique.
+
+For (2), we have conducted comprehensive visualization and analysis of the attention generated by LLMs during inference with different inputs from various tasks. Moreover, to the best of our knowledge, we are the first to discover that attention sinks manifest not only in the initial token but also in subsequent tokens throughout the input context. This observation deepens our understanding of the intrinsic mechanism of LLMs and thus can potentially facilitate the trustworthy generation process.
+
+Chiang, W.-L., Li, Z., Lin, Z., Sheng, Y., Wu, Z., Zhang, H., Zheng, L., Zhuang, S., Zhuang, Y., Gonzalez, J. E., Stoica, I., and Xing, E. P. Vicuna: An open-source chatbot impressing gpt-4 with $9 0 \% \ast$ chatgpt quality, March 2023. URL https://lmsys.org/blog/ 2023-03-30-vicuna/.
+
+Clark, C., Lee, K., Chang, M.-W., Kwiatkowski, T., Collins, M., and Toutanova, K. Boolq: Exploring the surprising difficulty of natural yes/no questions. arXiv preprint arXiv:1905.10044, 2019a.
+
+Clark, K., Khandelwal, U., Levy, O., and Manning, C. D. What does bert look at? an analysis of bert’s attention. arXiv preprint arXiv:1906.04341, 2019b.
+
+Clark, P., Cowhey, I., Etzioni, O., Khot, T., Sabharwal, A., Schoenick, C., and Tafjord, O. Think you have solved question answering? try arc, the ai2 reasoning challenge. arXiv preprint arXiv:1803.05457, 2018.
+
+De Marneffe, M.-C., Simons, M., and Tonhauser, J. The commitmentbank: Investigating projection in naturally occurring discourse. In proceedings of Sinn und Bedeutung, volume 23, pp. 107–124, 2019.
+
+Dettmers, T., Pagnoni, A., Holtzman, A., and Zettlemoyer, L. Qlora: Efficient finetuning of quantized llms. arXiv preprint arXiv:2305.14314, 2023.
+
+# Acknowledgements
+
+This work is supported by the National Science Foundation (NSF) through the CCRI funding (Award number: 2016727) and CoCoSys, one of seven centers in JUMP 2.0, a Semiconductor Research Corporation (SRC) program sponsored by DARPA.
+
+# References
+
+Biderman, S., Schoelkopf, H., Anthony, Q. G., Bradley, H., O’Brien, K., Hallahan, E., Khan, M. A., Purohit, S., Prashanth, U. S., Raff, E., et al. Pythia: A suite for analyzing large language models across training and scaling. In International Conference on Machine Learning, pp. 2397–2430. PMLR, 2023.
+
+Devlin, J., Chang, M.-W., Lee, K., and Toutanova, K. Bert: Pre-training of deep bidirectional transformers for language understanding. arXiv preprint arXiv:1810.04805, 2018.
+
+Bisk, Y., Zellers, R., Gao, J., Choi, Y., et al. Piqa: Reasoning about physical commonsense in natural language. In Proceedings of the AAAI conference on artificial intelligence, volume 34, pp. 7432–7439, 2020.
+
+Brown, T., Mann, B., Ryder, N., Subbiah, M., Kaplan, J. D., Dhariwal, P., Neelakantan, A., Shyam, P., Sastry, G., Askell, A., et al. Language models are few-shot learners. Advances in neural information processing systems, 33: 1877–1901, 2020.
+
+Du, Z., Qian, Y., Liu, X., Ding, M., Qiu, J., Yang, Z., and Tang, J. Glm: General language model pretraining with autoregressive blank infilling. arXiv preprint arXiv:2103.10360, 2021.
+
+Fu, Y., Zhang, Y., Qian, K., Ye, Z., Yu, Z., Lai, C.-I. J., and Lin, C. Losses can be blessings: Routing selfsupervised speech representations towards efficient multilingual and multitask speech processing. Advances in Neural Information Processing Systems, 35:20902– 20920, 2022.
+
+Fu, Y., Zhang, Y., Yu, Z., Li, S., Ye, Z., Li, C., Wan, C., and Lin, Y. C. Gpt4aigchip: Towards next-generation ai accelerator design automation via large language models. In 2023 IEEE/ACM International Conference on Computer Aided Design (ICCAD), pp. 1–9, 2023. doi: 10.1109/ICCAD57390.2023.10323953.
+
+Hao, Y., Sun, Y., Dong, L., Han, Z., Gu, Y., and Wei, F. Structured prompting: Scaling in-context learning to 1,000 examples. arXiv preprint arXiv:2212.06713, 2022.
+
+Hendrycks, D., Burns, C., Basart, S., Zou, A., Mazeika, M., Song, D., and Steinhardt, J. Measuring massive multitask language understanding. arXiv preprint arXiv:2009.03300, 2020.
+
+Hu, E. J., Shen, Y., Wallis, P., Allen-Zhu, Z., Li, Y., Wang, S., Wang, L., and Chen, W. Lora: Low-rank adaptation of large language models. arXiv preprint arXiv:2106.09685, 2021.
+
+Jiang, A. Q., Sablayrolles, A., Mensch, A., Bamford, C., Chaplot, D. S., Casas, D. d. l., Bressand, F., Lengyel, G., Lample, G., Saulnier, L., et al. Mistral 7b. arXiv preprint arXiv:2310.06825, 2023.
+
+Kaplan, J., McCandlish, S., Henighan, T., Brown, T. B., Chess, B., Child, R., Gray, S., Radford, A., Wu, J., and Amodei, D. Scaling laws for neural language models. arXiv preprint arXiv:2001.08361, 2020.
+
+Kou, B., Chen, S., Wang, Z., Ma, L., and Zhang, T. Is model attention aligned with human attention? an empirical study on large language models for code generation. arXiv preprint arXiv:2306.01220, 2023.
+
+Lester, B., Al-Rfou, R., and Constant, N. The power of scale for parameter-efficient prompt tuning. arXiv preprint arXiv:2104.08691, 2021.
+
+Li, Y., Yu, Y., Liang, C., He, P., Karampatziakis, N., Chen, W., and Zhao, T. Loftq: Lora-fine-tuning-aware quantization for large language models. arXiv preprint arXiv:2310.08659, 2023.
+
+Mihaylov, T., Clark, P., Khot, T., and Sabharwal, A. Can a suit of armor conduct electricity? a new dataset for open book question answering. arXiv preprint arXiv:1809.02789, 2018.
+
+OpenAI. Chatgpt: Language model for dialogue generation, 2023a. URL https://www.openai.com/ chatgpt/.
+
+OpenAI. Gpt-4 technical report. arXiv preprint arXiv:2303.08774, 2023b.
+
+Ouyang, L., Wu, J., Jiang, X., Almeida, D., Wainwright, C., Mishkin, P., Zhang, C., Agarwal, S., Slama, K., Ray, A., et al. Training language models to follow instructions with human feedback. Advances in Neural Information Processing Systems, 35:27730–27744, 2022.
+
+Pang, B. and Lee, L. Seeing stars: Exploiting class relationships for sentiment categorization with respect to rating scales. arXiv preprint cs/0506075, 2005.
+
+Qi, Z., Tan, X., Shi, S., Qu, C., Xu, Y., and Qi, Y. Pillow: Enhancing efficient instruction fine-tuning via prompt matching. arXiv preprint arXiv:2312.05621, 2023.
+
+Qin, Z., Li, D., Sun, W., Sun, W., Shen, X., Han, X., Wei, Y., Lv, B., Yuan, F., Luo, X., et al. Scaling transnormer to 175 billion parameters. arXiv preprint arXiv:2307.14995, 2023.
+
+Radford, A., Narasimhan, K., Salimans, T., Sutskever, I., et al. Improving language understanding by generative pre-training. 2018.
+
+Raffel, C., Shazeer, N., Roberts, A., Lee, K., Narang, S., Matena, M., Zhou, Y., Li, W., and Liu, P. J. Exploring the limits of transfer learning with a unified text-to-text transformer. Journal of Machine Learning Research, 21(140):1–67, 2020. URL http://jmlr. org/papers/v21/20-074.html.
+
+Rajpurkar, P., Zhang, J., Lopyrev, K., and Liang, P. Squad: $^ { 1 0 0 , 0 0 0 + }$ questions for machine comprehension of text. arXiv preprint arXiv:1606.05250, 2016.
+
+Rajpurkar, P., Jia, R., and Liang, P. Know what you don’t know: Unanswerable questions for squad. arXiv preprint arXiv:1806.03822, 2018.
+
+Roberts, A., Chung, H. W., Levskaya, A., Mishra, G., Bradbury, J., Andor, D., Narang, S., Lester, B., Gaffney, C., Mohiuddin, A., Hawthorne, C., Lewkowycz, A., Salcianu, A., van Zee, M., Austin, J., Goodman, S., Soares, L. B., Hu, H., Tsvyashchenko, S., Chowdhery, A., Bastings, J., Bulian, J., Garcia, X., Ni, J., Chen, A., Kenealy, K., Clark, J. H., Lee, S., Garrette, D., Lee-Thorp, J., Raffel, C., Shazeer, N., Ritter, M., Bosma, M., Passos, A., Maitin-Shepard, J., Fiedel, N., Omernick, M., Saeta, B., Sepassi, R., Spiridonov, A., Newlan, J., and Gesmundo, A. Scaling up models and data with $\pm 5 \mathrm { x }$ and seqio. arXiv preprint arXiv:2203.17189, 2022. URL https://arxiv.org/abs/2203.17189.
+
+Sanh, V., Webson, A., Raffel, C., Bach, S. H., Sutawika, L., Alyafeai, Z., Chaffin, A., Stiegler, A., Scao, T. L., Raja, A., et al. Multitask prompted training enables zero-shot task generalization. arXiv preprint arXiv:2110.08207, 2021.
+
+Socher, R., Perelygin, A., Wu, J., Chuang, J., Manning, C. D., Ng, A. Y., and Potts, C. Recursive deep models for semantic compositionality over a sentiment treebank. In Proceedings of the 2013 conference on empirical methods in natural language processing, pp. 1631–1642, 2013.
+
+Sun, X. and Lu, W. Understanding attention for text classification. In Proceedings of the 58th Annual Meeting of the Association for Computational Linguistics, pp. 3418– 3428, 2020.
+
+Sung, Y.-L., Cho, J., and Bansal, M. Lst: Ladder side-tuning for parameter and memory efficient transfer learning. Advances in Neural Information Processing Systems, 35: 12991–13005, 2022.
+
+Talmor, A., Herzig, J., Lourie, N., and Berant, J. Commonsenseqa: A question answering challenge targeting commonsense knowledge. arXiv preprint arXiv:1811.00937, 2018.
+
+Touvron, H., Lavril, T., Izacard, G., Martinet, X., Lachaux, M.-A., Lacroix, T., Roziere, B., Goyal, N., Hambro, E., \` Azhar, F., et al. Llama: Open and efficient foundation language models. arXiv preprint arXiv:2302.13971, 2023a.
+
+Touvron, H., Martin, L., Stone, K., Albert, P., Almahairi, A., Babaei, Y., Bashlykov, N., Batra, S., Bhargava, P., Bhosale, S., et al. Llama 2: Open foundation and fine-tuned chat models. arXiv preprint arXiv:2307.09288, 2023b.
+
+Vaswani, A., Shazeer, N., Parmar, N., Uszkoreit, J., Jones, L., Gomez, A. N., Kaiser, Ł., and Polosukhin, I. Attention is all you need. Advances in neural information processing systems, 30, 2017.
+
+Vig, J. A multiscale visualization of attention in the transformer model. arXiv preprint arXiv:1906.05714, 2019.
+
+Voorhees, E. M. and Tice, D. M. Building a question answering test collection. In Proceedings of the 23rd annual international ACM SIGIR conference on Research and development in information retrieval, pp. 200–207, 2000.
+
+Waisberg, E., Ong, J., Masalkhi, M., Zaman, N., Sarker, P., Lee, A. G., and Tavakkoli, A. Google’s ai chatbot “bard”: a side-by-side comparison with chatgpt and its utilization in ophthalmology. Eye, pp. 1–4, 2023.
+
+Wang, A., Pruksachatkun, Y., Nangia, N., Singh, A., Michael, J., Hill, F., Levy, O., and Bowman, S. Superglue: A stickier benchmark for general-purpose language understanding systems. Advances in neural information processing systems, 32, 2019.
+
+Wang, B. and Komatsuzaki, A. Gpt-j-6b: A 6 billion parameter autoregressive language model, 2021.
+
+Workshop, B., Scao, T. L., Fan, A., Akiki, C., Pavlick, E., Ilic, S., Hesslow, D., Castagn ´ e, R., Luccioni, A. S., Yvon, ´ F., et al. Bloom: A 176b-parameter open-access multilingual language model. arXiv preprint arXiv:2211.05100, 2022.
+
+Xia, W., Qin, C., and Hazan, E. Chain of lora: Efficient finetuning of language models via residual learning. arXiv preprint arXiv:2401.04151, 2024.
+
+Xiao, G., Tian, Y., Chen, B., Han, S., and Lewis, M. Efficient streaming language models with attention sinks. arXiv preprint arXiv:2309.17453, 2023.
+
+Yu, Z., Wu, S., Fu, Y., Zhang, S., and Lin, Y. C. Hintaug: Drawing hints from foundation vision transformers towards boosted few-shot parameter-efficient tuning. In Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition, pp. 11102– 11112, 2023a.
+
+Yu, Z., Zhang, Y., Qian, K., Wan, C., Fu, Y., Zhang, Y., and Lin, Y. C. Master-asr: achieving multilingual scalability and low-resource adaptation in asr with modular learning. In International Conference on Machine Learning, pp. 40475–40487. PMLR, 2023b.
+
+Yu, Z., Wang, Z., Li, Y., Gao, R., Zhou, X., Bommu, S. R., Zhao, Y. K., and Lin, Y. C. Edge-llm: Enabling efficient large language model adaptation on edge devices via unified compression and adaptive layer voting. 2024.
+
+Zellers, R., Holtzman, A., Bisk, Y., Farhadi, A., and Choi, Y. Hellaswag: Can a machine really finish your sentence? arXiv preprint arXiv:1905.07830, 2019.
+
+Zhang, J. O., Sax, A., Zamir, A., Guibas, L., and Malik, J. Side-tuning: a baseline for network adaptation via additive side networks. In Computer Vision–ECCV 2020: 16th European Conference, Glasgow, UK, August 23–28, 2020, Proceedings, Part III 16, pp. 698–714. Springer, 2020.
+
+Zhang, L., Zhang, L., Shi, S., Chu, X., and Li, B. Lora-fa: Memory-efficient low-rank adaptation for large language models fine-tuning. arXiv preprint arXiv:2308.03303, 2023a.
+
+Zhang, Q., Singh, C., Liu, L., Liu, X., Yu, B., Gao, J., and Zhao, T. Tell your model where to attend: Post-hoc attention steering for llms. arXiv preprint arXiv:2311.02262, 2023b.
+
+Zhang, S., Roller, S., Goyal, N., Artetxe, M., Chen, M., Chen, S., Dewan, C., Diab, M., Li, X., Lin, X. V., et al. Opt: Open pre-trained transformer language models. arXiv preprint arXiv:2205.01068, 2022.
+
+Zhang, X., Zhao, J., and LeCun, Y. Character-level convolutional networks for text classification. Advances in neural information processing systems, 28, 2015.
+
+Zhao, B., Hajishirzi, H., and Cao, Q. Apt: Adaptive pruning and tuning pretrained language models for efficient training and inference. arXiv preprint arXiv:2401.12200, 2024.
+
+Zheng, L., Chiang, W.-L., Sheng, Y., Zhuang, S., Wu, Z., Zhuang, Y., Lin, Z., Li, Z., Li, D., Xing, E., et al. Judging llm-as-a-judge with mt-bench and chatbot arena. arXiv preprint arXiv:2306.05685, 2023.
+
+Zheng, L., Chiang, W.-L., Sheng, Y., Zhuang, S., Wu, Z., Zhuang, Y., Lin, Z., Li, Z., Li, D., Xing, E., et al. Judging llm-as-a-judge with mt-bench and chatbot arena. Advances in Neural Information Processing Systems, 36, 2024.
+
+# A. Histogram on the position of attention sinks
+
+To better understand the attention sink distribution, we profile all of the attention sink that occurred during inference with Llama2-7B-chat on all 17 datasets mentioned in Sec. 5.1. As shown in Fig. 5, despite the attention sink at the initial token occurring the most frequently, there are many other positions that are prone to have attention sink, further proving the wide existence of attention sink phenomenon throughout the input sequence.
+
+![](images/6481db543df936485794df90f460a6383ee2a11d8e8e9e8c39e442c47cdd8cbf.jpg)  
+Figure 5. Histogram of the positions of attention sinks throughout all 17 datasets used in our paper.
+
+# B. Prompts used for each dataset
+
+Here, we list all the prompts we used in this paper on different datasets:
+
+For multiple choice task (i.e., on hellaswag, ARCE, PIQA, OB, ARCC, COPA, CQA datasets), we use the following prompt:
+
+• ”Complete the following sentence with an appropriate ending. <Question> <choice $1 >$ <choice $2 >$ <choice $3 >$ . . .   
+Answer:”
+
+For MMLU datasets, we use the following prompt:
+
+• ”The following are multiple choice questions (with answers) about $<$ <subject>.
+
+<Question> <choice $1 >$ <choice $2 >$ <choice $3 >$ . . . Answer:”
+
+For text classification, we use different prompts for different datasets.
+
+• SST2:
+
+– ”Classify the sentiment of the user’s message into one of the following categories:’positive’ or ’negative’. Sentence: <sentence> Sentiment: ”
+
+• SST5: – ”Classify the sentiment of the user’s message into one of the following categories:’terrible’, ’negative’, ’neutral’, ’positive’, or ’great’. Sentence: <sentence> Sentiment: ”
+
+• MR: – “Classify the sentiment of the movie’s review into one of the following categories:’positive’ or ’negative’. - Review: <sentence> Sentiment: ”
+
+• AGNews:
+
+– ”Classify the news articles into the categories of ’World’, ’Sports’, ’Business’, or ’Technology’. Article: <sentence> Category: ”
+
+• TREC: – ”Classify the given questions into the following categories of ’Description’, ’Entity’, ’Expression’, ’Person’, ’Number’, or ’Location’. Question: <sentence> Type: ”
+
+• CB: – ”Read the following paragraph and determine if the hypothesis is true. Premise: <premise $>$ Hypothesis: <hypothesis>. Answer: ”
+
+• BoolQ: – ”Read the text and answer the question by True or False. Text: <passage $>$ Question: <question $>$ ? Answer: ”
+
+For open-ended question answering (i.e., SQuADv1/v2), we use the following prompt:
+
+• Answer question using information in the preceding background paragraph. If there is not enough information provided,   
+answer with “Not in background.” Title: [title]   
+Background: [background]   
+Q: [first question]   
+A: [first answer]   
+Q: [final question]   
+A: [completion]
+
+# C. More visualizations on attention maps
+
+We conduct more visualization on different LLMs as shown in Fig. 6, Fig. 7, and Fig. 8 for Llama2-7B-chat, Vicuna-7B and OPT-2.7B, respectively.
+
+![](images/cd91fc713ed67d195fc35949b89c620f3a235459d72cd469c98c1c559671dd92.jpg)  
+Figure 6. Visualization on the attention map of each layer in Llama2-7B-chat model when processing the following input sample: ’Read the text and answer the question by True or False.\n\nText: Riverdale (2017 TV series) – The series debuted on January 26, 2017 to positive reviews. A 22-episode second season premiered on October 11, 2017, and concluded on May 16, 2018. On April 2, 2018, The CW renewed the series for a third season, which is set to premiere October 10, 2018. Question: is there going to be any more episodes of riverdale? $\backslash \mathtt { n }$ Answer:
+
+![](images/dd3674447c85a2fe34664ffde5a5631c0d20c8dfa7dff9052640876d7d07d7a1.jpg)  
+Figure 7. Visualization on the attention map of each layer in Vicuna-7B model when processing the following input sample: ”Classify the sentiment polarity of the movie’s review into one of the following categories: ’subjective’ or ’object’. $\backslash \mathrm { \mathbf { n } } \backslash \mathrm { \mathbf { n I n p u t } }$ : when all seems hopeless, ted gets some guidance from his good friend meg that turns the situation around: “ don’t scam on her, listen to her, be sincere. “ \nType: ”
+
+![](images/3f5271233c2dc148d8c842c044778db49d7b5ec7647958a148f352d2737410f7.jpg)  
+Figure 8. Visualization on the attention map of each layer in OPT-2.7B model when processing the following input sample: ””Read the following paragraph and determine if the hypothesis is true. $\backslash \mathfrak { n } \backslash \mathfrak { n }$ Premise: A: Oh, oh yeah, and every time you see one hit on the side of the road you say is that my cat. B: Uh-huh. A: And you go crazy thinking it might be yours. B: Right, well I didn’t realize my husband was such a sucker for animals until I brought one home one night. Hypothesis: her husband was such a sucker for animals. Answer: ” ”

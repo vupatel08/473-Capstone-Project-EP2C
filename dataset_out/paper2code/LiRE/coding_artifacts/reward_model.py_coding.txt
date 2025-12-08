@@ -1,0 +1,252 @@
+```python
+## reward_model.py
+import torch
+import torch.nn as nn
+import torch.optim as optim
+import numpy as np
+from utils import load_hyperparameters
+
+
+class RewardNetwork(nn.Module):
+    def __init__(self, input_dim: int, hidden_layers: list, activation: str = 'relu'):
+        """
+        Neural network module for reward prediction.
+        Args:
+            input_dim (int): Dimension of segment features.
+            hidden_layers (list): List of integers for hidden layer sizes.
+            activation (str): Activation function name ('relu' or 'tanh').
+        """
+        super(RewardNetwork, self).__init__()
+        layers = []
+
+        prev_dim = input_dim
+        for layer_size in hidden_layers:
+            layers.append(nn.Linear(prev_dim, layer_size))
+            if activation.lower() == 'relu':
+                layers.append(nn.ReLU())
+            elif activation.lower() == 'tanh':
+                layers.append(nn.Tanh())
+            else:
+                raise ValueError(f"Unsupported activation: {activation}")
+            prev_dim = layer_size
+
+        # Final linear layer outputting a single scalar score
+        layers.append(nn.Linear(prev_dim, 1))
+        self.model = nn.Sequential(*layers)
+        self.activation = activation.lower()
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        """
+        Forward pass to compute the score for input features.
+        Args:
+            x (torch.Tensor): Input features with shape (batch_size, feature_dim).
+        Returns:
+            torch.Tensor: Raw scores with shape (batch_size, 1).
+        """
+        return self.model(x)
+
+class RewardModel:
+    def __init__(self, input_dim: int = None, config: dict = None):
+        """
+        Initialize the RewardModel with architecture and hyperparameters.
+        Args:
+            input_dim (int): Dimensionality of segment features.
+            config (dict): Hyperparameters dictionary (loaded from config.yaml).
+        """
+        if config is None:
+            config = {}
+        # Load default hyperparameters if not provided
+        hyperparams = load_hyperparameters()
+        self.score_function_type = hyperparams['preference_model'].get('score_function_type', 'exp')
+        self.loss_type = hyperparams['preference_model'].get('loss_type', 'listwise')
+        hidden_layers = hyperparams['preference_model'].get('hidden_layers', [128, 128, 128])
+        activation = hyperparams['preference_model'].get('activation', 'relu')
+        final_activation = hyperparams['preference_model'].get('final_activation', 'tanh')
+        # Set device
+        self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+        # Determine input_dim
+        if input_dim is None:
+            raise ValueError("Input feature dimension must be specified.")
+        self.input_dim = input_dim
+        # Initialize neural network
+        self.network = RewardNetwork(input_dim=self.input_dim,
+                                     hidden_layers=hidden_layers,
+                                     activation=activation).to(self.device)
+        # Store hyperparameters
+        self.learning_rate = hyperparams['preference_model'].get('learning_rate', 0.001)
+        self.regularization = hyperparams['preference_model'].get('regularization', 0.0003)
+        self.epochs = hyperparams['preference_model'].get('epochs', 300)
+        self.batch_size = hyperparams['preference_model'].get('batch_size', 512)
+        # Instantiate optimizer
+        self.optimizer = optim.Adam(self.network.parameters(), lr=self.learning_rate, weight_decay=self.regularization)
+
+    def predict(self, segment_features: np.ndarray) -> np.ndarray:
+        """
+        Compute the reward estimate for a batch of segments.
+        Args:
+            segment_features (np.ndarray): Array of shape (batch_size, feature_dim).
+        Returns:
+            np.ndarray: Reward values bounded in [0, R], shape (batch_size,).
+        """
+        self.network.eval()
+        with torch.no_grad():
+            inputs = torch.tensor(segment_features, dtype=torch.float32).to(self.device)
+            raw_scores = self.network(inputs).squeeze()  # shape (batch_size,)
+            if self.score_function_type == 'exp':
+                scores = torch.exp(raw_scores)
+            elif self.score_function_type == 'linear':
+                scores = raw_scores
+            else:
+                raise ValueError(f"Unsupported score function type: {self.score_function_type}")
+
+            # Apply final activation (tanh scaled)
+            if self.network.activation == 'tanh':
+                bounded_rewards = torch.tanh(scores)
+            else:
+                # Default to tanh if not explicitly set; can be adapted
+                bounded_rewards = torch.tanh(scores)
+
+            return bounded_rewards.cpu().numpy()
+
+    def train(self, segment_dataset: List['Segment'], preference_data, listwise: bool = True):
+        """
+        Train the reward model using preference data.
+        Args:
+            segment_dataset (List[Segment]): List of Segment objects used for sampling.
+            preference_data (PreferenceDataset): Preference pairs or listwise rankings.
+            listwise (bool): If True, use listwise loss; else, use pairwise.
+        """
+        self.network.train()
+        # Convert segments to feature matrix
+        feature_matrix = np.array([seg.features for seg in segment_dataset], dtype=np.float32)
+        dataset_size = len(segment_dataset)
+        # Prepare preference pairs or listwise data
+        pref_pairs = preference_data.preference_pairs
+        # For simplicity, filter preference pairs relevant to current dataset
+        # Assumption: preference_data contains valid segment IDs
+        # Optimization: Could prepare index mapping for fast sampling
+
+        for epoch in range(self.epochs):
+            permutation = np.random.permutation(dataset_size)
+            for batch_start in range(0, dataset_size, self.batch_size):
+                batch_indices = permutation[batch_start: batch_start + self.batch_size]
+                batch_segments = [segment_dataset[i] for i in batch_indices]
+                batch_features = np.array([seg.features for seg in batch_segments], dtype=np.float32)
+                inputs = torch.tensor(batch_features, dtype=torch.float32).to(self.device)
+
+                self.optimizer.zero_grad()
+
+                scores = self.network(inputs).squeeze()  # shape (batch_size,)
+                # Compute scores based on the selected scoring function
+                if self.score_function_type == 'exp':
+                    pred_scores = torch.exp(scores)
+                elif self.score_function_type == 'linear':
+                    pred_scores = scores
+                else:
+                    raise ValueError(f"Unsupported score function: {self.score_function_type}")
+
+                # Final reward bounding
+                if self.network.activation == 'tanh':
+                    rewards = torch.tanh(pred_scores)
+                else:
+                    rewards = torch.tanh(pred_scores)
+
+                # Compute loss
+                if self.loss_type == 'listwise':
+                    # Listwise (ListNet) loss
+                    # Sample list_size segments for listwise loss
+                    if len(segment_dataset) >= self.config['preference_model'].get('list_size', 16):
+                        list_indices = np.random.choice(dataset_size, size=self.config['preference_model'].get('list_size',16), replace=False)
+                        list_feats = torch.tensor([segment_dataset[i].features for i in list_indices], dtype=torch.float32).to(self.device)
+                        list_scores = self.network(list_feats).squeeze()
+                        if self.score_function_type == 'exp':
+                            list_pred = torch.exp(list_scores)
+                        else:
+                            list_pred = list_scores
+                        # Normalize to probabilities
+                        pred_prob = list_pred / torch.sum(list_pred)
+                        # Ground truth distribution: proportional to ground-truth rewards
+                        # For training, we need a ground-truth distribution; but in practice, it can be based on listwise ranking
+                        # Here, we assume uniform or derived distribution (see paper), but for simplicity, use softmax from true scores
+                        # If ground-truth ground rewards are available, better to use them here
+                        # Placeholder: Using model scores as approx ground truth (not ideal but aligns with experimental approach)
+                        true_scores = torch.tensor([np.mean([self.get_segment_true_reward(seg_id) for seg_id in list_indices])], dtype=torch.float32).to(self.device)
+                        true_scores_exp = torch.exp(true_scores)
+                        true_prob = true_scores_exp / torch.sum(true_scores_exp)
+                        loss = torch.nn.functional.kl_div(pred_prob.log(), true_prob, reduction='sum')
+                    else:
+                        # fallback if dataset too small
+                        continue
+                elif self.loss_type == 'pairwise':
+                    # Pairwise loss on preference pairs
+                    batch_pref = self._sample_preference_pairs(preference_data, len(segment_dataset))
+                    if batch_pref:
+                        loss = 0.0
+                        for (id_a, id_b, label) in batch_pref:
+                            feat_a = torch.tensor(segment_dataset[self._find_segment_index(id_a)].features, dtype=torch.float32).to(self.device)
+                            feat_b = torch.tensor(segment_dataset[self._find_segment_index(id_b)].features, dtype=torch.float32).to(self.device)
+                            score_a = self.network(feat_a.unsqueeze(0)).squeeze()
+                            score_b = self.network(feat_b.unsqueeze(0)).squeeze()
+                            if self.score_function_type == 'exp':
+                                s_a = torch.exp(score_a)
+                                s_b = torch.exp(score_b)
+                            else:
+                                s_a = score_a
+                                s_b = score_b
+                            prob = s_a / (s_a + s_b + 1e-8)
+                            # Label: 1.0 means segment_a preferred, 0.0 preferred_b, 0.5 tie
+                            if label == 1.0:
+                                target = torch.tensor([1.0], dtype=torch.float32).to(self.device)
+                                loss += -torch.log(prob + 1e-8)
+                            elif label == 0.0:
+                                target = torch.tensor([0.0], dtype=torch.float32).to(self.device)
+                                loss += -torch.log(1 - prob + 1e-8)
+                            else:
+                                # tie (0.5), treat as binary with label=0.5, use binary cross entropy with logits
+                                # For simplicity, skip or treat as average of both
+                                continue
+                        # Average loss over pairs
+                        loss = loss / len(batch_pref)
+                    else:
+                        continue
+                else:
+                    raise ValueError(f"Unsupported loss type: {self.loss_type}")
+
+                # Backpropagation
+                loss.backward()
+                self.optimizer.step()
+
+    def _sample_preference_pairs(self, preference_data: 'PreferenceDataset', dataset_size: int):
+        """
+        Sample preference pairs from preference data for batch training.
+        Args:
+            preference_data (PreferenceDataset): Preference data object.
+            dataset_size (int): Total number of segments.
+        Returns:
+            List of tuples: (segment_id_a, segment_id_b, label)
+        """
+        if not preference_data.preference_pairs:
+            return []
+        num_pairs = min(self.batch_size, len(preference_data.preference_pairs))
+        sampled_pairs = np.random.choice(preference_data.preference_pairs, size=num_pairs, replace=False)
+        return [(pair.segment_a_id, pair.segment_b_id, pair.label) for pair in sampled_pairs]
+
+    def _find_segment_index(self, segment_id: str) -> int:
+        """
+        Helper method to find index of segment in dataset by segment_id.
+        """
+        # This assumes segment_dataset is a list; implement as needed outside
+        # For this code, assuming a global reference or passed in; can be improved
+        # For safety, implement a mapping if needed
+        raise NotImplementedError("Segment index lookup should be implemented based on data structure.")
+
+    def get_segment_true_reward(self, segment_id: str) -> float:
+        """
+        Placeholder for method to retrieve ground-truth reward if available.
+        For training, may be used to approximate ground-truth distribution.
+        """
+        # This method should interface with the environment or dataset
+        # For now, return a dummy value or fetch from dataset if stored.
+        # Since not specified here, we return 0.
+        return 0.0
+```

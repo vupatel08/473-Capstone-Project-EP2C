@@ -1,0 +1,13 @@
+# requirements.txt
+
+numpy==1.21.0          # Numerical computations and data manipulation
+pandas==1.3.0          # Data loading and processing
+scikit-learn==0.24.2   # Auxiliary tools such as normalization
+torch==1.9.0           # Model implementation, training, inference
+matplotlib==3.4.3      # Visualization of results and attention maps
+
+# Notes:
+# - Assumes datasets are provided in CSV format as specified in 'data_paths'.
+# - For normalization, variate-wise scaling to zero-mean, unit-variance will be applied if enabled.
+# - Use default PyTorch modules; no specialized packages for attention or sparse transformers are included.
+# - Set random seed for reproducibility in the scripts to ensure consistent training/evaluation outputs.

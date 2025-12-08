@@ -1,0 +1,338 @@
+{
+  "code_to_paper": {
+    "acquisition_optimizer.py:and": [
+      "Without specific section names",
+      "it's impossible to accurately link the code component to the paper sections. However",
+      "based on the description of the code component",
+      "sections that might be relevant could be titled something like \"Methodology\"",
+      "\"Algorithm Implementation\"",
+      "\"Optimization Process\"",
+      "or \"Uncertainty Handling in Classification\". Please provide the actual section names for a more accurate analysis."
+    ],
+    "acquisition_optimizer.py:__init__": [
+      "Without specific section names",
+      "it's impossible to accurately link the code component to the paper sections. However",
+      "based on the code description",
+      "sections like \"Methodology\"",
+      "\"Optimization Algorithm\"",
+      "or \"Implementation Details\" would likely be most relevant."
+    ],
+    "boundary_bounds.py:BoundaryBounds": [
+      "The provided paper sections are not sufficient to link with the given code component. Please provide more relevant paper sections such as \"Methodology\"",
+      "\"Implementation\"",
+      "\"Results\"",
+      "\"Discussion\"",
+      "etc."
+    ],
+    "boundary_bounds.py:__init__": [
+      "The provided paper sections do not seem to contain any relevant information related to the code component. Please provide more relevant paper sections."
+    ],
+    "constraint_classifier.py:class": [
+      "The provided information is insufficient to determine the most relevant paper sections for the code component. Please provide more details about the code component and the paper sections."
+    ],
+    "constraint_classifier.py:NeuralEnsembleConstraintClassifier": [
+      "The paper sections are not clearly defined in the provided information. Please provide the titles of the paper sections to proceed."
+    ],
+    "constraint_classifier.py:__init__": [
+      "The paper sections are not provided in the question. Please provide the paper sections to proceed."
+    ],
+    "dataset_loader.py:DatasetLoader": [
+      "The provided paper sections are not sufficient to link with the given code component. Please provide more detailed sections of the paper."
+    ],
+    "dataset_loader.py:__init__": [
+      "The provided paper sections are not sufficient to link with the given code component. Please provide more detailed sections of the paper."
+    ],
+    "evaluation.py:Evaluation": [
+      "The provided paper sections are not sufficient to link with the code component. Please provide more detailed sections such as \"Methodology\"",
+      "\"Experiment Setup\"",
+      "\"Results and Discussion\"",
+      "etc."
+    ],
+    "evaluation.py:__init__": [
+      "The provided paper sections are not sufficient to link with the code component. Please provide more detailed sections such as \"Methodology\"",
+      "\"Experiment Setup\"",
+      "\"Results and Discussion\"",
+      "etc."
+    ],
+    "main.py:main": [
+      "The provided information is insufficient to determine the most relevant paper sections for the code component. Please provide more details about the function in the main.py file and its purpose."
+    ],
+    "model.py:ExactGPModel": [
+      "The provided information is insufficient to determine the most relevant paper sections for the given code component. Please provide more details about the code component and the paper sections."
+    ],
+    "model.py:SurrogateObjectiveGP": [
+      "The provided paper sections do not seem to contain any relevant information related to the code component. Please provide the correct paper sections."
+    ],
+    "model.py:__init__": [
+      "The provided paper sections do not seem to match the code component. The only section provided is an \"Abstract\" which seems to be a list of authors rather than an abstract. Please provide relevant paper sections such as \"Methodology\"",
+      "\"Implementation Details\"",
+      "\"Model Architecture\"",
+      "etc."
+    ]
+  },
+  "paper_to_code": {
+    "Without specific section names": [
+      {
+        "component": "acquisition_optimizer.py:and",
+        "description": "Class to perform constrained maximization of an acquisition function q(x),\n    coupling with dynamic boundary bounds based on classifier uncertainty.",
+        "file": "acquisition_optimizer.py"
+      },
+      {
+        "component": "acquisition_optimizer.py:__init__",
+        "description": "Initialize the optimizer.\n        Args:\n            acq_func: Callable that takes in an array of shape (d,) and returns a scalar acquisition value.\n            C_func: Callable that takes in an array (d,) and returns probability of feasibility.\n            bounds: dict with variable bounds, e.g.\n                {'var1': (lb1, ub1), 'var2': (lb2, ub2), ..., 'var_d': (lbd, ubd)}.\n            classifier: instance with methods:\n                - predict_proba(x): float in [0,1]\n                - predict_uncertainty(x): float (sigma_E)\n            boundary_bounds: BoundaryBounds instance for computing lower bounds.\n            method: optimization method, default 'differential_evolution'. alternatives: 'L-BFGS-B', 'SLSQP'.\n            population_size: EV method population size.\n            max_iter: maximum iterations for local solvers.\n            init_points: number of random initial points for global search.\n            seed: for reproducibility.",
+        "file": "acquisition_optimizer.py"
+      }
+    ],
+    "it's impossible to accurately link the code component to the paper sections. However": [
+      {
+        "component": "acquisition_optimizer.py:and",
+        "description": "Class to perform constrained maximization of an acquisition function q(x),\n    coupling with dynamic boundary bounds based on classifier uncertainty.",
+        "file": "acquisition_optimizer.py"
+      },
+      {
+        "component": "acquisition_optimizer.py:__init__",
+        "description": "Initialize the optimizer.\n        Args:\n            acq_func: Callable that takes in an array of shape (d,) and returns a scalar acquisition value.\n            C_func: Callable that takes in an array (d,) and returns probability of feasibility.\n            bounds: dict with variable bounds, e.g.\n                {'var1': (lb1, ub1), 'var2': (lb2, ub2), ..., 'var_d': (lbd, ubd)}.\n            classifier: instance with methods:\n                - predict_proba(x): float in [0,1]\n                - predict_uncertainty(x): float (sigma_E)\n            boundary_bounds: BoundaryBounds instance for computing lower bounds.\n            method: optimization method, default 'differential_evolution'. alternatives: 'L-BFGS-B', 'SLSQP'.\n            population_size: EV method population size.\n            max_iter: maximum iterations for local solvers.\n            init_points: number of random initial points for global search.\n            seed: for reproducibility.",
+        "file": "acquisition_optimizer.py"
+      }
+    ],
+    "based on the description of the code component": [
+      {
+        "component": "acquisition_optimizer.py:and",
+        "description": "Class to perform constrained maximization of an acquisition function q(x),\n    coupling with dynamic boundary bounds based on classifier uncertainty.",
+        "file": "acquisition_optimizer.py"
+      }
+    ],
+    "sections that might be relevant could be titled something like \"Methodology\"": [
+      {
+        "component": "acquisition_optimizer.py:and",
+        "description": "Class to perform constrained maximization of an acquisition function q(x),\n    coupling with dynamic boundary bounds based on classifier uncertainty.",
+        "file": "acquisition_optimizer.py"
+      }
+    ],
+    "\"Algorithm Implementation\"": [
+      {
+        "component": "acquisition_optimizer.py:and",
+        "description": "Class to perform constrained maximization of an acquisition function q(x),\n    coupling with dynamic boundary bounds based on classifier uncertainty.",
+        "file": "acquisition_optimizer.py"
+      }
+    ],
+    "\"Optimization Process\"": [
+      {
+        "component": "acquisition_optimizer.py:and",
+        "description": "Class to perform constrained maximization of an acquisition function q(x),\n    coupling with dynamic boundary bounds based on classifier uncertainty.",
+        "file": "acquisition_optimizer.py"
+      }
+    ],
+    "or \"Uncertainty Handling in Classification\". Please provide the actual section names for a more accurate analysis.": [
+      {
+        "component": "acquisition_optimizer.py:and",
+        "description": "Class to perform constrained maximization of an acquisition function q(x),\n    coupling with dynamic boundary bounds based on classifier uncertainty.",
+        "file": "acquisition_optimizer.py"
+      }
+    ],
+    "based on the code description": [
+      {
+        "component": "acquisition_optimizer.py:__init__",
+        "description": "Initialize the optimizer.\n        Args:\n            acq_func: Callable that takes in an array of shape (d,) and returns a scalar acquisition value.\n            C_func: Callable that takes in an array (d,) and returns probability of feasibility.\n            bounds: dict with variable bounds, e.g.\n                {'var1': (lb1, ub1), 'var2': (lb2, ub2), ..., 'var_d': (lbd, ubd)}.\n            classifier: instance with methods:\n                - predict_proba(x): float in [0,1]\n                - predict_uncertainty(x): float (sigma_E)\n            boundary_bounds: BoundaryBounds instance for computing lower bounds.\n            method: optimization method, default 'differential_evolution'. alternatives: 'L-BFGS-B', 'SLSQP'.\n            population_size: EV method population size.\n            max_iter: maximum iterations for local solvers.\n            init_points: number of random initial points for global search.\n            seed: for reproducibility.",
+        "file": "acquisition_optimizer.py"
+      }
+    ],
+    "sections like \"Methodology\"": [
+      {
+        "component": "acquisition_optimizer.py:__init__",
+        "description": "Initialize the optimizer.\n        Args:\n            acq_func: Callable that takes in an array of shape (d,) and returns a scalar acquisition value.\n            C_func: Callable that takes in an array (d,) and returns probability of feasibility.\n            bounds: dict with variable bounds, e.g.\n                {'var1': (lb1, ub1), 'var2': (lb2, ub2), ..., 'var_d': (lbd, ubd)}.\n            classifier: instance with methods:\n                - predict_proba(x): float in [0,1]\n                - predict_uncertainty(x): float (sigma_E)\n            boundary_bounds: BoundaryBounds instance for computing lower bounds.\n            method: optimization method, default 'differential_evolution'. alternatives: 'L-BFGS-B', 'SLSQP'.\n            population_size: EV method population size.\n            max_iter: maximum iterations for local solvers.\n            init_points: number of random initial points for global search.\n            seed: for reproducibility.",
+        "file": "acquisition_optimizer.py"
+      }
+    ],
+    "\"Optimization Algorithm\"": [
+      {
+        "component": "acquisition_optimizer.py:__init__",
+        "description": "Initialize the optimizer.\n        Args:\n            acq_func: Callable that takes in an array of shape (d,) and returns a scalar acquisition value.\n            C_func: Callable that takes in an array (d,) and returns probability of feasibility.\n            bounds: dict with variable bounds, e.g.\n                {'var1': (lb1, ub1), 'var2': (lb2, ub2), ..., 'var_d': (lbd, ubd)}.\n            classifier: instance with methods:\n                - predict_proba(x): float in [0,1]\n                - predict_uncertainty(x): float (sigma_E)\n            boundary_bounds: BoundaryBounds instance for computing lower bounds.\n            method: optimization method, default 'differential_evolution'. alternatives: 'L-BFGS-B', 'SLSQP'.\n            population_size: EV method population size.\n            max_iter: maximum iterations for local solvers.\n            init_points: number of random initial points for global search.\n            seed: for reproducibility.",
+        "file": "acquisition_optimizer.py"
+      }
+    ],
+    "or \"Implementation Details\" would likely be most relevant.": [
+      {
+        "component": "acquisition_optimizer.py:__init__",
+        "description": "Initialize the optimizer.\n        Args:\n            acq_func: Callable that takes in an array of shape (d,) and returns a scalar acquisition value.\n            C_func: Callable that takes in an array (d,) and returns probability of feasibility.\n            bounds: dict with variable bounds, e.g.\n                {'var1': (lb1, ub1), 'var2': (lb2, ub2), ..., 'var_d': (lbd, ubd)}.\n            classifier: instance with methods:\n                - predict_proba(x): float in [0,1]\n                - predict_uncertainty(x): float (sigma_E)\n            boundary_bounds: BoundaryBounds instance for computing lower bounds.\n            method: optimization method, default 'differential_evolution'. alternatives: 'L-BFGS-B', 'SLSQP'.\n            population_size: EV method population size.\n            max_iter: maximum iterations for local solvers.\n            init_points: number of random initial points for global search.\n            seed: for reproducibility.",
+        "file": "acquisition_optimizer.py"
+      }
+    ],
+    "The provided paper sections are not sufficient to link with the given code component. Please provide more relevant paper sections such as \"Methodology\"": [
+      {
+        "component": "boundary_bounds.py:BoundaryBounds",
+        "description": "Initialize the BoundaryBounds object.\n        Args:\n            margin (float): The base threshold for classifier boundary, default 0.5.",
+        "file": "boundary_bounds.py"
+      }
+    ],
+    "\"Implementation\"": [
+      {
+        "component": "boundary_bounds.py:BoundaryBounds",
+        "description": "Initialize the BoundaryBounds object.\n        Args:\n            margin (float): The base threshold for classifier boundary, default 0.5.",
+        "file": "boundary_bounds.py"
+      }
+    ],
+    "\"Results\"": [
+      {
+        "component": "boundary_bounds.py:BoundaryBounds",
+        "description": "Initialize the BoundaryBounds object.\n        Args:\n            margin (float): The base threshold for classifier boundary, default 0.5.",
+        "file": "boundary_bounds.py"
+      }
+    ],
+    "\"Discussion\"": [
+      {
+        "component": "boundary_bounds.py:BoundaryBounds",
+        "description": "Initialize the BoundaryBounds object.\n        Args:\n            margin (float): The base threshold for classifier boundary, default 0.5.",
+        "file": "boundary_bounds.py"
+      }
+    ],
+    "etc.": [
+      {
+        "component": "boundary_bounds.py:BoundaryBounds",
+        "description": "Initialize the BoundaryBounds object.\n        Args:\n            margin (float): The base threshold for classifier boundary, default 0.5.",
+        "file": "boundary_bounds.py"
+      },
+      {
+        "component": "evaluation.py:Evaluation",
+        "description": "Initialize Evaluation object with configuration and models.",
+        "file": "evaluation.py"
+      },
+      {
+        "component": "evaluation.py:__init__",
+        "description": "Initialize Evaluation object with configuration and models.",
+        "file": "evaluation.py"
+      },
+      {
+        "component": "model.py:__init__",
+        "description": "Initialize the GP surrogate model for objective function.\n        Args:\n            kernel_type: string, e.g., 'RBF', 'Matern'\n            hyperparameters: dict, e.g., {'lengthscale': 1.0, 'outputscale': 1.0}\n            noise_variance: float, likelihood noise\n            device: torch device",
+        "file": "model.py"
+      }
+    ],
+    "The provided paper sections do not seem to contain any relevant information related to the code component. Please provide more relevant paper sections.": [
+      {
+        "component": "boundary_bounds.py:__init__",
+        "description": "Initialize the BoundaryBounds object.\n        Args:\n            margin (float): The base threshold for classifier boundary, default 0.5.",
+        "file": "boundary_bounds.py"
+      }
+    ],
+    "The provided information is insufficient to determine the most relevant paper sections for the code component. Please provide more details about the code component and the paper sections.": [
+      {
+        "component": "constraint_classifier.py:class",
+        "description": "",
+        "file": "constraint_classifier.py"
+      }
+    ],
+    "The paper sections are not clearly defined in the provided information. Please provide the titles of the paper sections to proceed.": [
+      {
+        "component": "constraint_classifier.py:NeuralEnsembleConstraintClassifier",
+        "description": "Initialize the ensemble of neural network classifiers.",
+        "file": "constraint_classifier.py"
+      }
+    ],
+    "The paper sections are not provided in the question. Please provide the paper sections to proceed.": [
+      {
+        "component": "constraint_classifier.py:__init__",
+        "description": "Initialize the ensemble of neural network classifiers.",
+        "file": "constraint_classifier.py"
+      }
+    ],
+    "The provided paper sections are not sufficient to link with the given code component. Please provide more detailed sections of the paper.": [
+      {
+        "component": "dataset_loader.py:DatasetLoader",
+        "description": "Initialize the dataset loader.\n        :param bounds: dict with variable bounds, e.g.,\n            {'x1': (lower, upper, 'type'), ...}\n        :param initial_samples: number of initial samples to generate\n        :param problem_type: 'synthetic' or 'real'\n        :param problem_name: name of the benchmark problem for evaluation routines\n        :param seed: random seed for reproducibility",
+        "file": "dataset_loader.py"
+      },
+      {
+        "component": "dataset_loader.py:__init__",
+        "description": "Initialize the dataset loader.\n        :param bounds: dict with variable bounds, e.g.,\n            {'x1': (lower, upper, 'type'), ...}\n        :param initial_samples: number of initial samples to generate\n        :param problem_type: 'synthetic' or 'real'\n        :param problem_name: name of the benchmark problem for evaluation routines\n        :param seed: random seed for reproducibility",
+        "file": "dataset_loader.py"
+      }
+    ],
+    "The provided paper sections are not sufficient to link with the code component. Please provide more detailed sections such as \"Methodology\"": [
+      {
+        "component": "evaluation.py:Evaluation",
+        "description": "Initialize Evaluation object with configuration and models.",
+        "file": "evaluation.py"
+      },
+      {
+        "component": "evaluation.py:__init__",
+        "description": "Initialize Evaluation object with configuration and models.",
+        "file": "evaluation.py"
+      }
+    ],
+    "\"Experiment Setup\"": [
+      {
+        "component": "evaluation.py:Evaluation",
+        "description": "Initialize Evaluation object with configuration and models.",
+        "file": "evaluation.py"
+      },
+      {
+        "component": "evaluation.py:__init__",
+        "description": "Initialize Evaluation object with configuration and models.",
+        "file": "evaluation.py"
+      }
+    ],
+    "\"Results and Discussion\"": [
+      {
+        "component": "evaluation.py:Evaluation",
+        "description": "Initialize Evaluation object with configuration and models.",
+        "file": "evaluation.py"
+      },
+      {
+        "component": "evaluation.py:__init__",
+        "description": "Initialize Evaluation object with configuration and models.",
+        "file": "evaluation.py"
+      }
+    ],
+    "The provided information is insufficient to determine the most relevant paper sections for the code component. Please provide more details about the function in the main.py file and its purpose.": [
+      {
+        "component": "main.py:main",
+        "description": "",
+        "file": "main.py"
+      }
+    ],
+    "The provided information is insufficient to determine the most relevant paper sections for the given code component. Please provide more details about the code component and the paper sections.": [
+      {
+        "component": "model.py:ExactGPModel",
+        "description": "",
+        "file": "model.py"
+      }
+    ],
+    "The provided paper sections do not seem to contain any relevant information related to the code component. Please provide the correct paper sections.": [
+      {
+        "component": "model.py:SurrogateObjectiveGP",
+        "description": "Initialize the GP surrogate model for objective function.\n        Args:\n            kernel_type: string, e.g., 'RBF', 'Matern'\n            hyperparameters: dict, e.g., {'lengthscale': 1.0, 'outputscale': 1.0}\n            noise_variance: float, likelihood noise\n            device: torch device",
+        "file": "model.py"
+      }
+    ],
+    "The provided paper sections do not seem to match the code component. The only section provided is an \"Abstract\" which seems to be a list of authors rather than an abstract. Please provide relevant paper sections such as \"Methodology\"": [
+      {
+        "component": "model.py:__init__",
+        "description": "Initialize the GP surrogate model for objective function.\n        Args:\n            kernel_type: string, e.g., 'RBF', 'Matern'\n            hyperparameters: dict, e.g., {'lengthscale': 1.0, 'outputscale': 1.0}\n            noise_variance: float, likelihood noise\n            device: torch device",
+        "file": "model.py"
+      }
+    ],
+    "\"Implementation Details\"": [
+      {
+        "component": "model.py:__init__",
+        "description": "Initialize the GP surrogate model for objective function.\n        Args:\n            kernel_type: string, e.g., 'RBF', 'Matern'\n            hyperparameters: dict, e.g., {'lengthscale': 1.0, 'outputscale': 1.0}\n            noise_variance: float, likelihood noise\n            device: torch device",
+        "file": "model.py"
+      }
+    ],
+    "\"Model Architecture\"": [
+      {
+        "component": "model.py:__init__",
+        "description": "Initialize the GP surrogate model for objective function.\n        Args:\n            kernel_type: string, e.g., 'RBF', 'Matern'\n            hyperparameters: dict, e.g., {'lengthscale': 1.0, 'outputscale': 1.0}\n            noise_variance: float, likelihood noise\n            device: torch device",
+        "file": "model.py"
+      }
+    ]
+  },
+  "paper_sections": [
+    {
+      "section": "Abstract",
+      "text": "Yunsheng Tian 1 Ane Zuniga 1 Xinwei Zhang 2 Johannes P. Durholt \u00a8 3 Payel Das 2 Jie Chen 2 Wojciech Matusik 1 Mina Konakovic Lukovi \u00b4 c\u00b4 1",
+      "ontology": "abstract"
+    }
+  ],
+  "coverage_score": 30.0
+}

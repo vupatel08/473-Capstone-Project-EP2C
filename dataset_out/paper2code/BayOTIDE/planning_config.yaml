@@ -1,0 +1,61 @@
+training:
+  learning_rate: 0.001  # Not specified in the paper, set as a reasonable default
+  batch_size: 32        # Not specified in the paper, set as a standard batch size
+  epochs: 50            # Not specified; choose a moderate number for convergence
+
+model:
+  D_r: 10               # Number of trend factors (hyperparameter to tune; start with 10)
+  D_s: 10               # Number of seasonal factors (hyperparameter to tune; start with 10)
+  kernel_type_trend: 'matern32'  # Based on paper's 3/2 Matérn kernel
+  kernel_type_season: 'periodic' # Periodic kernel for seasonality
+  kernel_params:
+    matern32:
+      length_scale: 0.1     # Initial value, tuning needed
+      variance: 1.0         # Initial value, tuning needed
+    periodic:
+      length_scale: 0.5     # Initial value, tuning needed
+      period: 12.0          # Based on typical seasonal period (e.g., daily/weekly)
+      variance: 1.0         # Initial value, tuning needed
+
+optimization:
+  learning_rate: 0.0005  # Fine-tuned for stable convergence
+  damping_epochs: 5      # Inner CEP damping iterations per timestamp
+  inner_iterations: 3   # Number of message passing iterations per update
+  damping_factor: 0.5   # Damping coefficient for stability
+
+data:
+  observed_ratio_train: 0.7  # 70% observed data in training
+  observed_ratio_eval: 0.5   # 50% observed data in evaluation
+  max_sequence_length: 2000  # For synthetic data; dataset-dependent for real data
+  noise_std: 0.1             # Noise standard deviation added to synthetic data
+
+inference:
+  online_update: true      # Perform online updates with CEP and Kalman filtering
+  interpolation_method: 'gaussian'  # Probabilistic interpolation at arbitrary timestamps
+  num_samples: 50          # Number of posterior samples for metrics
+  damping_epochs_for_inference: 5
+  smoothing: true          # Run RTS smoothing after sequence inference
+
+evaluation:
+  metrics: ['MAE', 'RMSE', 'CRPS', 'NLLK']
+  evaluation_repeats: 5   # Number of runs for averaging metrics
+  evaluation_split_seed: 42  # Seed for reproducibility
+
+dataset:
+  synthetic_data:
+    num_points: 2000
+    timestamp_range: [0, 1]
+    pattern_types:
+      trend: 'matérn32'
+      seasonality: 'periodic'
+  real_world:
+    datasets:
+      - name: 'Traffic-Guangzhou'
+        channels: 214
+        timestamps: 500
+      - name: 'Solar-Power'
+        channels: 137
+        timestamps: 52560
+      - name: 'Uber-Move'
+        channels: 7489
+        timestamps: 744

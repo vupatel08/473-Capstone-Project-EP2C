@@ -1,0 +1,101 @@
+# Evaluation.py Logic Analysis
+
+## Purpose:
+Implement a class `Evaluation` that is responsible for evaluating the trained policy in the environment, measuring the success rate, and plotting the correlation between estimated rewards and ground-truth rewards. The class should depend on the trained policy object, the environment API, and optionally ground-truth reward data for validation and visualization.
+
+---
+
+## Core Responsibilities:
+
+1. **Run policy rollouts**:
+   - Execute the trained policy in the environment for a set number of episodes (e.g., 50 episodes).
+   - Collect success metrics based on environment-specific success criteria.
+   - Record episode returns and whether the task was successfully completed.
+   
+2. **Measure success rate**:
+   - Computes the percentage of episodes that meet success criteria.
+   - Output success rate for reporting and comparison.
+   
+3. **Plot reward scatter**:
+   - Visualize the correlation between ground-truth rewards and estimated rewards for a set of segments.
+   - Generate scatter plots to assess reward estimation quality.
+   - Should take as input the arrays of ground-truth rewards and estimated rewards.
+
+---
+
+## Inputs:
+- `policy`: a trained policy object with a method `predict(state)` or `act(state)` that outputs action(s):
+  - The exact API depends on the RL library used.
+- `environment`: an environment object implementing the standard API:
+  - `reset()`: to reset environment and get initial state.
+  - `step(action)`: to execute action; returns next_state, reward, done, info.
+- Ground-truth rewards (optional): a numpy array of true reward values for segments, used for scatter plots and validation.
+- Environment specifics:
+  - Environment type (e.g., Gym, Meta-World).
+  - Success criteria (task-specific, e.g., object within threshold, specific environment info flags).
+- `num_episodes`: number of episodes to evaluate (default e.g., 50).
+- `max_episode_steps`: maximum steps per episode as per environment default or configuration.
+
+---
+
+## Outputs:
+- `success_rate`: float value representing the percentage of successful episodes.
+- Plotted figure: scatter plot of ground-truth vs estimated rewards.
+- (Optionally) logs or printed metrics for validation.
+
+---
+
+## Implementation Details:
+
+### Step 1: Initialization
+- Store references to `policy`, `environment`, ground-truth reward array (if available), and parameters.
+- Setup validation and plotting configurations.
+
+### Step 2: Run episodes
+- Loop over `num_episodes`:
+  - Reset environment.
+  - Initialize episode reward sum and success flag.
+  - Loop over steps until done or max steps:
+    - Get current state.
+    - Compute action via `policy.act(state)` or similar API.
+    - Environment step with action yields next_state, reward, done, info.
+    - Accumulate episode reward.
+    - Track success indicator based on environment info or success criteria.
+- Collect episode returns.
+- Keep count of episodes classified as successful.
+
+### Step 3: Compute success rate
+- Calculate `success_rate` as `(successful_episodes / total_episodes) * 100`.
+
+### Step 4: Reward scatter plotting
+- If ground-truth reward data and estimated rewards (from `reward_model.predict(segment)`) are available:
+  - Generate a scatter plot:
+    - X-axis: ground-truth rewards.
+    - Y-axis: estimated rewards.
+  - Add labels, legend, and title for clarity.
+  - Save or display plot.
+
+### Step 5: Reporting
+- Return `success_rate`.
+- Display/print success metrics if needed.
+- Show the reward scatter plot.
+
+---
+
+## Dependencies and Assumptions:
+- Environment API compatible with OpenAI Gym style.
+- `policy.act(state)` method: inputs a state, outputs an action.
+- Ground-truth reward data is provided as a numpy array aligned with segments.
+- Environment has success criteria either via built-in success flag or environment info.
+- Visualization via `matplotlib`.
+
+---
+
+## Additional Notes:
+- For environments like Meta-World, success is often determined by `info` dictionary flags, e.g., `info['is_success']`.
+- For Gym environments, success may require custom success thresholds or environment-specific success conditions.
+- The number of episodes, max steps per episode, and seed initialization should be configurable via constructor args or a configuration dictionary.
+
+---
+
+This detailed logic outline provides comprehensive guidance for implementing the `Evaluation` class, covering data flow, API interactions, validation metrics, and visualization. It ensures that the evaluation is standardized, robust, and aligned with the experimental setup described in the paper.

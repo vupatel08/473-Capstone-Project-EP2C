@@ -1,0 +1,158 @@
+{
+  "title": "Boundary Exploration for Bayesian Optimization With Unknown Physical Constraints",
+  "abstract": "Yunsheng Tian 1 Ane Zuniga 1 Xinwei Zhang 2 Johannes P. Durholt ¨ 3 Payel Das 2 Jie Chen 2 Wojciech Matusik 1 Mina Konakovic Lukovi ´ c´ 1",
+  "authors": [],
+  "body_text": [
+    {
+      "text": "# Boundary Exploration for Bayesian Optimization With Unknown Physical Constraints"
+    },
+    {
+      "text": "Yunsheng Tian 1 Ane Zuniga 1 Xinwei Zhang 2 Johannes P. Durholt ¨ 3 Payel Das 2 Jie Chen 2 Wojciech Matusik 1 Mina Konakovic Lukovi ´ c´ 1"
+    },
+    {
+      "text": "# Abstract"
+    },
+    {
+      "text": "Bayesian optimization has been successfully applied to optimize black-box functions where the number of evaluations is severely limited. However, in many real-world applications, it is hard or impossible to know in advance which designs are feasible due to some physical or system limitations. These issues lead to an even more challenging problem of optimizing an unknown function with unknown constraints. In this paper, we observe that in such scenarios optimal solution typically lies on the boundary between feasible and infeasible regions of the design space, making it considerably more difficult than that with interior optima. Inspired by this observation, we propose BE-CBO, a new Bayesian optimization method that efficiently explores the boundary between feasible and infeasible designs. To identify the boundary, we learn the constraints with an ensemble of neural networks that outperform the standard Gaussian Processes for capturing complex boundaries. Our method demonstrates superior performance against stateof-the-art methods through comprehensive experiments on synthetic and real-world benchmarks. Code available at: https://github.com/ yunshengtian/BE-CBO"
+    },
+    {
+      "text": "order of weeks or months per single experiment. Thus, the total number of evaluations that can be conducted is limited. In this scenario, Bayesian optimization (BO) (Jones et al., 1998; Shahriari et al., 2016) has proven to be a successful approach that guides the search for an optimal solution by iteratively proposing which experiment to evaluate that may lead to the highest performance increase."
+    },
+    {
+      "text": "In addition to optimizing unknown functions, many practical problems include unknown constraints. For untested samples, it is impossible to determine if a particular combination of design parameters will lead to feasible or infeasible design. In such cases, infeasible regions are typically discovered when pushing the limits of what is physically possible, and the optimal solution lies on the boundary of feasible regions."
+    },
+    {
+      "text": "For example, consider the problem of designing an airplane wing. The goal is to make it as lightweight as possible while also being durable and structurally strong to sustain the forces. Hence, the optimization needs to reduce the amount of used material until the wing starts breaking under applied forces. The optimal design will be found just before we step into the infeasible range. Similarly, imagine the task of moving a linear stage to a desired position by applying an acceleration followed by deceleration. To optimize this process, the optimizer might progressively increase the voltage applied to achieve faster and more efficient movement. However, if the voltage is continuously increased without considering the motor’s limitations, it can lead to excessive heat generation, effectively burning the motor and causing performance degradation or failure. Comparable examples can be found in chemistry and materials science, especially in formulation development where often certain amounts/combinations of ingredients are needed to yield feasible materials, and the actual properties of interest can be measured only for feasible materials. This leads to a situation in which the optimizer is proposing a candidate for which no performance feedback can be obtained, resulting in a BO iteration in which no new information is retrieved. Indeed, while analyzing many real-world benchmark problems, we observe that all these problems have the optimal solution on the boundary between feasible and infeasible designs (further details in Section 5.1)."
+    },
+    {
+      "text": "# 1. Introduction"
+    },
+    {
+      "text": "Many optimization problems involve the need to optimize black-box functions, where the performance of a sample can only be determined through physical experimentation or time-expensive simulation, which may take even on the"
+    },
+    {
+      "text": "Motivated by this observation, we argue that a good model of the boundary and efficient search around it can significantly improve efficacy and lead to the discovery of better solutions compared to exploring the entire design space. We propose a novel BO algorithm incorporating a boundary exploration strategy tailored for exploiting this problem structure, which is prevalent in real-world problems with unknown physical constraints. In case of unknown physical constraints we need to model the space of feasible and infeasible designs. In physical experiments a sample is considered infeasible if it fails before being able to measure its performance, therefore such sample does not provide any continuous value in return. Hence, we train a binary classifier to represent all constraints that may appear in the system. Furthermore, it is important to note the difference between imposed constraints and scenarios where the constraints are unknown. In the former, when the constraints are specified by the user, imposed artificially, the optimum solution may be found in the interior of the feasible region. The case of boundary optima is considerably more challenging than that of interior optima, more even so for BO, where gradients are infeasible to evaluate and the number of function evaluations is subject to a limited budget. For unknown constraints, a surrogate needs to be sufficiently accurate (at least in the vicinity of the optimum) so that the identified solution is sufficiently close to the feasible side of the boundary while not trespassing on the other side."
+    },
+    {
+      "text": "While existing approaches (Gelbart et al., 2014; Eriksson & Poloczek, 2021; Antonio, 2021) have addressed BO with unknown constraints, our method is the first to explicitly consider the boundary issue and it demonstrates superior performance. In summary, our main contributions are the following:"
+    },
+    {
+      "text": "• We introduce BE-CBO (Boundary Exploration for Constrained Bayesian Optimization) for optimizing blackbox functions with a limited evaluation budget and unknown constraints. Our key insight is that accurately modeling and efficiently exploring the boundary between feasible and infeasible designs is crucial in discovering better performing designs."
+    },
+    {
+      "text": "• To model the unknown constraint boundary, we propose using Deep Ensembles and demonstrate its superior modeling capability by comparing against the most common method in surrogate modeling for BO, i.e., Gaussian Processes."
+    },
+    {
+      "text": "• Comprehensive experiments and ablation studies on synthetic functions and real-world benchmark problems showing the efficiency of our method and stateof-the-art performance on practical setups."
+    },
+    {
+      "text": "# 2. Related Work"
+    },
+    {
+      "text": "Constrained Bayesian Optimization BO has proven to be a powerful methodology for global optimization of blackbox functions with expensive evaluations (Shahriari et al., 2016). It has demonstrated remarkable success in various applications, including robotics (Lizotte et al., 2007), resource allocation (Hickish et al., 2019), hyperparameter tuning (Snoek et al., 2012), experimental design (Srinivas et al., 2010), and clinical drug trials (Yu et al., 2019). In classical BO, the feasible set $\\mathcal { X }$ is assumed to be known and easy to evaluate, e.g., they are either a hyper-cubes or a simplex (Mockus ˇ , 1975; Frazier, 2018). Recent research faces a more challenging scenario called constrained Bayesian optimization (CBO), where the feasiblility of optimization variables is unknown or hard to evaluate. In these cases, the evaluation of the feasibility of one solution is also time costly as the objective function. Two slightly different settings are considered in CBO: 1) continuous-valued constraint and 2) binary-valued constraint. In continuousvalued CBO, the constraints take the form of inequality constraint $R ( x ) \\geq 0$ , where $R : \\mathbb { R } ^ { d }  \\mathbb { R }$ is a continuousvalued function. It considers the scenario where both the function value and the constraints’ values can be obtained from the experiments, even if the sample falls into the infeasible region. In the binary-constraint case, the outcome of the experiment becomes ${ \\bf 1 } _ { R ( x ) \\geq 0 } f ( x )$ , that we only observe the function value when the sample is feasible $( R ( x ) \\geq 0 )$ , and when the sample falls into the infeasible region, we observe a failure with no function value."
+    },
+    {
+      "text": "Prior works mainly consider continuous-valued constraints. Gardner et al. (2014) proposes EIC that multiples the Expected Improvement (EI) (Mockus ˇ , 1975) with the probability of constraint satisfaction as the acquisition function. PESC (Hernandez-Lobato et al. ´ , 2015) extends Predicted Entropy Search (PES) (Hernandez-Lobato et al. ´ , 2014) to the constrained case. ADMMBO (Ariafar et al., 2019) uses ADMM to alternatively optimize the objective value and feasibility of the solution. SCBO (Eriksson & Poloczek, 2021) uses a trust region optimizer to scale up to high dimensional problems with constraints. 2-OPT-C (Zhang et al., 2021) applies a multi-step lookahead approach instead of the standard myopic approach, which encourages sampling the boundary between feasible and infeasible regions, sharing a similar motivation as our method. All methods use Gaussian Process (GP) regressors to model the unknown constraints."
+    },
+    {
+      "text": "The binary-valued CBO is much less considered in the prior works, though the setup is prevalent in practice for optimizing physical systems. Modeling the binary-valued constraint of the feasibility set is fundamentally different from modeling the continuous-valued constraints. Similar to Gardner et al. (2014), Gelbart et al. (2014) proposes CEI that multiples the EI with the probability of constraint satisfaction. Lindberg & Lee (2015) uses a slightly different formulation by using asymmetric entropy as the feasibility score for efficient exploration. However, these methods use GP classifiers (GPC) for relatively simple and low dimensional constraints and the efficacy on complicated constraints is not demonstrated. A recent work SVM-CBO (Antonio, 2021) proposes a two-stage approach. In the first stage, it trains an SVM classifier to explore the constraint boundary, and in the second stage, the algorithm performs BO in the feasible region captured by the SVM."
+    },
+    {
+      "text": "Safe Bayesian Optimization In some scenarios, ensuring the safety and reliability of evaluations have become important concerns when running BO. To address these concerns, safe BO techniques have emerged as a promising solution (Sui et al., 2015; Turchetta et al., 2019; Kirschner et al., 2019). A representative application of safe BO can be found in robotics (Baumann et al., 2021; Berkenkamp et al., 2023) due to the concern of robot hardware damage during optimization. However, although constrained BO and safe BO share a similar spirit, the main objective in constrained BO is to achieve higher performance while safe BO puts more priority on being safe, i.e., conservative on violating the constraint and exploring infeasible design space, which will be less effective in terms of finding the optimum."
+    },
+    {
+      "text": "Neural Networks for Classification Though GPC has been used in CBO algorithms for modeling the constraints (Bachoc et al., 2020; Lindberg & Lee, 2015), they face the issue of high computational complexity in both theory and lack of supporting software packages, and require a careful choice of the GP kernel, or otherwise the resulting constraint boundaries might be too smooth and lack details. In contrast, Neural Networks (NN) have been widely used and have reached great success in classification problems with both low- and high-dimensional data with complex boundaries, including manually selected features (Swain et al., 2012) and raw data such as images (Lu & Weng, 2007), texts (Minaee et al., 2021), and graphs (Zhang et al., 2018). Despite impressive classification accuracies in supervised learning benchmarks, naive NNs are poor at quantifying predictive uncertainty (Lakshminarayanan et al., 2017; Gawlikowski et al., 2023), thus cannot be directly applied to CBO for constraint modeling. Recently, the prediction uncertainty of NNs has been studied in several approaches, including Bayesian NN (Kwon et al., 2020; Tran et al., 2019) and ensemble methods (Lakshminarayanan et al., 2017), have been proposed. Additionally, the ensemble method has shown strong promise in few-shot training (Beluch et al., 2018) where the number of training samples is small."
+    },
+    {
+      "text": "# 3. Preliminaries"
+    },
+    {
+      "text": "We are interested in efficiently optimizing black-box functions with costly evaluations and unknown constraints. Bayesian Optimization (BO) is a powerful framework for such scenario (Jones et al., 1998; Shahriari et al., 2016). In the typical setup, BO addresses the challenge of finding the global optimum of an expensive objective function $f : \\mathcal { X } \\subset \\mathbb { R } ^ { d } \\to \\mathbb { R }$ , where direct gradient information is unavailable. In addition, the total number of performed function evaluations is often limited to several dozens."
+    },
+    {
+      "text": "The optimization process begins with an initial set of $N$ evaluations $Y _ { 0 } = \\{ f ( x _ { i } ) \\} _ { i = 1 } ^ { N }$ , where $x _ { i }$ is sampled at random from the design space $\\mathcal { X }$ , to explore the function’s behavior. A surrogate model ${ \\hat { f } } ( x | Y _ { 0 } )$ , typically a Gaussian Process (GP), is then used to approximate the unknown function $f$ using existing observations $Y _ { 0 }$ . The main strength of BO lies in the strategy for selecting the subsequent evaluations by balancing exploration and exploitation. This balancing is defined with an acquisition function $q$ that guides the search by trading off between exploiting promising regions and exploring uncertain regions of the function. Popular acquisition functions include Expected Improvement (EI) (Mockus ˇ , 1975), Entropy Search (ES) (Hennig & Schuler, 2012), Predictive Entropy Search (PES) (Hernandez-Lobato et al. ´ , 2014), and Thompson Sampling (TS) (Thompson, 1933). In this work, we use EI, but the proposed method is straightforward to generalize to other acquisition functions. EI measures the expected amount of improvement over the current best value $f ^ { \\prime }$ by observing at the sampling point: $\\operatorname { E I } ( x ) = \\mathbb { E } [ \\operatorname* { m a x } \\{ 0 , { \\hat { f } } ( x | Y _ { i } ) - f ^ { \\prime } \\} ]$ . When $\\hat { f } ( \\hat { x } )$ is GP, EI has a closed-form expression (Jones et al., 1998), thus widely used in practice. Finally, the sample for next-step evaluation is selected as $x ^ { + } = \\arg \\operatorname* { m a x } _ { x } \\operatorname { E I } ( x )$ . The set of observed samples is updated as $Y _ { i + 1 } = Y _ { i } \\cup \\{ f ( x ^ { + } ) \\}$ , and $\\hat { f }$ is recomputed on $Y _ { i + 1 }$ ."
+    },
+    {
+      "text": "Another layer of complexity is added to our problem by incorporating unknown constraints. In this work, we are interested in practical applications where design samples can be feasible and infeasible. Unlike other works with constraints that are continuous functions giving a real value even for samples that do not satisfy the constraints (Eriksson & Poloczek, 2021), in our setup, it is impossible to obtain any objective value when the design is infeasible. These designs are impossible to create and evaluate. They either contradict the forces of physics or fail during the evaluation time. Hence, we model the constraints as a binary function $c : \\mathcal { X }  \\{ 0 , 1 \\}$ , where $x$ is feasible if $c ( x ) = 1$ and infeasible otherwise. Our final goal can be formalized as"
+    },
+    {
+      "text": "$$\n\\underset { x \\in \\mathcal { X } } { \\arg \\operatorname* { m i n } } f ( x ) \\quad \\mathrm { s . t . } \\quad c ( x ) = 1 ,\n$$"
+    },
+    {
+      "text": "where both $f$ and $c$ are unknown."
+    },
+    {
+      "text": "![](images/db99e21ecc4a2f2bb93ce604f77bd41aeb5d855572f7812df3d0bd508b683d8a.jpg)  \nFigure 1: Comparison of modeling constraints between Gaussian Processes (GP) and Deep Ensembles (DE) on the LSQ problem with three sets of random sample evaluations. Green dots represent feasible designs and red dots represent infeasible designs. We observe that DE tends to be more robust than GP in capturing complex boundaries. (a) Failure case of GP; (b) Successful case of GP; (c) Both GP and DE are not fitted well due to the poor sample distribution but DE is closer to the ground truth."
+    },
+    {
+      "text": "single feasible solution due to the non-convex nature of the feasible set. Hence, fitting a good surrogate model for the unknown constraints is a delicate task. Many previous works utilize GPs to approximate the constraints based on a given set of evaluations (Eriksson & Poloczek, 2021; Gelbart et al., 2014). However, since we observe that the optimal solution typically lies on the boundary between feasible and infeasible regions (see Section 4.2), having a higher-accuracy surrogate model is crucial. To the best of our knowledge, we are the first to propose the use of Deep Ensembles (DE) (Lakshminarayanan et al., 2017; Fort et al., 2019) for this purpose in Bayesian optimization. Please note the difference between ensembles previously used in Bayesian optimization that were in the context of Gaussian Process Ensembles (Wang et al., 2018) and Acquisition Functions Ensembles (Hoffman et al., 2011; Kandasamy et al., 2020)."
+    },
+    {
+      "text": "Deep Ensembles DE is composed of a set of neural networks, often multilayer perceptrons (MLPs), and can be used to model epistemic uncertainty. By training multiple independent MLPs and leveraging the diversity among them, DE enable improved accuracy and enhanced uncertainty estimation. Each MLP in the ensemble is trained on the same dataset but with different random initialization for weights. During inference, predictions from the ensemble are obtained by averaging or combining the individual model predictions. Unlike Bayesian NN, it does not require delicate hyperparameter tuning and long training."
+    },
+    {
+      "text": "# 4. Proposed Method"
+    },
+    {
+      "text": "Our proposed method implements the BO pipeline with a few modifications described below. In summary, our method consists of the following steps: We first conduct initial evaluations on a random set of samples. We then fit a GP (as outlined in Rasmussen & Williams (2005)) on the evaluated data to model the objective function. In parallel, we fit another surrogate model to approximate the constraints described in Section 4.1. To select which sample to evaluate next, we optimize an acquisition function EI (see Section 3) with a constrained optimization approach introduced in Section 4.2. Finally, we evaluate the proposed sample and iterate until we reach the budget for the number of function evaluations."
+    },
+    {
+      "text": "# 4.1. Modeling Constraints"
+    },
+    {
+      "text": "As described in Section 3, we consider the problem of representing constraints as a binary function, i.e., a classifier that predicts for each design sample whether it is feasible or infeasible. Specifically, we aim to train a classifier $C : \\mathcal { X } \\subset \\mathbb { R } ^ { d }  [ 0 , 1 ]$ that measures a probability of sample $x$ being feasible. When $C ( x ) > 0 . 5$ , sample $x$ is considered more likely to be feasible."
+    },
+    {
+      "text": "For many practical problems, it is difficult even to find a"
+    },
+    {
+      "text": "More specifically, in this work, we train $N$ identical MLPs $M _ { \\theta _ { i } }$ independently on all evaluated samples $Y _ { i }$ to model the probability of each sample being feasible or infeasible. The output of each $M _ { \\theta _ { i } }$ is a probability value between 0 and 1 at a given sample point $x$ . Our classifier $C$ is defined as a DE and takes the mean of the predicted value from $M _ { \\theta _ { i } }$ , $\\begin{array} { r } { \\mu _ { E } ( x ) = \\frac { 1 } { N } \\sum _ { i } ^ { N } M _ { \\theta _ { i } ^ { \\star } } ( x ) } \\end{array}$ , where $\\theta _ { i } ^ { \\star }$ are trained weights for each model. In addition, we can compute the variance of the prediction as $\\begin{array} { r } { \\sigma _ { E } ( x ) ^ { 2 } = \\frac { 1 } { N - 1 } \\sum _ { i } ^ { N } ( \\dot { M } _ { \\theta _ { i } ^ { \\star } } ( x ) - \\mu _ { E } ( x ) ) ^ { 2 } } \\end{array}$ . To evaluate the feasibility probability $C ( x )$ we are essentially computing $C ( x ) = \\mu _ { E } ( x )$ . See details in Appendix A.1."
+    },
+    {
+      "text": "Benefits of Deep Ensembles GP-based constraint modeling has several limitations which can be addressed by using DE. First, GPs inherently assume a degree of smoothness in the underlying function they model, as evidenced by the choice of kernel function (e.g., RBF, Matern). This smoothness assumption can lead to difficulties when trying to capture sharp boundaries or discontinuities of the constraint. Second, the kernel structure is chosen a priori and remains fixed throughout the optimization. Although parameters of the kernel can be fitted to data, the form of the kernel itself is fixed and might not be well-suited to represent complex, non-linear boundaries. This limitation is discussed in depth in the context of model selection and adaptation (Duvenaud et al., 2013). Thus, compared to GP, DE is more flexible and powerful in representing complex constraint functions (see Figure 1 and (Beluch et al., 2018) for examples). Besides, DE is also fast to train due to easy parallelization and simple architectures (see Section 5 for runtime comparisons). Please refer to Appendix D.1 for more detailed comparison between GP and DE."
+    },
+    {
+      "text": "![](images/1c4720e5f0be04c0f92faaca2b345d7ce7d6c120740d3ff892501a0a89bc899b.jpg)  \nFigure 2: Example evaluation of the LSQ synthetic benchmark problem guided by our algorithm BE-CBO. Top row illustrates the objective function, while the bottom row illustrates the classifier. In the left plot, the ground truth is shown with the boundary and optimal solution. In the second plot, the state of the surrogate is shown for both the constraint and the objective, based on the first initial 10 samples. The following three plots demonstrate the state of the surrogate models for the objective and the constraint after 50, 120, and 200 evaluations."
+    },
+    {
+      "text": "Training Deep Ensembles In practice, we find that training DE with the popular maximum likelihood estimation (e.g., using binary cross-entropy loss) as suggested by Lakshminarayanan et al. (2017) leads to poorly calibrated uncertainties and thus deteriorates the BO performance. Instead, we find training DE with variational inference, specifically, evidence lower bound (ELBO), provides better-calibrated uncertainties and improves performance by a large margin, as aligned with observations from Tomczak et al. (2018). This approach requires the model to output continuous latent values that can be transformed to probabilities using Bernoulli likelihood. Please see Appendix A.1.2 for computation details and experimental validations."
+    },
+    {
+      "text": "# 4.2. Boundary Exploration"
+    },
+    {
+      "text": "For many practical problems, there is no information about constraints, and discovering the feasible and infeasible regions of space is intertwined with the optimization process. These infeasible regions occur when the system has physical or implicit limitations not artificially imposed by the users. In such scenarios, we discover infeasible regions by pushing the limit of what is feasible as we try to optimize the designs further. This reasoning, and many examples we have seen in practice, lead us to observe that the optimum most frequently (if not always) lies on or very close to the boundary between feasible and infeasible regions."
+    },
+    {
+      "text": "To ensure exploration around the boundary, we formulate a constrained optimization problem:"
+    },
+    {
+      "text": "$$\n\\underset { x } { \\arg \\operatorname* { m a x } } q ( x ) \\quad \\mathrm { s . t . } \\quad l ( x ) \\leq C ( x ) \\leq u ( x )\n$$"
+    },
+    {
+      "text": "where $q$ is an acquisition function (see Section 3), $C$ is the classifier (Section 4.1), and $l$ and $u$ are lower and upper bound functions respectively. As discussed in Section 3, we implement EI for the acquisition function, but note that Eq. 1 is not in any way tied to the particular formulation of EI. The proposed method can easily generalize to other acquisition functions. Function $l$ determines how far into the infeasible region can we sample. By allowing the samples to be queried in the infeasible part it encourages pushing the boundary and discovering new regions. However, querying many infeasible samples is especially problematic for a small sampling budget as those samples do not return any value. Hence, we limit $l$ to remain close to the boundary, accounting for uncertainty in the prediction of the boundary, as discussed in the following paragraph. Function $u$ , however, determines how far into the feasible region we can sample. Since all feasible values return additional information for the GP modeling the objective function, we allow exploration of the entire feasible region and set $u ( x ) = 1$ (recall that the upper bound for $C$ is equal to 1 since it represents the probability). Please note that all the functions are updated in every iteration of BO to fit the new data."
+    },
+    {
+      "text": "A trivial approach to defining the lower bound around the boundary would be to set a constant value, say $l ( x ) = 0 . 4$ This bound leaves a $10 \\%$ margin on the infeasible side of the boundary to allow some space for exploration and addressing the inaccuracy of surrogate model predictions. However, in the initial iterations of BO, the surrogate models for classifier and objective function typically exhibit very high inaccuracy due to the small number of samples for fitting and nonlinear functions to approximate (see, for example, Figure 2). The accuracy can quickly increase with more samples being evaluated. Hence, the bound should also account for this change. It should be wider when the accuracy is low. We propose a dynamic bound strategy, where the exploration region around the boundary directly relates to the uncertainty of the fitted classifier. Inspired by UCB (Srinivas et al., 2010), we define the dynamic bound as:"
+    },
+    {
+      "text": "$$\nl ( x ) = 0 . 5 - \\sigma _ { E } ( x )\n$$"
+    },
+    {
+      "text": "where $\\sigma _ { E } ( x )$ is the standard deviation of the Deep Ensembles $C$ for input $x$ ."
+    },
+    {
+      "text": "With this formulation, we incorporate the uncertainty of the classifier into the selection strategy, while the uncertainty of the surrogate of the objective function is captured in the acquisition function (Mockus ˇ , 1975). We demonstrate one example of the optimization progress lead by BE-CBO over 200 evaluations in Figure 2. It qualitatively shows that accurate constraint modeling plus active boundary exploration is effective in discovering both the correct constraint boundary and the global optimum."
+    },
+    {
+      "text": "# 5. Experimental Evaluation"
+    },
+    {
+      "text": "We conduct comprehensive experiments to evaluate the performance of our methods and compare them to the relevant state-of-the-art methods on both synthetic test functions and real-world benchmark problems."
+    },
+    {
+      "text": "Algorithms We compare our algorithm to several baseline algorithms described in Section 2 that can be applied to binary constraints: CEI (Gelbart et al., 2014), SCBO (Eriksson & Poloczek, 2021), SVM-CBO (Antonio, 2021), and random search. We implement and compare CEI and SCBO in our Python codebase, built upon the BoTorch (Balandat et al., 2020) BO framework. We conduct SVM-CBO experiments using their framework. Our code will be released with a reproducibility guarantee. See more details in Appendix B.2."
+    }
+  ],
+  "url": ""
+}

@@ -1,0 +1,73 @@
+{
+  "communication.py": [
+    {
+      "class": "Communication",
+      "methods": [
+        {
+          "name": "broadcast_hidden_state",
+          "description": "Broadcasts a high similarity hidden state tensor from one GPU to all other GPUs in the multi-GPU setup, enabling all devices to access the latest feature representations necessary for asynchronous denoising. Utilizes NCCL backend for efficient communication.",
+          "inputs": [
+            {
+              "name": "state",
+              "type": "torch.Tensor",
+              "description": "The hidden state tensor (e.g., feature map or noise prediction output) that needs to be shared across multiple devices."
+            },
+            {
+              "name": "device_ids",
+              "type": "list of int",
+              "description": "List of device indices involved in the current communication, typically all device IDs participating in the inference."
+            }
+          ],
+          "outputs": [
+            {
+              "name": "None",
+              "description": "Operation has side effects in shared memory; no return value."
+            }
+          ],
+          "notes": [
+            "This function calls torch.distributed.broadcast with the 'state' tensor, broadcasting from a designated root device (e.g., device 0 or current device) to all others.",
+            "Ensures synchronization such that all devices have consistent hidden state information before proceeding.",
+            "Must be called with initialized torch.distributed communication process group."
+          ]
+        },
+        {
+          "name": "gather_hidden_states",
+          "description": "Gathers hidden states tensors from all devices involved into a list, compiling the latest features produced by each device’s component. Facilitates collective understanding of all components' hidden states across devices.",
+          "inputs": [
+            {
+              "name": "states",
+              "type": "list of torch.Tensor",
+              "description": "List of local hidden state tensors from each device, or alternatively, a single tensor on each device to be gathered."
+            }
+          ],
+          "outputs": [
+            {
+              "name": "all_states",
+              "type": "list of torch.Tensor",
+              "description": "A list containing the hidden state tensors from all devices after collective gathering operation."
+            }
+          ],
+          "notes": [
+            "Uses torch.distributed.all_gather to collect the hidden states of all devices into 'all_states'.",
+            "This operation enables each device to have access to the hidden states of other components, which might be used to update or validate features before further processing.",
+            "Requires that torch.distributed is initialized and all participating devices have synchronized tensors."
+          ]
+        }
+      ],
+      "implementation_considerations": [
+        "The tensors should be on the correct device (preferably on the current device) before broadcasting or gathering.",
+        "Prior to calling these functions, initialize torch.distributed with an appropriate backend (NCCL recommended) and ensure all processes are synchronized (using torch.distributed.barrier).",
+        "To minimize overhead, perform communication operations at strategic points (e.g., after each component's forward pass or stride step)."
+      ],
+      "miscellaneous": [
+        "Both functions should handle potential multi-GPU setups with variable number of devices, dictated by config.yaml (e.g., 'num_devices').",
+        "In development, ensure that the tensors are compatible in shape and datatype; shape consistency is crucial for correct broadcast and gather operations."
+      ]
+    }
+  ],
+  "additional_notes": [
+    "Design should ensure thread safety and avoid race conditions; consider wrapping communication calls within synchronized contexts if multithreading is used.",
+    "Efficiency: Use NCCL optimized routines, especially 'broadcast' for high throughput of high similarity features.",
+    "These primitives are invoked during the asynchronous denoising workflow implemented in async_inference.py, facilitating the exchange of high similarity feature maps (hidden states) across devices."
+  ]
+}

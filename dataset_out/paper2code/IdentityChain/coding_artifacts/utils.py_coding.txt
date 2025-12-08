@@ -1,0 +1,172 @@
+```python
+## utils.py
+import re
+import ast
+import subprocess
+import tempfile
+import os
+from typing import List, Tuple, Union, Dict, Any
+
+def replace_function_names(code_str: str, placeholder: str = 'func') -> str:
+    """
+    Replace all function names (definition and calls) in a Python code string with a placeholder.
+    Uses the `ast` module for robust parsing.
+    """
+    try:
+        tree = ast.parse(code_str)
+    except SyntaxError:
+        # If code is invalid, return as is
+        return code_str
+
+    class FuncNameReplacer(ast.NodeTransformer):
+        def __init__(self):
+            # Collect all function names
+            self.func_names = set()
+
+        def visit_FunctionDef(self, node):
+            original_name = node.name
+            self.func_names.add(original_name)
+            node.name = placeholder
+            self.generic_visit(node)
+            return node
+
+        def visit_Call(self, node):
+            # Replace function call names if they are in our collected set
+            if isinstance(node.func, ast.Name):
+                if node.func.id in self.func_names:
+                    node.func.id = placeholder
+            elif isinstance(node.func, ast.Attribute):
+                # For method calls, skip or handle if necessary
+                pass
+            self.generic_visit(node)
+            return node
+
+    replacer = FuncNameReplacer()
+    transformed_tree = replacer.visit(tree)
+    ast.fix_missing_locations(transformed_tree)
+
+    # Convert AST back to code
+    import astor
+    replaced_code = astor.to_source(transformed_tree)
+
+    # Alternatively, if astor not available, fallback to codegen or regex
+    return replaced_code
+
+def execute_code(code_str: str, test_cases: List[Any], timeout: float = 5.0) -> List[Union[str, Any]]:
+    """
+    Execute the given Python code with provided test cases.
+    Each test case is a dictionary with 'inputs' and 'expected_output'.
+    Returns a list of outputs or error messages corresponding to each test case.
+    """
+    results = []
+    for test in test_cases:
+        try:
+            # Save code to a temporary file
+            with tempfile.NamedTemporaryFile(mode='w+', suffix='.py', delete=False) as tmp_file:
+                code_file_path = tmp_file.name
+                tmp_file.write(code_str)
+                tmp_file.flush()
+
+            # Prepare command to execute the code
+            # Assuming the code defines a function `func` which takes inputs accordingly
+            # Generate a harness to run func with test inputs
+            input_args = test['inputs']
+            # Build command: python temp_file.py and pass inputs via stdin or arguments
+            # For simplicity, assume inputs are passed via stdin or set as variables
+            # Here, we'll try to execute the code with arguments
+            if isinstance(input_args, list):
+                args = [str(arg) for arg in input_args]
+            else:
+                args = [str(input_args)]
+
+            cmd = ['python', code_file_path]
+            # Run the code with input arguments
+            proc = subprocess.Popen(
+                cmd,
+                stdin=subprocess.PIPE,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                text=True
+            )
+            # Send inputs if necessary
+            stdout, stderr = proc.communicate(input=' '.join(args), timeout=timeout)
+
+            if proc.returncode != 0:
+                # Runtime or syntax error
+                results.append(stderr.strip() if stderr else 'Error: Non-zero exit')
+            else:
+                results.append(stdout.strip())
+
+            # Clean up
+            os.remove(code_file_path)
+        except subprocess.TimeoutExpired:
+            results.append('Error: Timeout')
+        except Exception as e:
+            results.append(f'Error: {str(e)}')
+            # Ensure cleanup
+            if 'code_file_path' in locals() and os.path.exists(code_file_path):
+                os.remove(code_file_path)
+    return results
+
+def generate_test_cases(problem_metadata: Dict[str, Any], count: int = 16) -> List[Dict[str, Any]]:
+    """
+    Generate synthetic test cases based on problem metadata.
+    If explicit input types are available, create diverse inputs.
+    Otherwise, generate generic ones.
+    """
+    test_cases = []
+    # For this implementation, create simple synthetic test cases
+    # that are general for numerical inputs or strings
+    for _ in range(count):
+        # Dummy example: if problem expects integers, generate random integers
+        # Here, we assume inputs are integers between 1 and 100
+        test_input = []
+        # For example purposes, we generate one or two parameters
+        # But actual implementation should parse problem metadata
+        # For illustration, generate random integers
+        import random
+        num_params = problem_metadata.get('input_params', 1)
+        params = [random.randint(1, 100) for _ in range(num_params)]
+        test_case = {'inputs': params}
+        # Expected output is unknown; in real scenario, use actual test data or rely on model's output
+        test_cases.append(test_case)
+    return test_cases
+
+def check_exact_match(str1: str, str2: str) -> bool:
+    """
+    Check if two strings are exactly equal, ignoring leading/trailing whitespace.
+    """
+    return str1.strip() == str2.strip()
+
+def detect_syntax_or_runtime_error(output: str) -> bool:
+    """
+    Simple heuristic to detect syntax or runtime errors based on output message.
+    """
+    error_indicators = ['SyntaxError', 'IndentationError', 'Error', 'Exception', 'Traceback']
+    return any(indicator in output for indicator in error_indicators)
+
+def compute_tom_score(model_outputs: List[Union[str, Any]], expected_outputs: List[Union[str, Any]]) -> float:
+    """
+    Compute Test Output Match (TOM) score: proportion of exact output matches.
+    """
+    assert len(model_outputs) == len(expected_outputs), "Outputs and expectations length mismatch"
+
+    match_count = 0
+    total = len(model_outputs)
+    for out, expected in zip(model_outputs, expected_outputs):
+        # Handle error messages
+        if isinstance(out, str) and isinstance(expected, str):
+            if detect_syntax_or_runtime_error(out) or detect_syntax_or_runtime_error(expected):
+                if check_exact_match(out, expected):
+                    match_count += 1
+            else:
+                if check_exact_match(out, expected):
+                    match_count += 1
+        else:
+            # For non-str outputs, compare directly
+            if out == expected:
+                match_count += 1
+    if total == 0:
+        return 0.0
+    return match_count / total
+```

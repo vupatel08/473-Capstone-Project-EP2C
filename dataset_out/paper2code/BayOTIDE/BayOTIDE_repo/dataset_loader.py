@@ -1,0 +1,219 @@
+## dataset_loader.py
+import os
+import numpy as np
+import pandas as pd
+import random
+
+class DatasetLoader:
+    def __init__(self, dataset_paths: dict = None, mask_ratios: list = None, seed: int = 42):
+        """
+        Initialize the DatasetLoader with dataset paths and masking ratios.
+        Args:
+            dataset_paths (dict): Dictionary with dataset name as key and file path as value.
+                Example: {'traffic': 'path/to/traffic.csv', 'solar': 'path/to/solar.csv', ...}
+            mask_ratios (list): List of float ratios (e.g., [0.5, 0.7]) for observed data masking.
+            seed (int): Random seed for reproducibility.
+        """
+        self.dataset_paths = dataset_paths if dataset_paths is not None else {}
+        self.mask_ratios = mask_ratios if mask_ratios is not None else [0.5, 0.7]
+        self.seed = seed
+        self.random_state = np.random.RandomState(seed)
+        # Placeholders for datasets
+        self.datasets = {}  # Each entry: dict with keys: 'data', 'timestamps', 'mask', 'observed_idx', 'missing_idx'
+        self._load_all_datasets()
+
+    def _load_all_datasets(self):
+        """
+        Load all datasets from provided paths.
+        Supports CSV format; extend as needed.
+        """
+        for name, path in self.dataset_paths.items():
+            data = self._load_data_from_path(path)
+            self.datasets[name] = {
+                'data': data,
+                'timestamps': np.linspace(0, 1, data.shape[1]),
+                'mask': None,
+                'observed_idx': {},
+                'missing_idx': {}
+            }
+
+    def _load_data_from_path(self, path):
+        """
+        Load data assuming CSV with shape (channels, time) or (time, channels).
+        """
+        if not os.path.exists(path):
+            raise FileNotFoundError(f"Data file not found: {path}")
+        df = pd.read_csv(path, header=None)
+        data_array = df.values
+        # Ensure shape: (channels, time)
+        if data_array.shape[0] < data_array.shape[1]:
+            data_array = data_array.T  # transpose if shape is (time, channels)
+        return data_array.astype(np.float32)
+
+    def generate_irregular_timestamps(self, num_points: int, range_start: float = 0.0, range_end: float = 1.0):
+        """
+        Generate irregular timestamps uniformly over [range_start, range_end].
+        Args:
+            num_points (int): Number of timestamps to generate.
+            range_start (float): Start of the time interval.
+            range_end (float): End of the time interval.
+        Returns:
+            np.ndarray: Array of shape (num_points,) with sorted timestamps.
+        """
+        timestamps = self.random_state.uniform(low=range_start, high=range_end, size=num_points)
+        timestamps = np.sort(timestamps)
+        return timestamps
+
+    def mask_data(self, data: np.ndarray, ratio: float):
+        """
+        Generate a mask matrix for data with the specified ratio of observed entries.
+        Args:
+            data (np.ndarray): The data array, shape (D, N).
+            ratio (float): The ratio of observed data entries (e.g., 0.5, 0.7).
+        Returns:
+            mask (np.ndarray): Binary mask matrix, shape same as data.
+            observed_idx (list): List of tuples (d, n) for observed entries.
+            missing_idx (list): List of tuples (d, n) for missing entries.
+        """
+        D, N = data.shape
+        mask = np.zeros((D, N), dtype=bool)
+        observed_idx = []
+        missing_idx = []
+
+        np.random.seed(self.seed)  # ensure reproducibility for each masking
+
+        for d in range(D):
+            for n in range(N):
+                if self.random_state.rand() < ratio:
+                    mask[d, n] = True
+                    observed_idx.append((d, n))
+                else:
+                    # missing
+                    mask[d, n] = False
+                    missing_idx.append((d, n))
+        return mask, observed_idx, missing_idx
+
+    def prepare_dataset(self, dataset_name: str, ratio: float, normalize: bool = False):
+        """
+        Prepare dataset with masking, timestamps, and optional normalization.
+        Args:
+            dataset_name (str): Name key of dataset in self.datasets.
+            ratio (float): Mask ratio for observed data.
+            normalize (bool): Whether to normalize data features.
+        """
+        if dataset_name not in self.datasets:
+            raise ValueError(f"Dataset {dataset_name} not loaded.")
+        data = self.datasets[dataset_name]['data']
+        # Generate mask
+        mask, obs_idx, miss_idx = self.mask_data(data, ratio)
+        # Optionally normalize
+        if normalize:
+            data_mean = data.mean(axis=1, keepdims=True)
+            data_std = data.std(axis=1, keepdims=True) + 1e-6
+            data = (data - data_mean) / data_std
+        # Store results
+        self.datasets[dataset_name]['masked_data'] = data
+        self.datasets[dataset_name]['mask'] = mask
+        self.datasets[dataset_name]['observed_idx'] = obs_idx
+        self.datasets[dataset_name]['missing_idx'] = miss_idx
+        # Timestamps may be real or generated
+        # For real datasets, replace with their timestamps
+        # For synthetic, generate as needed
+        # Here, for generality, we keep original or generate if absent
+
+    def get_batch(self, dataset_name: str, batch_size: int = 32):
+        """
+        Retrieve a batch of data for training/evaluation.
+        Randomly sample from observed data.
+        Returns:
+            batch_data: np.ndarray of shape (D, batch_size)
+            batch_mask: np.ndarray of shape (D, batch_size)
+            batch_timestamps: np.ndarray of shape (batch_size,)
+        """
+        if dataset_name not in self.datasets:
+            raise ValueError(f"Dataset {dataset_name} not found.")
+        data = self.datasets[dataset_name]['masked_data']
+        mask = self.datasets[dataset_name]['mask']
+        timestamps = self.datasets[dataset_name]['timestamps']
+
+        D, N = data.shape
+        # Sample indices from observed entries
+        obs_idx = self.datasets[dataset_name]['observed_idx']
+        selected_indices = self.random_state.choice(len(obs_idx), size=min(batch_size, len(obs_idx)), replace=False)
+        batch_data = np.zeros((D, len(selected_indices)), dtype=np.float32)
+        batch_mask = np.zeros_like(batch_data, dtype=bool)
+        batch_timestamps = np.zeros(len(selected_indices), dtype=np.float32)
+
+        for i, idx in enumerate(selected_indices):
+            d, n = obs_idx[idx]
+            batch_data[d, i] = data[d, n]
+            batch_mask[d, i] = True
+            batch_timestamps[i] = timestamps[n]
+
+        return batch_data, batch_mask, batch_timestamps
+
+    def get_full_data(self, dataset_name: str):
+        """
+        Return full data, mask, timestamps for the dataset.
+        """
+        if dataset_name not in self.datasets:
+            raise ValueError(f"Dataset {dataset_name} not found.")
+        return (self.datasets[dataset_name]['masked_data'],
+                self.datasets[dataset_name]['mask'],
+                self.datasets[dataset_name]['timestamps'])
+
+    def generate_synthetic_time_series(self, pattern_params: dict, total_points: int = 2000):
+        """
+        Generate synthetic multivariate time series based on given pattern parameters.
+        Args:
+            pattern_params (dict): contains 'U' matrix and 'V' function parameters.
+            total_points (int): number of data points.
+        Returns:
+            data (np.ndarray): shape (D, total_points)
+            timestamps (np.ndarray): shape (total_points,)
+        """
+        U = pattern_params.get('U')
+        V_params = pattern_params.get('V_params')
+        # Generate timestamps uniformly over [0, 1]
+        timestamps = self.generate_irregular_timestamps(total_points, 0.0, 1.0)
+        # Generate V(t) based on pattern (e.g., sinusoids, polynomials)
+        V_t = self._generate_V(timestamps, V_params)
+        data = U @ V_t  # shape (D, total_points)
+        return data, timestamps
+
+    def _generate_V(self, t: np.ndarray, V_params: dict):
+        """
+        Generate temporal factors V(t) based on pattern parameters.
+        Supports sinusoids and polynomial trends.
+        """
+        # For example, for sinusoidal pattern
+        trend_factors = []
+        seasonal_factors = []
+        # Trend: polynomial or smooth trend
+        if 'trend' in V_params:
+            order = V_params['trend'].get('order', 1)
+            if order == 1:
+                trend_vals = V_params['trend'].get('slope', 0) * t
+            elif order == 2:
+                trend_vals = V_params['trend'].get('slope', 0) * t + V_params['trend'].get('intercept', 0)
+            else:
+                trend_vals = np.zeros_like(t)
+            trend_factors = np.tile(trend_vals, (V_params.get('D_r',1), 1))
+        else:
+            trend_factors = np.zeros((V_params.get('D_r',1), len(t)))
+
+        # Seasonality: sinusoids
+        if 'season' in V_params:
+            for freq in V_params['season'].get('frequencies', [1.0]):
+                sine = np.sin(2 * np.pi * freq * t)
+                cosine = np.cos(2 * np.pi * freq * t)
+                seasonal_factors.extend([sine, cosine])
+        if seasonal_factors:
+            seasonal_array = np.vstack(seasonal_factors[:V_params['D_s']])
+        else:
+            seasonal_array = np.zeros((V_params.get('D_s',0), len(t)))
+
+        # Stack trend and seasonality
+        V = np.vstack([trend_factors, seasonal_array])
+        return V.astype(np.float32)
+

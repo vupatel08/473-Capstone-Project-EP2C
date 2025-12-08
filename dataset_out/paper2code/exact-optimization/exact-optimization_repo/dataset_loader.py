@@ -1,0 +1,135 @@
+# dataset_loader.py
+
+import os
+import json
+import csv
+import random
+from typing import List, Tuple, Optional
+
+class DatasetLoader:
+    """
+    Handles loading preference pairs and prompts for training and evaluation.
+    Supports both synthetic/preference data formats and prompt-only datasets.
+    """
+
+    def __init__(self, dataset_path: str):
+        """
+        Initializes the DatasetLoader by loading preference pairs and prompts.
+        Args:
+            dataset_path (str): Directory or file prefix containing datasets.
+                Expected to contain preference pairs and prompts files.
+        """
+        self.dataset_path = dataset_path
+        self.preference_pairs: List[Tuple[str, str, str]] = []  # (prompt, response_winner, response_loser)
+        self.prompts: List[str] = []
+
+        # Load datasets
+        self._load_preference_pairs()
+        self._load_prompts()
+
+    def _load_preference_pairs(self):
+        """
+        Loads preference pair data from a JSON or CSV file.
+        The dataset should be structured as a list of samples:
+        For JSON:
+            [{"prompt": "...", "response_a": "...", "response_b": "...", "prefer": 1}, ...]
+        For CSV:
+            prompt,response_a,response_b,prefer
+        """
+        # Possible files
+        json_path = os.path.join(self.dataset_path, "preference_pairs.json")
+        csv_path = os.path.join(self.dataset_path, "preference_pairs.csv")
+
+        if os.path.isfile(json_path):
+            self.preference_pairs = self._load_from_json(json_path)
+        elif os.path.isfile(csv_path):
+            self.preference_pairs = self._load_from_csv(csv_path)
+        else:
+            # If no dataset found, issue warning and leave list empty
+            print(f"Warning: Preference dataset not found in {self.dataset_path}")
+            self.preference_pairs = []
+
+    def _load_from_json(self, path: str) -> List[Tuple[str, str, str]]:
+        """
+        Loads preference pairs from a JSON file.
+        """
+        data = []
+        with open(path, "r", encoding="utf-8") as f:
+            samples = json.load(f)
+            for sample in samples:
+                prompt = sample.get("prompt", "").strip()
+                response_a = sample.get("response_a", "").strip()
+                response_b = sample.get("response_b", "").strip()
+                prefer = sample.get("prefer", 0)  # 1 if response_a preferred, 2 if response_b preferred
+                if prompt and response_a and response_b and prefer in [1, 2]:
+                    # Convert preference to binary label: 1 if response_a preferred, 0 if response_b preferred
+                    label = 1 if prefer == 1 else 0
+                    # Store as (prompt, response_winner, response_loser)
+                    if label == 1:
+                        data.append((prompt, response_a, response_b))
+                    else:
+                        data.append((prompt, response_b, response_a))
+        return data
+
+    def _load_from_csv(self, path: str) -> List[Tuple[str, str, str]]:
+        """
+        Loads preference pairs from a CSV file.
+        Each line: prompt,response_a,response_b,prefer
+        """
+        data = []
+        with open(path, "r", encoding="utf-8") as f:
+            reader = csv.DictReader(f)
+            for row in reader:
+                prompt = row.get("prompt", "").strip()
+                response_a = row.get("response_a", "").strip()
+                response_b = row.get("response_b", "").strip()
+                prefer_col = row.get("prefer", "").strip()
+                if prompt and response_a and response_b and prefer_col:
+                    prefer = int(prefer_col)
+                    if prefer in [1, 2]:
+                        label = 1 if prefer == 1 else 0
+                        if label == 1:
+                            data.append((prompt, response_a, response_b))
+                        else:
+                            data.append((prompt, response_b, response_a))
+        return data
+
+    def load_prompts(self, prompts_file: Optional[str] = None):
+        """
+        Loads prompts for evaluation from a text file.
+        Args:
+            prompts_file (str): Path to prompts file; defaults to 'prompts.txt' inside dataset_path.
+        """
+        if prompts_file is None:
+            prompts_file = os.path.join(self.dataset_path, "prompts.txt")
+        if os.path.isfile(prompts_file):
+            with open(prompts_file, "r", encoding="utf-8") as f:
+                self.prompts = [line.strip() for line in f if line.strip()]
+        else:
+            print(f"Warning: Prompts file not found at {prompts_file}")
+            self.prompts = []
+
+    def get_preference_batch(self, batch_size: int) -> Tuple[List[str], List[str], List[str], List[int]]:
+        """
+        Samples a batch of preference pairs for training.
+        Returns:
+            prompts: List of prompts
+            responses_a: List of responses corresponding to response_winner
+            responses_b: List of responses corresponding to response_loser
+            labels: List[int], 1 if response_a preferred, 0 if response_b preferred
+        """
+        batch = random.choices(self.preference_pairs, k=batch_size)
+        prompts, responses_a, responses_b, labels = [], [], [], []
+        for prompt, resp_winner, resp_loser in batch:
+            prompts.append(prompt)
+            responses_a.append(resp_winner)
+            responses_b.append(resp_loser)
+            # Label: 1 if resp_winner was response_a, else 0
+            labels.append(1)
+        return prompts, responses_a, responses_b, labels
+
+    def get_prompts(self) -> List[str]:
+        """
+        Returns the list of loaded prompts for evaluation.
+        """
+        return self.prompts

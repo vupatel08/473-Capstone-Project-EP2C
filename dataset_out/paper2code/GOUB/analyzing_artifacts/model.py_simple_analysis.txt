@@ -1,0 +1,82 @@
+{
+  "file": "model.py",
+  "purpose": "Define the core neural network component for score (noise) prediction, specifically a U-Net style architecture aligned with the paper's description for the diffusion model. This network takes corrupted image inputs, conditioned on low-quality images (\(\mathbf{x}_T\)), and the current timestep, outputting a prediction of the scaled noise (\(\epsilon_\theta\)).",
+  "core_components": [
+    {
+      "name": "Input layers",
+      "details": "Accept input image \(\mathbf{x}_t\) of size (batch, channels, height, width), conditioning image \(\mathbf{x}_T\) of same spatial size, and a scalar timestep \(t\) (or embedded version)."
+    },
+    {
+      "name": "Timestep embedding",
+      "details": "Convert the scalar tide \(t\) into a continuous embedding (e.g., sinusoidal or learned embedding). This embedding is input to the network to condition the predictions on the current diffusion step, following standard practice in diffusion models."
+    },
+    {
+      "name": "Encoder (downsampling stages)",
+      "details": "Progressively downsample the concatenated inputs via Conv + Activation layers (e.g., ReLU or LeakyReLU). Each stage extracts multi-scale features. No group normalization as specified. Since no self-attention is used, only convolutional blocks."
+    },
+    {
+      "name": "Bottleneck",
+      "details": "Central layer(s) that process the most compressed representation. Consists of convolutional layers with activation, potentially with residual connections."
+    },
+    {
+      "name": "Decoder (upsampling stages)",
+      "details": "Upsample features back to original resolution via ConvTranspose or interpolation + conv, concatenated with features from the encoder (skip connections). This preserves spatial details. No self-attention layers needed."
+    },
+    {
+      "name": "No normalization layers",
+      "details": "Avoid normalization layers like BatchNorm, GroupNorm, to match the paper’s architecture."
+    },
+    {
+      "name": "Output layer",
+      "details": "Final 1x1 convolution to map features back to a single channel (for grayscale) or three channels (for RGB). The output is \(\hat{\epsilon}_\theta(\mathbf{x}_t, \mathbf{x}_T, t)\), an estimate of the noise scaled prediction."
+    }
+  ],
+  "design considerations": [
+    {
+      "no_group_norm": "Omit group normalization layers entirely, as per the configuration and paper’s note for architecture simplicity."
+    },
+    {
+      "no_self_attention": "Do not incorporate self-attention modules to match the specified architecture."
+    },
+    {
+      "conditioning": "Concatenate or combine \(\mathbf{x}_T\) with the input \(\mathbf{x}_t\) early in the network, possibly by concatenation along the channel dimension, or via a separate embedding pathway.
+    },
+    {
+      "timestep_embedding": "Implement sinusoidal or learned positional embeddings for the timestep \(t\). Inject this embedding into each layer via addition or concatenation, ensuring the model’s prediction depends on \(t\)."
+    }
+  ],
+  "training considerations": [
+    {
+      "loss": "Use L1 loss between the predicted \(\hat{\epsilon}_\theta(\mathbf{x}_t, \mathbf{x}_T, t)\) and the true scaled noise (Section 3.2). This guides the model to accurately predict the noise residual."
+    },
+    {
+      "input normalization": "Input images should be scaled to \([-1, 1]\) or \([0, 1]\). The same applies for \(\mathbf{x}_T\)—ensure conditioning input is accessible."
+    }
+  ],
+  "implementation notes": [
+    {
+      "initialization": "Use standard weight initialization (e.g., Xavier or Kaiming)."
+    },
+    {
+      "activation": "LeakyReLU or ReLU activations, avoiding normalization layers."
+    },
+    {
+      "channels": "Base channels as per configuration (e.g., 64). Increase channels in deeper layers appropriately."
+    },
+    {
+      "skip_connections": "Add skip connections between encoder and decoder at each scale, following U-Net paradigm."
+    },
+    {
+      "model output": "Return the \(\hat{\epsilon}_\theta\) tensor matching the shape of the input images."
+    }
+  ],
+  "validation": [
+    {
+      "unit test": "Create a dummy input tensor with shape (batch, channels, H, W), a conditioning tensor, and a timestep scalar. Pass through the network and verify output shape matches input shape."
+    },
+    {
+      "integration": "Ensure the network can process the combined input and produce a meaningful tensor suitable for ELBO loss calculation."
+    }
+  ],
+  "summary": "Design a no-norm/self-attention U-Net backbone that takes the current noisy image and the conditioned low-quality/target image, along with timestep embedding, to output an epsilon residual for the diffusion training objective. The architecture should be modular, with clear encoder and decoder blocks, skip connections, and proper timestep embedding injection, fully aligning with the described approach and task constraints."
+}

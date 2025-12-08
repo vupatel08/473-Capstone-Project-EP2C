@@ -1,0 +1,137 @@
+```python
+## constraint_classifier.py
+import torch
+import torch.nn as nn
+import torch.optim as optim
+import numpy as np
+from typing import List
+
+# A simple neural network architecture class
+class MLP(nn.Module):
+    def __init__(self, input_dim: int, hidden_layers: int, neurons_per_layer: int):
+        super().__init__()
+        layers = []
+        in_dim = input_dim
+        for _ in range(hidden_layers):
+            layers.append(nn.Linear(in_dim, neurons_per_layer))
+            layers.append(nn.ReLU())
+            in_dim = neurons_per_layer
+        # Final output layer: single neuron (logits)
+        layers.append(nn.Linear(in_dim, 1))
+        self.net = nn.Sequential(*layers)
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        return self.net(x).squeeze(-1)  # shape: (batch_size,)
+
+class NeuralEnsembleConstraintClassifier:
+    def __init__(self,
+                 input_dim: int,
+                 ensemble_size: int = 5,
+                 hidden_layers: int = 2,
+                 neurons_per_layer: int = 64,
+                 learning_rate: float = 0.001,
+                 epochs: int = 50,
+                 batch_size: int = 32,
+                 device: torch.device = torch.device("cpu")):
+        """
+        Initialize the ensemble of neural network classifiers.
+        """
+        self.input_dim = input_dim
+        self.ensemble_size = ensemble_size
+        self.hidden_layers = hidden_layers
+        self.neurons_per_layer = neurons_per_layer
+        self.learning_rate = learning_rate
+        self.epochs = epochs
+        self.batch_size = batch_size
+        self.device = device
+
+        # Create ensemble models independently
+        self.models: List[nn.Module] = [
+            MLP(self.input_dim, self.hidden_layers, self.neurons_per_layer).to(self.device)
+            for _ in range(self.ensemble_size)
+        ]
+
+        # Optimizers for each model
+        self.optimizers: List[optim.Optimizer] = [
+            optim.Adam(model.parameters(), lr=self.learning_rate) for model in self.models
+        ]
+
+        # Loss function: binary cross entropy with logits (numerically stable)
+        self.criterion = nn.BCEWithLogitsLoss()
+
+    def train(self, X: np.ndarray, y: np.ndarray):
+        """
+        Train each ensemble member independently using provided data.
+        Args:
+            X: numpy array, shape (num_samples, input_dim)
+            y: binary labels (0 or 1), shape (num_samples,)
+        """
+        X_tensor = torch.tensor(X, dtype=torch.float32).to(self.device)
+        y_tensor = torch.tensor(y, dtype=torch.float32).to(self.device)
+
+        dataset = torch.utils.data.TensorDataset(X_tensor, y_tensor)
+        dataloader = torch.utils.data.DataLoader(dataset, batch_size=self.batch_size, shuffle=True)
+
+        for model, optimizer in zip(self.models, self.optimizers):
+            model.train()
+            for epoch in range(self.epochs):
+                for batch_X, batch_y in dataloader:
+                    optimizer.zero_grad()
+                    logits = model(batch_X)
+                    loss = self.criterion(logits, batch_y)
+                    loss.backward()
+                    optimizer.step()
+
+    def predict_proba(self, X: np.ndarray) -> np.ndarray:
+        """
+        Predict mean probability of feasibility over the ensemble for input X.
+        Args:
+            X: numpy array, shape (num_samples, input_dim)
+        Returns:
+            probs: numpy array, shape (num_samples,)
+        """
+        X_tensor = torch.tensor(X, dtype=torch.float32).to(self.device)
+        probs_list = []
+
+        with torch.no_grad():
+            for model in self.models:
+                model.eval()
+                logits = model(X_tensor)
+                probs = torch.sigmoid(logits)
+                probs_list.append(probs.cpu().numpy())
+
+        probs_array = np.stack(probs_list, axis=0)  # shape: (ensemble_size, num_samples)
+        mean_probs = probs_array.mean(axis=0)     # shape: (num_samples,)
+        return mean_probs
+
+    def predict_uncertainty(self, X: np.ndarray) -> np.ndarray:
+        """
+        Compute the ensemble predictive standard deviation (uncertainty) at points X.
+        Args:
+            X: numpy array, shape (num_samples, input_dim)
+        Returns:
+            sigma: numpy array, shape (num_samples,)
+        """
+        X_tensor = torch.tensor(X, dtype=torch.float32).to(self.device)
+        probs_list = []
+
+        with torch.no_grad():
+            for model in self.models:
+                model.eval()
+                logits = model(X_tensor)
+                probs = torch.sigmoid(logits)
+                probs_list.append(probs.cpu().numpy())
+
+        probs_array = np.stack(probs_list, axis=0)  # shape: (ensemble_size, num_samples)
+        mean_probs = probs_array.mean(axis=0)
+        # Compute variance
+        var = np.var(probs_array, axis=0, ddof=1)  # sample variance
+        sigma = np.sqrt(var)
+        return sigma
+
+    def train_from_dataset(self, X: np.ndarray, labels: np.ndarray):
+        """
+        Convenient method to retrain the ensemble on new dataset.
+        """
+        self.train(X, labels)
+```

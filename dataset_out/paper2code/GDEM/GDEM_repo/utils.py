@@ -1,0 +1,136 @@
+## utils.py
+import torch
+import torch.nn.functional as F
+import numpy as np
+from scipy.linalg import qr
+from numpy.typing import ArrayLike
+
+def normalize_features(features: torch.Tensor) -> torch.Tensor:
+    """
+    Normalize node features row-wise to have unit Euclidean norm.
+
+    Args:
+        features (torch.Tensor): tensor of shape (N, d)
+
+    Returns:
+        torch.Tensor: normalized features of shape (N, d)
+    """
+    # Use torch.nn.functional.normalize for robust row-wise normalization
+    normalized_features = F.normalize(features, p=2, dim=1, eps=1e-8)
+    return normalized_features
+
+def project_onto_stiefel(matrix: torch.Tensor) -> torch.Tensor:
+    """
+    Projects a matrix onto the Stiefel manifold (orthogonal basis),
+    ensuring U^T U = I via QR decomposition.
+
+    Args:
+        matrix (torch.Tensor): shape (N, K)
+
+    Returns:
+        torch.Tensor: orthogonal basis (N, K)
+    """
+    # QR decomposition for orthogonalization
+    Q, _ = torch.linalg.qr(matrix, mode='reduced')
+    return Q
+
+def compute_spectrum(adj_matrix: torch.Tensor, K: int) -> (torch.Tensor, torch.Tensor):
+    """
+    Compute the eigenvalues and eigenvectors of the normalized Laplacian
+    of the given adjacency matrix, for the smallest K eigenvalues.
+
+    Args:
+        adj_matrix (torch.Tensor or scipy sparse matrix): adjacency matrix (N, N)
+        K (int): number of eigenvectors/eigenvalues to compute
+
+    Returns:
+        eigenvalues (torch.Tensor): shape (K,), sorted ascending
+        eigenvectors (torch.Tensor): shape (N, K)
+    """
+    import scipy.sparse.linalg as lg
+    from scipy.sparse import csr_matrix
+
+    # Convert to csr_matrix if needed
+    if not isinstance(adj_matrix, csr_matrix):
+        adj_matrix = csr_matrix(adj_matrix.cpu().numpy())
+
+    # Compute degree
+    degrees = np.array(adj_matrix.sum(axis=1)).flatten()
+    # Avoid division by zero
+    degrees[degrees == 0] = 1.0
+    # Compute D^{-1/2}
+    d_inv_sqrt = 1.0 / np.sqrt(degrees)
+    D_inv_sqrt = csr_matrix(np.diag(d_inv_sqrt))
+
+    # Normalized Laplacian: L = I - D^{-1/2} * A * D^{-1/2}
+    normalized_adj = D_inv_sqrt @ adj_matrix @ D_inv_sqrt
+    laplacian = csr_matrix(np.identity(adj_matrix.shape[0])) - normalized_adj
+
+    k = K
+    if k >= laplacian.shape[0]:
+        # For small graphs, full eigen-decomposition
+        eigvals, eigvecs = np.linalg.eigh(laplacian.toarray())
+        # Select the smallest K eigenvalues and vectors
+        eigvals = eigvals[:K]
+        eigvecs = eigvecs[:, :K]
+    else:
+        # For large graphs, compute smallest K eigenvalues/eigenvectors
+        eigvals, eigvecs = lg.eigsh(laplacian, k=K, which='SM', tol=1e-3)
+
+    # Convert to torch tensors
+    eigenvalues = torch.tensor(eigvals, dtype=torch.float32)
+    eigenvectors = torch.tensor(eigvecs, dtype=torch.float32)
+    # Ensure eigenvalues sorted ascending
+    sorted_idx = torch.argsort(eigenvalues)
+    eigenvalues = eigenvalues[sorted_idx]
+    eigenvectors = eigenvectors[:, sorted_idx]
+    return eigenvalues, eigenvectors
+
+def compute_graph_tv(features: torch.Tensor, laplacian: torch.Tensor) -> float:
+    """
+    Compute the total variation (TV) of features over the graph.
+    TV = trace(X^T L X) = sum_{(i,j) in E} (X_i - X_j)^2
+
+    Args:
+        features (torch.Tensor): shape (N, d)
+        laplacian (torch.Tensor): shape (N, N)
+
+    Returns:
+        float: TV value
+    """
+    # Ensure tensors are on CPU for numpy operations if needed
+    # For torch, compute directly
+    if features.device != laplacian.device:
+        features = features.to(laplacian.device)
+
+    # Compute trace of quadratic form
+    tv_value = torch.trace(features.t() @ laplacian @ features).item()
+    return tv_value
+
+def plot_spectrum_comparison(real_eigenvalues: torch.Tensor,
+                             synthetic_eigenvalues: torch.Tensor,
+                             metrics: dict):
+    """
+    Plot the spectra (eigenvalues) of real and synthetic graphs for comparison.
+    Plot histograms and annotate with spectral metrics like TV.
+
+    Args:
+        real_eigenvalues (torch.Tensor): eigenvalues of real graph
+        synthetic_eigenvalues (torch.Tensor): eigenvalues of synthetic graph
+        metrics (dict): Dictionary of spectral metrics to annotate, e.g., {'TV': value}
+    """
+    import matplotlib.pyplot as plt
+
+    plt.figure(figsize=(8, 4))
+    plt.hist(real_eigenvalues.cpu().numpy(), bins=30, alpha=0.5, label='Real Spectrum')
+    plt.hist(synthetic_eigenvalues.cpu().numpy(), bins=30, alpha=0.5, label='Synthetic Spectrum')
+    plt.xlabel('Eigenvalue')
+    plt.ylabel('Frequency')
+    plt.title('Eigenvalue Spectrum Comparison')
+    plt.legend()
+    # Annotate metrics if provided
+    if metrics:
+        text_str = '\n'.join([f'{k}: {v:.4f}' for k, v in metrics.items()])
+        plt.gca().annotate(text_str, xy=(0.7, 0.8), xycoords='axes fraction', fontsize=10, bbox=dict(boxstyle="round,pad=0.3", fc="white", ec="gray", alpha=0.5))
+    plt.tight_layout()
+    plt.show()

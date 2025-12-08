@@ -1,0 +1,256 @@
+## dataset_loader.py
+import os
+import random
+import glob
+from typing import List, Dict, Optional
+
+import torch
+from torch.utils.data import Dataset, DataLoader
+from torchvision.transforms import functional as TF
+from PIL import Image
+
+class SRDataset(Dataset):
+    """
+    Super-resolution dataset for paired HR and LR images.
+    Loads images, applies synchronised augmentation, and outputs pairs.
+    """
+    def __init__(
+        self,
+        hr_image_paths: List[str],
+        crop_size: int = 64,
+        upscale_factor: int = 2,
+        augment_flip: bool = True,
+        augment_rotation_angles: Optional[List[int]] = None,
+        is_train: bool = True
+    ):
+        """
+        Args:
+            hr_image_paths (List[str]): List of file paths to HR images.
+            crop_size (int): Size of cropped patches for training.
+            upscale_factor (int): Degrees of downsampling (e.g., 2 or 4).
+            augment_flip (bool): Whether to apply horizontal flip augmentation.
+            augment_rotation_angles (Optional[List[int]]): list of allowed rotation angles.
+            is_train (bool): Flag indicating train (True) or test (False).
+        """
+        self.hr_image_paths = hr_image_paths
+        self.crop_size = crop_size
+        self.upscale_factor = upscale_factor
+        self.augment_flip = augment_flip
+        self.augment_rotation_angles = augment_rotation_angles
+        self.is_train = is_train
+
+    def __len__(self):
+        return len(self.hr_image_paths)
+
+    def __getitem__(self, index):
+        hr_path = self.hr_image_paths[index]
+        hr_image = Image.open(hr_path).convert('RGB')  # Ensure RGB
+
+        # Generate LR image via bicubic downsampling
+        lr_image = self._get_lr_image(hr_image, self.upscale_factor)
+
+        # Convert images to tensors
+        hr_tensor = TF.to_tensor(hr_image)
+        lr_tensor = TF.to_tensor(lr_image)
+
+        # During training, apply augmentation
+        if self.is_train:
+            hr_tensor, lr_tensor = self._augment(hr_tensor, lr_tensor)
+        else:
+            # For evaluation, no augmentation, only center crop if needed
+            pass
+
+        return {
+            'HR': hr_tensor,
+            'LR': lr_tensor
+        }
+
+    def _get_lr_image(self, hr_img: Image.Image, scale: int) -> Image.Image:
+        """
+        Downsample the HR image to create LR image with bicubic interpolation.
+        """
+        W, H = hr_img.size
+        new_W, new_H = W // scale, H // scale
+        lr_img = hr_img.resize((new_W, new_H), Image.BICUBIC)
+        return lr_img
+
+    def _augment(self, hr_tensor: torch.Tensor, lr_tensor: torch.Tensor):
+        """
+        Apply the same random crop, rotation, flip to HR and LR tensors.
+        """
+        # Convert tensors back to PIL for augmentation
+        hr_img = TF.to_pil_image(hr_tensor)
+        lr_img = TF.to_pil_image(lr_tensor)
+
+        # 1. Random crop
+        hr_crop, lr_crop = self._random_crop_pair(hr_img, lr_img, self.crop_size, self.upscale_factor)
+
+        # 2. Random rotation
+        if self.augment_rotation_angles:
+            angle = random.choice(self.augment_rotation_angles)
+            hr_crop = hr_crop.rotate(angle)
+            lr_crop = lr_crop.rotate(angle)
+
+        # 3. Random flip
+        if self.augment_flip:
+            if random.random() < 0.5:
+                hr_crop = hr_crop.transpose(Image.FLIP_LEFT_RIGHT)
+                lr_crop = lr_crop.transpose(Image.FLIP_LEFT_RIGHT)
+
+        # Convert back to tensors
+        hr_tensor_aug = TF.to_tensor(hr_crop)
+        lr_tensor_aug = TF.to_tensor(lr_crop)
+
+        return hr_tensor_aug, lr_tensor_aug
+
+    def _random_crop_pair(self, hr_img: Image.Image, lr_img: Image.Image, crop_size: int, scale: int):
+        """
+        Randomly crop HR and LR image pair with size crop_size and crop_size/scale.
+        Ensures the patches correspond spatially.
+        """
+        W_hr, H_hr = hr_img.size
+        crop_size_lr = crop_size // scale
+
+        if W_hr < crop_size or H_hr < crop_size:
+            raise ValueError("HR image size is smaller than crop size.")
+        if W_hr < crop_size or H_hr < crop_size:
+            raise ValueError("HR image size is smaller than crop size.")
+
+        # Choose random top-left coordinate for HR crop
+        top = random.randint(0, H_hr - crop_size)
+        left = random.randint(0, W_hr - crop_size)
+
+        # Corresponding LR crop
+        top_lr = top // scale
+        left_lr = left // scale
+
+        hr_crop = hr_img.crop((left, top, left + crop_size, top + crop_size))
+        lr_crop = lr_img.crop((left_lr, top_lr, left_lr + crop_size_lr, top_lr + crop_size_lr))
+
+        return hr_crop, lr_crop
+
+
+class DatasetLoader:
+    """
+    Handles loading dataset splits and creating DataLoaders.
+    """
+    def __init__(self, dataset_paths: Dict[str, str], batch_size: int = 16):
+        """
+        Args:
+            dataset_paths (Dict[str, str]): Mapping dataset names to root directories.
+            batch_size (int): Batch size for DataLoader.
+        """
+        self.dataset_paths = dataset_paths
+        self.batch_size = batch_size
+
+        # For simplicity, hold datasets for train and test
+        self.train_dataset = None
+        self.test_datasets = {}
+
+    def load_train_datasets(self):
+        """
+        Load training datasets (e.g., DIV2K, Flick2K) with augmentation enabled.
+        """
+        train_list = []
+        for name, path in self.dataset_paths.items():
+            if name.lower() in ['div2k', 'flickr2k', 'flickr2k-y', 'div2k-train']:
+                image_paths = self._get_image_paths(path)
+                train_list.extend(image_paths)
+        self.train_dataset = SRDataset(
+            hr_image_paths=train_list,
+            crop_size=64,
+            upscale_factor=2,
+            augment_flip=True,
+            augment_rotation_angles=[90, 180, 270],
+            is_train=True
+        )
+
+    def load_test_datasets(self):
+        """
+        Load test datasets without augmentation.
+        """
+        for name, path in self.dataset_paths.items():
+            if name.upper() in ['SET5', 'B100', 'URBAN100', 'MANGA109']:
+                image_paths = self._get_image_paths(path)
+                self.test_datasets[name] = image_paths
+
+    def get_train_loader(self):
+        """
+        Return DataLoader for training.
+        """
+        if self.train_dataset is None:
+            self.load_train_datasets()
+        return DataLoader(
+            self.train_dataset,
+            batch_size=self.batch_size,
+            shuffle=True,
+            num_workers=4,
+            pin_memory=True
+        )
+
+    def get_test_loader(self, dataset_name: str):
+        """
+        Return DataLoader for specified test dataset.
+        """
+        if dataset_name not in self.test_datasets:
+            raise ValueError(f"Test dataset {dataset_name} not loaded.")
+        dataset = SRTestDataset(self.test_datasets[dataset_name])
+        return DataLoader(
+            dataset,
+            batch_size=self.batch_size,
+            shuffle=False,
+            num_workers=4,
+            pin_memory=True
+        )
+
+    def _get_image_paths(self, root_path: str) -> List[str]:
+        """
+        Retrieve list of image file paths from a directory.
+        """
+        valid_extensions = ['.png', '.jpg', '.jpeg', '.bmp', '.tif']
+        image_files = []
+        for ext in valid_extensions:
+            image_files.extend(glob.glob(os.path.join(root_path, '**', '*' + ext), recursive=True))
+        return image_files
+
+class SRTestDataset(Dataset):
+    """
+    Dataset for test images (no augmentation).
+    Loads full images, applies bicubic downsampling for LR.
+    """
+    def __init__(self, image_paths: List[str], upscale_factor: int=2):
+        self.image_paths = image_paths
+        self.upscale_factor = upscale_factor
+
+    def __len__(self):
+        return len(self.image_paths)
+
+    def __getitem__(self, index):
+        hr_path = self.image_paths[index]
+        hr_image = Image.open(hr_path).convert('RGB')
+        W, H = hr_image.size
+
+        # To match training, take center crop of expected size or full image
+        # Here, for evaluation, we will just resize/convene as whole image
+        # Alternatively, you can crop or resize to fixed size as needed
+        # For simplicity, use entire image, assuming the test images are suitable size
+        # if desired, you can add center crop or resize here for consistent sizes
+
+        lr_image = self._get_lr_image(hr_image, self.upscale_factor)
+
+        hr_tensor = TF.to_tensor(hr_image)
+        lr_tensor = TF.to_tensor(lr_image)
+
+        return {
+            'HR': hr_tensor,
+            'LR': lr_tensor
+        }
+
+    def _get_lr_image(self, hr_img: Image.Image, scale: int) -> Image.Image:
+        """
+        Downsample HR image via bicubic interpolation.
+        """
+        W, H = hr_img.size
+        new_W, new_H = W // scale, H // scale
+        lr_img = hr_img.resize((new_W, new_H), Image.BICUBIC)
+        return lr_img

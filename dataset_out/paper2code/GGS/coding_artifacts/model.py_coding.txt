@@ -1,0 +1,237 @@
+```python
+## model.py
+import torch
+import torch.nn as nn
+import torch.nn.functional as F
+import numpy as np
+
+from typing import List, Dict, Union
+
+class SequenceFitnessPredictor:
+    """
+    A flexible neural network model for predicting protein sequence fitness.
+    Supports CNN and Transformer architectures, with methods for training,
+    inference, and gradient computation w.r.t. input sequences.
+    """
+
+    def __init__(self, config: Dict):
+        """
+        Initialize the model based on configuration parameters.
+        Args:
+            config (Dict): Dictionary containing model hyperparameters.
+                Expected keys:
+                    - 'architecture' : str, e.g., 'cnn' or 'transformer'
+                    - 'sequence_length' : int, length of sequences
+                    - 'vocab_size' : int, number of amino acids (default 20)
+                    - 'embedding_dim' : int, used for transformer or embedding layer (optional)
+                    - 'dropout_rate' : float, dropout probability
+                    - 'hidden_dim' : int, hidden layer size for CNN
+        """
+        self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+        self.architecture = config.get('architecture', 'cnn').lower()
+        self.sequence_length = config.get('sequence_length', 236)
+        self.vocab_size = 20  # fixed for amino acids unless extension needed
+        self.embedding_dim = config.get('embedding_dim', 64)
+        self.dropout_rate = config.get('dropout_rate', 0.1)
+        self.hidden_dim = config.get('hidden_dim', 256)  # for CNN layers
+
+        if self.architecture == 'cnn':
+            self.model = self._build_cnn()
+        elif self.architecture == 'transformer':
+            self.model = self._build_transformer()
+        else:
+            raise ValueError(f"Unsupported architecture: {self.architecture}")
+
+        self.model.to(self.device)
+        self.optimizer = torch.optim.Adam(self.model.parameters(), lr=config.get('learning_rate', 1e-3))
+        self.epochs = config.get('epochs', 50)
+
+    def _build_cnn(self):
+        """Builds a simple 1D CNN architecture."""
+        class CNNModel(nn.Module):
+            def __init__(self, vocab_size, seq_len, hidden_dim, dropout_rate):
+                super().__init__()
+                self.conv1 = nn.Conv1d(in_channels=vocab_size, out_channels=self.hidden_dim, kernel_size=5, padding=2)
+                self.relu = nn.ReLU()
+                self.pool = nn.MaxPool1d(kernel_size=2)
+                conv_output_size = (seq_len // 2)  # after pooling
+                self.fc = nn.Linear(self.hidden_dim * conv_output_size, 1)
+                self.dropout = nn.Dropout(p=dropout_rate)
+
+            def forward(self, x):
+                """
+                x: [batch_size, seq_len, vocab_size]
+                """
+                x = x.permute(0, 2, 1)  # to [batch_size, vocab_size, seq_len]
+                x = self.conv1(x)
+                x = self.relu(x)
+                x = self.pool(x)
+                x = x.view(x.size(0), -1)
+                x = self.dropout(x)
+                out = self.fc(x)
+                return out.squeeze(1)
+
+        return CNNModel(self.vocab_size, self.sequence_length, self.hidden_dim, self.dropout_rate)
+
+    def _build_transformer(self):
+        """Builds a simple Transformer encoder architecture."""
+        from torch.nn import TransformerEncoder, TransformerEncoderLayer, Embedding
+
+        class TransformerModel(nn.Module):
+            def __init__(self, vocab_size, seq_len, embedding_dim, hidden_dim, dropout_rate):
+                super().__init__()
+                self.embedding = Embedding(vocab_size, embedding_dim)
+                encoder_layer = TransformerEncoderLayer(d_model=embedding_dim, nhead=4, dropout=dropout_rate)
+                self.transformer_encoder = TransformerEncoder(encoder_layer, num_layers=2)
+                self.fc = nn.Linear(embedding_dim, 1)
+                self.seq_len = seq_len
+
+            def forward(self, x):
+                """
+                x: [batch_size, seq_len, vocab_size] one-hot or embedding - here we assume input is [batch, seq_len, vocab_size]
+                """
+                # If input is one-hot (batch_size, seq_len, vocab_size), convert to embedding
+                # Else, if embedding input, skip embedding layer
+                if x.dtype == torch.float32 or x.dtype == torch.float64:
+                    # Assume raw input: one-hot
+                    x_embed = self.embedding(torch.argmax(x, dim=2))
+                else:
+                    # If input is already embedded
+                    x_embed = x
+                # Add positional encoding if desired (not included here for simplicity)
+                # transpose for transformer: (seq_len, batch, embed_dim)
+                x_encoded = self.transformer_encoder(x_embed.permute(1,0,2))
+                # Take mean over sequence or use global pooling as alternative
+                pooled = x_encoded.mean(dim=0)
+                out = self.fc(pooled)
+                return out.squeeze(1)
+
+        return TransformerModel(self.vocab_size, self.sequence_length, self.embedding_dim, self.hidden_dim, self.dropout_rate)
+
+    def train(self, sequences: List[str], labels: np.ndarray):
+        """
+        Train the model on provided sequences and labels.
+        Args:
+            sequences (List[str]): List of sequences as strings.
+            labels (np.ndarray): Corresponding fitness labels.
+        """
+        self.model.train()
+        # Convert sequences to tensor input
+        inputs = self._sequences_to_tensor(sequences)  # shape [batch_size, seq_len, vocab_size]
+        labels_tensor = torch.tensor(labels, dtype=torch.float32, device=self.device)
+
+        dataset = torch.utils.data.TensorDataset(inputs, labels_tensor)
+        dataloader = torch.utils.data.DataLoader(dataset, batch_size=self._get_batch_size(), shuffle=True)
+
+        criterion = nn.MSELoss()
+
+        for epoch in range(self.epochs):
+            total_loss = 0.0
+            for batch_x, batch_y in dataloader:
+                self.optimizer.zero_grad()
+                preds = self.model(batch_x)
+                loss = criterion(preds, batch_y)
+                loss.backward()
+                self.optimizer.step()
+                total_loss += loss.item() * batch_x.size(0)
+            avg_loss = total_loss / len(dataloader.dataset)
+            # Optional: add validation step, early stopping
+
+    def predict(self, sequence: str) -> float:
+        """
+        Predict scalar fitness for a single sequence.
+        Args:
+            sequence (str): Protein sequence string.
+        Returns:
+            float: Predicted fitness scalar.
+        """
+        self.model.eval()
+        input_tensor = self._sequence_to_tensor(sequence)  # shape [1, seq_len, vocab_size]
+        with torch.no_grad():
+            pred = self.model(input_tensor.to(self.device))
+        return pred.cpu().item()
+
+    def predict_batch(self, sequences: List[str]) -> np.ndarray:
+        """
+        Batch prediction for multiple sequences.
+        Args:
+            sequences (List[str])
+        Returns:
+            np.ndarray: predictions shape [len(sequences)]
+        """
+        self.model.eval()
+        input_tensors = self._sequences_to_tensor(sequences)
+        with torch.no_grad():
+            preds = self.model(input_tensors.to(self.device))
+        return preds.cpu().numpy()
+
+    def compute_gradients(self, sequence: str) -> np.ndarray:
+        """
+        Compute the gradient of the predicted fitness with respect to sequence input.
+        Args:
+            sequence (str): Sequence string.
+        Returns:
+            np.ndarray: Gradient array with shape [sequence_length, vocab_size].
+        """
+        self.model.eval()
+        input_tensor = self._sequence_to_tensor(sequence)  # shape [1, seq_len, vocab_size]
+        input_tensor = input_tensor.to(self.device)
+        input_tensor.requires_grad = True
+
+        preds = self.model(input_tensor)
+        preds.backward()
+
+        # Gradient of output w.r.t. input tensor
+        grads = input_tensor.grad.detach().cpu().numpy()  # shape same as input
+        # grads shape: [1, seq_len, vocab_size], squeeze batch
+        grads = grads[0]
+        return grads
+
+    def _sequence_to_tensor(self, sequence: str):
+        """
+        Convert a sequence string to tensor (batch=1). Using one-hot encoding.
+        """
+        tensor = torch.zeros(1, self.sequence_length, self.vocab_size, dtype=torch.float32)
+        for i, aa in enumerate(sequence):
+            if i >= self.sequence_length:
+                break
+            aa_idx = self._aa_to_index(aa)
+            if aa_idx is not None:
+                tensor[0, i, aa_idx] = 1.0
+            else:
+                # If unknown amino acid, leave as zeros or handle differently
+                pass
+        return tensor
+
+    def _sequences_to_tensor(self, sequences: List[str]):
+        """
+        Convert list of sequences to tensor batch.
+        """
+        batch_size = len(sequences)
+        tensor = torch.zeros(batch_size, self.sequence_length, self.vocab_size, dtype=torch.float32)
+        for b, seq in enumerate(sequences):
+            for i, aa in enumerate(seq):
+                if i >= self.sequence_length:
+                    break
+                aa_idx = self._aa_to_index(aa)
+                if aa_idx is not None:
+                    tensor[b, i, aa_idx] = 1.0
+        return tensor
+
+    def _aa_to_index(self, amino_acid: str) -> int:
+        """
+        Map amino acid to index [0, 19].
+        """
+        aa_list = ['A','C','D','E','F','G','H','I','K','L','M','N','P','Q','R','S','T','V','W','Y']
+        try:
+            return aa_list.index(amino_acid)
+        except ValueError:
+            return None
+
+    def _get_batch_size(self):
+        """
+        Retrieve batch size from config or default.
+        """
+        # Could be extended to support dynamic batch size based on hardware load.
+        return self.model.dropout.p * 512  # fallback, but better to get from config
+```

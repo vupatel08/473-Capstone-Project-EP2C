@@ -1,0 +1,146 @@
+### Logic Analysis for `evaluation.py`
+
+**Purpose:**
+- Implement the `Evaluation` class responsible for:
+  - Loading the trained CATS model and necessary components.
+  - Running inference on the test dataset.
+  - Computing evaluation metrics: Mean Squared Error (MSE) and Mean Absolute Error (MAE).
+  - Visualizing attention maps (cross-attention heatmaps) and forecasted vs true signals.
+  - Handling evaluation across multiple forecasting horizons with consistent methodology.
+
+---
+
+### Core Components & Responsibilities
+
+#### 1. Initialization (`__init__`)
+- **Inputs:**
+  - Trained model checkpoint path (`model_path`), dataset information, configuration (hyperparameters), experiment parameters.
+- **Actions:**
+  - Load the saved model state (via `torch.load`) ensuring architecture matches the saved state.
+  - Load or prepare the test dataset:
+    - Use `dataset_loader.py` or dataset interface to load the test split.
+    - Apply identical preprocessing (normalization, patching) as during training.
+  - Instantiate the model:
+    - Initialize `CATSModel` with model hyperparameters from the config.
+    - Load weights into the model.
+  - Initialize device (GPU/CPU) and move model to device.
+  - Prepare evaluation metrics accumulators.
+  - Prepare visualization utilities for attention heatmaps.
+
+---
+
+#### 2. Data Preparation and Batching
+- **Dataset Input:**
+  - The test dataset should be provided as a DataLoader or batched tensors.
+  - Ensure test data is in the same format as training data:
+    - Segmented into patches.
+    - Normalized identically to training.
+  - For synthetic data (if used), recreate the signals with known parameters:
+    - For example, periodic signals with shocks, so that attention patterns and forecast accuracy can be interpreted.
+- **Batching:**
+  - Batch size should match the experimental setup or as specified (e.g., 32).
+  - For multi-horizon forecasting, prepare input tensors for each horizon.
+- **Attention Map Extraction:**
+  - The model should store or allow extraction of attention weights during inference.
+  - If not, modify the model architecture to return attention weights alongside predictions.
+
+---
+
+#### 3. Inference (`predict`)
+- **Input:**
+  - Batched input sequences `X_test` (patch-embedded).
+- **Process:**
+  - Run the model in evaluation mode (`model.eval()`).
+  - For each batch:
+    - Input the sequence into the model.
+    - The model should output:
+      - Forecasted sequence for each horizon
+      - Cross-attention weights (or heatmaps)
+    - Store predictions and attention maps.
+- **Output:**
+  - Predicted sequences (`Y_pred`)
+  - True sequences (`Y_true`) for evaluation
+  - Attention maps (if accessible), e.g., `attention_weights` per layer/head/horizon
+
+---
+
+#### 4. Metrics Calculation
+- **Metrics:**
+  - Calculate the per-horizon MSE and MAE over the entire test set.
+  - Use batch-wise accumulation:
+    - For each batch:
+      - Compute squared errors (for MSE)
+      - Absolute errors (for MAE)
+    - Aggregate over all batches for final metrics.
+- **Implementation:**
+  - Use `scipy` or `numpy` to compute metrics.
+  - For per-horizon analysis, store errors for each horizon separately.
+  - Report overall average and per-horizon scores.
+
+---
+
+#### 5. Visualization (`visualize_attention_maps`)
+- **Heatmaps:**
+  - Generate attention score maps:
+    - Typically 2D matrices representing attention weights between input patches and output patches.
+  - Overlay attention scores on temporal positions to illustrate periodic or shock-related patterns:
+    - Use matplotlib heatmaps (`imshow`)
+    - Space axes to match input and output steps (e.g., input patches along x-axis, forecast horizon along y-axis)
+  - Focus on interpretability:
+    - Highlight patches with highest attention scores.
+    - Show cross-attention maps as per Figures 10-15.
+- **Forecast Comparisons:**
+  - Plot the true future sequence and forecasted sequence.
+  - Use line plots for temporal signals.
+  - Add titles, axis labels, and legends for clarity.
+
+---
+
+#### 6. Additional Functionalities
+- **Multi-horizon evaluation:**
+  - Loop over multiple forecast horizons.
+  - For each horizon:
+    - Extract the corresponding predictions.
+    - Compute individual MSE, MAE.
+    - Visualize individual attention maps, if needed.
+- **Result Logging & Export:**
+  - Save metrics to a dictionary or structured report.
+  - Save attention heatmaps as images or overlays.
+  - Save forecast plots for qualitative analysis.
+- **Reproducibility:**
+  - Use fixed random seeds (if any stochasticity in evaluation).
+  - Consistent data normalization and patching applied.
+
+---
+
+### Implementation Details & Caveats
+
+- **Access to Attention Weights:**
+  - The core model (`CATSModel`) must be designed or modified to output or store attention weights during inference.
+  - If not, must be re-implemented with hooks (`register_hook`) to extract attention scores.
+  
+- **Synthetic Data & Synthetic Signal Experiments:**
+  - For synthetic signals described (with shocks, periodicity), generate test signals within evaluation code, to verify interpretability and attention correctness.
+  - Plot synthetic signals and overlay attention scores to interpret specific attention-elicited periodicity or shock detection.
+
+- **Attention Map Visualization:**
+  - Use the same axes scale as in the paper figures for comparability.
+  - Normalize attention weights per head/layer if needed, for clearer visualization.
+  
+- **Attention Pattern Analysis:**
+  - For synthetic signals such as Fig. 6-9, verify that attention maps reflect shock locations or periodicities as expected.
+  - For real datasets, focus on observing periodicity and important input patches influencing predictions.
+
+---
+
+### Summary
+
+By following this plan, the `evaluation.py` script will ensure:
+- Proper loading and consistent preprocessing of test datasets.
+- Correct inference using the trained cross-attention-only model.
+- Accurate metric calculation for each forecast horizon.
+- Clear visualization of cross-attention heatmaps and forecast results.
+- Proper handling of synthetic and real datasets.
+- Outputting structured, interpretable results aligning with the paper's figures and analyses.
+
+This comprehensive approach guarantees that the experiment evaluation faithfully replicates the core methodology, analysis, and interpretability insights from the paper.

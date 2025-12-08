@@ -1,0 +1,158 @@
+{
+  "title": "Are Self-Attentions Effective for Time Series Forecasting?",
+  "abstract": "Dongbin $\\mathbf { K i m ^ { 1 } }$ , Jinseong Park1, Jaewook Lee1\\*, Hoki Kim2\\* 1Seoul National University 2Chung-Ang University {dongbin413,jinseong,jaewook}@snu.ac.kr, hokikim@cau.ac.kr",
+  "authors": [],
+  "body_text": [
+    {
+      "text": "# Are Self-Attentions Effective for Time Series Forecasting?"
+    },
+    {
+      "text": "Dongbin $\\mathbf { K i m ^ { 1 } }$ , Jinseong Park1, Jaewook Lee1\\*, Hoki Kim2\\* 1Seoul National University 2Chung-Ang University {dongbin413,jinseong,jaewook}@snu.ac.kr, hokikim@cau.ac.kr"
+    },
+    {
+      "text": "# Abstract"
+    },
+    {
+      "text": "Time series forecasting is crucial for applications across multiple domains and various scenarios. Although Transformers have dramatically advanced the landscape of forecasting, their effectiveness remains debated. Recent findings have indicated that simpler linear models might outperform complex Transformer-based approaches, highlighting the potential for more streamlined architectures. In this paper, we shift the focus from evaluating the overall Transformer architecture to specifically examining the effectiveness of self-attention for time series forecasting. To this end, we introduce a new architecture, Cross-Attention-only Time Series transformer (CATS), that rethinks the traditional transformer framework by eliminating self-attention and leveraging cross-attention mechanisms instead. By establishing future horizon-dependent parameters as queries and enhanced parameter sharing, our model not only improves long-term forecasting accuracy but also reduces the number of parameters and memory usage. Extensive experiment across various datasets demonstrates that our model achieves superior performance with the lowest mean squared error and uses fewer parameters compared to existing models. The implementation of our model is available at: https://github.com/dongbeank/CATS."
+    },
+    {
+      "text": "# 1 Introduction"
+    },
+    {
+      "text": "Time series forecasting plays a critical role within the machine learning society, given its applications ranging from financial forecasting to medical diagnostics. To improve the accuracy of predictions, researchers have extensively explored and developed various models. These range from traditional statistical methods to modern deep learning techniques. Most notably, Transformer [19] has brought about a paradigm shift in time series forecasting, resulting in numerous high-performance models, such as Informer [29], Autoformer [23], Pyraformer [11], FEDformer [31], and Crossformer [28]. This line of work establishes new benchmarks for high performance in time series forecasting."
+    },
+    {
+      "text": "However, Zeng et al. [26] have raised questions about the effectiveness of Transformer-based time series forecasting models especially for long term time series forecasting. Specifically, their experiments demonstrated that simple linear models could outperform these Transformer-based approaches, thereby opening new avenues for research into simpler architectural frameworks. Indeed, the following studies [12, 6] have further validated that these linear models can be enhanced by incorporating additional features."
+    },
+    {
+      "text": "Despite these developments, the effectiveness of each components in Transformer architecture in time series forecasting remains a subject of debate. Nie et al. [14] introduced an encoder-only Transformer that utilizes patching rather than point-wise input tokens, which exhibited improved performance compared to linear models. Zeng et al. [26] also highlighted potential shortcomings in simpler linear networks, such as their inability to capture temporal dynamics at change points [18] compared to Transformers. Consequently, while a streamlined architecture may be beneficial, it is imperative to critically evaluate which elements of the Transformer are necessary and which are not for time series modeling."
+    },
+    {
+      "text": "![](images/fa8cecafa1611c14db28a8dc168cfb54ea012b1e8e1f08298288835719fcbbd0.jpg)  \nFigure 1: Experimental results illustrating the mean squared error (MSE) and the number of parameters with varying input sequence lengths on ETTm1. Each bubble represents a different model, with the bubble size indicating the number of parameters in millions—larger bubbles denote models with more parameters. Our model consistently shows the lowest MSE (i.e., best performance) with fewer parameters even for longer input sequences. The detailed results can be found in Table 5."
+    },
+    {
+      "text": "In light of these considerations, our study shifts focus from the overall architecture of the Transformer to a more specific question: Are self-attentions effective for time series forecasting? While this question is also noted in [26], their analysis was limited to substituting attention layers with linear layers, leaving substantial room for potential model design when focusing on Transformers. Furthermore, the issue of temporal information loss (i.e., permutation-invariant and anti-order characteristics of self-attention) is predominantly caused by the use of self-attention rather than the Transformer architecture itself. Therefore, we aim to resolve the issues of self-attention and therefore propose a new forecasting architecture that achieves higher performance with a more efficient structure."
+    },
+    {
+      "text": "In this paper, we introduce a novel forecasting architecture named Cross-Attention-only Time Series transformer (CATS) that simplifies the original Transformer architecture by eliminating all selfattentions and focusing on the potential of cross-attentions. Specifically, our model establishes future horizon-dependent parameters as queries and treats past time series data as key and value pairs. This allows us to enhance parameter sharing and improve long-term forecasting performance. As shown in Figure 1, our model shows the lowest mean squared error (i.e., better forecasting performance) even for longer input sequences and with fewer parameters than existing models. Moreover, we demonstrate that this simplified architecture can provide a clearer understanding of how future predictions are derived from past data with individual attention maps for the specific forecasting horizon. Finally, through extensive experiments, we show that our proposed model not only achieves state-of-the-art performance but also requires fewer parameters and less memory consumption compared to previous Transformer models across various time series datasets."
+    },
+    {
+      "text": "# 2 Related Work"
+    },
+    {
+      "text": "Time Series Transformers Transformer models [19] have shown effective in various domains [5, 4, 15], with a novel encoder-decoder structure with self-attention, masked self-attention, and cross-attention. The self-attention mechanism is a key component for extracting semantic correlations between paired elements, even with identical input elements; however, autoregressive inference with self-attention requires quadratic time and memory complexity. Therefore, Informer [29] proposed directly predicting multi-steps, and a line of work, such as Autoformer [23], FEDformer [31], and Pyraformer [11], investigated the complexity issue in time series transformers. Simultaneously, unique properties of time series, such as stationarity [12], decomposition [23], frequency features [31], or cross-dimensional properties [28] were employed to modify the attention layer for forecasting tasks. Recently, researchers have investigated the essential architecture in Transformers to capture long-term dependencies. PatchTST [14] became a de-facto standard Transformer model by patching the time series input in a channel-independence manner, which is widely used in following Transformerbased forecasting models [13, 7]. On the other hand, Das et al. [3] emphasized the importance of decoder-only forecasting models, while they focused on zero-shot using pre-trained language models. However, none of them have investigated the importance of cross-attention for time series forecasting."
+    },
+    {
+      "text": "Temporal Information Encoding Fixed temporal order in time series is the distinct property of time series, in contrast to the language domain where semantic information does not heavily depend on the word ordering [4]. Thus, some researchers have used learnable positional encoding in Transformers to embed time-dependent properties [9, 23]. However, Zeng et al. [26] first argued that self-attention is not suitable for time series due to its permutation invariant and anti-order properties. While they focus on building complex representations, they are inefficient in maintaining the original context of historical and future values. They rather proposed linear models without any embedding layer and demonstrated that it can achieve better performance than Transformer models, particularly showing robust performance to long input sequences. Recent linear time series models outperformed previous Transformer models with simple architectures by focusing on pre-processing and frequencybased properties [10, 2, 21]. On the other hand, Woo et al. [22] investigated the new line of works of time-index models, which try to model the underlying dynamics with given time stamps. These related works imply that preserving the order of time series sequences plays a crucial role in time series forecasting."
+    },
+    {
+      "text": "# 3 Revisiting Self-Attention in Time Series Forecasting"
+    },
+    {
+      "text": "Motivation of Self-Attention Removal Following the concerns about the effectiveness of selfattention on temporal information preservation [26], we conduct an experiment using PatchTST [14]. We consider three variations of the PatchTST model: the original PatchTST with overlapping patches with length 16 and stride 8 (Fig. 2a); a modified PatchTST with non-overlapping patches with length 24 (Fig. 2b); and a version where self-attention is replaced by a linear embedding layer, using non-overlapping patches with length 24 (Fig. 2c). This setup allows us to isolate the effects of self-attention on temporal information preservation, while controlling for the impact of patch overlap."
+    },
+    {
+      "text": "![](images/5317447b2011890c96daade8630f52eebb968ecdfc3d7de5874c5c6faa2be1e5.jpg)  \nFigure 2: Absolute values of weights in the final linear layer for different PatchTST variations. The distinct patterns reveal how each model captures temporal information."
+    },
+    {
+      "text": "Fig. 2 illustrates the absolute values of the weights in the final linear layer for these model variations. Compared to the original PatchTST (Fig. 2a), both non-overlapping versions (Fig. 2b and Fig. 2c) show more vivid patterns. The version with linear embedding (Fig. 2c) demonstrates the clearest capture of temporal information, suggesting that the self-attention mechanism itself may not be necessary for capturing temporal information."
+    },
+    {
+      "text": "In Table 1, we summarize the forecasting performance of the original PatchTST (Fig. 2a) and PatchTST without self-attention (Fig. 2c). PatchTST without self-attention consistently improves or maintains performance across all forecasting horizons. Specifically, the original version with self-attention shows lower performance for longer forecast horizons. This result suggests that selfattention may not only be unnecessary for effective time series forecasting but could even hinder performance in certain cases. Therefore, better performance of w/o self-attention challenges the conventional belief regarding the importance of self-attention mechanisms in Transformer-based models for time series forecasting tasks."
+    },
+    {
+      "text": "Table 1: Effect of self-attention in PatchTST on forecasting performance (MSE) on ETTm1."
+    },
+    {
+      "text": "<table><tr><td>Horizon</td><td>original</td><td>w/o self-attn</td></tr><tr><td>96</td><td>0.290</td><td>0.290</td></tr><tr><td>192</td><td>0.332</td><td>0.328</td></tr><tr><td>336</td><td>0.366</td><td>0.359</td></tr><tr><td>720</td><td>0.416</td><td>0.414</td></tr></table>"
+    },
+    {
+      "text": "Our findings offer new insights into the role of self-attention in time series forecasting. As shown in Fig. 2 and Table 1, replacing self-attention with a linear layer not only captures clear temporal patterns but also results in significant performance improvements, particularly for longer forecast horizons. These results highlight potential areas for enhancing the handling of temporal information, beyond addressing the well-known concerns regarding computational complexity."
+    },
+    {
+      "text": "![](images/92552fa66c9f6a3d8cd4b3614f37eae1ce5b9d433c06e5caa906a35bd3e7aba4.jpg)  \nFigure 3: Illustration of existing time series forecasting architectures and the proposed architecture."
+    },
+    {
+      "text": "Rethinking Transformer Design Given the challenges associated with self-attention in time series forecasting, we propose a fundamental rethinking of the Transformer architecture for this task. Fig. 3 illustrates the differences between existing architectures and our proposed approach. Traditional Transformer architectures (Fig. 3a) and encoder-only models (Fig. 3b) rely heavily on self-attention mechanisms, which may lead to temporal information loss. In contrast, Zeng et al. [26] proposed a simplified linear model, DLinear (Fig. 3c), which removes all Transformer-based components. While this approach reduces computational load and potentially avoids some temporal information loss, it may struggle to capture complex temporal dependencies."
+    },
+    {
+      "text": "To address these challenges while preserving the advantages of Transformer architectures, we propose the Cross-Attention-only Time Series transformer (CATS), depicted in Fig. 3d. Our approach removes all self-attention layers and focuses solely on cross-attention, aiming to better capture temporal dependencies while maintaining the structural advantages of the transformer architecture. In the following section, we will introduce our CATS model in detail, explaining our key innovations including a novel use of cross-attention, efficient parameter sharing, and adaptive masking techniques."
+    },
+    {
+      "text": "# 4 Proposed Methodology"
+    },
+    {
+      "text": "# 4.1 Problem Definition and Notations"
+    },
+    {
+      "text": "A multivariate time series forecasting task aims to predict future values $\\tilde { \\cal X } = \\{ \\mathbf { x } _ { L + 1 } , \\dotsc , \\mathbf { x } _ { L + T } \\} \\in$ $\\mathbb { R } ^ { M \\times T }$ with the prediction $\\hat { \\pmb X } = \\{ \\hat { \\mathbf x } _ { L + 1 } , \\dots , \\hat { \\mathbf x } _ { L + T } \\} \\in \\mathbb { R } ^ { M \\times T }$ based on past datasets $\\boldsymbol { x } \\ =$ $\\left\\{ \\mathbf { x } _ { 1 } , \\ldots , \\mathbf { x } _ { L } \\right\\} \\in \\bar { \\mathbb { R } } ^ { M \\times L }$ . Here, $T$ represents the forecasting horizon, $L$ denotes the input sequence length, and $M$ represents the dimension of time series data."
+    },
+    {
+      "text": "In traditional time series transformers, we feed the historical multivariate time series $\\boldsymbol { X }$ to embedding layers, resulting in the historical embedding $\\pmb { H } \\in \\mathbb { R } ^ { D \\times L }$ . Here, $D$ is the embedding size. Note that, in channel-independence manners, the multivariate input is considered to separate univariate time series $\\mathbf { x } \\in \\mathbb { R } ^ { 1 \\times L }$ . With patching [14], univariate time series $\\mathbf { x }$ transforms into patches $\\mathbf { p } =$ $\\mathtt { P a t c h } ( \\mathbf { x } ) \\in \\mathbb { R } ^ { P \\times N _ { L } }$ where $P$ is the size of each patch and $N _ { L }$ is the number of input patches. Similar to non-patching situations, patches are fed to embedding layers $P = \\mathtt { E m b e d d i n g } ( \\mathbf { p } ) \\in \\mathbb { R } ^ { D \\times N _ { L } }$ ."
+    },
+    {
+      "text": "![](images/117dd3f514d87248b1d54c335153de60a90069dd982476f3f6e9ebba3847b6a4.jpg)  \nFigure 4: Illustration on the proposed model architecture. Our model removes all self-attentions from the original Transformer structure and focuses on cross-attentions. To fully utilize the cross-attention, we conceptualize the future horizon as queries and use the input time series (i.e., past time series) as keys and values (Fig. A). This simplified structure enables us to enhance the parameter sharing across forecasting horizons (Fig. B) and make use of query-adaptive masking (Fig. C) for performance."
+    },
+    {
+      "text": "# 4.2 Model Structure"
+    },
+    {
+      "text": "Our proposed architecture consists of three key components: (A) Cross-Attention with Future as Query, (B) Parameter Sharing across Horizons, and (C) Query-Adaptive Masking. Fig. 4 illustrates how our model modifies the traditional transformer structure."
+    },
+    {
+      "text": "By focusing solely on cross-attention, our approach allows us to maintain the periodic properties of time series, which self-attention, with its permutation-invariant and anti-order characteristics, struggles to capture. Furthermore, we leverage advanced architectural designs of time series transformers, such as patching [14], which linear models cannot utilize. The following subsections provide detailed descriptions of each component of our CATS model, explaining how these elements work together to address the challenges of time series forecasting."
+    },
+    {
+      "text": "Cross-Attention via Future as Query Similar to self-attention, the cross-attention mechanism employs three elements: key, query, and value. The distinctive feature of cross-attention is that the query originates from a different source than the key or value. Generally, the query component aims to identify the most relevant information among the keys and uses it to extract crucial data from the values [1, 27]. In the realm of time series forecasting, where predictions are often made for a specific target horizon—such as forecasting 10 steps ahead. Therefore, within this concept of forecasting, we argue that each future horizon should be regarded as a question, i.e., an independent query."
+    },
+    {
+      "text": "To implement this, we establish horizon-dependent parameters as learnable queries. As shown in Fig. 4, we begin by creating parameters for the specified forecasting horizon. For each of these virtualized parameters, we assign a fixed number of parameters to represent the corresponding horizon as learnable queries q. For example, $\\mathbf { q } _ { i }$ is a horizon-dependent query at $L + i$ . When patching is applied, these queries are then processed independently; each learnable query $\\mathbf { q } \\in \\mathbb { R } ^ { P }$ is first fed into the embedding layer, and then fed into the multi-head attention with the embedded input time series patches as the key and value."
+    },
+    {
+      "text": "Based on these new query parameters, we can utilize a cross-attention-only structure in the decoder, resulting in an advantage in efficiency. In Table 2, we summarize the time complexity of recent Transformer models and ours. The results indicate that our method only requires the time complexity of $\\mathcal { O } ( L T / P ^ { 2 } )$ , where most of the Transformer-based models require ${ \\dot { \\mathcal { O } } } ( L ^ { 2 } )$ except FEDformer and"
+    },
+    {
+      "text": "Table 2: Time complexity of Transformer-based models to calculate attention outputs. Time refers to the inference time obtained by averaging 10 runs under $L = 9 6$ and $T = 7 2 0$ on Electricity."
+    },
+    {
+      "text": "<table><tr><td>Method</td><td>Encoder</td><td>Decoder</td><td>Time</td><td>Method</td><td>Encoder</td><td>Decoder</td><td>Time</td></tr><tr><td>Transformer [13]</td><td>O(L2)</td><td>O(T (T + L))</td><td>10.4ms</td><td>Informer [29]</td><td>O(L log L)</td><td>O(T (T + log L))</td><td>13.5ms</td></tr><tr><td>Autoformer [23]</td><td>O(Llog L)</td><td>O ((L/2 + H) log (L/2 + T ))</td><td>24.1ms</td><td>Pyraformer [11]</td><td>O(L)</td><td>O(T (T + L))</td><td>11.2ms</td></tr><tr><td>FEDformer [31]</td><td>O(L)</td><td>O (L/2 + H)</td><td>69.3ms</td><td>Crossformer [28]</td><td>O (M L2/P2)</td><td>O (MT(T + L)/P2)</td><td>30.6ms</td></tr><tr><td>PatchTST [14]</td><td>O (L2/P2)</td><td></td><td>7.6ms</td><td>CATS (Ours)</td><td></td><td>O (LT/P 2)</td><td>7.0ms</td></tr></table>"
+    },
+    {
+      "text": "Pyraformer. However, since these two models have an encoder-decoder and a relatively huge amount of parameters, they require $1 0 \\mathrm { x }$ and $4 \\mathbf { x }$ computational times than ours, respectively."
+    },
+    {
+      "text": "Parameter Sharing across Horizons One of the strongest benefits of cross-attention via future horizon as a query $\\mathbf { q }$ is that each cross-attention is only calculated on the values from a single forecasting horizon and the input time series. Mathematically, for a prediction of future value $\\hat { \\mathbf { x } } _ { L + i }$ can be expressed as a function solely dependent on the past samples $X = [ \\mathbf { x } _ { 1 } , . . . , \\mathbf { x } _ { L } ]$ and $\\mathbf { q } _ { i }$ , independent of ${ \\bf q } _ { j }$ for all $i \\neq j$ or $i$ and $j$ are not in the same patch."
+    },
+    {
+      "text": "This independent forecasting mechanism offers a notable advantage; a higher level of parameter sharing. As demonstrated in [14], significant reductions in the required number of parameters can be achieved in time series forecasting through parameter sharing between inputs or patches, enhancing computational efficiency. Regarding this, we propose parameter sharing across all possible layers — the embedding layer, multi-head attention, and projection layer — for every horizon-dependent query q. In other words, all horizon queries $\\mathbf { q } _ { 1 } , \\ldots , \\mathbf { q } _ { T }$ or $\\mathbf { q } _ { 1 } , \\ldots , \\mathbf { q } _ { N _ { T } }$ share the same embedding layer used for the input time series $\\mathbf { x } _ { 1 } , \\ldots , \\mathbf { x } _ { L }$ or patches $\\mathbf { p } _ { 1 } , \\ldots , \\mathbf { p } _ { N _ { L } }$ before proceeding to the cross-attention layer, respectively. Furthermore, to maximize the parameter sharing, we also propose cross-dimension sharing that uses the same query parameters for all dimensions."
+    },
+    {
+      "text": "For the multi-head attention and projection layers, we apply the same algorithm across horizons. Notably, unlike the approach in PatchTST [14], we also share the projection layer for each prediction. Specifically, PatchTST, being an encoder-only model, employs a fully connected layer as the projection layer for the encoder outputs $\\pmb { P } \\in \\mathbb { R } ^ { D \\times N _ { L } }$ , resulting in $( D \\times N _ { L } ) \\times T$ parameters. In contrast, our model first processes raw queries $\\mathbf { q } = [ \\mathbf { q } _ { 1 } , \\dots , \\mathbf { q } _ { N _ { T } } ] \\in \\mathbb { R } ^ { P \\times N _ { T } }$ . These queries are then embedded through the cross-attention mechanism, resulting in $\\pmb { \\dot { Q } } = [ \\pmb { q } _ { 1 } , \\dots , \\pmb { q } _ { N _ { T } } ] \\in \\mathbb { R } ^ { D \\times N _ { T } }$ . The final projection uses shared parameters $W \\in \\mathbb { R } ^ { P \\times D }$ , producing an output $W Q \\in \\bar { \\mathbb { R } } ^ { P \\times N _ { T } }$ . Thus, our number of parameters for this projection becomes $P \\times D$ , which is not proportionally increasing to $T$ . This approach significantly reduces time complexity during both the training and inference phases."
+    },
+    {
+      "text": "In Table 3, we outline the impact of parameter sharing across different forecasting horizons. In contrast to the model without parameter sharing, which exhibits a rapid increase in parameters as the forecasting horizon extends, our model, which shares all layers including the projection layer, maintains a nearly consistent number of parameters."
+    },
+    {
+      "text": "Table 3: Effect of parameter sharing across horizons on the number of parameters for different forecasting horizons on ETTh1."
+    },
+    {
+      "text": "<table><tr><td>Horizon</td><td>w/ sharing</td><td>w/o sharing</td></tr><tr><td>96</td><td>355,320</td><td>404,672</td></tr><tr><td>192</td><td>355,416</td><td>552,320</td></tr><tr><td>336</td><td>355,560</td><td>958,112</td></tr><tr><td>720</td><td>355,944</td><td>3,121,568</td></tr></table>"
+    },
+    {
+      "text": "Additionally, all operations, including embedding and multi-head attention, are performed independently for each learnable query. This implies that the forecast for a specific horizon does not depend on other horizons. Such an approach allows us to generate distinct attention maps for each forecasting horizon, providing a clear understanding of how each prediction is derived. Please refer to Section 5.5."
+    },
+    {
+      "text": "Query-Adaptive Masking Parameter sharing across horizons enhances the efficiency of our proposed architecture and simplifies the model. However, we observed that a high degree of parameter sharing could lead to overfitting to the keys and values (i.e., past time series data), rather than the queries (i.e., forecasting horizon). Specifically, the model may converge to generate similar or identical predictions, $\\hat { \\mathbf { x } } _ { L + i }$ and $\\hat { \\mathbf { x } } _ { L + j }$ , despite receiving different horizon queries, $\\mathbf { q } _ { i }$ and ${ \\bf q } _ { j }$ (i.e., the target horizons differ)."
+    },
+    {
+      "text": "Therefore, to ensure the model focuses on each horizon-dependent query $\\mathbf { q }$ , we introduce a new technique that masks the attention outputs. As illustrated in the right-bottom figure of Fig. 4, for each horizon, we apply a mask to the direct connection from Multi-Head Attention to LayerNorm with a probability $p$ . This mask prevents access to the input time series information, resulting in only the query to influence future value predictions. This selective disconnection, rather than the application of dropout in the residual connections, helps the layers to concentrate more effectively on the forecasting queries. We note that this approach can be related to stochastic depth in residual networks [8]. The stochastic depth technique has proven effective across various tasks, such as vision tasks [17, 25]. To the best of our knowledge, this is the first application of stochastic depth in Transformers for time series forecasting. A detailed analysis of query-adaptive masking can be found in Appendix."
+    },
+    {
+      "text": "In summary, the framework described in this section, including cross-attention via future as query, parameter sharing across horizons, and query-adaptive masking, is named the Cross-Attention-only Time Series transformer (CATS)."
+    },
+    {
+      "text": "# 5 Experiments"
+    }
+  ],
+  "url": ""
+}

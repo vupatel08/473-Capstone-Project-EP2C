@@ -1,0 +1,68 @@
+training:
+  learning_rate: 0.001
+  batch_size: 64
+  epochs: 60
+  warmup_epochs: 5
+  weight_decay: 1e-4
+  triplet_margin: 0.3
+  lambda_alignment: 1.0
+  g_hard_triplet_loss: true
+  augmentation_probability: 0.5
+  neighbor_k: 10
+  prototype_momentum: 0.999
+
+model:
+  backbone: resnet50
+  feature_dim: 512
+  normalize_features: true
+
+dataset:
+  datasets_paths:
+    market1501: "/path/to/market1501"
+    msmt17: "/path/to/msmt17"
+    cuhk02: "/path/to/cuhk02"
+    cuhk03: "/path/to/cuhk03"
+    cuhksysu: "/path/to/cuhksysu"
+    prid: "/path/to/prid"
+    grid: "/path/to/grid"
+    viper: "/path/to/viper"
+    ilids: "/path/to/ilids"
+  image_size: [256, 128]
+  training_split: train
+  testing_split: test
+
+augmentation:
+  random_erasing: true
+  random_erasing_prob: 0.25
+  rand_augment: true
+  rand_augment_prob: 0.5
+  color_jitter_prob: 0.3
+  color_jitter_params:
+    brightness: 0.2
+    contrast: 0.2
+    saturation: 0.2
+    hue: 0.1
+
+loss_weights:
+  classification: 1.0
+  triplet: 1.0
+  alignment: 1.0
+  uniformity: 1.0
+  domain_uniformity: 1.0
+
+evaluation:
+  protocol: Protocol-3
+  metrics:
+    - mAP
+    - Rank-1
+    - CMC@1-5
+  evaluation_batch_size: 64
+
+misc:
+  neighbor_search:
+    k: 10
+  prototype_update:
+    momentum: 0.999
+  save_model_path: "./results/model.pth"
+  log_interval: 50
+  seed: 42

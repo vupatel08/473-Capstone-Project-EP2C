@@ -1,0 +1,2552 @@
+[
+    {
+        "type": "text",
+        "text": "Drug Discovery with Dynamic Goal-aware Fragments ",
+        "text_level": 1,
+        "bbox": [
+            214,
+            109,
+            758,
+            131
+        ],
+        "page_idx": 0
+    },
+    {
+        "type": "text",
+        "text": "Seul Lee 1 Seanie Lee 1 Kenji Kawaguchi 2 Sung Ju Hwang 1 3 ",
+        "bbox": [
+            264,
+            176,
+            705,
+            193
+        ],
+        "page_idx": 0
+    },
+    {
+        "type": "text",
+        "text": "Abstract ",
+        "text_level": 1,
+        "bbox": [
+            245,
+            219,
+            316,
+            236
+        ],
+        "page_idx": 0
+    },
+    {
+        "type": "text",
+        "text": "Fragment-based drug discovery is an effective strategy for discovering drug candidates in the vast chemical space, and has been widely employed in molecular generative models. However, many existing fragment extraction methods in such models do not take the target chemical properties into account or rely on heuristic rules. Additionally, the existing fragment-based generative models cannot update the fragment vocabulary with goal-aware fragments newly discovered during the generation. To this end, we propose a molecular generative framework for drug discovery, named Goal-aware fragment Extraction, Assembly, and Modification (GEAM). GEAM consists of three modules, each responsible for goalaware fragment extraction, fragment assembly, and fragment modification. The fragment extraction module identifies important fragments contributing to the desired target properties with the information bottleneck principle, thereby constructing an effective goal-aware fragment vocabulary. Moreover, GEAM can explore beyond the initial vocabulary with the fragment modification module, and the exploration is further enhanced through the dynamic goal-aware vocabulary update. We experimentally demonstrate that GEAM effectively discovers drug candidates through the generative cycle of the three modules in various drug discovery tasks. Our code is available at https://github.com/ SeulLee05/GEAM. ",
+        "bbox": [
+            120,
+            247,
+            439,
+            715
+        ],
+        "page_idx": 0
+    },
+    {
+        "type": "text",
+        "text": "1. Introduction ",
+        "text_level": 1,
+        "bbox": [
+            89,
+            750,
+            215,
+            766
+        ],
+        "page_idx": 0
+    },
+    {
+        "type": "text",
+        "text": "Drug discovery aims to find molecules with desired properties within the vast chemical space. Fragment-based drug discovery (FBDD) has been considered an effective strategy in recent decades as a means of exploring the chemical space and has led to the discovery of many potent compounds against various targets (Li, 2020). Inspired by the effectiveness of FBDD, many molecular generative models have also adopted it to narrow down the search space and simplify the generation process, resulting in meaningful success (Jin et al., 2018; 2020a;b; Xie et al., 2020; Maziarz et al., 2022; Kong et al., 2022; Geng et al., 2023). ",
+        "bbox": [
+            89,
+            776,
+            472,
+            805
+        ],
+        "page_idx": 0
+    },
+    {
+        "type": "text",
+        "text": "",
+        "bbox": [
+            501,
+            222,
+            883,
+            356
+        ],
+        "page_idx": 0
+    },
+    {
+        "type": "text",
+        "text": "The first step of FBDD, fragment library construction, directly impacts the final generation results (Shi & von Itzstein, 2019) as the constructed fragments are used in the entire generation process. However, existing fragment extraction or motif mining methods suffer from two limitations: they (1) do not take the target chemical properties of drug discovery problems into account and/or (2) rely on heuristic fragment selection rules. For example, it is a common strategy to randomly select fragments (Yang et al., 2021) or extract fragments based on frequency (Kong et al., 2022; Geng et al., 2023) without considering the target properties. Jin et al. (2020b) proposed to find molecular substructures that satisfy the given properties, but the extraction process is computationally very expensive and the substructures cannot be assembled together. ",
+        "bbox": [
+            501,
+            366,
+            883,
+            590
+        ],
+        "page_idx": 0
+    },
+    {
+        "type": "text",
+        "text": "To this end, we first propose a novel deep learningbased goal-aware fragment extraction method, namely, Fragment-wise Graph Information Bottleneck (FGIB, Figure 1(a)). There is a strong connection between molecular structures and their activity, referred to as structure-activity relationship (SAR) (Crum-Brown & Fraser, 1865; Bohacek et al., 1996). Inspired by SAR, FGIB utilizes the graph information bottleneck (GIB) theory to identify important subgraphs in the given molecular graphs for predicting the target chemical property. These identified subgraphs serve as building blocks in the subsequent generation. As shown in Figure 1(b), using the proposed goal-aware fragments extracted by FGIB significantly improves the optimization performance and outperforms existing FBDD methods. Furthermore, we theoretically analyze how FGIB helps in identifying high-quality and novel graphs. ",
+        "bbox": [
+            501,
+            599,
+            883,
+            840
+        ],
+        "page_idx": 0
+    },
+    {
+        "type": "text",
+        "text": "To effectively utilize the extracted fragments in molecular generation, we next construct a generative model consisting of a fragment assembly module and a fragment modification module. In this work, we employ soft-actor critic (SAC) for the assembly module and a genetic algorithm (GA) for the modification module. Through the interplay of the two modules, the generative model can both exploit the extracted goal-aware fragments and explore beyond the initial fragment vocabulary. Moreover, to further enhance molecular novelty and diversity, we propose to extract new fragments on-the-fly during the generation using FGIB and dynamically update the fragment vocabulary. ",
+        "bbox": [
+            500,
+            848,
+            883,
+            892
+        ],
+        "page_idx": 0
+    },
+    {
+        "type": "image",
+        "img_path": "images/024f08f1b6e5ba3995a5711f6c60ca7715e9740030926c71821ae0e9a6ac5bc4.jpg",
+        "image_caption": [
+            "Figure 1: (a) The architecture of FGIB. Using the GIB theory, FGIB aims to identify the important subgraphs that contribute much to the target chemical property in the given molecular graphs. The trained FGIB is then used to extract fragments in a molecular dataset in the goal-aware manner. (b) Performance comparison of GEAM and other FBDD methods on the jak2 ligand generation task. "
+        ],
+        "image_footnote": [],
+        "bbox": [
+            124,
+            83,
+            848,
+            256
+        ],
+        "page_idx": 1
+    },
+    {
+        "type": "text",
+        "text": "",
+        "bbox": [
+            89,
+            330,
+            472,
+            465
+        ],
+        "page_idx": 1
+    },
+    {
+        "type": "text",
+        "text": "Taken as a whole, the fragment extraction module, the fragment assembly module, and the fragment modification module in the form of FGIB, SAC, and GA, respectively, collectively constitute the generative framework which we refer to as Goal-aware fragment Extraction, Assembly, and Modification (GEAM). As illustrated in Figure 2, GEAM generates molecules through an iterative process that sequentially runs each module as follows: (1) After FGIB constructs an initial goal-aware fragment vocabulary, SAC assembles these fragments and generates a new molecule. (2) GEAM keeps track of the top generated molecules as the initial population of GA, and GA generates an offspring molecule from the population. (3) As a consequence of the crossover and mutation, the offspring molecule contains new subgraphs that cannot be constructed from the current fragment vocabulary, and FGIB extracts the meaningful subgraphs from the offspring molecule and updates the vocabulary. Through the collaboration of the three modules where FGIB provides goal-aware fragments to SAC, SAC provides high-quality population to GA, and GA provides novel fragments to FGIB, GEAM effectively explores the chemical space to discover novel drug candidates. ",
+        "bbox": [
+            88,
+            474,
+            472,
+            805
+        ],
+        "page_idx": 1
+    },
+    {
+        "type": "text",
+        "text": "We experimentally validate the proposed GEAM on various molecular optimization tasks that simulate real-world drug discovery scenarios. The experimental results show that GEAM significantly outperforms existing state-of-theart methods, demonstrating its effectiveness in addressing real-world drug discovery problems. We summarize our ",
+        "bbox": [
+            89,
+            814,
+            472,
+            904
+        ],
+        "page_idx": 1
+    },
+    {
+        "type": "text",
+        "text": "contributions as follows: ",
+        "bbox": [
+            501,
+            330,
+            661,
+            344
+        ],
+        "page_idx": 1
+    },
+    {
+        "type": "text",
+        "text": "• We propose FGIB, a novel goal-aware fragment extraction method using the GIB theory to construct a fragment vocabulary for target chemical properties. • We propose leveraging SAC and GA jointly as a generative model to effectively utilize the extracted fragments while enabling exploration beyond the vocabulary. • We propose GEAM, a generative framework combining FGIB, SAC, and GA to dynamically update the fragment vocabulary by extracting goal-aware fragments on-thefly to further improve diversity and novelty. • We theoretically analyze how FGIB helps in identifying high-quality and novel graphs and motivates the necessity of dynamic vocabulary update. • We experimentally demonstrate that GEAM is highly effective in discovering drug candidates, outperforming existing molecular optimization methods. ",
+        "bbox": [
+            500,
+            364,
+            885,
+            621
+        ],
+        "page_idx": 1
+    },
+    {
+        "type": "text",
+        "text": "2. Related Work ",
+        "text_level": 1,
+        "bbox": [
+            500,
+            654,
+            637,
+            670
+        ],
+        "page_idx": 1
+    },
+    {
+        "type": "text",
+        "text": "Fragment extraction Fragment extraction methods fragmentize the given molecules into molecular substructures, i.e., fragments, for subsequent generation. Yang et al. (2021) chose to randomly select fragments after breaking bonds in the given molecules with a predefined rule. Xie et al. (2020) and Maziarz et al. (2022) proposed to obtain fragments by breaking some of the bonds with a predefined rule (e.g., acyclic single bonds), then select the most frequent fragments. Kong et al. (2022) and Geng et al. (2023) utilized merge-and-update rules to find the frequent fragments in the given molecules. All of these methods do not consider the target properties. On the other hand, Jin et al. (2020b) proposed to find molecular substructures that satisfy the given properties. However, the approach requires an expensive oracle call to examine each building block candidate in a brute-force manner, and the substructures are not actually fragments in that they are already full molecules that have chemical properties and are not assembled together. Consequently, the identified substructures are large in size and often few in number, resulting in low novelty and diversity of the generated molecules. ",
+        "bbox": [
+            501,
+            680,
+            885,
+            904
+        ],
+        "page_idx": 1
+    },
+    {
+        "type": "image",
+        "img_path": "images/87d78553d0aaba62205824ba4a6d9753bbd10f1b2de77d2e036162384a242f05.jpg",
+        "image_caption": [
+            "Figure 2: The overall framework of GEAM. GEAM consists of three modules, FGIB, SAC, and GA for fragment extraction, fragment assembly, and fragment modification, respectively. "
+        ],
+        "image_footnote": [],
+        "bbox": [
+            129,
+            80,
+            846,
+            289
+        ],
+        "page_idx": 2
+    },
+    {
+        "type": "text",
+        "text": "",
+        "bbox": [
+            89,
+            351,
+            472,
+            440
+        ],
+        "page_idx": 2
+    },
+    {
+        "type": "text",
+        "text": "Fragment-based molecule generation Fragment-based molecular generative models refers to models that use the extracted fragments as building blocks and learn to assemble the blocks into molecules. Xie et al. (2020) proposed to use MCMC sampling during assembly or deletion of fragments. Yang et al. (2021) proposed to use a reinforcement learning (RL) model and view fragment addition as actions. Maziarz et al. (2022), Kong et al. (2022) and Geng et al. (2023) proposed to use a VAE to assemble the fragments. The model of Jin et al. (2020b) learns to complete the obtained molecular substructures into final molecules by adding molecular branches. Besides, the fragment-based strategy has been also applied to the generation of 3D molecules with meaningful success (Zhang & Liu, 2023; Zhang et al., 2023; Ghorbani et al., 2023). ",
+        "bbox": [
+            88,
+            462,
+            472,
+            688
+        ],
+        "page_idx": 2
+    },
+    {
+        "type": "text",
+        "text": "Subgraph recognition Given a graph, subgraph recognition aims to identify a compressed subgraph that contains salient information to predict the property of the graph. Graph information bottleneck (GIB) (Wu et al., 2020) addressed this problem by treating the subgraph as a bottleneck random variable and applying the information bottleneck theory. Yu et al. (2022) proposed to inject Gaussian noise into node representations to confine the information and recognize important subgraphs, while Miao et al. (2022) proposed to consider the subgraph attention process as the information bottleneck. Lee et al. (2023a) applied the GIB principle to molecular relational learning tasks. In practice, it is common for these methods to recognize disconnected substructures rather than connected fragments. Subgraph recognition by GIB has been only employed in classification and regression tasks, and this is the first work that applies GIB to fragment extraction. ",
+        "bbox": [
+            89,
+            710,
+            472,
+            904
+        ],
+        "page_idx": 2
+    },
+    {
+        "type": "text",
+        "text": "",
+        "bbox": [
+            500,
+            351,
+            883,
+            410
+        ],
+        "page_idx": 2
+    },
+    {
+        "type": "text",
+        "text": "3. Method ",
+        "text_level": 1,
+        "bbox": [
+            501,
+            430,
+            586,
+            446
+        ],
+        "page_idx": 2
+    },
+    {
+        "type": "text",
+        "text": "We introduce our Goal-aware fragment Extraction, Assembly, and Modification (GEAM) framework which aims to generate molecules that satisfy the target properties with goal-aware fragments. We first describe the goal-aware fragment extraction method in Sec. 3.1. Then we describe the fragment assembly method in Sec. 3.2. Finally, we describe the fragment modification method, the dynamic vocabulary update, and the resulting GEAM in Sec. 3.3. ",
+        "bbox": [
+            501,
+            457,
+            883,
+            577
+        ],
+        "page_idx": 2
+    },
+    {
+        "type": "text",
+        "text": "3.1. Goal-aware Fragment Extraction ",
+        "text_level": 1,
+        "bbox": [
+            501,
+            593,
+            761,
+            608
+        ],
+        "page_idx": 2
+    },
+    {
+        "type": "text",
+        "text": "Assume we are given a set of $N$ molecular graphs $G _ { i }$ with their corresponding properties $Y _ { i } \\in [ 0 , 1 ]$ , denoted as $\\mathcal { D } = \\{ ( G _ { i } , Y _ { i } ) \\} _ { i = 1 } ^ { N }$ . Each graph $G _ { i } = ( X _ { i } , A _ { i } )$ consists of $n$ nodes with a node feature matrix $\\ b X _ { i } \\in \\mathbb { R } ^ { n \\times d }$ and an adjacency matrix $A _ { i } \\in \\mathbb { R } ^ { n \\times n }$ . Let $\\nu$ be a set of all nodes from the graphs $\\mathcal { G } = \\{ G _ { i } \\} _ { i = 1 } ^ { N }$ and let $\\mathcal { E }$ be a set of all edges from $\\mathcal { G }$ . Our goal is to extract goal-aware fragments from $\\mathcal { G }$ such that we can assemble these fragments to synthesize graphs with desired properties. To achieve this goal, we propose Fragment-wise Graph Information Bottleneck (FGIB), a model that learns to identify salient fragments of $G _ { i }$ for predicting the target property $Y _ { i }$ . ",
+        "bbox": [
+            501,
+            617,
+            883,
+            797
+        ],
+        "page_idx": 2
+    },
+    {
+        "type": "text",
+        "text": "Concretely, we first decompose a set of graphs $\\mathcal { G }$ into $M$ candidate fragments, denoted as $\\mathcal { F }$ with BRICS (Degen et al., 2008), a popular method that fragmentizes molecules into retrosynthetically interesting substructures. Each fragment $F = ( V , E ) \\in { \\mathcal { F } }$ is comprised of vertices $V \\subset \\mathcal { V }$ and edges $E \\subset { \\mathcal { E } }$ . Then each graph $G$ can be represented as $m$ fragments, $\\{ F _ { j } = ( V _ { j } , E _ { j } ) \\} _ { j = 1 } ^ { m }$ , with $F _ { j } \\in { \\mathcal { F } }$ . Inspired by graph information bottleneck (Wu et al., 2020), FGIB aims to identify a subset of fragments $G ^ { \\mathrm { s u b } }$ that is maximally informative for predicting the target property $Y$ while maximally compressing the original graph $G$ : ",
+        "bbox": [
+            501,
+            806,
+            883,
+            896
+        ],
+        "page_idx": 2
+    },
+    {
+        "type": "text",
+        "text": "",
+        "bbox": [
+            88,
+            84,
+            472,
+            160
+        ],
+        "page_idx": 3
+    },
+    {
+        "type": "equation",
+        "img_path": "images/75f25602306f3868359e7b5ee32d3ad2060fb5118aefd47fda91f5b77cdecf77.jpg",
+        "text": "$$\n\\operatorname* { m i n } _ { G ^ { \\mathrm { s u b } } } - I ( G ^ { \\mathrm { s u b } } , Y ) + \\beta I ( G ^ { \\mathrm { s u b } } , G ) ,\n$$",
+        "text_format": "latex",
+        "bbox": [
+            168,
+            165,
+            390,
+            189
+        ],
+        "page_idx": 3
+    },
+    {
+        "type": "text",
+        "text": "where $\\beta > 0$ and $I ( X , Y )$ denotes the mutual information between the random variables $X$ and $Y$ . ",
+        "bbox": [
+            88,
+            194,
+            472,
+            224
+        ],
+        "page_idx": 3
+    },
+    {
+        "type": "text",
+        "text": "FGIB first calculates the node embeddings $\\{ \\mathbf { h } \\} _ { i = 1 } ^ { n }$ from the graph $G$ with MPNN (Gilmer et al., 2017) and use average pooling to obtain the fragment embedding $\\mathbf { e } _ { j }$ of the fragment $F _ { j } = ( V _ { j } , E _ { j } )$ as follows: ",
+        "bbox": [
+            88,
+            232,
+            473,
+            292
+        ],
+        "page_idx": 3
+    },
+    {
+        "type": "equation",
+        "img_path": "images/32c8849a49e6f8b6547229421945d28e192388c4bed44bc880bb070e630d988b.jpg",
+        "text": "$$\n\\begin{array} { r } { \\left[ \\mathbf { h } _ { 1 } \\cdot \\cdot \\cdot \\cdot \\mathbf { h } _ { n } \\right] ^ { \\top } = \\mathsf { M P N N } ( \\pmb { X } , \\pmb { A } ) , } \\\\ { \\mathbf { e } _ { j } = \\mathsf { A v g } ( \\{ \\mathbf { h } _ { l } : v _ { l } \\in V _ { j } \\} ) \\in \\mathbb { R } ^ { d } , } \\end{array}\n$$",
+        "text_format": "latex",
+        "bbox": [
+            137,
+            296,
+            423,
+            340
+        ],
+        "page_idx": 3
+    },
+    {
+        "type": "text",
+        "text": "where $v _ { l }$ denotes the node whose corresponding node embedding is $\\mathbf { h } _ { l }$ . Using a MLP with a sigmoid activation function at the last layer, we obtain $w _ { j } \\in [ 0 , 1 ]$ , the importance of the fragment $F _ { j }$ for predicting the target property $Y$ , as $w _ { j } \\ = \\ \\mathrm { M L P } ( \\mathbf { e } _ { j } )$ . We denote $\\theta$ as the parameters of the MPNN and the MLP. Following $\\mathrm { Y u }$ et al. (2022), we inject a noise to the fragment embedding $\\mathbf { e } _ { j }$ according to $w _ { j }$ to control the information flow from $F _ { j }$ as follows: ",
+        "bbox": [
+            88,
+            342,
+            472,
+            463
+        ],
+        "page_idx": 3
+    },
+    {
+        "type": "equation",
+        "img_path": "images/c7bc5276909e6d76074a616691f12264bfa152612b16a9c180b866f34ae5ef9d.jpg",
+        "text": "$$\n\\begin{array} { r l } & { \\tilde { \\mathbf { e } } _ { j } = w _ { j } \\mathbf { e } _ { j } + ( 1 - w _ { j } ) \\hat { \\boldsymbol { \\mu } } + \\epsilon , } \\\\ & { w _ { j } = \\mathbf { M L P } ( \\mathbf { e } _ { j } ) , \\quad \\epsilon \\sim \\mathcal { N } ( \\mathbf { 0 } , ( 1 - w _ { j } ) \\hat { \\mathbf { E } } ) , } \\end{array}\n$$",
+        "text_format": "latex",
+        "bbox": [
+            138,
+            468,
+            421,
+            510
+        ],
+        "page_idx": 3
+    },
+    {
+        "type": "text",
+        "text": "where $\\boldsymbol { \\hat { \\mu } } \\in \\mathbb { R } ^ { d }$ and $\\hat { \\mathbf { \\boldsymbol { \\Sigma } } } \\in \\mathbb { R } ^ { d \\times d }$ denote an empirical mean vector and a diagonal covariance matrix estimated from $\\{ { \\bf e } _ { j } \\} _ { j = 1 } ^ { m }$ , respectively. Intuitively, the more a fragment is considered irrelevant for predicting the target property (i.e., small weight $w$ ), the more the transmission of the fragment information is blocked. Let ${ \\cal Z } = \\mathrm { v e c } ( [ \\tilde { \\bf e } _ { 1 } \\cdot \\cdot \\cdot \\tilde { \\bf e } _ { m } ] )$ be the embedding of the perturbed fragments, which is a Gaussian-distributed random variable, i.e., $p _ { \\theta } ( Z | G ) =$ $\\mathcal { N } ( \\mu _ { \\theta } ( G ) , \\Sigma _ { \\theta } ( G ) )$ . Here, vec is a vectorization of a matrix, and $\\mu _ { \\theta } ( G )$ and $\\Sigma _ { \\theta } ( G )$ denote the mean and the covariance induced by the MPNN and the MLP with the noise $\\epsilon$ , respectively. Assuming no information loss in the fragments after encoding them, our objective function in Eq. (1) becomes to optimize the parameters $\\theta$ such that we can still predict the property $Y$ from the embedding $Z$ while minimizing the mutual information between $G$ and $Z$ : ",
+        "bbox": [
+            88,
+            515,
+            472,
+            757
+        ],
+        "page_idx": 3
+    },
+    {
+        "type": "equation",
+        "img_path": "images/62f977a49e081160362ecff5e551cad90cfa5943dacbbc55b4be3eac3d8169dd.jpg",
+        "text": "$$\n\\operatorname* { m i n } _ { \\theta } { \\underbrace { - I ( Z , Y ; \\theta ) + \\beta I ( Z , G ; \\theta ) } _ { \\mathcal { L } _ { \\mathrm { I B } } ( \\theta ) } } .\n$$",
+        "text_format": "latex",
+        "bbox": [
+            169,
+            762,
+            390,
+            801
+        ],
+        "page_idx": 3
+    },
+    {
+        "type": "text",
+        "text": "Following Alemi et al. (2017), we derive the upper bound of ${ \\mathcal { L } } _ { \\mathrm { I B } } ( \\theta )$ with variational inference (Blei et al., 2016): ",
+        "bbox": [
+            88,
+            805,
+            472,
+            834
+        ],
+        "page_idx": 3
+    },
+    {
+        "type": "equation",
+        "img_path": "images/04758e394b9ca528e1ee2d38ae92c5a249b6162e4401477ac73bd6c2833abd45.jpg",
+        "text": "$$\n\\begin{array} { c l } { \\displaystyle \\mathcal { L } ( \\theta , \\phi ) = \\frac { 1 } { N } \\sum _ { i = 1 } ^ { N } \\big ( - \\log q _ { \\phi } ( Y _ { i } | Z _ { i } ) } \\\\ { \\displaystyle + \\beta D _ { \\mathrm { K L } } \\big ( p _ { \\theta } ( Z | G _ { i } ) \\parallel u ( Z ) \\big ) \\big ) , } \\end{array}\n$$",
+        "text_format": "latex",
+        "bbox": [
+            104,
+            839,
+            436,
+            905
+        ],
+        "page_idx": 3
+    },
+    {
+        "type": "text",
+        "text": "where $q _ { \\phi }$ is a property predictor that takes the perturbed fragment embedding $Z$ as an input, $u ( Z )$ is a variational distribution that approximates the marginal $p _ { \\theta } ( Z )$ , and $Z _ { i }$ is drawn from $p _ { \\theta } ( Z | G _ { i } ) = \\mathcal { N } ( \\pmb { \\mu _ { \\theta } } ( G _ { i } ) , \\pmb { \\Sigma _ { \\theta } } ( G _ { i } ) )$ for $i \\in$ $\\{ 1 , \\ldots , N \\}$ . We optimize $\\theta$ and $\\phi$ to minimize the objective function ${ \\mathcal { L } } ( \\theta , \\phi )$ . Note that the variational distribution $u ( \\cdot )$ is chosen to be Gaussian, enabling analytic computation of the KL divergence. A detail proof is included in Sec. B. ",
+        "bbox": [
+            500,
+            84,
+            885,
+            205
+        ],
+        "page_idx": 3
+    },
+    {
+        "type": "text",
+        "text": "After training FGIB, we calculate $\\mathsf { s c o r e } ( F _ { j } ) \\in [ 0 , 1 ]$ of each fragment $F _ { j } = ( V _ { j } , E _ { j } ) \\in \\mathcal { F }$ with FGIB as follows: ",
+        "bbox": [
+            500,
+            212,
+            887,
+            244
+        ],
+        "page_idx": 3
+    },
+    {
+        "type": "equation",
+        "img_path": "images/8e6fd5b8e39b6fad64b8b77688969c31e7bf0a98a89906fa867895f413c32224.jpg",
+        "text": "$$\n\\mathsf { s c o r e } ( F _ { j } ) = \\frac { 1 } { | S ( F _ { j } ) | } \\sum _ { ( G , Y ) \\in S ( F _ { j } ) } \\frac { w _ { j } ( G , F _ { j } ) } { \\sqrt { | V _ { j } | } } \\cdot Y ,\n$$",
+        "text_format": "latex",
+        "bbox": [
+            511,
+            251,
+            852,
+            292
+        ],
+        "page_idx": 3
+    },
+    {
+        "type": "text",
+        "text": "where $S ( F _ { j } ) = \\{ ( G , Y ) \\in { \\mathcal { D } } : F _ { j }$ is a subgraph of $G \\}$ and $w _ { j } ( G , F _ { j } )$ is an importance of the fragment $F _ { j }$ in the graph $G$ , computed as Eq. (3). Intuitively, the score quantifies the extent to which a fragment contributes to achieving a high target property. Specifically, the term $w _ { j } ( G , \\bar { F _ { j } } ) / \\sqrt { | V _ { j } | }$ measures how much a fragment contributes to its whole molecule in terms of the target property, while the term $Y$ measures the property of the molecule. As the number of nodes of the fragment becomes larger, FGIB is more likely to consider it important when predicting the property. To normalize the effect of the fragment size, we include $\\sqrt { | V _ { j } | }$ in the first term. Based on the scores of all fragments, we choose the top- $K$ fragments as the goal-aware vocabulary $s \\subset \\mathcal { F }$ for the subsequent generation of molecular graphs with desired properties. ",
+        "bbox": [
+            500,
+            299,
+            885,
+            526
+        ],
+        "page_idx": 3
+    },
+    {
+        "type": "text",
+        "text": "3.2. Fragment Assembly ",
+        "text_level": 1,
+        "bbox": [
+            501,
+            544,
+            669,
+            559
+        ],
+        "page_idx": 3
+    },
+    {
+        "type": "text",
+        "text": "The next step is to generate molecules with the extracted goal-aware fragment vocabulary. For generation, we introduce the fragment assembly module, Soft actor-critic (SAC) (Haarnoja et al., 2018), that learns to assemble the fragments to generate molecules with desired properties. ",
+        "bbox": [
+            500,
+            568,
+            885,
+            642
+        ],
+        "page_idx": 3
+    },
+    {
+        "type": "text",
+        "text": "We formulate fragment assembly as a RL problem following Yang et al. (2021). Given a partially generated molecule $g _ { t }$ which becomes a state $\\mathbf { s } _ { t }$ at time step $t$ , a policy network adds a fragment to $g _ { t }$ through a sequence of three actions: (1) the attachment site of $g _ { t }$ to use in forming a new bond, (2) the fragment $F \\in S$ to be attached to $g _ { t }$ , and (3) the attachment site of $F$ to use in forming a new bond. Following Yang et al. (2021), we encode the nodes of the graph $g _ { t }$ with GCN (Kipf & Welling, 2017) as $\\pmb { H } = \\mathbf { G C N } ( g _ { t } )$ and obtain the graph embedding with sum pooling as $\\mathbf { h } _ { g _ { t } } = \\mathrm { S u m } ( H )$ . We parameterize the policy network $\\pi$ with three sub-policy networks to sequentially choose actions conditioned on previous ones: ",
+        "bbox": [
+            500,
+            650,
+            885,
+            847
+        ],
+        "page_idx": 3
+    },
+    {
+        "type": "equation",
+        "img_path": "images/f6b6f9f59e2de70ae0eeb09aa2e820e143739dcd274908adc8715dfcb0053de7.jpg",
+        "text": "$$\n\\begin{array} { r l r } & { } & { p _ { \\pi _ { 1 } } ( \\cdot | \\mathbf { s } _ { t } ) = \\pi _ { 1 } ( Z _ { 1 } ) , Z _ { 1 } = f _ { 1 } \\big ( \\mathbf { h } _ { g _ { t } } , H _ { \\mathrm { a t t } } \\big ) \\quad \\quad } \\\\ & { } & { p _ { \\pi _ { 2 } } ( \\cdot | a _ { 1 } , \\mathbf { s } _ { t } ) = \\pi _ { 2 } ( Z _ { 2 } ) , Z _ { 2 } = f _ { 2 } \\big ( \\mathbf { z } _ { 1 , a _ { 1 } } , \\mathrm { E C F P } ( S ) \\big ) \\quad \\quad \\quad ( 7 ) } \\\\ & { } & { p _ { \\pi _ { 3 } } ( \\cdot | a _ { 1 : 2 } , \\mathbf { s } _ { t } ) = \\pi _ { 3 } ( Z _ { 3 } ) , Z _ { 3 } = f _ { 3 } \\big ( \\mathrm { S u m } ( \\mathrm { G C N } ( F _ { a _ { 2 } } ) \\big ) , H _ { \\mathrm { a t t } , F _ { a _ { 2 } } } \\big ) } \\end{array}\n$$",
+        "text_format": "latex",
+        "bbox": [
+            500,
+            856,
+            887,
+            909
+        ],
+        "page_idx": 3
+    },
+    {
+        "type": "text",
+        "text": "where $H _ { \\mathrm { a t t } }$ denotes the node embeddings of the attachment sites and $a _ { 1 : 2 } = ( a _ { 1 } , a _ { 2 } )$ . We employ multiplicative interactions (Jayakumar et al., 2020) for $f _ { 1 } , f _ { 2 }$ and $f _ { 3 }$ to fuse two inputs from heterogeneous spaces. The first policy network $\\pi _ { 1 }$ outputs categorical distribution over attachment sites of the current graph $g _ { t }$ conditioned on $\\mathbf { h } _ { g _ { t } }$ and $H _ { \\mathrm { a t t } }$ , and chooses the attachment site with $a _ { 1 } \\sim p _ { \\pi _ { 1 } } ( \\cdot | \\mathbf { s } _ { t } )$ The second policy network $\\pi _ { 2 }$ selects the fragment $F _ { a _ { 2 } } \\in$ $s$ with $a _ { 2 } { \\mathbf { \\Gamma } } \\sim { \\bf \\Gamma } { p } _ { \\pi _ { 2 } } ( \\cdot | a _ { 1 } , \\mathbf { s } _ { t } )$ , conditioned on the embedding of the previously chosen attachment site $\\mathbf { z } _ { 1 , a _ { 1 } }$ and the ECFPs of all the fragments $\\operatorname { E C F P } ( S )$ . Then we encode the node embeddings of the fragment $F _ { a _ { 2 } }$ with the same GCN as HFa ${ \\cal H } _ { F _ { a _ { 2 } } } = \\mathrm { G C N } ( F _ { a _ { 2 } } )$ , and get the fragment embedding hFa2 ${ \\bf h } _ { F _ { a _ { 2 } } } \\ = \\ \\mathrm { S u m } ( H _ { F _ { a _ { 2 } } } )$ . The policy network $\\pi _ { 3 }$ chooses the attachment site of the fragment $F _ { a _ { 2 } }$ with $a _ { 3 } \\sim p _ { \\pi _ { 3 } } ( \\cdot | a _ { 1 : 2 } , \\mathbf { s } _ { t } )$ , conditioned on the fragment embedding $\\mathbf { h } _ { F _ { a _ { 2 } } }$ and the attachment site embeddings of the fragment $H _ { \\mathrm { a t t } , F _ { a _ { 2 } } }$ . Finally, we attach the fragment $F _ { a _ { 2 } }$ to the current graph $g _ { t }$ with the chosen attachment sites $a _ { 1 }$ and $a _ { 3 }$ , resulting in a new graph $g _ { t + 1 }$ . With $T$ steps of sampling actions $( a _ { 1 } , a _ { 2 } , a _ { 3 } )$ using these policy networks, we generate a new molecule $g _ { T } = G$ , call the oracle to evaluate the molecule $G$ and calculate the reward $r _ { T }$ . ",
+        "bbox": [
+            88,
+            87,
+            472,
+            431
+        ],
+        "page_idx": 4
+    },
+    {
+        "type": "text",
+        "text": "With the SAC objective (Haarnoja et al., 2018), we train the policy network $\\pi$ as follows: ",
+        "bbox": [
+            88,
+            439,
+            472,
+            469
+        ],
+        "page_idx": 4
+    },
+    {
+        "type": "equation",
+        "img_path": "images/0ba9b44af5d8e7f14ae37eb6ab1247e953ff92907183b3fa0cbc7a0e28f559ee.jpg",
+        "text": "$$\n\\underset { \\pi } { \\mathrm { m a x i m i z e } } \\sum _ { t } \\mathbb { E } _ { ( \\mathbf { s } _ { t } , \\mathbf { a } _ { t } ) \\sim \\rho _ { \\pi } } [ r ( \\mathbf { s } _ { t } , \\mathbf { a } _ { t } ) + \\alpha \\mathcal { H } ( \\pi ( \\cdot | \\mathbf { s } _ { t } ) ) ] ,\n$$",
+        "text_format": "latex",
+        "bbox": [
+            98,
+            482,
+            441,
+            515
+        ],
+        "page_idx": 4
+    },
+    {
+        "type": "text",
+        "text": "where $r ( \\mathbf { s } _ { t } , \\mathbf { a } _ { t } )$ is a reward function1, $\\mathcal { H } ( \\pi ( \\cdot | \\mathbf { s } _ { t } ) )$ is entropy of action probabilities given $\\mathbf { s } _ { t }$ with a temperature parameter $\\alpha > 0$ , and $\\rho _ { \\pi } ( \\mathbf { s } _ { t } , \\mathbf { a } _ { t } )$ is a state-action marginal of the trajectory distribution induced by the policy $\\pi ( \\mathbf { a } _ { t } | \\mathbf { s } _ { t } ) \\ =$ $p _ { \\pi _ { 3 } } ( a _ { 3 , t } | a _ { 1 : 2 , t } , \\mathbf { s } _ { t } ) p _ { \\pi _ { 2 } } ( a _ { 2 , t } | a _ { t , 1 } , \\mathbf { s } _ { t } ) p _ { \\pi _ { 1 } } ( a _ { t , 1 } | \\mathbf { s } _ { t } )$ with $\\mathbf { a } _ { t } =$ $( a _ { 1 , t } , a _ { 2 , t } , a _ { 3 , t } )$ and $a _ { 1 : 2 , t } = ( a _ { 1 , t } , a _ { 2 , t } )$ . To sample discrete actions differentiable for backpropagation, we use Gumbel-Softmax (Jang et al., 2017; Maddison et al., 2017) to optimize Eq. (8). ",
+        "bbox": [
+            88,
+            530,
+            472,
+            666
+        ],
+        "page_idx": 4
+    },
+    {
+        "type": "text",
+        "text": "Let $\\pi$ be a policy that is at least as good as a random policy with respect to the choice of fragments and optimal with respect to other actions given a chosen fragment, i.e., $p _ { \\pi _ { 2 } } ( a _ { 2 , t } | a _ { t , 1 } , \\mathbf { s } _ { t } )$ is not worse than the uniform distribution, and $p _ { \\pi _ { 1 } } ( a _ { t , 1 } | \\mathbf { s } _ { t } )$ and $p _ { \\pi _ { 3 } } ( a _ { 3 , t } | a _ { 1 : 2 , t } , \\mathbf { s } _ { t } )$ are optimal. Define $\\varphi ( S )$ to be the set of all optimal and novel molecule graphs that can be constructed from a given $s$ and $| S | ^ { T }$ to be the size of the all possible combination of actions without restricting the validity. Proposition 3.1 shows that the failure probability decreincreases at the rate of $| S |$ $\\varphi ( S )$ $\\begin{array} { r } { \\big ( 1 + N \\log \\big ( \\frac { | S | ^ { T } } { | S | ^ { T } - \\varphi ( S ) } \\big ) \\big ) ^ { - 1 } } \\end{array}$ ",
+        "bbox": [
+            88,
+            674,
+            472,
+            859
+        ],
+        "page_idx": 4
+    },
+    {
+        "type": "text",
+        "text": "Proposition 3.1. The probability of $\\pi$ failing to generate at least one optimal $G \\in \\varphi ( S )$ is at most $p$ where $p =$ $\\begin{array} { r } { ( 1 + N \\log ( \\frac { | S | ^ { T } } { | S | ^ { T } - \\varphi ( S ) } ) ) ^ { - 1 } } \\end{array}$ if $\\vert { \\cal S } \\vert ^ { T } \\ne \\varphi ( { \\cal S } )$ and $p = 0 ~ i f$ $| S | ^ { T } = \\varphi ( S )$ . ",
+        "bbox": [
+            500,
+            85,
+            885,
+            154
+        ],
+        "page_idx": 4
+    },
+    {
+        "type": "text",
+        "text": "Since $I ( G ^ { \\mathrm { s u b } } , G ) = I ( G ^ { \\mathrm { s u b } } , Y ) + I ( G ^ { \\mathrm { s u b } } , G \\textrm { \\ l } | Y )$ , FGIB maximizes $( 1 - \\beta ) I ( G ^ { \\mathrm { s u b } } , Y ) - \\beta I ( G ^ { \\mathrm { s u b } } , G ~ | ~ Y )$ . Thus, FGIB is designed to maximize $\\varphi ( S )$ by maximizing $I ( G ^ { \\mathrm { s u b } } , Y )$ while minimizing $| S |$ by minimizing $I ( G ^ { \\mathrm { s u b } } , G \\mid Y )$ . The benefit of FGIB is that it maximizes $\\varphi ( S )$ when compared to previous methods of selecting a random set $s$ (with the same size $| S | )$ , and that it minimizes $| S |$ when compared to the approach of using $\\overline { { \\boldsymbol { S } } }$ as $s$ , where $\\overline { { \\cal S } }$ is the set of all fragments of training data. However, $\\varphi ( S )$ is upper bounded by $\\varphi ( { \\overline { { S } } } )$ with the combination of FGIB and SAC. To further increase $\\varphi ( S )$ beyond the value of $\\varphi ( { \\overline { { S } } } )$ , we propose a novel approach of the dynamic update of $s$ in the next subsection. ",
+        "bbox": [
+            500,
+            169,
+            885,
+            366
+        ],
+        "page_idx": 4
+    },
+    {
+        "type": "text",
+        "text": "3.3. Fragment Modification and Dynamic Vocabulary Update ",
+        "text_level": 1,
+        "bbox": [
+            500,
+            383,
+            872,
+            414
+        ],
+        "page_idx": 4
+    },
+    {
+        "type": "text",
+        "text": "With the fragment assembly module only, we cannot generate molecules consisting of fragments not included in the predefined vocabulary, which hinders generation of diverse molecules and precludes exploration beyond the vocabulary. To overcome this problem, we introduce the fragment modification module, which utilizes a genetic algorithm (GA) to generate molecules that contain novel fragments. ",
+        "bbox": [
+            501,
+            422,
+            883,
+            527
+        ],
+        "page_idx": 4
+    },
+    {
+        "type": "text",
+        "text": "Specifically, we employ a graph-based GA (Jensen, 2019). At the first round of the GA, we initialize the population with the top- $P$ molecules generated by the fragment assembly module. The GA then selects parent molecules from the population and generates offspring molecules by performing crossover and mutation. As a consequence of the crossover and mutation operations, the generated offspring molecules contain novel fragments not in the initial vocabulary. In the subsequent rounds, we choose the top- $P$ molecules generated so far by both SAC and GA to construct the GA population of the next round. ",
+        "bbox": [
+            501,
+            536,
+            885,
+            702
+        ],
+        "page_idx": 4
+    },
+    {
+        "type": "text",
+        "text": "We iteratively run the fragment assembly module described in Sec. 3.2 and the fragment modification in turn, and this generative scheme is referred to as GEAM-static. To further enhance molecular diversity and novelty, we propose incorporating the fragment extraction module into this generative cycle. Concretely, in each cycle after the fragment assembly and the fragment modification modules generate molecules, FGIB extracts novel goal-aware fragments $S ^ { \\prime }$ from the offspring molecules as described in Sec. 3.1. Then the vocabulary is dynamically updated as $\\mathcal { S } \\cup \\mathcal { S } ^ { \\prime }$ . When the size of the vocabulary becomes larger than the maximum size $L$ , we choose the top- $L$ fragments as the vocabulary based on the scores in Eq. (6). The fragment assembly module assembles fragments of the updated vocabulary in the next iteration, and we refer to this generative framework as GEAM. The single generation cycle of GEAM is described in Algorithm 1 in Sec. A. ",
+        "bbox": [
+            501,
+            710,
+            885,
+            905
+        ],
+        "page_idx": 4
+    },
+    {
+        "type": "text",
+        "text": "",
+        "bbox": [
+            88,
+            85,
+            472,
+            145
+        ],
+        "page_idx": 5
+    },
+    {
+        "type": "text",
+        "text": "4. Experiments ",
+        "text_level": 1,
+        "bbox": [
+            89,
+            165,
+            215,
+            181
+        ],
+        "page_idx": 5
+    },
+    {
+        "type": "text",
+        "text": "We demonstrate the efficacy of GEAM in two sets of multiobjective molecular optimization tasks simulating realworld drug discovery problems. We first conduct experiments to generate novel molecules that have high binding affinity, drug-likeness, and synthesizability in Sec. 4.1. We then experiment on the practical molecular optimization benchmark in Sec. 4.2. We further conduct extensive ablation studies and qualitative analysis in Sec. 4.3. ",
+        "bbox": [
+            89,
+            190,
+            472,
+            310
+        ],
+        "page_idx": 5
+    },
+    {
+        "type": "text",
+        "text": "4.1. Optimization of Binding Affinity under QED, SA and Novelty Constraints ",
+        "text_level": 1,
+        "bbox": [
+            88,
+            328,
+            459,
+            357
+        ],
+        "page_idx": 5
+    },
+    {
+        "type": "text",
+        "text": "Setup Following Lee et al. (2023b), we validate GEAM in the five docking score (DS) optimization tasks under the quantitative estimate of drug-likeness (QED) (Bickerton et al., 2012), synthetic accessibility (SA) (Ertl & Schuffenhauer, 2009), and novelty constraints. The goal is to generate novel, drug-like, and synthesizable molecules that have a high absolute docking score. Following Lee et al. (2023b), we set the property $Y$ as follows: ",
+        "bbox": [
+            89,
+            367,
+            472,
+            487
+        ],
+        "page_idx": 5
+    },
+    {
+        "type": "equation",
+        "img_path": "images/2fa108aa3c5527d4a36a508cd7c5f15f1efde26dfac9c8f0a4ffe70b7fb63e27.jpg",
+        "text": "$$\nY ( G ) = { \\widehat { \\mathrm { D S } } } ( G ) \\times { \\mathrm { Q E D } } ( G ) \\times { \\widehat { \\mathrm { S A } } } ( G ) \\in [ 0 , 1 ] ,\n$$",
+        "text_format": "latex",
+        "bbox": [
+            114,
+            496,
+            426,
+            517
+        ],
+        "page_idx": 5
+    },
+    {
+        "type": "text",
+        "text": "where $\\widehat { \\mathrm { D S } }$ and $\\widehat { \\mathrm { S A } }$ are the normalized DS and the normalized SA, respectively (Eq. (14)). We use ZINC250k (Irwin et al., 2012) to train FGIB to predict $Y$ and extract initial fragments. Optimization performance is evaluated with 3,000 generated molecules using the following metrics. Novel hit ratio $( \\% )$ measures the fraction of unique and novel hits among the generated molecules. Here, novel molecules are defined as the molecules that have the maximum Tanimoto similarity less than 0.4 with the molecules in the training set, and hits are the molecules that satisfy the following criteria: DS $<$ (the median DS of known active molecules), $\\mathrm { Q E D } > 0 . 5$ and $\\mathrm { ~ S A ~ } < ~ 5$ . Novel top $5 \\%$ DS (kcal/mol) measures the average DS of the top $5 \\%$ unique, novel hits. parp1, fa7, 5ht1b, braf and jak2 are used as the protein targets the docking scores are calculated for. In addition, we evaluate the fraction of novel molecules, novelty $( \\% )$ , and the extent of chemical space covered, #Circles (Xie et al., 2023) of the generated hits. The experimental details are provided in Sec. D.1 and D.2. ",
+        "bbox": [
+            89,
+            529,
+            472,
+            833
+        ],
+        "page_idx": 5
+    },
+    {
+        "type": "text",
+        "text": "Baselines REINVENT (Olivecrona et al., 2017) is a SMILES-based RL model with a pretrained prior. Graph GA (Jensen, 2019) is a GA-based model that utilizes predefined crossover and mutation rules. MORLD (Jeon & ",
+        "bbox": [
+            88,
+            845,
+            472,
+            905
+        ],
+        "page_idx": 5
+    },
+    {
+        "type": "text",
+        "text": "Kim, 2020) is a RL model that uses the MolDQN algorithm (Zhou et al., 2019). HierVAE (Jin et al., 2020a) is a VAE-based model that uses the hierarchical motif representation of molecules. RationaleRL (Jin et al., 2020b) is a RL model that first identifies subgraphs that are likely responsible for the target properties (i.e., rationale) and then extends them to complete molecules. FREED (Yang et al., 2021) is a RL model that assembles the fragments obtained using CReM (Polishchuk, 2020). PS-VAE (Kong et al., 2022) is a VAE-based model that uses the mined principal subgraphs as the building blocks. MOOD (Lee et al., 2023b) is a diffusion model that incorporates an out-ofdistribution control to enhance novelty. The results of additional baselines are included in Table 7 and Table 8. ",
+        "bbox": [
+            501,
+            85,
+            883,
+            295
+        ],
+        "page_idx": 5
+    },
+    {
+        "type": "text",
+        "text": "Results The results are shown in Table 1 and Table 2. GEAM and GEAM-static significantly outperform all the baselines in all the tasks, demonstrating that the proposed goal-aware extraction method and the proposed combination of SAC and GA are highly effective in discovering novel, drug-like, and synthesizable drug candidates that have high binding affinity. GEAM shows comparable or better performance than GEAM-static, and as shown in Table 3 and Table 4, the usage of the dynamic vocabulary update enhances novelty and diversity without degrading optimization performance. There is a general trend that the more powerful the molecular optimization model, the less likely it is to generate diverse molecules (Gao et al., 2022), but GEAM effectively overcomes this trade-off by discovering novel and high-quality goal-aware fragments on-thefly. Note that the high novelty values of MORLD are trivial due to its poor optimization performance and very low diversity. Similarly, the high diversity values of RationaleRL on the target proteins 5ht1b and jak2 are not meaningful due to its poor optimization performance and novelty. ",
+        "bbox": [
+            501,
+            309,
+            883,
+            611
+        ],
+        "page_idx": 5
+    },
+    {
+        "type": "text",
+        "text": "4.2. Optimization of Multi-property Objectives in PMO Benchmark ",
+        "text_level": 1,
+        "bbox": [
+            501,
+            627,
+            844,
+            656
+        ],
+        "page_idx": 5
+    },
+    {
+        "type": "text",
+        "text": "Setup We validate GEAM in the seven multi-property objective (MPO) optimization tasks of the practical molecular optimization (PMO) benchmark (Gao et al., 2022), which are the tasks in the Guacamol benchmark (Brown et al., 2019) with the constraints of the number of oracle calls to simulate realistic drug discovery. The experimental details are provided in Sec. D.1 and D.3. ",
+        "bbox": [
+            501,
+            666,
+            883,
+            771
+        ],
+        "page_idx": 5
+    },
+    {
+        "type": "text",
+        "text": "Baselines We use the top three models reported by Gao et al. (2022) as our baselines. Note that since there are a total of 25 baselines in the paper of Gao et al. (2022), outperforming against the top three is equivalent to outperforming against the 25 baselines. In addition to REINVENT (Olivecrona et al., 2017) and Graph GA (Jensen, 2019), STONED (Nigam et al., 2021) is a GA-based model that manipulates SELFIES strings. ",
+        "bbox": [
+            501,
+            785,
+            883,
+            905
+        ],
+        "page_idx": 5
+    },
+    {
+        "type": "table",
+        "img_path": "images/243c91d5c981f0740aba9dd5cd5822c7eee1443e5a16de48b56992d1c99441e0.jpg",
+        "table_caption": [
+            "Table 1: Novel hit ratio $( \\% )$ results. The results are the means and the standard deviations of 3 runs. The results for the baselines except for RationaleRL and PS-VAE are taken from Lee et al. (2023b). The best results are highlighted in bold. "
+        ],
+        "table_footnote": [],
+        "table_body": "<table><tr><td rowspan=\"2\">Method</td><td colspan=\"5\">Target protein</td></tr><tr><td>parp1</td><td>fa7</td><td>5ht1b</td><td>braf</td><td>jak2</td></tr><tr><td>REINVENT (Olivecrona et al., 2017)</td><td>0.480 (± 0.344)</td><td>0.213 (± 0.081)</td><td>2.453 (± 0.561)</td><td>0.127 (± 0.088)</td><td>0.613 (± 0.167)</td></tr><tr><td>Graph GA (Jensen, 2019)</td><td>4.811 (± 1.661)</td><td>0.422 (± 0.193)</td><td>7.011 (± 2.732)</td><td>3.767 (± 1.498)</td><td>5.311 (± 1.667)</td></tr><tr><td>MORLD (Jeon &amp; Kim, 2020)</td><td>0.047 (± 0.050)</td><td>0.007(± 0.013)</td><td>0.880 (± 0.735)</td><td>0.047 (± 0.040)</td><td>0.227 (± 0.118)</td></tr><tr><td>HierVAE (Jin et al., 2020a)</td><td>0.553(± 0.214)</td><td>0.007 (± 0.013)</td><td>0.507 (± 0.278)</td><td>0.207 (± 0.220)</td><td>0.227 (± 0.127)</td></tr><tr><td>RationaleRL (Jin et al., 2020b)</td><td>4.267 (± 0.450)</td><td>0.900 (± 0.098)</td><td>2.967 (± 0.307)</td><td>0.000 (± 0.000)</td><td>2.967 (± 0.196)</td></tr><tr><td>FREED (Yang et al., 2021)</td><td>4.627 (± 0.727)</td><td>1.332 (± 0.113)</td><td>16.767 (± 0.897)</td><td>2.940 (± 0.359)</td><td>5.800 (± 0.295)</td></tr><tr><td>PS-VAE (Kong et al., 2022)</td><td>1.644 (± 0.389)</td><td>0.478 (± 0.140)</td><td>12.622 (± 1.437)</td><td>0.367 (± 0.047)</td><td>4.178 (± 0.933)</td></tr><tr><td>MOOD (Lee et al., 2023b)</td><td>7.017 (± 0.428)</td><td>0.733(± 0.141)</td><td>18.673 (± 0.423)</td><td>5.240 (± 0.285)</td><td>9.200 (± 0.524)</td></tr><tr><td>GEAM-static (ours)</td><td>39.667 (± 4.493)</td><td>16.989 (± 1.959)</td><td>38.433 (± 2.103)</td><td>27.422 (± 0.494)</td><td>42.056 (± 1.855)</td></tr><tr><td>GEAM (ours)</td><td>40.567 (± 0.825)</td><td>20.711 (± 1.873)</td><td>38.489(± 0.350)</td><td>27.900(± 1.822)</td><td>42.950(± 1.117)</td></tr></table>",
+        "bbox": [
+            135,
+            112,
+            844,
+            263
+        ],
+        "page_idx": 6
+    },
+    {
+        "type": "table",
+        "img_path": "images/41d80d8472656bbc1c112d05b01d1911e7eedd6c475504fa6fa0656164bee47a.jpg",
+        "table_caption": [
+            "Table 2: Novel top $5 \\%$ docking score (kcal/mol) results. The results are the means and the standard deviations of 3 runs. The results for the baselines except for RationaleRL and PS-VAE are taken from Lee et al. (2023b). The best results are highlighted in bold. "
+        ],
+        "table_footnote": [],
+        "table_body": "<table><tr><td rowspan=\"2\">Method</td><td colspan=\"5\">Target protein</td></tr><tr><td>parp1</td><td>fa7</td><td>5ht1b</td><td>braf</td><td>jak2</td></tr><tr><td>REINVENT (Olivecrona et al., 2017)</td><td>-8.702 (± 0.523)</td><td>-7.205 (± 0.264)</td><td>-8.770 (± 0.316)</td><td>-8.392 (± 0.400)</td><td>-8.165 (± 0.277)</td></tr><tr><td>Graph GA (Jensen, 2019)</td><td>-10.949 (± 0.532)</td><td>-7.365 (± 0.326)</td><td>-10.422 (± 0.670)</td><td>-10.789(± 0.341)</td><td>-10.167 (± 0.576)</td></tr><tr><td>MORLD (Jeon &amp; Kim, 2020)</td><td>-7.532 (± 0.260)</td><td>-6.263(± 0.165)</td><td>-7.869 (± 0.650)</td><td>-8.040 (± 0.337)</td><td>-7.816 (± 0.133)</td></tr><tr><td>HierVAE (Jin et al., 2020a)</td><td>-9.487 (± 0.278)</td><td>-6.812 (± 0.274)</td><td>-8.081(± 0.252)</td><td>-8.978 (± 0.525)</td><td>-8.285 (± 0.370)</td></tr><tr><td>RationaleRL (Jin et al., 2020b)</td><td>-10.663 (± 0.086)</td><td>-8.129 (± 0.048)</td><td>-9.005 (± 0.155)</td><td>No hit found</td><td>-9.398 (± 0.076)</td></tr><tr><td>FREED (Yang et al., 2021)</td><td>-10.579(± 0.104)</td><td>-8.378 (± 0.044)</td><td>-10.714 (± 0.183)</td><td>-10.561 (± 0.080)</td><td>-9.735 (± 0.022)</td></tr><tr><td>PS-VAE (Kong et al., 2022)</td><td>-9.978 (± 0.091)</td><td>-8.028 (± 0.050)</td><td>-9.887 (± 0.115)</td><td>-9.637 (± 0.049)</td><td>-9.464 (± 0.129)</td></tr><tr><td>MOOD (Lee et al., 2023b)</td><td>-10.865 (± 0.113)</td><td>-8.160 (± 0.071)</td><td>-11.145 (± 0.042)</td><td>-11.063 (± 0.034)</td><td>-10.147 (± 0.060)</td></tr><tr><td>GEAM-static (ours)</td><td>-12.810 (± 0.124)</td><td>-9.682 (± 0.026)</td><td>-12.369 (± 0.084)</td><td>-12.336 (± 0.157)</td><td>-11.812 (± 0.055)</td></tr><tr><td>GEAM (ours)</td><td>-12.891(± 0.158)</td><td>-9.890 (± 0.116)</td><td>-12.374(± 0.036)</td><td>-12.342 (± 0.095)</td><td>-11.816 (± 0.067)</td></tr></table>",
+        "bbox": [
+            133,
+            316,
+            843,
+            467
+        ],
+        "page_idx": 6
+    },
+    {
+        "type": "table",
+        "img_path": "images/10923742fd104146c5f550511685beea462b2460013ce1a854b33a790ee8183a.jpg",
+        "table_caption": [
+            "able 3: Novelty $( \\% )$ ) results. The results are the means and the standard deviations of 3 runs. The results for the baselines except for RationaleRL and PS-VAE are taken from Lee et al. (2023b). The best results are highlighted in bold. "
+        ],
+        "table_footnote": [],
+        "table_body": "<table><tr><td rowspan=\"2\">Method</td><td colspan=\"7\">Target protein</td></tr><tr><td>parp1</td><td>fa7</td><td></td><td>5ht1b</td><td>braf</td><td></td><td>jak2</td></tr><tr><td>REINVENT (Olivecrona et al., 2017)</td><td>9.894 (± 2.178)</td><td>10.731 (±</td><td>1.516)</td><td>11.605 (± 3.688)</td><td>8.715 (±</td><td>2.712)</td><td>11.456 (± 1.793)</td></tr><tr><td>MORLD (Jeon &amp; Kim, 2020)</td><td>98.433(± 1.189)</td><td>97.967(± 1.764)</td><td></td><td>98.787(± 0.743)</td><td>96.993(± 2.787)</td><td></td><td>97.720 (± 0.995)</td></tr><tr><td>HierVAE (Jin et al., 2020a)</td><td>60.453 (± 17.165)</td><td>24.853 (± 15.416)</td><td></td><td>48.107 (± 1.988)</td><td>59.747 (± 16.403)</td><td></td><td>85.200 (± 14.262)</td></tr><tr><td>RationaleRL (Jin et al., 2020b)</td><td>9.300 (± 0.354)</td><td>9.802 (± 0.166)</td><td></td><td>7.133 (± 0.141)</td><td>0.000 (± 0.000)</td><td>7.389</td><td> (± 0.220)</td></tr><tr><td>FREED (Yang et al., 2021)</td><td>74.640 (± 2.953)</td><td>78.787 (± 2.132)</td><td></td><td>75.027 (± 5.194)</td><td>73.653 (± 4.312)</td><td></td><td>75.907 (± 5.916)</td></tr><tr><td>PS-VAE (Kong et al., 2022)</td><td>60.822 (± 2.251)</td><td>56.611 (± 1.892)</td><td></td><td>57.956 (± 2.181)</td><td>57.744 (± 2.710)</td><td></td><td>58.689 (± 2.307)</td></tr><tr><td>MOOD (Lee et al., 2023b)</td><td>84.180 (± 2.123)</td><td>83.180 (± 1.519)</td><td></td><td>84.613(± 0.822)</td><td>87.413 (± 0.830)</td><td></td><td>83.273 (± 1.455)</td></tr><tr><td>GEAM-static (ours)</td><td>84.344 (± 5.290)</td><td>86.144 (± 6.807)</td><td></td><td>79.389 (± 3.903)</td><td>87.122 (± 2.163)</td><td></td><td>86.633 (± 1.817)</td></tr><tr><td>GEAM (ours)</td><td>88.611 (± 3.107)</td><td>89.378 (± 2.619)</td><td></td><td>84.222 (± 2.968)</td><td>90.322 (± 3.467)</td><td></td><td>89.222 (± 1.824)</td></tr></table>",
+        "bbox": [
+            133,
+            518,
+            843,
+            662
+        ],
+        "page_idx": 6
+    },
+    {
+        "type": "table",
+        "img_path": "images/ab0dd4bb1d15912b752589e8cf9d839599d8d72fda65c70c73bc3b2f9f347465.jpg",
+        "table_caption": [
+            "Table 4: #Circles of generated hit molecules. The #Circles threshold is set to 0.75. The results are the means and the standard deviations of 3 runs. The results for the baselines except for RationaleRL and PS-VAE are taken from Lee et al. (2023b). The best results are highlighted in bold. "
+        ],
+        "table_footnote": [],
+        "table_body": "<table><tr><td rowspan=\"2\">Method</td><td colspan=\"6\">Target protein</td></tr><tr><td>parp1</td><td>fa7</td><td>5ht1b</td><td>braf</td><td>jak2</td><td></td></tr><tr><td>REINVENT (Olivecrona et al., 2017)</td><td>44.2 (± 15.5)</td><td>23.2 (± 6.6)</td><td>138.8 (± 19.4)</td><td>18.0 (± 2.1)</td><td>59.6 (± 8.1)</td><td></td></tr><tr><td>MORLD (Jeon &amp; Kim, 2020)</td><td>1.4 (± 1.5)</td><td>0.2 (± 0.4)</td><td>22.2 (± 16.1)</td><td>1.4 (± 1.2)</td><td></td><td>6.6 (± 3.7)</td></tr><tr><td>HierVAE (Jin et al., 2020a)</td><td>4.8 (± 1.6)</td><td>0.8 (± 0.7)</td><td>5.8 (± 1.0)</td><td>3.6 (± 1.4)</td><td></td><td>4.8 (± 0.7)</td></tr><tr><td>RationaleRL (Jin et al., 2020b)</td><td>61.3 (± 1.2)</td><td>2.0 (± 0.0)</td><td>312.7 (± 6.3)</td><td>1.0 (± 0.0)</td><td></td><td>199.3(± 7.1)</td></tr><tr><td>FREED (Yang et al., 2021)</td><td>34.8 (± 4.9)</td><td>21.2 (± 4.0)</td><td>88.2 (± 13.4)</td><td>34.4 (± 8.2)</td><td></td><td>59.6 (± 8.2)</td></tr><tr><td>PS-VAE (Kong et al., 2022)</td><td>38.0 (± 6.4)</td><td>18.0 (± 5.9)</td><td>180.7 (± 11.6)</td><td>16.0 ±± 0.8)</td><td></td><td>83.7 (± 11.9)</td></tr><tr><td>MOOD (Lee et al., 2023b)</td><td>86.4 (± 11.2)</td><td>19.2 (± 4.0)</td><td>144.4 (± 15.1)</td><td>50.8 (± 3.8)</td><td></td><td>81.8 (± 5.7)</td></tr><tr><td>GEAM-static (ours)</td><td>114.0 (± 2.9)</td><td>60.7 (± 4.0)</td><td>134.7(± 8.5)</td><td>70.0 (± 2.2)</td><td></td><td>99.3 (± 1.7)</td></tr><tr><td>GEAM (ours)</td><td>123.0 (± 7.8)</td><td>79.0(± 9.2)</td><td>144.3 (± 8.6)</td><td>84.7 (± 8.6)</td><td></td><td>118.3 (± 0.9)</td></tr></table>",
+        "bbox": [
+            174,
+            727,
+            803,
+            871
+        ],
+        "page_idx": 6
+    },
+    {
+        "type": "table",
+        "img_path": "images/bfcf477c64934fd747feaadb1df88c0f25fa92c6f303475eb2e04bc5ae8af3db.jpg",
+        "table_caption": [
+            "Table 5: PMO MPO AUC top-100 results. The results are the means of 3 runs. The results for the baselines are taken from Gao et al. (2022). The best results are highlighted in bold. ",
+            "Table 6: PMO MPO novelty $( \\% )$ / #Circles results. The results are the means of 3 runs. The best results are highlighted in bold. "
+        ],
+        "table_footnote": [],
+        "table_body": "<table><tr><td rowspan=\"2\">Method</td><td colspan=\"7\">Benchmark</td><td rowspan=\"2\">Average</td></tr><tr><td>Amlodipine</td><td>Fexofenadine</td><td>Osimertinib Perindopril Ranolazine Sitagliptin</td><td></td><td></td><td></td><td>Zaleplon</td></tr><tr><td>REINVENT (Olivecrona et al., 2017)</td><td>0.608</td><td>0.752</td><td>0.806</td><td>0.511</td><td>0.719</td><td>0.006</td><td>0.325</td><td>0.532</td></tr><tr><td>Graph GA (Jensen, 2019)</td><td>0.622</td><td>0.731</td><td>0.799</td><td>00.503</td><td>0.670</td><td>0.330</td><td>0.305</td><td>0566</td></tr><tr><td>STONED (Nigam et al., 2021)</td><td>00.593</td><td>0.7</td><td>0.799</td><td>00.472</td><td>0.738</td><td>0.351</td><td>0.307</td><td>0.577</td></tr><tr><td>GEAM-static (ours)</td><td>0.602</td><td>0.796</td><td>0.828</td><td>0.501</td><td>0.703</td><td>0.346</td><td>0.397</td><td>0.596</td></tr><tr><td>GEAM (ours)</td><td>0.626</td><td>0.799</td><td>0.831</td><td>0.514</td><td>0.714</td><td>0.417</td><td>0.402</td><td>0.615</td></tr></table>",
+        "bbox": [
+            132,
+            113,
+            846,
+            199
+        ],
+        "page_idx": 7
+    },
+    {
+        "type": "image",
+        "img_path": "images/05230e48ea7df2580c0565834c8b46d235ca53f229820ba1bafcdb6ebcceab40.jpg",
+        "image_caption": [
+            "Figure 3: (a-c) Ablation studies on FGIB, SAC and GA on the ligand generation task with the target protein jak2 and (d) the PLIP image showing interactions between an example molecule and jak2. "
+        ],
+        "image_footnote": [],
+        "bbox": [
+            132,
+            229,
+            844,
+            460
+        ],
+        "page_idx": 7
+    },
+    {
+        "type": "text",
+        "text": "Results As shown in Table 5, GEAM outperform the baselines in most of the tasks, demonstrating its applicability to various drug discovery problems. Notably, GEAM distinctly improves the performance of GEAM-static in some tasks. Furthermore, as shown in Table 6, GEAM shows higher levels of novelty and diversity than others. Especially, GEAM generates more novel and diverse molecules than GEAM-static, reaffirming the dynamic vocabulary update of GEAM effectively improves novelty and diversity without degrading optimization performance. ",
+        "bbox": [
+            89,
+            517,
+            472,
+            667
+        ],
+        "page_idx": 7
+    },
+    {
+        "type": "text",
+        "text": "et al., 2008) vocabulary, respectively. GEAM (property) is GEAM which only uses the property instead of Eq. (6) when scoring fragments, i.e., ${ \\sf s c o r e } ( F _ { j } ) = $ $\\begin{array} { r } { \\frac { 1 } { | S ( F _ { j } ) | } \\sum _ { ( G , Y ) \\in S ( F _ { j } ) } Y } \\end{array}$ . GEAM significantly outperforms all the variants, verifying the importance of our goal-aware fragment vocabulary. Notably, GEAM (property) uses the topmost fragments in terms of the target property, but performs worse than GEAM because it does not use FGIB to find important subgraphs that contribute to the property. ",
+        "bbox": [
+            501,
+            517,
+            885,
+            654
+        ],
+        "page_idx": 7
+    },
+    {
+        "type": "text",
+        "text": "4.3. Ablation Studies and Qualitative Analysis ",
+        "text_level": 1,
+        "bbox": [
+            89,
+            684,
+            408,
+            699
+        ],
+        "page_idx": 7
+    },
+    {
+        "type": "text",
+        "text": "Effect of the goal-aware fragment extraction To examine the effect of the proposed goal-aware fragment extraction method with FGIB, in Figure 3(a), we compare FREED with FREED (FGIB), a variant of FREED that uses the fragments extracted by FGIB as described in Sec. 3.1. FREED (FGIB) outperforms FREED by a large margin, indicating the goal-aware fragment extraction method with FGIB largely boosts the optimization performance. We also compare GEAM against GEAM with different fragment vocabularies in Figure 3(b). GEAM (FREED), GEAM (MiCaM), GEAM (BRICS) are the GEAM variants that use the FREED vocabulary, the MiCaM (Geng et al., 2023) vocabulary, the random BRICS (Degen ",
+        "bbox": [
+            89,
+            709,
+            472,
+            904
+        ],
+        "page_idx": 7
+    },
+    {
+        "type": "text",
+        "text": "Effect of the fragment assembly and modification To examine the effect of the proposed combinatorial use of the assembly and the modification modules, we compare GEAM with GEAM-w/o A and GEAM-w/o M in Figure 3(c). GEAM-w/o A constructs its population as the top- $P$ molecules from ZINC250k without using the assembly module, while GEAM-w/o M omits the modification module. GEAM-random A uses random fragment assembly instead of SAC. GEAM-w/o A significantly underperforms as the fragment modification module alone cannot take the advantage of the goal-aware fragments. GEAMrandom A largely improves over GEAM-w/o A. However, GEAM outperforms all the ablated variants, highlighting the importance of jointly employing the fragment assembly module and the fragment modification module. ",
+        "bbox": [
+            501,
+            680,
+            883,
+            904
+        ],
+        "page_idx": 7
+    },
+    {
+        "type": "image",
+        "img_path": "images/ed57829e6ac5fa960b3fd96427cf33fa463ccf96760191991fd4f11c2cbeca34.jpg",
+        "image_caption": [
+            "Figure 4: The generation progress of GEAM and GEAM-static on the ligand generation task against jak2. "
+        ],
+        "image_footnote": [],
+        "bbox": [
+            129,
+            85,
+            839,
+            207
+        ],
+        "page_idx": 8
+    },
+    {
+        "type": "text",
+        "text": "Effect of the dynamic vocabulary update To thoroughly examine the effect of the dynamic update of the fragment vocabulary, we compare the generation progress of GEAM and GEAM-static in Figure 4. GEAM-static1000 is GEAM-static with the vocabulary size $K = 1 { , } 0 0 0$ . When the initial vocabulary size $K = 3 0 0$ and the maximum vocabulary size $L = 1 { , } 0 0 0$ , the vocabulary size of GEAM increases during generation from 300 to 1,000 as GEAM dynamically collects fragments on-the-fly. Meanwhile, the vocabulary sizes of GEAM-static and GEAMstatic-1000 are fixed. As expected, GEAM-static-1000 shows the worst optimization performance since its vocabulary consists of top-1,000 fragments instead of top-300 from the same training molecules, and shows the highest diversity as it utilizes more fragments than GEAM and GEAM-static throughout the generation process. GEAM shows the best optimization performance and novelty thanks to the vocabulary update that constantly incorporates novel fragments outside the training molecules, as well as improved diversity compared to GEAM-static. ",
+        "bbox": [
+            89,
+            250,
+            472,
+            550
+        ],
+        "page_idx": 8
+    },
+    {
+        "type": "text",
+        "text": "Qualitative analysis We qualitatively analyze the extracted goal-aware fragments. In Figure 3(d), we present an example of the binding interactions of a molecule and the target protein jak2 using the protein-ligand interaction profiler (PLIP) (Adasme et al., 2021). More case studies are provided in Figure 7. Additionally, we show the fragments of the molecule and $w$ of the fragments calculated by FGIB. We observe that the important fragments identified by FGIB with high $w$ (red and blue) indeed play crucial role for interacting with the target protein, while the fragments with low $w$ (gray) are not involved in the interactions. This analysis validates the efficacy of the proposed goal-aware fragment extraction method using FGIB and suggests the application of FGIB as a means to improve the explainability of drug discovery. ",
+        "bbox": [
+            89,
+            574,
+            472,
+            799
+        ],
+        "page_idx": 8
+    },
+    {
+        "type": "text",
+        "text": "5. Conclusion ",
+        "text_level": 1,
+        "bbox": [
+            89,
+            819,
+            202,
+            835
+        ],
+        "page_idx": 8
+    },
+    {
+        "type": "text",
+        "text": "We proposed GEAM, a fragment-based molecular generative framework for drug discovery. GEAM consists of three modules, FGIB, SAC, and GA, each responsible for goal-aware fragment extraction, fragment assembly, and fragment modification. In the generative cycle of GEAM, FGIB provides goal-aware fragments to SAC, SAC provides high-quality population to GA, and GA provides novel fragments to FGIB, enabling GEAM to achieve superior performance with high novelty and diversity on a variety of drug discovery tasks. These results highlight strong applicability of GEAM to real-world drug discovery. ",
+        "bbox": [
+            88,
+            845,
+            473,
+            905
+        ],
+        "page_idx": 8
+    },
+    {
+        "type": "text",
+        "text": "",
+        "bbox": [
+            501,
+            250,
+            883,
+            354
+        ],
+        "page_idx": 8
+    },
+    {
+        "type": "text",
+        "text": "Acknowledgements ",
+        "text_level": 1,
+        "bbox": [
+            501,
+            373,
+            663,
+            390
+        ],
+        "page_idx": 8
+    },
+    {
+        "type": "text",
+        "text": "This work was supported by Institute for Information & communications Technology Promotion(IITP) grant funded by the Korea government(MSIT) (No. 2019- 0-00075, Artificial Intelligence Graduate School Program(KAIST)), the National Research Foundation of Korea(NRF) grant funded by the Korea government(MSIT) (No. RS-2023-00256259), the National Research Foundation Singapore under the AI Singapore Programme (AISG Award No: AISG2-TC-2023-010-SGIL) and the Singapore Ministry of Education Academic Research Fund Tier 1 (Award No: T1 251RES2207). ",
+        "bbox": [
+            501,
+            400,
+            883,
+            565
+        ],
+        "page_idx": 8
+    },
+    {
+        "type": "text",
+        "text": "Impact Statement ",
+        "text_level": 1,
+        "bbox": [
+            501,
+            585,
+            650,
+            602
+        ],
+        "page_idx": 8
+    },
+    {
+        "type": "text",
+        "text": "While GEAM has been shown to be effective in real-world drug discovery tasks, there is a risk that it could be used maliciously to generate harmful or toxic molecules. The potential for generating toxic samples is a common challenge across various domains such as molecules, graphs, images and languages. Nevertheless, this risk can be effectively mitigated by excluding toxic fragments from the generation cycle or by incorporating an auxiliary toxicity detection module that filters out the generated toxic molecules in the model service stage. For example, ChatGPT (OpenAI, 2022) employs a moderation tool2 to filter out hateful or discriminatory sentences. ",
+        "bbox": [
+            501,
+            612,
+            883,
+            791
+        ],
+        "page_idx": 8
+    },
+    {
+        "type": "text",
+        "text": "References ",
+        "text_level": 1,
+        "bbox": [
+            89,
+            83,
+            181,
+            99
+        ],
+        "page_idx": 9
+    },
+    {
+        "type": "text",
+        "text": "Adasme, M. F., Linnemann, K. L., Bolz, S. N., Kaiser, F., Salentin, S., Haupt, V. J., and Schroeder, M. Plip 2021: Expanding the scope of the protein–ligand interaction profiler to dna and rna. Nucleic acids research, 49 (W1):W530–W534, 2021. ",
+        "bbox": [
+            89,
+            108,
+            473,
+            183
+        ],
+        "page_idx": 9
+    },
+    {
+        "type": "text",
+        "text": "Ahn, S., Kim, J., Lee, H., and Shin, J. Guiding deep molecular optimization with genetic exploration. Advances in neural information processing systems, 33: 12008–12021, 2020. ",
+        "bbox": [
+            88,
+            195,
+            473,
+            255
+        ],
+        "page_idx": 9
+    },
+    {
+        "type": "text",
+        "text": "Alemi, A. A., Fischer, I., Dillon, J. V., and Murphy, K. Deep variational information bottleneck. In International Conference on Learning Representations, 2017. ",
+        "bbox": [
+            88,
+            267,
+            473,
+            313
+        ],
+        "page_idx": 9
+    },
+    {
+        "type": "text",
+        "text": "Alhossary, A., Handoko, S. D., Mu, Y., and Kwoh, C.- K. Fast, accurate, and reliable molecular docking with quickvina 2. Bioinformatics, 31(13):2214–2216, 2015. ",
+        "bbox": [
+            88,
+            325,
+            473,
+            371
+        ],
+        "page_idx": 9
+    },
+    {
+        "type": "text",
+        "text": "Bickerton, G. R., Paolini, G. V., Besnard, J., Muresan, S., and Hopkins, A. L. Quantifying the chemical beauty of drugs. Nature chemistry, 4(2):90–98, 2012. ",
+        "bbox": [
+            88,
+            382,
+            473,
+            428
+        ],
+        "page_idx": 9
+    },
+    {
+        "type": "text",
+        "text": "Blei, D. M., Kucukelbir, A., and McAuliffe, J. D. Variational inference: A review for statisticians. Journal of the American Statistical Association, 112:859 – 877, 2016. ",
+        "bbox": [
+            86,
+            439,
+            473,
+            484
+        ],
+        "page_idx": 9
+    },
+    {
+        "type": "text",
+        "text": "Bohacek, R. S., McMartin, C., and Guida, W. C. The art and practice of structure-based drug design: a molecular modeling perspective. Medicinal research reviews, 16 (1):3–50, 1996. ",
+        "bbox": [
+            86,
+            497,
+            473,
+            556
+        ],
+        "page_idx": 9
+    },
+    {
+        "type": "text",
+        "text": "Brown, N., Fiscato, M., Segler, M. H., and Vaucher, A. C. Guacamol: benchmarking models for de novo molecular design. Journal of chemical information and modeling, 59(3):1096–1108, 2019. ",
+        "bbox": [
+            86,
+            570,
+            473,
+            630
+        ],
+        "page_idx": 9
+    },
+    {
+        "type": "text",
+        "text": "Crum-Brown, A. and Fraser, T. R. The connection of chemical constitution and physiological action. Trans R Soc Edinb, 25(1968-1969):257, 1865. ",
+        "bbox": [
+            88,
+            642,
+            473,
+            688
+        ],
+        "page_idx": 9
+    },
+    {
+        "type": "text",
+        "text": "Degen, J., Wegscheid-Gerlach, C., Zaliani, A., and Rarey, M. On the art of compiling and using ’drug-like’ chemical fragment spaces. ChemMedChem: Chemistry Enabling Drug Discovery, 3(10):1503–1507, 2008. ",
+        "bbox": [
+            86,
+            700,
+            473,
+            761
+        ],
+        "page_idx": 9
+    },
+    {
+        "type": "text",
+        "text": "Eckmann, P., Sun, K., Zhao, B., Feng, M., Gilson, M. K., and Yu, R. Limo: Latent inceptionism for targeted molecule generation. In Proceedings of the 39th International Conference on Machine Learning, 2022. ",
+        "bbox": [
+            86,
+            772,
+            473,
+            833
+        ],
+        "page_idx": 9
+    },
+    {
+        "type": "text",
+        "text": "Ertl, P. and Schuffenhauer, A. Estimation of synthetic accessibility score of drug-like molecules based on molecular complexity and fragment contributions. Journal of cheminformatics, 1:1–11, 2009. ",
+        "bbox": [
+            86,
+            845,
+            473,
+            905
+        ],
+        "page_idx": 9
+    },
+    {
+        "type": "text",
+        "text": "Gao, W., Fu, T., Sun, J., and Coley, C. Sample efficiency matters: a benchmark for practical molecular optimization. Advances in Neural Information Processing Systems, 35:21342–21357, 2022. ",
+        "bbox": [
+            500,
+            85,
+            883,
+            145
+        ],
+        "page_idx": 9
+    },
+    {
+        "type": "text",
+        "text": "Gaulton, A., Bellis, L. J., Bento, A. P., Chambers, J., Davies, M., Hersey, A., Light, Y., McGlinchey, S., Michalovich, D., Al-Lazikani, B., et al. Chembl: a largescale bioactivity database for drug discovery. Nucleic acids research, 40(D1):D1100–D1107, 2012. ",
+        "bbox": [
+            500,
+            160,
+            885,
+            234
+        ],
+        "page_idx": 9
+    },
+    {
+        "type": "text",
+        "text": "Geng, Z., Xie, S., Xia, Y., Wu, L., Qin, T., Wang, J., Zhang, Y., Wu, F., and Liu, T.-Y. De novo molecular generation via connection-aware motif mining. In International Conference on Learning Representations, 2023. ",
+        "bbox": [
+            498,
+            250,
+            883,
+            309
+        ],
+        "page_idx": 9
+    },
+    {
+        "type": "text",
+        "text": "Ghorbani, M., Gendelev, L., Beroza, P., and Keiser, M. Autoregressive fragment-based diffusion for pocket-aware ligand design. In NeurIPS 2023 Generative AI and Biology (GenBio) Workshop, 2023. ",
+        "bbox": [
+            498,
+            324,
+            883,
+            383
+        ],
+        "page_idx": 9
+    },
+    {
+        "type": "text",
+        "text": "Gilmer, J., Schoenholz, S. S., Riley, P. F., Vinyals, O., and Dahl, G. E. Neural message passing for quantum chemistry. In International conference on machine learning, pp. 1263–1272. PMLR, 2017. ",
+        "bbox": [
+            500,
+            398,
+            883,
+            458
+        ],
+        "page_idx": 9
+    },
+    {
+        "type": "text",
+        "text": "Haarnoja, T., Zhou, A., Abbeel, P., and Levine, S. Soft actor-critic: Off-policy maximum entropy deep reinforcement learning with a stochastic actor. In International conference on machine learning, pp. 1861–1870. PMLR, 2018. ",
+        "bbox": [
+            500,
+            473,
+            883,
+            547
+        ],
+        "page_idx": 9
+    },
+    {
+        "type": "text",
+        "text": "Irwin, J. J., Sterling, T., Mysinger, M. M., Bolstad, E. S., and Coleman, R. G. Zinc: a free tool to discover chemistry for biology. Journal of chemical information and modeling, 52(7):1757–1768, 2012. ",
+        "bbox": [
+            500,
+            563,
+            883,
+            622
+        ],
+        "page_idx": 9
+    },
+    {
+        "type": "text",
+        "text": "Jang, E., Gu, S., and Poole, B. Categorical reparameterization with gumbel-softmax. In International Conference on Learning Representations, 2017. ",
+        "bbox": [
+            500,
+            637,
+            883,
+            681
+        ],
+        "page_idx": 9
+    },
+    {
+        "type": "text",
+        "text": "Jayakumar, S. M., Czarnecki, W. M., Menick, J., Schwarz, J., Rae, J., Osindero, S., Teh, Y. W., Harley, T., and Pascanu, R. Multiplicative interactions and where to find them. In International Conference on Learning Representations, 2020. ",
+        "bbox": [
+            500,
+            696,
+            883,
+            771
+        ],
+        "page_idx": 9
+    },
+    {
+        "type": "text",
+        "text": "Jensen, J. H. A graph-based genetic algorithm and generative model/monte carlo tree search for the exploration of chemical space. Chemical science, 10(12):3567–3572, 2019. ",
+        "bbox": [
+            500,
+            786,
+            885,
+            844
+        ],
+        "page_idx": 9
+    },
+    {
+        "type": "text",
+        "text": "Jeon, W. and Kim, D. Autonomous molecule generation using reinforcement learning and docking to develop potential novel inhibitors. Scientific Reports, 10, 12 2020. ",
+        "bbox": [
+            500,
+            861,
+            883,
+            905
+        ],
+        "page_idx": 9
+    },
+    {
+        "type": "text",
+        "text": "Jin, W., Barzilay, R., and Jaakkola, T. Junction tree variational autoencoder for molecular graph generation. In International Conference on Machine Learning, pp. 2323– 2332. PMLR, 2018. ",
+        "bbox": [
+            86,
+            85,
+            472,
+            145
+        ],
+        "page_idx": 10
+    },
+    {
+        "type": "text",
+        "text": "Jin, W., Barzilay, R., and Jaakkola, T. Hierarchical generation of molecular graphs using structural motifs. In International Conference on Machine Learning, pp. 4839– 4848. PMLR, 2020a. ",
+        "bbox": [
+            86,
+            156,
+            472,
+            217
+        ],
+        "page_idx": 10
+    },
+    {
+        "type": "text",
+        "text": "Jin, W., Barzilay, R., and Jaakkola, T. Multi-objective molecule generation using interpretable substructures. In International Conference on Machine Learning, pp. 4849–4859. PMLR, 2020b. ",
+        "bbox": [
+            86,
+            228,
+            473,
+            287
+        ],
+        "page_idx": 10
+    },
+    {
+        "type": "text",
+        "text": "Jo, J., Lee, S., and Hwang, S. J. Score-based generative modeling of graphs via the system of stochastic differential equations. In Proceedings of the 39th International Conference on Machine Learning, 2022. ",
+        "bbox": [
+            86,
+            300,
+            473,
+            361
+        ],
+        "page_idx": 10
+    },
+    {
+        "type": "text",
+        "text": "Kipf, T. N. and Welling, M. Semi-supervised classification with graph convolutional networks. In 5th International Conference on Learning Representations, ICLR 2017, Toulon, France, April 24-26, 2017, Conference Track Proceedings, 2017. ",
+        "bbox": [
+            88,
+            372,
+            472,
+            446
+        ],
+        "page_idx": 10
+    },
+    {
+        "type": "text",
+        "text": "Kong, X., Huang, W., Tan, Z., and Liu, Y. Molecule generation by principal subgraph mining and assembling. Advances in Neural Information Processing Systems, 35: 2550–2563, 2022. ",
+        "bbox": [
+            86,
+            459,
+            473,
+            518
+        ],
+        "page_idx": 10
+    },
+    {
+        "type": "text",
+        "text": "Kusner, M. J., Paige, B., and Hernandez-Lobato, J. M.´ Grammar variational autoencoder. In International Conference on Machine Learning, pp. 1945–1954. PMLR, 2017. ",
+        "bbox": [
+            86,
+            531,
+            473,
+            590
+        ],
+        "page_idx": 10
+    },
+    {
+        "type": "text",
+        "text": "Landrum, G. et al. RDKit: Open-source cheminformatics software, 2016. URL http://www. rdkit. org/, https://github. com/rdkit/rdkit, 2016. ",
+        "bbox": [
+            86,
+            603,
+            473,
+            648
+        ],
+        "page_idx": 10
+    },
+    {
+        "type": "text",
+        "text": "Lee, N., Hyun, D., Na, G. S., Kim, S., Lee, J., and Park, C. Conditional graph information bottleneck for molecular relational learning. Proceedings of the 40th International Conference on Machine Learning, 2023a. ",
+        "bbox": [
+            84,
+            660,
+            473,
+            719
+        ],
+        "page_idx": 10
+    },
+    {
+        "type": "text",
+        "text": "Lee, S., Jo, J., and Hwang, S. J. Exploring chemical space with score-based out-of-distribution generation. Proceedings of the 40th International Conference on Machine Learning, 2023b. ",
+        "bbox": [
+            84,
+            732,
+            473,
+            791
+        ],
+        "page_idx": 10
+    },
+    {
+        "type": "text",
+        "text": "Li, Q. Application of fragment-based drug discovery to versatile targets. Frontiers in molecular biosciences, 7: 180, 2020. ",
+        "bbox": [
+            86,
+            804,
+            473,
+            848
+        ],
+        "page_idx": 10
+    },
+    {
+        "type": "text",
+        "text": "Luo, Y., Yan, K., and Ji, S. GraphDF: A discrete flow model for molecular graph generation. International Conference on Machine Learning, 2021. ",
+        "bbox": [
+            86,
+            861,
+            473,
+            905
+        ],
+        "page_idx": 10
+    },
+    {
+        "type": "text",
+        "text": "Maddison, C. J., Mnih, A., and Teh, Y. W. The concrete distribution: A continuous relaxation of discrete random variables. In International Conference on Learning Representations, 2017. ",
+        "bbox": [
+            500,
+            85,
+            883,
+            145
+        ],
+        "page_idx": 10
+    },
+    {
+        "type": "text",
+        "text": "Maziarz, K., Jackson-Flux, H., Cameron, P., Sirockin, F., Schneider, N., Stiefl, N., Segler, M., and Brockschmidt, M. Learning to extend molecular scaffolds with structural motifs. In International Conference on Learning Representations, 2022. ",
+        "bbox": [
+            500,
+            155,
+            885,
+            229
+        ],
+        "page_idx": 10
+    },
+    {
+        "type": "text",
+        "text": "Miao, S., Liu, M., and Li, P. Interpretable and generalizable graph learning via stochastic attention mechanism. In International Conference on Machine Learning, pp. 15524–15543. PMLR, 2022. ",
+        "bbox": [
+            498,
+            239,
+            883,
+            299
+        ],
+        "page_idx": 10
+    },
+    {
+        "type": "text",
+        "text": "Mysinger, M. M., Carchia, M., Irwin, J. J., and Shoichet, B. K. Directory of useful decoys, enhanced (dud-e): better ligands and decoys for better benchmarking. Journal of medicinal chemistry, 55(14):6582–6594, 2012. ",
+        "bbox": [
+            500,
+            309,
+            885,
+            369
+        ],
+        "page_idx": 10
+    },
+    {
+        "type": "text",
+        "text": "Nigam, A., Friederich, P., Krenn, M., and Aspuru-Guzik, A. Augmenting genetic algorithms with deep neural networks for exploring the chemical space. In International Conference on Learning Representations, 2020. ",
+        "bbox": [
+            500,
+            378,
+            885,
+            439
+        ],
+        "page_idx": 10
+    },
+    {
+        "type": "text",
+        "text": "Nigam, A., Pollice, R., Krenn, M., dos Passos Gomes, G., and Aspuru-Guzik, A. Beyond generative models: superfast traversal, optimization, novelty, exploration and discovery (stoned) algorithm for molecules using selfies. Chemical science, 12(20):7079–7090, 2021. ",
+        "bbox": [
+            500,
+            448,
+            885,
+            523
+        ],
+        "page_idx": 10
+    },
+    {
+        "type": "text",
+        "text": "Olivecrona, M., Blaschke, T., Engkvist, O., and Chen, H. Molecular de-novo design through deep reinforcement learning. Journal of cheminformatics, 9(1):1–14, 2017. ",
+        "bbox": [
+            500,
+            532,
+            885,
+            579
+        ],
+        "page_idx": 10
+    },
+    {
+        "type": "text",
+        "text": "OpenAI. Introducing chatgpt. https://openai.com/ blog/chatgpt, 2022. ",
+        "bbox": [
+            498,
+            588,
+            883,
+            617
+        ],
+        "page_idx": 10
+    },
+    {
+        "type": "text",
+        "text": "Polishchuk, P. Crem: chemically reasonable mutations framework for structure generation. Journal of Cheminformatics, 12(1):1–18, 2020. ",
+        "bbox": [
+            500,
+            627,
+            883,
+            672
+        ],
+        "page_idx": 10
+    },
+    {
+        "type": "text",
+        "text": "Shi, C., Xu, M., Zhu, Z., Zhang, W., Zhang, M., and Tang, J. Graphaf: a flow-based autoregressive model for molecular graph generation. In International Conference on Learning Representations, 2019. ",
+        "bbox": [
+            500,
+            681,
+            885,
+            742
+        ],
+        "page_idx": 10
+    },
+    {
+        "type": "text",
+        "text": "Shi, Y. and von Itzstein, M. How size matters: diversity for fragment library design. Molecules, 24(15):2838, 2019. ",
+        "bbox": [
+            498,
+            751,
+            885,
+            781
+        ],
+        "page_idx": 10
+    },
+    {
+        "type": "text",
+        "text": "Wang, Z., Nie, W., Qiao, Z., Xiao, C., Baraniuk, R., and Anandkumar, A. Retrieval-based controllable molecule generation. In International Conference on Learning Representations, 2023. ",
+        "bbox": [
+            500,
+            790,
+            885,
+            851
+        ],
+        "page_idx": 10
+    },
+    {
+        "type": "text",
+        "text": "Wu, T., Ren, H., Li, P., and Leskovec, J. Graph information bottleneck. Advances in Neural Information Processing Systems, 33:20437–20448, 2020. ",
+        "bbox": [
+            500,
+            861,
+            885,
+            905
+        ],
+        "page_idx": 10
+    },
+    {
+        "type": "text",
+        "text": "Xie, Y., Shi, C., Zhou, H., Yang, Y., Zhang, W., Yu, Y., and Li, L. Mars: Markov molecular sampling for multiobjective drug discovery. In International Conference on Learning Representations, 2020. ",
+        "bbox": [
+            88,
+            84,
+            473,
+            145
+        ],
+        "page_idx": 11
+    },
+    {
+        "type": "text",
+        "text": "Xie, Y., Xu, Z., Ma, J., and Mei, Q. How much space has been explored? measuring the chemical space covered by databases and machine-generated molecules. International Conference on Learning Representations, 2023. ",
+        "bbox": [
+            86,
+            155,
+            473,
+            215
+        ],
+        "page_idx": 11
+    },
+    {
+        "type": "text",
+        "text": "Yang, S., Hwang, D., Lee, S., Ryu, S., and Hwang, S. J. Hit and lead discovery with explorative rl and fragmentbased molecule generation. Advances in Neural Information Processing Systems, 34:7924–7936, 2021. ",
+        "bbox": [
+            88,
+            226,
+            473,
+            286
+        ],
+        "page_idx": 11
+    },
+    {
+        "type": "text",
+        "text": "You, J., Liu, B., Ying, R., Pande, V., and Leskovec, J. Graph convolutional policy network for goal-directed molecular graph generation. In Proceedings of the 32nd International Conference on Neural Information Processing Systems, pp. 6412–6422, 2018. ",
+        "bbox": [
+            88,
+            296,
+            473,
+            372
+        ],
+        "page_idx": 11
+    },
+    {
+        "type": "text",
+        "text": "Yu, J., Cao, J., and He, R. Improving subgraph recognition with variational graph information bottleneck. In Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition, pp. 19396–19405, 2022. ",
+        "bbox": [
+            88,
+            381,
+            473,
+            443
+        ],
+        "page_idx": 11
+    },
+    {
+        "type": "text",
+        "text": "Zhang, Z. and Liu, Q. Learning subpocket prototypes for generalizable structure-based drug design. In International Conference on Machine Learning, pp. 41382– 41398. PMLR, 2023. ",
+        "bbox": [
+            86,
+            452,
+            473,
+            512
+        ],
+        "page_idx": 11
+    },
+    {
+        "type": "text",
+        "text": "Zhang, Z., Min, Y., Zheng, S., and Liu, Q. Molecule generation for target protein binding with structural motifs. In International Conference on Learning Representations, 2023. ",
+        "bbox": [
+            86,
+            522,
+            473,
+            582
+        ],
+        "page_idx": 11
+    },
+    {
+        "type": "text",
+        "text": "Zhou, Z., Kearnes, S., Li, L., Zare, R. N., and Riley, P. Optimization of molecules via deep reinforcement learning. Scientific reports, 9(1):1–10, 2019. ",
+        "bbox": [
+            86,
+            593,
+            472,
+            638
+        ],
+        "page_idx": 11
+    },
+    {
+        "type": "text",
+        "text": "A. Generation Process of GEAM ",
+        "text_level": 1,
+        "bbox": [
+            89,
+            82,
+            364,
+            101
+        ],
+        "page_idx": 12
+    },
+    {
+        "type": "table",
+        "img_path": "images/6d82ace11ff2413d013a14c47faff32e3252728897d5768e90f9665ca85063b2.jpg",
+        "table_caption": [
+            "Algorithm 1 A Single Generation Cycle of GEAM "
+        ],
+        "table_footnote": [],
+        "table_body": "<table><tr><td>Input: Fragment vocabulary S, termination number of atoms in SAC nSAC, trained FGIB, population size of GA P, maximum vocabulary size L</td></tr><tr><td>&gt; Fragment assembly</td></tr><tr><td>Initialize so = benzene for t = 0, 1, . . . do</td></tr><tr><td>Sample at from pπ1, Pπ2 and pπ in Eq. (7) with S</td></tr><tr><td>Construct st+1 by taking at on st</td></tr><tr><td>if no attachment point left in St+1 or nt+1 &gt; nsAc then T ← t + 1</td></tr><tr><td>break</td></tr><tr><td>end if end for</td></tr><tr><td>Calculate the property Y of sT</td></tr><tr><td>Set rT ← Y Train SAC with Eq. (8)</td></tr><tr><td>&gt; Fragment modification</td></tr><tr><td>Initialize a population with the top-P molecules generated so far</td></tr><tr><td>Select parent molecules from the population</td></tr><tr><td>Perform crossover and mutation to generate an offspring o</td></tr><tr><td>Calculate the property Y of o</td></tr><tr><td> Fragment extraction</td></tr><tr><td>Extract fragments S&#x27; from o with FGIB</td></tr><tr><td>Set S ← the top-L fragments in S ∪ S′ in terms of Eq. (6)</td></tr><tr><td>Output: Generated molecules (sT and o), updated vocabulary S</td></tr><tr><td></td></tr></table>",
+        "bbox": [
+            96,
+            133,
+            877,
+            500
+        ],
+        "page_idx": 12
+    },
+    {
+        "type": "text",
+        "text": "B. Proof of Equation 5 ",
+        "text_level": 1,
+        "bbox": [
+            89,
+            526,
+            279,
+            545
+        ],
+        "page_idx": 12
+    },
+    {
+        "type": "text",
+        "text": "In this section, we prove that our objective function ${ \\mathcal { L } } ( \\theta , \\phi )$ in Eq. (5) is the upper bound of the intractable objective ${ \\mathcal { L } } _ { \\mathrm { I B } } ( \\theta )$ in Eq. (4). At this point, we only have joint data distribution $p ( G , Y )$ and the stochastic encoder $p _ { \\theta } ( Z | G ) =$ $\\mathcal { N } ( \\mu _ { \\theta } ( G ) , \\Sigma _ { \\theta } ( G ) )$ . ",
+        "bbox": [
+            86,
+            553,
+            887,
+            599
+        ],
+        "page_idx": 12
+    },
+    {
+        "type": "text",
+        "text": "Proof. Following standard practice in Information Bottleneck literature (Alemi et al., 2017), we assume Markov Chains so that joint distribution $p _ { \\theta } ( G , Z , Y )$ factorizes as: ",
+        "bbox": [
+            88,
+            614,
+            885,
+            645
+        ],
+        "page_idx": 12
+    },
+    {
+        "type": "equation",
+        "img_path": "images/043e1754fd0dde1636721907d5647ed0ca89934997cdfb9d4d986122d04a57b1.jpg",
+        "text": "$$\n\\begin{array} { r } { p _ { \\theta } ( G , Z , Y ) = p _ { \\theta } ( Z | G , Y ) p ( Y | G ) p ( G ) = p _ { \\theta } ( Z | G ) p ( Y | G ) p ( G ) . } \\end{array}\n$$",
+        "text_format": "latex",
+        "bbox": [
+            266,
+            654,
+            705,
+            672
+        ],
+        "page_idx": 12
+    },
+    {
+        "type": "text",
+        "text": "Firstly, we derive the upper bound of the mutual information between $Z$ and $Y$ : ",
+        "bbox": [
+            89,
+            681,
+            609,
+            696
+        ],
+        "page_idx": 12
+    },
+    {
+        "type": "equation",
+        "img_path": "images/9d89b2e6f7959e87dfddfff5da373a6b2884d7d0e90b941fbea2a17ee840fd3d.jpg",
+        "text": "$$\nI ( Z , Y ; \\theta ) = \\int \\int p _ { \\theta } ( y , z ) \\log \\frac { p _ { \\theta } ( y , z ) } { p ( y ) p _ { \\theta } ( z ) } d y d z = \\int \\int p _ { \\theta } ( y , z ) \\log \\frac { p _ { \\theta } ( y | z ) } { p ( y ) } d y d z ,\n$$",
+        "text_format": "latex",
+        "bbox": [
+            210,
+            704,
+            758,
+            739
+        ],
+        "page_idx": 12
+    },
+    {
+        "type": "text",
+        "text": "where $y$ and $z$ are realization of random variables $Y$ and $Z$ , respectively. The posterior is fully defined as: ",
+        "bbox": [
+            89,
+            746,
+            779,
+            762
+        ],
+        "page_idx": 12
+    },
+    {
+        "type": "equation",
+        "img_path": "images/c458dfbd5c9b818a92fb8fc381ca3e6b25b921fb109a99d404d02f0e4d80dcde.jpg",
+        "text": "$$\np _ { \\theta } ( y | z ) = \\sum _ { g } p _ { \\theta } ( g , y | z ) = \\sum _ { g } p ( y | g ) p _ { \\theta } ( g | z ) = \\sum _ { g } \\frac { p ( y | g ) p _ { \\theta } ( z | g ) p ( g ) } { p _ { \\theta } ( z ) } ,\n$$",
+        "text_format": "latex",
+        "bbox": [
+            243,
+            768,
+            727,
+            809
+        ],
+        "page_idx": 12
+    },
+    {
+        "type": "text",
+        "text": "where $g$ is a realization of the random variable $G$ . Since this posterior $p _ { \\theta } ( y | z )$ is intractable, we utilize a variational distribution $q _ { \\phi } ( y | z )$ to approximate the posterior. Since KL divergence is always non-negative, we get the following inequality: ",
+        "bbox": [
+            88,
+            816,
+            885,
+            863
+        ],
+        "page_idx": 12
+    },
+    {
+        "type": "equation",
+        "img_path": "images/31576cb81082b70a2a80ef7600fbb90eb9ee15e767837b06da0fcc857ff7a12b.jpg",
+        "text": "$$\nD _ { \\mathrm { K L } } ( p _ { \\theta } ( Y | Z = z ) \\parallel q _ { \\phi } ( Y | Z = z ) ) \\geq 0 \\Rightarrow \\int p _ { \\theta } ( y | z ) \\log p _ { \\theta } ( y | z ) d y \\geq \\int p _ { \\theta } ( y | z ) \\log q _ { \\phi } ( y | z ) d y .\n$$",
+        "text_format": "latex",
+        "bbox": [
+            161,
+            871,
+            810,
+            904
+        ],
+        "page_idx": 12
+    },
+    {
+        "type": "text",
+        "text": "With this inequality, we get the lower bound of $I ( Z , Y )$ : ",
+        "bbox": [
+            88,
+            84,
+            459,
+            101
+        ],
+        "page_idx": 13
+    },
+    {
+        "type": "equation",
+        "img_path": "images/0da5330df39b458a5eb79b86f3f0db787c07d71d8475e93ac0b8f231421548d7.jpg",
+        "text": "$$\n\\begin{array} { r l } { I ( Z , Y ; \\theta ) = \\displaystyle \\int \\int p ( y , z ) \\log \\frac { p ( y | z ) } { p ( y ) } d y d z } \\\\ { \\displaystyle } & { \\ge \\displaystyle \\int \\int p ( y , z ) \\log \\frac { q _ { \\theta } ( y | z ) } { p ( y ) } d y d z } \\\\ { \\displaystyle } & { = \\displaystyle \\int \\int p _ { \\theta } ( y , z ) \\log q _ { \\phi } ( y | z ) d y d z - \\displaystyle \\int \\int p _ { \\theta } ( y , z ) \\log p ( y ) d y d z } \\\\ { \\displaystyle } & { = \\displaystyle \\int \\int p _ { \\theta } ( y , z ) \\log q _ { \\phi } ( y | z ) d y d z - \\displaystyle \\int \\log p ( y ) \\int p _ { \\theta } ( y , z ) d z d y } \\\\ { \\displaystyle } & { = \\displaystyle \\int \\int p _ { \\theta } ( y , z ) \\log q _ { \\phi } ( y | z ) d y d z - \\displaystyle \\int p ( y ) \\log p ( y ) d y } \\\\ { \\displaystyle } & { = \\displaystyle \\int \\int p _ { \\theta } ( y , z ) \\log q _ { \\phi } ( y | z ) d y d z + H ( Y ) , } \\end{array}\n$$",
+        "text_format": "latex",
+        "bbox": [
+            238,
+            108,
+            735,
+            311
+        ],
+        "page_idx": 13
+    },
+    {
+        "type": "text",
+        "text": "where $H ( Y )$ is the entropy of labels $Y$ . Since $Y$ is ground truth label, it is independent of our parameter $\\theta$ . It means the entropy is constant for our optimization problem and thus we can ignore it. By the assumption in Eq. (10), ",
+        "bbox": [
+            88,
+            318,
+            887,
+            349
+        ],
+        "page_idx": 13
+    },
+    {
+        "type": "equation",
+        "img_path": "images/94a2a1e334b119d400d95fa8b5d394b2d8e9eeca74f6b641da4852420da89223.jpg",
+        "text": "$$\np _ { \\theta } ( y , z ) = \\sum _ { g } p _ { \\theta } ( g , y , z ) = \\sum _ { g } p ( g ) p ( y | g ) p _ { \\theta } ( z | g ) .\n$$",
+        "text_format": "latex",
+        "bbox": [
+            313,
+            356,
+            660,
+            392
+        ],
+        "page_idx": 13
+    },
+    {
+        "type": "text",
+        "text": "Thus, we get the lower bound as follows: ",
+        "bbox": [
+            88,
+            400,
+            359,
+            415
+        ],
+        "page_idx": 13
+    },
+    {
+        "type": "equation",
+        "img_path": "images/8feb45cb2615356ad20298cf0d63d474c2c9bc713c7a52ca9b57b1afd86cd373.jpg",
+        "text": "$$\nI ( Z , Y ; \\theta ) \\geq \\sum _ { g } \\int \\int p ( g ) p ( y | g ) p _ { \\theta } ( z | g ) \\log q _ { \\phi } ( y | z ) d y d z .\n$$",
+        "text_format": "latex",
+        "bbox": [
+            289,
+            422,
+            684,
+            462
+        ],
+        "page_idx": 13
+    },
+    {
+        "type": "text",
+        "text": "Now, we derive the upper bound of the mutual information between $Z$ and $G$ : ",
+        "bbox": [
+            88,
+            477,
+            598,
+            493
+        ],
+        "page_idx": 13
+    },
+    {
+        "type": "equation",
+        "img_path": "images/1e03f8969ad90817a0fc98c5b05b6ce3d6ca3ef56e87fd8413bd45136ba03a25.jpg",
+        "text": "$$\n\\begin{array} { l } { { I ( Z , G ; \\theta ) = \\displaystyle \\sum _ { g } \\int p _ { \\theta } ( g , z ) \\log \\frac { p _ { \\theta } ( z | g ) } { p _ { \\theta } ( z ) } d z } } \\\\ { { { } } } \\\\ { { { } = \\displaystyle \\sum _ { g } \\int p _ { \\theta } ( g , z ) \\log p _ { \\theta } ( z | g ) d z - \\displaystyle \\sum _ { g } \\int p _ { \\theta } ( g , z ) \\log p _ { \\theta } ( z ) d z } } \\\\ { { { } } } \\\\ { { { } = \\displaystyle \\sum _ { g } \\int p _ { \\theta } ( g , z ) \\log p _ { \\theta } ( z | g ) d z - \\displaystyle \\int p _ { \\theta } ( z ) \\log p _ { \\theta } ( z ) d z . } } \\end{array}\n$$",
+        "text_format": "latex",
+        "bbox": [
+            245,
+            501,
+            727,
+            621
+        ],
+        "page_idx": 13
+    },
+    {
+        "type": "text",
+        "text": "The marginal distribution $p _ { \\theta } ( z )$ is intractable since ",
+        "bbox": [
+            89,
+            628,
+            423,
+            643
+        ],
+        "page_idx": 13
+    },
+    {
+        "type": "equation",
+        "img_path": "images/4ed9b3965aced71eb870fc6092a09b7f22db315c082a06e8980735aba9aa12bd.jpg",
+        "text": "$$\np _ { \\theta } ( z ) = \\sum _ { g } p _ { \\theta } ( z | g ) p ( g ) .\n$$",
+        "text_format": "latex",
+        "bbox": [
+            400,
+            652,
+            571,
+            688
+        ],
+        "page_idx": 13
+    },
+    {
+        "type": "text",
+        "text": "We utilize another variational distribution $u ( z )$ that approximate the marginal. Since KL divergence is always non-negative, ",
+        "bbox": [
+            81,
+            695,
+            887,
+            713
+        ],
+        "page_idx": 13
+    },
+    {
+        "type": "equation",
+        "img_path": "images/8a7c633b2a01ce972a539a648bed7de5c012486f9c81d86a2a273c7974a5f3ac.jpg",
+        "text": "$$\nD _ { \\mathrm { K L } } ( p _ { \\theta } ( Z ) \\parallel r ( Z ) ) \\ge 0 \\Rightarrow \\int p _ { \\theta } ( z ) \\log p _ { \\theta } ( z ) d z \\ge \\int p _ { \\theta } ( z ) \\log u ( z ) d z .\n$$",
+        "text_format": "latex",
+        "bbox": [
+            243,
+            719,
+            728,
+            753
+        ],
+        "page_idx": 13
+    },
+    {
+        "type": "text",
+        "text": "Combining this inequality with Eq. (12), we get the upper bound as: ",
+        "bbox": [
+            88,
+            760,
+            534,
+            776
+        ],
+        "page_idx": 13
+    },
+    {
+        "type": "equation",
+        "img_path": "images/69aa4a73198624e6fdfb2102c39806d6013400945a6623e1d517d41b9d398c78.jpg",
+        "text": "$$\n\\begin{array} { l } { { I ( Z , G ; \\theta ) \\leq \\displaystyle \\sum _ { g } \\int p _ { \\theta } ( g , z ) \\log p _ { \\theta } ( z | g ) d z - \\displaystyle \\int p _ { \\theta } ( z ) \\log u ( z ) d z } } \\\\ { { { } } } \\\\ { { { } = \\displaystyle \\sum _ { g } \\int p _ { \\theta } ( g , z ) \\log p _ { \\theta } ( z | g ) d z - \\displaystyle \\int \\sum _ { g } p _ { \\theta } ( z , g ) \\log u ( z ) d z } } \\\\ { { { } } } \\\\ { { { } = \\displaystyle \\sum _ { g } \\int p _ { \\theta } ( z | g ) p ( g ) \\log \\frac { p _ { \\theta } ( z | g ) } { u ( z ) } . } } \\end{array}\n$$",
+        "text_format": "latex",
+        "bbox": [
+            248,
+            784,
+            723,
+            905
+        ],
+        "page_idx": 13
+    },
+    {
+        "type": "text",
+        "text": "Combining Eq. (11) and Eq. (13), and using the empirical data distribution $\\begin{array} { r } { p ( g , y ) = \\frac { 1 } { N } \\sum _ { n = 1 } ^ { N } \\delta _ { G _ { i } } ( g ) \\delta _ { Y _ { i } } ( y ) } \\end{array}$ , we get ",
+        "bbox": [
+            89,
+            82,
+            848,
+            102
+        ],
+        "page_idx": 14
+    },
+    {
+        "type": "equation",
+        "img_path": "images/0d0b640619093f864789df781f59692b434b3d6d4785b0ffdc163ed216c281ea.jpg",
+        "text": "$$\n\\begin{array} { r l } { \\mathcal { L } _ { m } ( \\theta ) = } & { - I ( Z , Y ; \\theta ) + \\partial I ( Z , \\phi ; \\theta ) } \\\\ & { \\leq - \\displaystyle \\int \\int p ( y ) p ( y ) | p | \\theta | \\partial _ { t } ( z | y ) d y d z } \\\\ & { \\quad + \\displaystyle \\beta \\sum _ { g } \\int w ( z | y ) p ( y ) | \\log \\frac { p ( z | y | \\theta ) } { u ( z | \\theta ) } } \\\\ & { \\quad \\quad \\quad \\quad \\quad \\quad \\quad \\quad \\quad \\quad \\quad \\quad \\quad \\quad \\quad \\quad \\quad } \\\\ & { \\quad \\quad \\quad \\quad \\quad \\quad \\quad \\quad \\quad \\quad \\quad \\quad \\quad \\quad \\quad \\quad \\quad \\quad \\quad \\quad \\quad \\quad \\quad \\quad } \\\\ & { = \\displaystyle \\frac { 1 } { N } \\sum _ { i = 1 } ^ { N } \\Big [ \\int - p _ { i 0 } ( z | G _ { i } | ) \\log q _ { i 0 } ( Y _ { i } | z ) + \\beta p _ { 0 } ( z | G _ { i } ) \\log \\frac { p ( z | \\theta ) } { u ( z ) } d z \\Big ] ^ { - 1 } } \\\\ & { \\quad \\quad \\quad \\quad \\quad \\quad \\quad \\quad \\quad \\quad \\quad \\quad \\quad \\quad \\quad \\quad \\quad \\quad \\quad \\quad \\quad \\quad \\quad \\quad \\quad \\quad \\quad } \\\\ &  = \\displaystyle \\frac { 1 } { N } \\sum _ { i = 1 } ^ { N } \\mathbb { E } _ { p _ { i 0 } ( z | \\theta ) , i = 1 } [ \\log q _ { i 0 } ( Y _ { i } | z ) ] + \\beta D _ { N \\times 1 ( \\rho _ { 0 } ( Z | G _ { i } ) \\| \\theta ( z ) ) } \\ \\| \\ s ( z ) \\} \\\\ & { \\quad \\quad \\quad \\quad \\quad \\quad \\quad \\quad \\quad \\quad \\quad \\quad \\quad \\quad \\quad \\quad \\quad \\quad \\quad \\quad \\quad \\quad \\quad \\quad \\quad \\quad } \\\\ & { \\quad \\quad \\quad \\quad \\quad \\quad \\quad \\quad \\quad \\quad \\quad \\quad \\quad \\quad \\quad \\quad \\quad \\quad \\quad \\quad \\quad \\quad \\quad \\quad \\quad \\quad \\quad \\quad \\quad } \\\\ & { \\quad \\quad \\quad \\quad \\quad \\quad \\quad \\quad \\quad \\quad \\quad \\quad \\quad \\quad \\quad \\quad \\quad \\quad \\quad \\quad \\quad \\quad \\quad \\quad \\quad \\quad \\quad \\quad } \\\\ &  \\quad \\quad \\quad \\quad \\quad \\quad \\quad \\quad \\end{array}\n$$",
+        "text_format": "latex",
+        "bbox": [
+            235,
+            107,
+            733,
+            353
+        ],
+        "page_idx": 14
+    },
+    {
+        "type": "text",
+        "text": "where we sample $Z _ { i }$ from $\\mathcal { N } ( \\pmb { \\mu } _ { \\boldsymbol { \\theta } } ( G _ { i } ) , \\pmb { \\Sigma } _ { \\boldsymbol { \\theta } } ( G _ { i } ) ) = p _ { \\boldsymbol { \\theta } } ( Z | G _ { i } )$ . Therefore, we conclude that ${ \\mathcal { L } } ( \\theta , \\phi )$ is the upper bound of ${ \\mathcal { L } } _ { \\mathrm { I B } } ( \\theta )$ . ",
+        "bbox": [
+            88,
+            358,
+            888,
+            391
+        ],
+        "page_idx": 14
+    },
+    {
+        "type": "text",
+        "text": "C. Proof of Proposition 3.1 ",
+        "text_level": 1,
+        "bbox": [
+            89,
+            409,
+            312,
+            426
+        ],
+        "page_idx": 14
+    },
+    {
+        "type": "text",
+        "text": "Proof. Let $q _ { \\pi }$ be the distribution over molecule graphs $G$ induced by the policy $\\pi$ . Then, from the assumption that $p _ { \\pi _ { 2 } } ( a _ { 2 , t } | a _ { t , 1 } , \\mathbf { s } _ { t } )$ is at least as good as the uniform distribution, ",
+        "bbox": [
+            89,
+            435,
+            888,
+            465
+        ],
+        "page_idx": 14
+    },
+    {
+        "type": "equation",
+        "img_path": "images/c7472fe245b7f8cc7aab3744650509316946ff84b41fba4aba8e6b4c7922256c.jpg",
+        "text": "$$\n\\operatorname* { P r } _ { G \\sim q _ { \\pi } } [ G \\in \\varphi ( S ) ] \\geq \\operatorname* { P r } _ { G \\sim q _ { u } } [ G \\in \\varphi ( S ) ] ,\n$$",
+        "text_format": "latex",
+        "bbox": [
+            361,
+            473,
+            611,
+            498
+        ],
+        "page_idx": 14
+    },
+    {
+        "type": "text",
+        "text": "where $q _ { u }$ is the distribution over $G$ induced by replacing $p _ { \\pi _ { 2 } }$ with $p _ { \\pi _ { 2 } } ^ { u }$ , which is the the uniform distribution over actions. Here, an action is to chose a fragment in $s$ . Thus, $\\begin{array} { r } { p _ { \\pi _ { 2 } } ^ { u } ( a _ { 2 , t } | a _ { t , 1 } , \\mathbf { s } _ { t } ) \\stackrel {  } { = } \\frac { 1 } { | \\boldsymbol { S } | - r ^ { \\prime } } \\geq \\frac { 1 } { | \\boldsymbol { S } | } } \\end{array}$ for all valid actions $a _ { 2 , t }$ where $r ^ { \\prime } \\geq 0$ is the number of invalid actions. Similarly, ",
+        "bbox": [
+            86,
+            505,
+            887,
+            553
+        ],
+        "page_idx": 14
+    },
+    {
+        "type": "equation",
+        "img_path": "images/7b31d48658794fb59347d80d4b43abcb866f27c1918944d1fa3a89180e143643.jpg",
+        "text": "$$\n\\operatorname* { P r } _ { G \\sim q _ { u } } [ G \\in \\varphi ( S ) ] = \\frac { \\varphi ( S ) } { | S | ^ { T } - r } \\geq \\frac { \\varphi ( S ) } { | S | ^ { T } } ,\n$$",
+        "text_format": "latex",
+        "bbox": [
+            354,
+            559,
+            617,
+            593
+        ],
+        "page_idx": 14
+    },
+    {
+        "type": "text",
+        "text": "where $| S | ^ { T }$ is the size of the all possible combinations of actions without restricting the validity and $r$ is the size of invalid combinations of actions. This implies that $\\begin{array} { r } { \\operatorname* { P r } _ { G \\sim q _ { \\pi } } [ G \\in \\varphi ( S ) ] \\geq \\frac { \\varphi ( S ) } { | S | ^ { T } } } \\end{array}$ , and ",
+        "bbox": [
+            88,
+            601,
+            887,
+            637
+        ],
+        "page_idx": 14
+    },
+    {
+        "type": "equation",
+        "img_path": "images/10a5ce2bec7969495f60ab00ac349eba55518432f18d4f447ab7919d16c4d420.jpg",
+        "text": "$$\n\\operatorname* { P r } _ { G \\sim q _ { \\pi } } [ G \\not \\in \\varphi ( S ) ] = 1 - \\operatorname* { P r } _ { G \\sim q _ { \\pi } } [ G \\in \\varphi ( S ) ] \\leq 1 - \\operatorname* { P r } _ { G \\sim q _ { u } } [ G \\in \\varphi ( S ) ] \\leq 1 - \\frac { \\varphi ( S ) } { | S | ^ { T } } .\n$$",
+        "text_format": "latex",
+        "bbox": [
+            222,
+            645,
+            750,
+            678
+        ],
+        "page_idx": 14
+    },
+    {
+        "type": "text",
+        "text": "Thus, ",
+        "bbox": [
+            88,
+            685,
+            127,
+            700
+        ],
+        "page_idx": 14
+    },
+    {
+        "type": "equation",
+        "img_path": "images/1ae59b97a591ef924348ee9e5241f4a24c6666c5d925164d3414de24401e379b.jpg",
+        "text": "$$\n\\operatorname* { P r } _ { G _ { 1 } , \\dots , G _ { N } \\sim q _ { \\pi } } [ \\forall i \\in [ N ] , G _ { i } \\notin \\varphi ( S ) ] \\leq \\left( 1 - \\frac { \\varphi ( S ) } { | S | ^ { T } } \\right) ^ { N } .\n$$",
+        "text_format": "latex",
+        "bbox": [
+            303,
+            696,
+            668,
+            734
+        ],
+        "page_idx": 14
+    },
+    {
+        "type": "text",
+        "text": "We consider the three cases separately: cases of φ(S)|S|T $\\begin{array} { r } { \\frac { \\varphi ( S ) } { | S | ^ { T } } = 0 } \\end{array}$ , $\\begin{array} { r } { \\frac { \\varphi ( S ) } { | S | ^ { T } } = 1 } \\end{array}$ , and $\\frac { \\varphi ( S ) } { | S | ^ { T } } \\in ( 0 , 1 )$ . In the case of $\\begin{array} { r } { \\frac { \\varphi ( S ) } { | S | ^ { T } } = 0 } \\end{array}$ , we have PrG1,...,GN ∼qπ [∀i ∈ [N ], Gi ∈/ φ(S)] ≤ (1 − 0)N = 1. In the case of φ(S)|S|T , we have $\\operatorname* { P r } _ { G _ { 1 } , \\dots , G _ { N } \\sim q _ { \\pi } } [ \\forall i \\in [ N ] , G _ { i } \\notin$ $\\varphi ( \\mathcal S ) ] \\le \\left( 1 - 1 \\right) ^ { N } = 0 .$ ",
+        "bbox": [
+            86,
+            738,
+            887,
+            797
+        ],
+        "page_idx": 14
+    },
+    {
+        "type": "text",
+        "text": "For the case of $\\frac { \\varphi ( S ) } { | S | ^ { T } } \\in ( 0 , 1 )$ (0, 1), we define ζ = log( 11− φ (S) ) . Then, since $\\frac { \\varphi ( S ) } { | S | ^ { T } } \\in ( 0 , 1 )$ , we have $\\begin{array} { r } { 1 - \\frac { \\varphi ( S ) } { | S | ^ { T } } \\in ( 0 , 1 ) } \\end{array}$ , |S |T $\\begin{array} { r } { \\frac { 1 } { 1 - \\frac { \\varphi ( s ) } { | s | ^ { T } } } > 1 } \\end{array}$ , and $\\zeta > 0$ . Thus, we have $\\begin{array} { r } { \\left( 1 - \\frac { \\varphi ( S ) } { | S | ^ { T } } \\right) ^ { N } = \\frac { 1 } { \\exp ( N \\zeta ) } = \\frac { 1 } { \\sum _ { k = 0 } ^ { \\infty } \\frac { ( N \\zeta ) ^ { k } } { k ! } } \\leq \\frac { 1 } { 1 + N \\zeta } } \\end{array}$ 11+N ζ . This yields that ",
+        "bbox": [
+            88,
+            803,
+            887,
+            863
+        ],
+        "page_idx": 14
+    },
+    {
+        "type": "equation",
+        "img_path": "images/9f99746a784fdeaebf3c66f7df96b5e843511dc5e6feada8c61f895cf1e5d8d7.jpg",
+        "text": "$$\n\\operatorname* { P r } _ { G _ { 1 } , \\dots , G _ { N } \\sim q _ { \\pi } } [ \\forall i \\in [ N ] , G _ { i } \\notin \\varphi ( \\mathcal { S } ) ] \\leq \\frac { 1 } { 1 + N \\zeta } = \\frac { 1 } { 1 + N \\log ( \\frac { | \\mathcal { S } | ^ { T } } { | \\mathcal { S } | ^ { T } - \\varphi ( \\mathcal { S } ) } ) } .\n$$",
+        "text_format": "latex",
+        "bbox": [
+            240,
+            869,
+            728,
+            909
+        ],
+        "page_idx": 14
+    },
+    {
+        "type": "text",
+        "text": "For the case of the case of $\\begin{array} { r } { \\frac { \\varphi ( S ) } { | S | ^ { T } } = 0 } \\end{array}$ (which implies that $\\varphi ( S ) ~ = ~ 0 )$ , this expression recovers the same result as $\\begin{array} { r } { \\operatorname* { P r } _ { G _ { 1 } , \\dots , G _ { N } \\sim q _ { \\pi } } [ \\forall i \\in [ N ] , G _ { i } \\notin \\varphi ( S ) ] \\leq \\frac { 1 } { 1 + N \\log ( \\frac { 1 \\mathcal { S } ^ { 1 } } { | \\mathcal { S } | ^ { T } - \\varphi ( S ) } ) } = \\frac { 1 } { 1 + N \\log ( 1 ) } = 1 . } \\end{array}$ Since $\\begin{array} { r } { \\frac { \\varphi ( S ) } { | S | ^ { T } } = 1 } \\end{array}$ iff $\\varphi ( S ) = | S | ^ { T }$ , these implies that ",
+        "bbox": [
+            88,
+            82,
+            887,
+            146
+        ],
+        "page_idx": 15
+    },
+    {
+        "type": "equation",
+        "img_path": "images/479928eb76908b6315f2cb595321eb87d202fbea1aaf8c5b7897165fe27464dc.jpg",
+        "text": "$$\n\\operatorname* { P r } _ { G _ { 1 } , \\ldots , G _ { N } \\sim q _ { \\pi } } [ \\forall i \\in [ N ] , G _ { i } \\notin \\varphi ( S ) ] \\leq \\left\\{ \\begin{array} { l l } { \\frac { 1 } { 1 + N \\log ( \\frac { | S | ^ { T } } { | S | ^ { T } - \\varphi ( S ) } ) } } & { \\mathrm { i f ~ } \\varphi ( S ) \\neq | S | ^ { T } } \\\\ { 0 } & { \\mathrm { i f ~ } \\varphi ( S ) = | S | ^ { T } . } \\end{array} \\right.\n$$",
+        "text_format": "latex",
+        "bbox": [
+            230,
+            156,
+            741,
+            207
+        ],
+        "page_idx": 15
+    },
+    {
+        "type": "text",
+        "text": "D. Experimental Details ",
+        "text_level": 1,
+        "bbox": [
+            88,
+            251,
+            290,
+            270
+        ],
+        "page_idx": 15
+    },
+    {
+        "type": "text",
+        "text": "D.1. Common Experimental Details ",
+        "text_level": 1,
+        "bbox": [
+            89,
+            277,
+            338,
+            294
+        ],
+        "page_idx": 15
+    },
+    {
+        "type": "text",
+        "text": "Here, we describe the common implementation details of GEAM throughout the experiments. Following Yang et al. (2021), Lee et al. (2023b) and Gao et al. (2022), we used the ZINC250k (Irwin et al., 2012) dataset with the same train/test split used by Kusner et al. (2017) in all the experiments. To calculate novelty, we used the RDKit (Landrum et al., 2016) library to calculate similarities between Morgan fingerprints of radius 2 and 1024 bits. To calculate #Circles, we used the public code3 and set the threshold to 0.75 as suggested by Xie et al. (2023). ",
+        "bbox": [
+            88,
+            301,
+            885,
+            377
+        ],
+        "page_idx": 15
+    },
+    {
+        "type": "text",
+        "text": "The fragment extraction module Regarding the architecture of FGIB, we set the number of message passing in the MPNN to 3 and the number of layers of the MLP to 2. Given the perturbed fragment embedding $Z$ , the property predictor $q _ { \\phi }$ first get the perturbed graph embedding with average pooling and pass it through an MLP of 3 layers as $\\hat { Y } = \\mathsf { M L P } _ { \\phi } ( \\operatorname { A v g P o o l } ( Z ) )$ . FGIB was trained to 10 epochs in each of the task with a learning rate of $1 e - 3$ and $\\beta$ of $1 e - 5$ . The initial vocabulary size was set to $K = 3 0 0$ . Regarding the dynamic vocabulary update, the maximum vocabulary update in a single cycle was set to 50 and the maximum vocabulary size was set to $L = 1 { , } 0 0 0$ . Following Yang et al. (2021), fragments that induce the sanitization error of the RDKit (Landrum et al., 2016) library are filtered out in the fragment extraction step. ",
+        "bbox": [
+            88,
+            395,
+            885,
+            518
+        ],
+        "page_idx": 15
+    },
+    {
+        "type": "text",
+        "text": "The fragment assembly module Following Yang et al. (2021), we formulated fragment assembly as a RL problem and employed soft actor-critic (SAC), because it has been proven to be superior to proximal policy optimization (PPO), another popular RL method, in fragment assembly. Following Yang et al. (2021), we allowed GEAM to randomly generate molecules during the first 4,000 SAC steps to collect experience. Note that unlike Yang et al. (2021), we included these molecules in the final evaluation to equalize the total number of oracle calls for a fair comparison. SAC starts each of the generation episode from benzene with attachment points on the ortho-, meta-, para-positions, i.e., $\\mathsf { c 1 } \\left( \\star \\right) \\mathsf { c } \\left( \\star \\right) \\mathsf { c c c } \\left( \\star \\right) \\mathsf { c 1 }$ . We set the termination number of atoms in the SAC to $n _ { \\mathrm { S A C } } = 4 0$ , so that an episode ends when the size of the current molecule exceeds 40. Other architectural details followed Yang et al. (2021). ",
+        "bbox": [
+            88,
+            535,
+            885,
+            657
+        ],
+        "page_idx": 15
+    },
+    {
+        "type": "text",
+        "text": "The fragment modification module The population size of the GA was set to $P = 1 0 0$ and the mutation rate was set to 0.1. The minimum number of atoms of generated molecules was set to 15. The crossover and the mutation rules followed those of Jensen (2019). ",
+        "bbox": [
+            88,
+            675,
+            885,
+            720
+        ],
+        "page_idx": 15
+    },
+    {
+        "type": "text",
+        "text": "D.2. Optimization of Binding Affinity under QED, SA and Novelty Constraints ",
+        "text_level": 1,
+        "bbox": [
+            88,
+            736,
+            637,
+            753
+        ],
+        "page_idx": 15
+    },
+    {
+        "type": "text",
+        "text": "We used the RDKit (Landrum et al., 2016) library to calculate QED and SA. We used QuickVina 2 (Alhossary et al., 2015), a popular docking program, to calculate docking scores with the exhaustiveness of 1. Following Lee et al. (2023b), we first clip DS in the range $[ - 2 0 , 0 ]$ and compute $\\widehat { \\mathrm { D S } }$ and $\\widehat { \\mathrm { S A } }$ to normalize each of the properties in Eq. ( 9) as follows: ",
+        "bbox": [
+            88,
+            761,
+            887,
+            809
+        ],
+        "page_idx": 15
+    },
+    {
+        "type": "equation",
+        "img_path": "images/18909ea611bb309f4c27ec99f73727a2f6fa1e1c325cd178448712350e1a3400.jpg",
+        "text": "$$\n{ \\widehat { \\mathrm { D S } } } = - { \\frac { \\mathrm { D S } } { 2 0 } } , \\quad { \\widehat { \\mathrm { S A } } } = { \\frac { 1 0 - \\mathrm { S A } } { 9 } } .\n$$",
+        "text_format": "latex",
+        "bbox": [
+            377,
+            819,
+            594,
+            852
+        ],
+        "page_idx": 15
+    },
+    {
+        "type": "text",
+        "text": "In this way, each property in Eq. (9), $\\widehat { \\mathrm { D S } }$ , QED, $\\widehat { \\mathrm { S A } }$ , as well as the total property $Y$ are confined to the range [0, 1]. ",
+        "bbox": [
+            86,
+            863,
+            836,
+            882
+        ],
+        "page_idx": 15
+    },
+    {
+        "type": "text",
+        "text": "For the baselines, we mostly followed the settings in the respective original paper. For RationaleRL, we used the official code4. Following the instruction, we extracted the rationales for parp1, fa7, 5ht1b, braf and jak2, respectively, then filtered them out with the $\\mathrm { Q E D > 0 . 5 }$ and the $\\mathrm { S A } < 5$ constraints. Each rationale was expanded for 200 times and the model was trained for 50 iterations during the finetune. To generate 3,000 molecules, each rationale was expanded for $\\left\\lfloor \\frac { 3 , 0 0 0 } { \\# \\mathrm { o f } \\mathrm { r a t i o n a l e s } } \\right\\rfloor$ times, then 3,000 molecules were randomly selected. For FREED, we used the official code5 and used the predictive errorPER model. We used the provided vocabulary of 91 fragments extracted by CReM (Polishchuk, 2020) with the ZINC250k dataset and set the target property to Eq. (9). Note that this was referred to as FREED-QS in the paper of Lee et al. (2023b). For PS-VAE, we used the official code6 and trained the model with the target properties described in Eq. (9), then generated 3,000 molecules with the trained model. For MiCaM, we used the official code7 to extract fragments from the ZINC250k training set. As this resulted in a vocabulary of large size and worsened the performance when applied to GEAM, we randomly selected $K = 3 0 0$ to construct the final vocabulary. The code regarding goal-directed generation is not publicly available at this time. ",
+        "bbox": [
+            88,
+            84,
+            885,
+            265
+        ],
+        "page_idx": 16
+    },
+    {
+        "type": "text",
+        "text": "D.3. Optimization of Multi-property Objectives in PMO Benchmark ",
+        "text_level": 1,
+        "bbox": [
+            89,
+            281,
+            563,
+            297
+        ],
+        "page_idx": 16
+    },
+    {
+        "type": "text",
+        "text": "We directly used the score function in each of the tasks as the property function $Y$ of FGIB. We set the number of the GA reproduction per one SAC episode to 3. For the baselines, the results in Table 5 were taken from Gao et al. (2022) and the novelty and the #Circles results in Table 6 were obtained using the official repository of Gao et al. $( 2 0 2 2 )$ . ",
+        "bbox": [
+            89,
+            306,
+            885,
+            351
+        ],
+        "page_idx": 16
+    },
+    {
+        "type": "table",
+        "img_path": "images/57d3d822460751f671ace225c05c0c23e8a1e47fcd45d97105f0ccd5336cbddd.jpg",
+        "table_caption": [
+            "Table 7: Novel hit ratio $( \\% )$ results of additional baselines. The results are the means and the standard deviations of 3 runs. The results for the baselines except for RetMol are taken from Lee et al. (2023b). The best results are highlighted in bold. "
+        ],
+        "table_footnote": [],
+        "table_body": "<table><tr><td rowspan=\"2\">Method</td><td colspan=\"5\">Target protein</td></tr><tr><td>parp1</td><td>fa7</td><td>5ht1b</td><td>braf</td><td>jak2</td></tr><tr><td>GCPN (You et al., 2018)</td><td>0.056 (± 0.016)</td><td>0.444 (± 0.333)</td><td>0.444 (± 0.150)</td><td>0.033 (± 0.027)</td><td>0.256 (± 0.087)</td></tr><tr><td>JTVAE (Jin et al., 2018)</td><td>0.856 (± 0.211)</td><td>0.289 (± 0.016)</td><td>4.656 (± 1.406)</td><td>0.144 (± 0.068)</td><td>0.815 (± 0.044)</td></tr><tr><td>GraphAF (Shi et al., 2019)</td><td>0.689(± 0.166)</td><td>0.011 (± 0.016)</td><td>3.178 (± 0.393)</td><td>0.956 (± 0.319)</td><td>0.767 (± 0.098)</td></tr><tr><td>GA+D (Nigam et al., 202ó)</td><td>0.044 (± 0.042)</td><td>0.011 (± 0.016)</td><td>1.544 (± 0.273)</td><td>0.800 (± 0.864)</td><td>0.756 (± 0.204)</td></tr><tr><td>MARS (Xie et al., 2020)</td><td>1.178 (± 0.299)</td><td>0.367 (± 0.072)</td><td>6.833 (± 0.706)</td><td>0.478 (± 0.083)</td><td>2.178 (± 0.545)</td></tr><tr><td>GEGL (Ahn et al., 2020)</td><td>0.789 (± 0.150)</td><td>0.256 (± 0.083)</td><td>3.167 (± 0.260)</td><td>0.244 (± 0.016)</td><td>0.933(± 0.072)</td></tr><tr><td>GraphDF (Luo et al., 2021)</td><td>0.044 (± 0.031)</td><td>0.000 (± 0.000)</td><td>0.000 (± 0.000)</td><td>0.011 (± 0.016)</td><td>0.011 (± 0.016)</td></tr><tr><td>LIMO (Eckmann et al., 2022)</td><td>0.455 (± 0.057)</td><td>0.044 (± 0.016)</td><td>1.189(± 0.181)</td><td>0.278 (± 0.134)</td><td>0.689(± 0.319)</td></tr><tr><td>GDSS (Jo et al., 2022)</td><td>1.933 (± 0.208)</td><td>0.368 (± 0.103)</td><td>4.667 (± 0.306)</td><td>0.167 (± 0.134)</td><td>1.167 (± 0.281)</td></tr><tr><td>RetMol (Wang et al., 2023)</td><td>0.011 (± 0.016)</td><td>0.000 (± 0.000)</td><td>0.033 (± 0.027)</td><td>0.000 (± 0.000)</td><td>0.011 (± 0.016)</td></tr><tr><td>GEAM (ours)</td><td>40.567 (± 0.825)</td><td>20.711 (± 1.873)</td><td>38.489 (± 0.350)</td><td>27.900 (± 1.822)</td><td>42.950 (± 1.117)</td></tr></table>",
+        "bbox": [
+            98,
+            112,
+            883,
+            303
+        ],
+        "page_idx": 17
+    },
+    {
+        "type": "table",
+        "img_path": "images/3e799e6a31495045de55747a2410db0b905c80019e7a0ec61057b6be6c66cdf5.jpg",
+        "table_caption": [
+            "Table 8: Novel top $5 \\%$ docking score (kcal/mol) results of additional baselines. The results are the means and the standard deviations of 3 runs. The results for the baselines except for RetMol are taken from Lee et al. (2023b). The best results are highlighted in bold. "
+        ],
+        "table_footnote": [],
+        "table_body": "<table><tr><td rowspan=\"2\">Method</td><td colspan=\"5\">Target protein</td></tr><tr><td>parp1</td><td>fa7</td><td>5ht1b</td><td>braf</td><td>jak2</td></tr><tr><td>GCPN (You et al., 2018)</td><td>-7.464 (± 0.089)</td><td>-7.024 (± 0.629)</td><td>-7.632 (± 0.058)</td><td>-7.691 (± 0.197)</td><td>-7.533 (± 0.140)</td></tr><tr><td>JTVAE (Jin et al., 2018)</td><td>-9.482 (± 0.132)</td><td>-7.683 (± 0.048)</td><td>-9.382 (± 0.332)</td><td>-9.079(± 0.069)</td><td>-8.885 (± 0.026)</td></tr><tr><td>GraphAF (Shi et al., 2019)</td><td>-9.327 (± 0.030)</td><td>-7.084 (± 0.025)</td><td>-9.113 (± 0.126)</td><td>-9.896 (± 0.226)</td><td>-8.267(± 0.101)</td></tr><tr><td>GA+D (Nigam et al., 2020)</td><td>-8.365 (± 0.201)</td><td>-6.539 (± 0.297)</td><td>-8.567 (± 0.177)</td><td>-9.371 (± 0.728)</td><td>-8.610(± 0.104)</td></tr><tr><td>MARS (Xie et al., 2020)</td><td>-9.716 (± 0.082)</td><td>-7.839(± 0.018)</td><td>-9.804 (± 0.073)</td><td>-9.569(± 0.078)</td><td>-9.150 (± 0.114)</td></tr><tr><td>GEGL (Ahn et al., 2020)</td><td>-9.329 (± 0.170)</td><td>-7.470 (± 0.013)</td><td>-9.086 (± 0.067)</td><td>-9.073(± 0.047)</td><td>-8.601(± 0.038)</td></tr><tr><td>GraphDF (Luo et al., 2021)</td><td>-6.823(± 0.134)</td><td>-6.072 (± 0.081)</td><td>-7.090 (± 0.100)</td><td>-6.852 (± 0.318)</td><td>-6.759(± 0.111)</td></tr><tr><td>LIMO (Eckmann et al., 2022)</td><td>-8.984 (± 0.223)</td><td>-6.764 (± 0.142)</td><td>-8.422 (± 0.063)</td><td>-9.046 (± 0.316)</td><td>-8.435 (± 0.273)</td></tr><tr><td>GDSS (Jo et al., 2022)</td><td>-9.967 (± 0.028)</td><td>-7.775 (± 0.039)</td><td>-9.459 (± 0.101)</td><td>-9.224 (± 0.068)</td><td>-8.926 (± 0.089)</td></tr><tr><td>RetMol (Wang et al., 2023)</td><td>-8.590(± 0.475)</td><td>-5.448 (± 0.688)</td><td>-6.980 (± 0.740)</td><td>-8.811 (± 0.574)</td><td>-7.133 (± 0.242)</td></tr><tr><td>GEAM (ours)</td><td>-12.891(± 0.158)</td><td>-9.890 (± 0.116)</td><td>-12.374 (± 0.036)</td><td>-12.342 (± 0.095)</td><td>-11.816 (± 0.067)</td></tr></table>",
+        "bbox": [
+            98,
+            348,
+            885,
+            537
+        ],
+        "page_idx": 17
+    },
+    {
+        "type": "text",
+        "text": "E. Additional Experimental Results ",
+        "text_level": 1,
+        "bbox": [
+            89,
+            561,
+            387,
+            579
+        ],
+        "page_idx": 17
+    },
+    {
+        "type": "text",
+        "text": "E.1. Optimization of Binding Affinity under QED, SA and Novelty Constraints ",
+        "text_level": 1,
+        "bbox": [
+            91,
+            588,
+            635,
+            604
+        ],
+        "page_idx": 17
+    },
+    {
+        "type": "text",
+        "text": "We include the novel hit ratio and the novel top $5 \\%$ DS results of the additional baselines in Table 7 and Table 8. As shown in the tables, the proposed GEAM outperforms all the baselines by a large margin. ",
+        "bbox": [
+            93,
+            612,
+            890,
+            642
+        ],
+        "page_idx": 17
+    },
+    {
+        "type": "text",
+        "text": "We also provide examples of the generated novel hits by GEAM for each protein target in Figure 5. The examples were collected without curation. ",
+        "bbox": [
+            91,
+            650,
+            883,
+            680
+        ],
+        "page_idx": 17
+    },
+    {
+        "type": "text",
+        "text": "E.2. Optimization of Multi-property Objectives in PMO Benchmark ",
+        "text_level": 1,
+        "bbox": [
+            89,
+            696,
+            563,
+            712
+        ],
+        "page_idx": 17
+    },
+    {
+        "type": "text",
+        "text": "We provide examples of the generated top-5 molecules by GEAM for each task in Figure 6. The examples are from a single run with a random seed for each task. ",
+        "bbox": [
+            91,
+            720,
+            885,
+            751
+        ],
+        "page_idx": 17
+    },
+    {
+        "type": "text",
+        "text": "E.3. Qualitative Analysis ",
+        "text_level": 1,
+        "bbox": [
+            89,
+            767,
+            261,
+            782
+        ],
+        "page_idx": 17
+    },
+    {
+        "type": "text",
+        "text": "We provide additional PLIP (Adasme et al., 2021) visualizations in Figure 7. Unlike the other target proteins from DUDE (Mysinger et al., 2012), the target protein 5ht1b is from ChEMBL (Gaulton et al., 2012), and is omitted as it is incompatible with PLIP. ",
+        "bbox": [
+            88,
+            790,
+            885,
+            837
+        ],
+        "page_idx": 17
+    },
+    {
+        "type": "image",
+        "img_path": "images/a1e484e0a2cc0c5c89924bc534259751bbb48afec94c1e3f0c7d62863a66df35.jpg",
+        "image_caption": [
+            "Figure 5: The examples of the generated novel hits by GEAM. The values of docking score (kcal/mol), QED, SA, and the maximum similarity with the training molecules are provided at the bottom of each molecule. "
+        ],
+        "image_footnote": [],
+        "bbox": [
+            217,
+            80,
+            754,
+            858
+        ],
+        "page_idx": 18
+    },
+    {
+        "type": "image",
+        "img_path": "images/0e133842aed2981cd15f17ab20dadb40b489261c3991f99e6c0ad0cc8cdf6546.jpg",
+        "image_caption": [
+            "Figure 6: The reference molecules of the PMO MPO tasks and the examples of the generated top-5 molecules from a single run of GEAM. The scores are provided at the bottom of each generated molecule. "
+        ],
+        "image_footnote": [],
+        "bbox": [
+            130,
+            106,
+            841,
+            834
+        ],
+        "page_idx": 19
+    },
+    {
+        "type": "image",
+        "img_path": "images/c1818a1789292ee44bcfc3c2af5575d38eca16c82a6c2b5670fef9b625335373.jpg",
+        "image_caption": [
+            "Figure 7: The PLIP images showing interactions between an example molecule and the target protein. "
+        ],
+        "image_footnote": [],
+        "bbox": [
+            129,
+            378,
+            844,
+            578
+        ],
+        "page_idx": 20
+    }
+]

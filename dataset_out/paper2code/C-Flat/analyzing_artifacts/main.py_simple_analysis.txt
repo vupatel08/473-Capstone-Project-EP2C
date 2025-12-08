@@ -1,0 +1,122 @@
+# Logic Analysis: main.py
+
+This script serves as the main orchestrator for executing the continual learning experiment as outlined in the paper's methodology, the provided plan, and the configuration file. Its core responsibilities include initialization, dataset loading, handling incremental training phases, invoking training routines with C-Flat regularization, evaluating performance, visualizing landscapes, and managing logs and checkpoints.
+
+Below is a detailed breakdown of the logic and structure required for main.py, aligned with the specified dependencies and the approach advocated by the paper:
+
+---
+
+## 1. Import Dependencies
+- Import necessary libraries: torch, numpy, os, and modules from dataset_loader.py, model.py, trainer.py, evaluation.py, and utils.py.
+- Import configuration loader (e.g., yaml) to read config.yaml.
+- Import logging or visualization libraries (matplotlib, possibly PyHessian).
+
+## 2. Load Configuration
+- Read and parse 'config.yaml'.
+- Extract all relevant parameters:
+  - training parameters (learning_rate, batch_size, epochs, schedule, regularization \(\rho, \lambda\), neighborhood_eval_per_epoch)
+  - model parameters (architecture, optimizer, scheduler Type, milestones, decay)
+  - dataset details (name, split_scheme, classes_per_task, total_tasks, seed)
+  - evaluation and logging settings (metrics, output directory, save frequency)
+  - hardware settings (GPU, multi-GPU)
+  - miscellaneous (random seed for reproducibility)
+
+## 3. Set Random Seeds & Device
+- Set random seed for numpy, torch, and possibly cuda.
+- Determine device availability:
+  - If GPU enabled and available, set device to cuda; else cpu.
+- Configure multi-GPU settings if applicable, using torch.nn.DataParallel or DistributedDataParallel.
+
+## 4. Initialize Dataset Loader
+- Instantiate `DatasetLoader` object with split scheme, seed, and dataset name.
+- Call load_data() to obtain:
+  - training data split per task: list of datasets or data loaders
+  - total number of tasks (T_total)
+- For each task, the loader should provide data specific to that phase (e.g., train and test loaders).
+
+## 5. Initialize Model
+- Instantiate the model architecture specified (ResNet-18 or as needed).
+- Initialize optimizer with model parameters and optimizer_params from config.
+- Configure the learning rate scheduler per the schedule specified.
+- Load checkpoint if resuming from previous state (optional).
+
+## 6. Initialize Evaluation & Logging
+- Prepare output directories for logs, checkpoints, and landscape plots.
+- Set up logging (e.g., print, tensorboard, or custom logger).
+- Prepare lists/dicts to store accuracy, forgetting, landscape data, Hessian eigenvalues.
+
+## 7. Loop Over Tasks (Incremental Phases)
+For each task index from 1 to total_tasks:
+  
+### 7.1. Data Preparation
+- Obtain current task's data loader via dataset_loader.get_task_dataloader(task_idx).
+- For rehearsal or exemplar-based approaches:
+  - Prepare rehearsal data if applicable (from memory buffer or exemplars stored in previous tasks).
+
+### 7.2. Initialize or Update Model State
+- For first task: initialize model parameters randomly.
+- For subsequent tasks: load previous task's model parameters, possibly expand if using expansion-based methods.
+
+### 7.3. Training with C-Flat Regularization
+- Instantiate `trainer.Trainer` object with current model, data loader, and config parameters.
+- Invoke `train_phase(task_idx)` method:
+  - Loop for each epoch (bounded by config's epochs):
+    - For each batch:
+      - Compute gradient of task data loss.
+      - Evaluate regularizers \( R_\rho^{0} \) and \( R_\rho^{1} \):
+        - Perturb parameters based on the gradient and radius \(\rho\),
+        - Approximate loss difference and gradient norms,
+        - Use autograd to compute Hessian-vector products or approximate Hessians,
+        - Sum regularization contributions scaled by \(\lambda\).
+      - Compute total loss as task loss + regularizers.
+      - Perform optimizer step.
+    - Schedule learning rate decay as per schedule configuration.
+    - Optionally evaluate neighborhood regularizers per epoch if configured.
+  
+### 7.4. Save Model Checkpoints
+- Save the model state_dict periodically per save frequency.
+- Save the final model after completing all epochs for the task.
+
+### 7.5. Store Exemplar Data (if rehearsal-based)
+- Update memory buffer/exemplar set based on the current task's data.
+- Ensure that rehearsal data is available for subsequent tasks.
+
+### 7.6. Evaluation & Landscape Visualization
+- Evaluate current model on:
+  - All seen classes (or test set) using evaluation.py.
+  - Compute accuracy, forgetting metrics.
+- Visualize the loss landscape around current minima:
+  - Generate loss surfaces via PyHessian or custom routines.
+  - Save landscape plots to output directory.
+- Compute Hessian eigenvalues:
+  - Use Hessian-vector products for eigenvalue estimation.
+  - Record eigenvalues and trace metrics.
+- Log evaluation metrics and landscape metrics.
+
+### 7.7. Logging & Visualization
+- Log training/validation accuracy, forgetting, landscape plots, Hessian metrics.
+- Possibly generate early snapshots or summaries for reporting.
+
+## 8. Finalization
+- After all phases, produce comprehensive reports:
+  - Plot accuracy over phases.
+  - Plot Hessian eigenvalue distribution and landscape summaries.
+  - Summarize improvements (boosts) compared to baselines if applicable.
+- Save all logs, plots, and final model.
+
+## 9. Clean Up
+- Close log files or visualization tools.
+- Save final checkpoint models.
+- Optionally, release resources (GPU memory cleanup).
+
+---
+
+## 10. Additional Considerations
+- The evaluation of landscape metrics should be performed periodically (e.g., every epoch or every N epochs), controlled via `evaluation.evaluation_frequency`.
+- Ensure reproducibility by fixing random seed across all components.
+- Include exception handling for robustness.
+- Keep the code modular: main.py should orchestrate, delegating dataset handling, training, evaluation, and visualization to respective modules.
+
+---
+
+This detailed logic analysis provides a comprehensive plan for main.py, ensuring the proper orchestration of all steps needed to accurately implement the methodology and experimental protocol described in the paper, aligned with all dependencies, hyperparameters, and configuration directives.

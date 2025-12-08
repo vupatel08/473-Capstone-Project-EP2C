@@ -1,0 +1,137 @@
+**Logic Analysis for `schedule_utils.py`**
+
+---
+
+### **Purpose & Responsibilities**
+
+`schedule_utils.py` is designed to implement all schedule-related computations necessary for the diffusion process, specifically:
+
+- Generating the discrete schedule for \(\theta_t\), based on a "cosine" schedule type.
+- Calculating the cumulative quantities \(\bar{\theta}_t = \int_0^t \theta_z \, dz\), which influence the transition densities.
+- Computing \(\bar{\sigma}_t^2\) and \(\bar{\sigma}_{t:T}^2\), which are key parameters in the transition densities (Equations 8 and 9).
+- Facilitating discretization over \(N\) steps for both training schedules and sampling.
+
+These functions are core components to ensure the model's forward and reverse processes are correctly parameterized.
+
+---
+
+### **Inputs & Parameters**
+
+- **Total number of steps \(N\)**: user-defined, e.g., 100.
+- **Schedule type**: e.g., `'cosine'`.
+- **Maximum and minimum \(\theta_t\)** values or schedule parameters: if needed.
+- **Time grid**: discretized as \(\{ t_0, t_1, ..., t_N \}\), with \(t_0=0\) and \(t_N=T\).
+- **Adaptive parameters**: e.g., small \(\delta=0.0005\) for near-zero \(\theta\) at the end.
+
+---
+
+### **Key Computations & Functions**
+
+#### 1. **Generate Time Grid**
+
+- Create a uniform grid \([0, T]\): for training, use \(t_i = i \cdot T/N\).
+- For sampling, same discretization applies.
+- Provide functions to return normalized \(t_i\) or scaled as needed.
+
+#### 2. **Compute \(\theta_t\) Schedule**
+
+- For `'cosine'` schedule:
+  - Follow the heuristic resembling the cosine schedule used in recent diffusion models (e.g., Nichol & Dhariwal 2021).
+  - \(\theta_t\) can be defined as a function of \(t\):
+    \[
+    \theta_t = \frac{\pi}{2} \cdot \cos \left( \frac{\pi}{2} \cdot (1 - t/T) \right)
+    \]
+    or a similar scaled function.
+  - Ensure monotonic increase from 0 to 1 for \(\theta_t\), or follow the exact schedule suggested in the paper.
+
+- Alternatively, implement a flexible function to accept different schedule types, defaulting to cosine.
+
+#### 3. **Compute \(\bar{\theta}_t\): \(\int_0^t \theta_z\, dz\)**
+
+- Use numerical integration (e.g., `numpy.cumtrapz` or `np.trapz`) over the discrete \(\theta_z\):
+  - Input: array of \(\theta_z\) over discretized \(z\).
+  - Output: array of \(\bar{\theta}_t\) for each \(t\).
+
+- For efficiency, precompute \(\theta_t\) at each grid point, then integrate cumulatively.
+
+#### 4. **Compute \(\bar{\sigma}_t^2\)**
+
+- Based on the equations (Equation 8):
+  \[
+  \bar{\sigma}_t^2 = \frac{g_t^2}{2 \theta_t} \left(1 - e^{-2 \bar{\theta}_t}\right)
+  \]
+- **Implementation details**:
+  - Compute \(g_t^2\), which may be proportional to \(\theta_t\). The paper suggests that \(g_t\) is controlled via schedules matching \(\theta_t\), e.g., \(g_t^2 = 2 \lambda^2 \theta_t\).
+  - Use the precomputed \(\bar{\theta}_t\) for exponential.
+
+#### 5. **Compute \(\bar{\sigma}_{t:T}^2\)**
+
+- For the transition between \(t\) and \(T\):
+  \[
+  \bar{\sigma}_{t:T}^2 = \frac{g_t^2}{2 \theta_t} \left( e^{-2 \bar{\theta}_{t}} - e^{-2 \bar{\theta}_T} \right)
+  \]
+- **Implementation**:
+  - Use precomputed \(\bar{\theta}_t\), \(\bar{\theta}_T\).
+  - Allow easy retrieval of these values for each \(t\).
+
+---
+
+### **Implementation Steps & Outputs**
+
+1. **Function: `get_time_schedule(T, N)`**
+
+   - Returns a numpy array of \(t_i\) in \([0, T]\).
+
+2. **Function: `compute_theta(t_array, schedule_type='cosine')`**
+
+   - Input: array of \(t_i\).
+   - Output: array of \(\theta_{t_i}\).
+
+3. **Function: `compute_cumulative_theta(theta_array, t_array)`**
+
+   - Uses numerical integration to produce \(\bar{\theta}_t\).
+
+4. **Function: `compute_sigma(t_array, theta_array, lambda_sq=30)`**
+
+   - Calculates \(\bar{\sigma}_t^2\) based on schedule values.
+   - Should incorporate the proportionality \(g_t^2 = 2 \lambda^2 \theta_t\).
+
+5. **Function: `compute_sigma_t_T(t_array, theta_array, T, lambda_sq=30)`**
+
+   - Computes \(\bar{\sigma}_{t:T}^2\).
+   - Needs \(\bar{\theta}_t\), \(\bar{\theta}_T\) (the total integral).
+
+6. **Outputs**
+
+   - Discretized arrays:
+     - \(t_i\)
+     - \(\theta_{t_i}\)
+     - \(\bar{\theta}_{t_i}\)
+     - \(\bar{\sigma}_{t_i}^2\)
+     - \(\bar{\sigma}_{t_i:T}^2\)
+
+---
+
+### **Special Considerations**
+
+- **Numerical Stability**:
+  - Handle division by small \(\theta_t\): for \(t\) where \(\theta_t\) approaches zero, approximate by \(\delta\) or implement safeguards.
+  - Ensure the exponential calculations (e.g., \(e^{-2 \bar{\theta}_t}\)) are numerically stable.
+
+- **Schedule Flexibility**:
+  - Make `schedule_type` parameter extensible for future schedules.
+  - At minimum, implement `'cosine'`.
+
+- **Time Scaling**:
+  - If `T` is not 1, scale accordingly.
+  - For training, `T` could be 1; for inference, `T` is from config (e.g., 100).
+
+---
+
+### **Summary**
+
+The `schedule_utils.py` will provide essential functions to generate discretized schedules for \(\theta_t\), their integrals, and the derived parameters essential for defining transition densities in the GOU-based diffusion models. Proper implementation ensures the model’s forward and reverse stochastic processes are accurately parameterized, directly impacting training stability and sampling fidelity.
+
+---
+
+Would you like me to proceed with drafting the complete code skeleton for `schedule_utils.py` based on this logic?

@@ -1,0 +1,158 @@
+{
+  "title": "IMPROVING PROTEIN OPTIMIZATION WITH SMOOTHED FITNESS LANDSCAPES",
+  "abstract": "Andrew Kirjner∗   \nMassachusetts Institute of Technology   \nkirjner@mit.edu   \nJason Yim∗   \nMassachusetts Institute of Technology   \njyim@mit.edu",
+  "authors": [],
+  "body_text": [
+    {
+      "text": "# IMPROVING PROTEIN OPTIMIZATION WITH SMOOTHED FITNESS LANDSCAPES"
+    },
+    {
+      "text": "Andrew Kirjner∗   \nMassachusetts Institute of Technology   \nkirjner@mit.edu   \nJason Yim∗   \nMassachusetts Institute of Technology   \njyim@mit.edu"
+    },
+    {
+      "text": "Raman Samusevich IOCB Prague, Czech Academy of Sciences, CIIRC, Czech Technical University in Prague, University of Chemistry and Technology, Prague raman.samusevich@uochb.cas.cz"
+    },
+    {
+      "text": "Shahar Bracha   \nMassachusetts Institute of Technology   \nshaharbr@mit.edu"
+    },
+    {
+      "text": "Tommi Jaakkola† Massachusetts Institute of Technology tommi@csail.mit.edu"
+    },
+    {
+      "text": "Regina Barzilay† Massachusetts Institute of Technology regina@csail.mit.edu"
+    },
+    {
+      "text": "Ila Fiete†   \nMassachusetts Institute of Technology   \nfiete@mit.edu"
+    },
+    {
+      "text": "# ABSTRACT"
+    },
+    {
+      "text": "The ability to engineer novel proteins with higher fitness for a desired property would be revolutionary for biotechnology and medicine. Modeling the combinatorially large space of sequences is infeasible; prior methods often constrain optimization to a small mutational radius, but this drastically limits the design space. Instead of heuristics, we propose smoothing the fitness landscape to facilitate protein optimization. First, we formulate protein fitness as a graph signal then use Tikunov regularization to smooth the fitness landscape. We find optimizing in this smoothed landscape leads to improved performance across multiple methods in the GFP and AAV benchmarks. Second, we achieve state-of-the-art results utilizing discrete energy-based models and MCMC in the smoothed landscape. Our method, called Gibbs sampling with Graph-based Smoothing (GGS), demonstrates a unique ability to achieve 2.5 fold fitness improvement (with in-silico evaluation) over its training set. GGS demonstrates potential to optimize proteins in the limited data regime. Code: https://github.com/kirjner/GGS"
+    },
+    {
+      "text": "# 1 INTRODUCTION"
+    },
+    {
+      "text": "In protein engineering, fitness can be defined as performance on a desired property or function. Examples of fitness include catalytic activity for enzymes (Anderson et al., 2021) and fluorescence for biomarkers (Remington, 2011). Protein optimization seeks to improve protein fitness by altering the underlying sequences of amino acids. However, the number of possible proteins increases exponentially with sequence length, rendering it infeasible to perform brute-force search to engineer novel functions, which often require multiple mutations from the starting sequence (i.e. at least 3 (Ghafari & Weissman, 2019)). Directed evolution (Arnold, 1998) has been successful in improving protein fitness, but it requires substantial labor and time."
+    },
+    {
+      "text": "![](images/025783afbf219925c333a34a041715639e6f6b78f67ae99099f92dd74ce9597a.jpg)  \nFigure 1: Overview. (A) Protein optimization is challenging due to a noisy fitness landscape where the starting dataset (unblurred) is a fraction of the landscape with the highest fitness sequences hidden (blurred). (B) We develop Graph-based Smoothing (GS) to estimate a smoothed fitness landscape from the starting data. (C) A model is trained on the smoothed fitness landscape to infer the rest of the landscape. (D) Gradients from the model are used in Gibbs With Gradients (GWG) where on each step a new mutation is proposed. (E) The goal of sampling is for each trajectory to gradually head towards higher fitness."
+    },
+    {
+      "text": "We aim to computationally generate high-fitness proteins by optimizing a learned model of the fitness landscape, but face several challenges. Proteins can be notorious for highly non-smooth fitness landscapes1: fitness can change dramatically with single mutations, fitness measurements contain experimental noise, and most protein sequences have zero fitness (Brookes et al., 2022). Furthermore, protein fitness datasets are scarce and difficult to generate due to their high costs (Dallago et al., 2021). As a result, machine learning (ML) methods are susceptible to predicting false positives and getting stuck in local optima (Brookes et al., 2019). The 3D protein structure, if available, can provide information in navigating the noisy fitness landscape such as identifying hot spot residues (Zerbe et al., 2012), but high quality structures are not available in many cases."
+    },
+    {
+      "text": "One way to deal with noisy and limited data is to regularize the fitness landscape model2. Our work considers a smoothing regularizer in which similar sequences (based on a distance measure) are predicted to have similar predicted fitness. While actual fitness lanscapes are not smooth, smoothing can be an important tool in the context of optimization, allowing gradient-based methods to reach higher peaks by avoiding local optima, especially in discrete optimization (Zanella, 2020). A few works have studied properties of protein fitness landscapes (Section 2), but none have directly applied smoothing with a graph framework during optimization."
+    },
+    {
+      "text": "We propose a novel method for applying smoothing to protein sequence and fitness data together with an optimization technique that takes advantage of the smoothing. First, we formulate sequences as a graph with fitness values as node attributes and apply Tikunov regularization to smooth the topological signal measured by the graph Laplacian. The smoothed data is then fitted with a neural network to be used as a model for discrete optimization (Figure 1 top). Second, we sample over the energy function for high fitness sequences by using the model’s gradients in a Gibbs With Gradients (GWG) procedure (Grathwohl et al., 2021). In GWG, a discrete distribution is constructed based on the model’s gradients where mutations with improved fitness will correlate with higher probability. The process of taking gradients and sampling mutations is performed in an iterative fashion where subsequent mutations will guide towards higher fitness (Figure 1 bottom)."
+    },
+    {
+      "text": "Figure 1 shows an overview of the method. We refer to the procedure of smoothing then sampling as Gibbs sampling with Graph-based Smoothing (GGS). To evaluate our method, we introduce a set of tasks using the well studied Green Fluorescent Proteins (GFP) (Sarkisyan et al., 2016) and Adeno-Associated Virus (AAV) (Bryant et al., 2021) proteins. We chose GFP and AAV because of their real-world importance and availability of large mutational data. We design a set of tasks that emulate starting with noisy and limited data and evaluate with a trained model (as done in most prior works). We evaluate GGS and prior works on our proposed benchmarks to show that GGS is state-of-the-art in GFP and AAV fitness optimization. Our contributions are summarized as follows:"
+    },
+    {
+      "text": "• We develop a novel sequence-based protein optimization algorithm, GGS, which uses graph-based smoothing to train a smoothed fitness model. The model is used as a discrete energy function to progressively sample mutations towards higher-fitness sequences with GWG (Section 3). • We develop a set of tasks that measure a method’s ability to extrapolate towards higher fitness. We use publicly available GFP and AAV datasets to emulate difficult optimization scenarios of starting with limited and noisy data (Section 4.1). • Our benchmark shows prior methods fail to extrapolate towards higher fitness. However, we show graph-based smoothing can drastically improve their performance; in one baseline, the fitness jumps from $18 \\%$ to $39 \\%$ in GFP and $4 \\%$ to $44 \\%$ in AAV after smoothing (Section 4.2). • Our method GGS directly exploits smoothness to achieve state-of-the-art results with 5 times higher fitness in GFP and 2 times higher in AAV compared to the next best method (Section 4.2)."
+    },
+    {
+      "text": "# 2 RELATED WORK"
+    },
+    {
+      "text": "Protein optimization and design. Approaches can broadly be categorized using sequence, structure or both. Sequence-based methods have been explored through the lens of reinforcement learning (Angermueller et al., 2020), latent space optimization (Stanton et al., 2022; Lee et al.; Maus et al., 2022), generative models (Notin et al., 2022; Meier et al., 2021; Jain et al., 2022; Gruver et al., 2023), and model-based directed evolution (Sinai et al., 2020; Padmakumar et al., 2023; Ren et al., 2022). Together they face the issue of a noisy fitness landscape to optimize. We focus on sequence-based methods using Gibbs With Gradients (GWG) (Grathwohl et al., 2021) which can perform stateof-the-art in discrete optimization but requires a smooth energy function for strong performance. Concurrently, Emami et al. (2023) used GWG for protein optimization with a product of experts distribution using a protein language model. However, they achieved subpar results."
+    },
+    {
+      "text": "Previous methods focused on developing new sampling and optimization techniques. Our work is complimentary by addressing the need for improved regularization and smoothing. We show in our experiments that our smoothing technique can enhance the performance of prior methods."
+    },
+    {
+      "text": "Protein fitness regularization. The NK model was an early attempt to model smoothness of protein fitness through a statistical model of epistasis (Kauffman & Weinberger, 1989). Brookes et al. (2022) proposed a framework to approximate the sparsity of protein fitness using a generalized NK model (Buzas & Dinitz, 2013). Concurrently, dWJS (Frey et al., 2023) is most related to our work by utilizing Gaussian noise to regularize the discrete energy function during Langevin MCMC. dWJS trains by denoising to smooth a energy-based model whereas we apply discrete regularization using graph-based smoothing techniques."
+    },
+    {
+      "text": "Finally, we distinguish our smoothing method from traditional regularizers applied during training such as dropout (Srivastava et al., 2014). Our goal is to smooth the fitness landscape in a way that is amenable for iterative optimization. We enforce similar sequences to have similar fitness which is not guaranteed with dropout or similar regularizers applied in minibatch training. Evaluating multiple smoothing strategies is not the focus of our work, but rather to demonstrate their importance."
+    },
+    {
+      "text": "# 3 METHOD"
+    },
+    {
+      "text": "The following describes our method. Section 3.1 details the problem formulation. Next section 3.2 describes the procedure for training a smoothed model. Lastly, section 3.3 provides background on Gibbs With Gradients (GWG) which is adapted for protein optimization. The full algorithm, Gibbs sampling with Graph-based Smoothing (GGS), is presented in Algorithm 1."
+    },
+    {
+      "text": "# 3.1 PROBLEM FORMULATION"
+    },
+    {
+      "text": "We denote the starting set of $N$ proteins as ${ \\mathcal { D } } = ( X , Y )$ where $X = \\{ x _ { 1 } , \\ldots , x _ { N } \\} \\subset \\mathcal { V } ^ { M }$ are the sequences and $Y = \\{ y _ { 1 } , \\dots , y _ { N } \\}$ are corresponding real-valued scalar fitness measurements. Each sequence $x _ { i } \\in \\mathcal { V } ^ { M }$ is composed of $M$ residues from a vocabulary $\\nu$ of 20 amino acids. Subscripts refer to different sequences. Note our method can be extended to other modalities, e.g. nucleic acids."
+    },
+    {
+      "text": "For in-silico evaluation, we denote the set of all known sequences and fitness measurements as $\\mathcal { D } ^ { * } = ( X ^ { * } , Y ^ { * } )$ . We assume there exists a unknown black-box function $g : \\mathcal { V } ^ { M } \\to \\mathbb { R }$ such that $g ( x ^ { * } ) = y ^ { * }$ . In practice, $g$ needs to be approximated by a evaluator model, $g _ { \\phi }$ , trained with weights $\\phi$ to minimize prediction error on $\\mathcal { D } ^ { * }$ . $g _ { \\phi }$ poses a limitation to evaluation since the true fitness needs to be verified with biological experiments. Nevertheless, an in-silico approximation provides a accessible way for evaluation and is done in all prior works. The starting dataset is a strict subset of the known dataset $\\mathcal { D } \\subset \\mathcal { D } ^ { * }$ to simulate fitness optimization scenarios. Given $\\mathcal { D }$ , our task is to generate a set of sequences with higher fitness than the starting set."
+    },
+    {
+      "text": "# 3.2 GRAPH-BASED SMOOTHING ON PROTEINS"
+    },
+    {
+      "text": "Our goal is to develop a model of the sequence-to-fitness mapping that can be utilized when sampling higher fitness sequences. Unfortunately, the high-dimensional sequence space coupled with few data points and noisy labels can result in a noisy model that is prone to sampling false positives or getting stuck in local optima. To address this, we use smoothing techniques from graph signal processing."
+    },
+    {
+      "text": "The smoothing process is depicted in Figure 2. First, we train a noisy fitness model $f _ { \\tilde { \\theta } } : \\mathcal { V } ^ { M }  \\mathbb { R }$ with weights $\\tilde { \\theta }$ on the initial dataset $\\mathcal { D }$ using Mean-Squared Error (MSE). $\\mathcal { D }$ is usually very small in real-world scenarios. We augment the dataset by using $f _ { \\tilde { \\theta } }$ to infer the fitness of neighboring sequences which we do not have labels for – known as transductive inference. Neighboring sequences are generated by randomly applying point mutations to each sequence in $X$ . The augmented and original sequences become nodes, $V$ , in our graph while their fitness labels are node attributes. Edges, $\\mathcal { E }$ , are constructed with a $k$ -nearest neighbor (kNN) graph around each node based on the Levenshtein distance3. The graph construction algorithm can be found in Algorithm 4."
+    },
+    {
+      "text": "The following borrows techniques from Isufi et al. (2022). The smoothness of the fitness variability in our protein graph is defined as the sum over the square of all local variability,"
+    },
+    {
+      "text": "$$\n\\mathsf { T V } _ { 2 } ( Y ) = \\frac { 1 } { 2 } \\sum _ { i \\in \\mathcal { V } } ( \\Delta y _ { i } ) ^ { 2 } , \\quad \\Delta y _ { i } = \\sqrt { \\sum _ { ( i , j ) \\in \\mathcal { E } } ( y _ { i } - y _ { j } ) ^ { 2 } } .\n$$"
+    },
+    {
+      "text": "TV refers to Total Variation and $\\Delta y _ { i }$ is the local variability of node $i$ that measures local changes in fitness. Using $\\mathsf { T V } _ { 2 }$ as a regularizer, we solve the following optimization problem, known as Tikhunov regularization (Zhou & Scholkopf, 2004), for a new set of smoothed fitness labels, ¨"
+    },
+    {
+      "text": "$$\n\\operatorname * { a r g m i n } _ { \\hat { Y } \\in \\mathbb { R } ^ { | V | } } \\Vert Y - \\hat { Y } \\Vert _ { 2 } ^ { 2 } + \\gamma \\mathsf { T V } _ { 2 } ( \\hat { Y } ) .\n$$"
+    },
+    {
+      "text": "With abuse of notation, we represent $Y$ as a vector with each node’s fitness. $\\gamma$ is a hyperparameter set to control the smoothness; too high can lead to underfitting. We experiment with different $\\gamma$ ’s in Section 4. Since eq. (1) is a quadratic convex problem, it has a closed form solution, $\\hat { Y } = ( \\mathbb { I } + \\gamma L ) ^ { - 1 } Y$ where $L$ is the graph Laplacian and $\\mathbb { I }$ is the identity matrix. The final step is to retrain the model on the sequences in the graph and their smoothed fitness labels. The result will be a model $f _ { \\theta }$ with lower $\\mathsf { T V } _ { 2 }$ than before and thus improved smoothness. The smoothing algorithm is in Algorithm 2."
+    },
+    {
+      "text": "# 3.3 SAMPLING IMPROVED FITNESS WITH GIBBS"
+    },
+    {
+      "text": "Equipped with model $f _ { \\theta }$ from section 3.2, we apply it in a procedure to sample mutations that improve the starting sequences’ fitness. $f _ { \\theta }$ can also be viewed as an energy-based model (EBM) that defines a Boltzmann distribution $\\log p ( x ) = f _ { \\theta } ( x ) - \\log Z$ where $Z$ is the normalization constant. Higher fitness sequences will be more likely under this distribution, while sampling will induce diversity and novelty. To sample from $p ( x )$ , we use Gibbs With Gradients (GWG) Grathwohl et al. (2021) which has attracted significant interest due to its simplicity and state-of-the-art performance in discrete optimization. In this section, we describe the GWG procedure for protein sequences. GWG uses Gibbs sampling with approximations of locally informed proposals (Zanella, 2020):"
+    },
+    {
+      "text": "![](images/4789c0da20a3be9b6cd9a3f5686ea271f4e3bc1679df935939e040fcea430cd9.jpg)  \nFigure 2: Steps in graph-based smoothing on proteins illustrated with a fictitious data of length 2 sequences with vocabulary $\\{ A , B \\}$ . Above each node are corresponding fitness values. Solid nodes are those in our training set while dashed nodes are augmented via point mutations to increase the smoothing effectiveness. See section 3.2 for description of each step."
+    },
+    {
+      "text": "$$\nq ( x ^ { \\prime } | x ) \\propto \\exp \\left( \\frac { 1 } { 2 } \\sum _ { i } ( x _ { i } ^ { \\prime } ) ^ { \\top } d _ { \\theta } ( x ) _ { i } \\right) \\mathbb { 1 } ( x ^ { \\prime } \\in H ( x ) ) , \\quad d _ { \\theta } ( x ) _ { i } = [ \\nabla _ { x } f _ { \\theta } ( x ) ] _ { i } - x _ { i } \\odot [ \\nabla f _ { \\theta } ( x ) ] _ { i } .\n$$"
+    },
+    {
+      "text": "With slight abuse of notation, we use the one-hot sequence representation $x \\in \\{ 0 , 1 \\} ^ { M \\times | \\mathcal { V } | }$ where $x _ { i } \\in \\{ 0 , 1 \\} ^ { | \\nu | }$ represents the ith index of the sequence with 1 at its amino acid index and 0 elsewhere. $\\odot$ is the element wise product. $H ( x ) = \\{ y \\in \\mathcal { V } ^ { M } : d _ { \\mathrm { H a m m i n g } } ( x , y ) \\leq 1 \\}$ is the 1-ball around $x$ using Hamming distance. The core idea of GWG is to use $d _ { \\theta } ( \\bar { x } ) _ { i }$ as the first order approximation of a continuous gradient of the change in likelihood from mutating the $i$ th index of $x$ to a different amino acid. The quality of the proposals in eq. (2) rely on the smoothness of the energy $f _ { \\theta }$ (Theorem 1 in Grathwohl et al. (2021)). If the gradients, $\\nabla f _ { \\boldsymbol { \\theta } }$ , are noisy, then the proposal distributions are ineffective in sampling better sequences. Hence, smoothing $f _ { \\theta }$ is desirable (see section 4)."
+    },
+    {
+      "text": "The choice of $H ( \\cdot )$ as the 1-Hamming ball limits $x ^ { \\prime }$ to point mutations from $x$ and only requires $\\mathcal { O } \\left( M \\times \\left| \\mathcal { V } \\right| \\right)$ compute to construct. Let the point mutation where $x$ and $x ^ { \\prime }$ differ be defined by the residue location, $i ^ { \\mathrm { I o c } } \\in \\{ 1 , \\ldots , M \\}$ , and amino acid substitution, $j ^ { \\mathrm { s u b } } \\in \\{ 1 , \\ldots , | \\mathcal { V } | \\}$ . By limiting $x ^ { \\prime }$ to point mutants $( i ^ { \\mathrm { l o c } } , j ^ { \\mathrm { s u b } } )$ , sampling $q ( x ^ { \\prime } | x )$ is equivalent to sampling the following,"
+    },
+    {
+      "text": "$$\n( i ^ { \\mathrm { l o c } } , j ^ { \\mathrm { s u b } } ) \\sim q ( \\cdot | x ) = \\mathrm { C a t } \\left( \\mathrm { S o f t m a x } \\left( \\left\\{ \\frac { d _ { \\theta } ( x ) _ { i , j } } { \\tau } \\right\\} _ { i = 1 , j = 1 } ^ { M , | \\mathcal { V } | } \\right) \\right)\n$$"
+    },
+    {
+      "text": "where $\\tau$ is the sampling temperature and $d _ { \\theta } ( x ) _ { i , j }$ is the logits of mutating to $( i , j )$ . The proposal sequence $x ^ { \\prime }$ is constructed by setting its $i ^ { \\mathrm { l o c } }$ residue to $j ^ { \\mathrm { s u b } }$ and equal to $x$ elsewhere. Each proposed sequence is accepted or rejected using Metropolis-Hasting (MH),"
+    },
+    {
+      "text": "$$\n\\operatorname* { m i n } \\left( \\exp ( f _ { \\theta } ( x ^ { \\prime } ) - f _ { \\theta } ( x ) ) { \\frac { q ( x | x ^ { \\prime } ) } { q ( x ^ { \\prime } | x ) } } , 1 \\right) .\n$$"
+    },
+    {
+      "text": "We provide the GWG algorithm in Algorithm 3."
+    },
+    {
+      "text": "Clustered sampling. GWG requires a starting sequence to start mutating. A reasonable starting set are the sequences $X$ used to train the model. On each round $r$ , we use eq. (3) to propose $N _ { \\mathrm { p r o p } }$ mutations for each sequence. If accepted via eq. (4), then the mutated sequence will be added to the next round. However, this procedure can lead to an intractable number of sequences to consider."
+    },
+    {
+      "text": "To control compute bandwidth, we perform hierarchical clustering (Mullner, 2011) on all the se- ¨ quences in a round and take the sequence of each cluster with the highest predicted fitness using $f _ { \\theta }$ . Let $\\mathcal { C }$ be the number of clusters which we set based on amount of available compute. This procedure, known as Reduce, is,"
+    },
+    {
+      "text": "$$\n\\mathtt { R e d u c e } ( X ; \\theta ) = \\bigcup _ { c = 1 } ^ { \\mathcal { C } } \\{ \\operatorname { a r g m a x } _ { x \\in X ^ { c } } f _ { \\theta } ( x ) \\} \\ \\mathrm { w h e r e } \\ \\{ X ^ { c } \\} _ { c = 1 } ^ { \\mathcal { C } } = \\mathtt { C l u s t e r } ( X ; \\mathcal { C } ) .\n$$"
+    },
+    {
+      "text": "Each round $r$ reduces the sequences from the previous round and performs GWG sampling."
+    },
+    {
+      "text": "$$\n\\tilde { X } _ { r } = \\mathtt { R e d u c e } ( X _ { r } ; \\theta ) , \\quad X _ { r + 1 } = \\mathtt { G W G } ( \\tilde { X } _ { r } ; \\theta )\n$$"
+    }
+  ],
+  "url": ""
+}

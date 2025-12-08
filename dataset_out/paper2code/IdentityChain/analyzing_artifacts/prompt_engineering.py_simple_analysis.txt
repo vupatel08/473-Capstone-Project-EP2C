@@ -1,0 +1,103 @@
+# Prompt Engineering Logic Analysis
+
+The `prompt_engineering.py` module is responsible for constructing consistent and effective prompts for both NL→PL (natural language to programming language) and PL→NL (programming language to natural language) translation tasks. Additionally, it handles the replacement of meaningful function names with a generic token 'func' to enhance semantic stability and reduce misleading cues. This module must also incorporate the parameters specified in the configuration, such as chain length and early stopping criteria.
+
+## Core Components and Responsibilities
+
+### 1. **Prompt Templates**
+
+- **NL→PL Prompt Template (`nl2pl_prompt`)**:
+  - Purpose: To instruct the model to generate code based on a natural language description or task.
+  - Design:
+    - Clearly specify the input as `task_description`.
+    - Emphasize the replacement of meaningful function names with `'func'`.
+    - Instruct the model to generate code that only uses the provided test cases for validation.
+    - Include guidelines to avoid inferring implicit behaviors beyond the prompt.
+  - Usage:
+    - Filled dynamically with specific task descriptions during experiment runtime.
+
+- **PL→NL Prompt Template (`pl2nl_prompt`)**:
+  - Purpose: To instruct the model to summarize a program into a natural language description.
+  - Design:
+    - Provide the program code as input.
+    - Instruct to replace function names with `'func'`.
+    - Emphasize not to infer implicit code semantics, to maintain alignment with the model's understanding.
+  - Usage:
+    - Filled with generated program code during chain evaluation.
+
+### 2. **Replacement of Function Names**
+
+- **Rationale**:
+  - Meaningful function names can bias the semantic interpretation (e.g., the name 'max_even' could implicitly hint at the function's role rather than the actual code behavior).
+  - Replacing with `'func'` makes the evaluation focus on code structure and semantics, not superficial cues.
+  
+- **Implementation Logic**:
+  - Use regex or abstract syntax tree parsing to identify function definitions.
+  - Replace all user-defined function names with `'func'`.
+  - Maintain consistent replacement for all code snippets involved in the chain to ensure comparability.
+  - Carefully handle edge cases (e.g., nested functions, class methods).
+
+### 3. **Prompt Parameter Management**
+
+- The class will expose methods to generate prompts with dynamic content:
+  - For NL→PL:
+    - Accept `task_description`.
+    - Incorporate optional test cases or instructions.
+  - For PL→NL:
+    - Accept code snippets.
+    - Include instructions on name replacement and semantic assumptions.
+  - Support for additional parameters, such as prompt style or chain step number, if needed.
+
+### 4. **Design of Prompt Classes and Functions**
+
+- **PromptTemplate Class (or similar structure)**:
+  - Members:
+    - `template_str`: Raw string with placeholder(s).
+  - Methods:
+    - `generate_prompt(**kwargs)`: Fill placeholders with actual data.
+    - Implemented for both NL→PL and PL→NL prompts.
+
+- **PromptManager or PromptFactory Class**:
+  - Instantiate prompt templates.
+  - Provide methods to create prompts for specific tasks:
+    - `create_nl2pl_prompt(task_description, prompt_params)`
+    - `create_pl2nl_prompt(code_snippet, prompt_params)`
+
+### 5. **Handling Contextual Parameters**
+
+- For chain steps, include the step count in prompts if needed.
+- Use `prompt_params` to pass context:
+  - e.g., number of chain steps (`chain_steps`)
+  - whether to early stop on exact matches (`early_stop_on_exact_match`)
+- Ensure the prompt explicitly states the constraints, e.g., "Use only the provided test cases for validation."
+
+### 6. **Consistency and Robustness**
+
+- Maintain uniform formatting.
+- Use clearly defined placeholders for easy replacement.
+- Modularize so that changing prompt wording or template is straightforward.
+- Support versioning or updates to prompt templates if experimental tweaks are needed.
+
+### 7. **Example Prompts**
+
+- **NL→PL Example**:
+  ```
+  Replace meaningful function names with 'func' and generate code for the specified task: {task_description}. Use only the provided test cases for validation.
+  ```
+  
+- **PL→NL Example**:
+  ```
+  Summarize the following program into an unambiguous natural language description, replacing function names with 'func'. Do not infer implicit behaviors.
+  ```
+
+*Note*: These prompts are designed based on the paper's guidance, emphasizing clarity, deterministic instructions, explicit function name replacements, and test case-based validation.
+
+## Summary of the Prompt Engineering Design
+
+- Implement classes to generate prompts with placeholders.
+- Incorporate methods to replace function names systematically in code snippets.
+- Use configuration inputs for prompt templates and parameters.
+- Support dynamic prompt creation tailored to each evaluation step.
+- Ensure prompts are interpretable, consistent, and aligned with the evaluation methodology outlined in the paper.
+
+This structured approach ensures the code in `prompt_engineering.py` facilitates reliable, repeatable, and semantically stable prompt generation aligned with the experimental setup, which is essential for the self-consistency evaluation framework described in the paper.

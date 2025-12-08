@@ -1,0 +1,95 @@
+training:
+  # The number of total training epochs (auto prompts training runs for 2-5 epochs, final training may be longer)
+  epochs: 50
+  
+  # Learning rate for prompt optimizer (guided by hyperparameter tuning, e.g., 1e-5, 1e-4, etc.)
+  learning_rate: 1e-4
+
+  # Batch size for dataset loader
+  batch_size: 32
+
+  # Learning rate scheduler type (optional: 'cosine' or 'step')
+  lr_scheduler: cosine
+
+  # Early stopping patience in epochs during hyperparameter tuning (if validation accuracy does not improve for this many epochs)
+  early_stop_patience: 3
+
+  # Weight decay for optimizer (tuning parameter)
+  weight_decay: 1e-5
+
+  # Total number of training iterations (can be determined by dataset size and epochs)
+  total_iterations: null  # will be computed based on dataset size and batch size
+
+model:
+  # Pre-trained backbone model name (e.g., 'resnet18', 'resnext101-ig', 'swin-t', 'clip')
+  backbone: clip
+
+  # Backbone frozen during prompt training
+  freeze: true
+
+  # Input scale factor options (for resizing images)
+  input_scale_options: [0.5, 1.0, 1.5]
+
+  # Prompt size in pixels
+  prompt_size: 16
+
+  # Prompt initialization type ('zeros', 'random', 'learned')
+  prompt_init_type: zeros
+
+  # Prompt type ('pixel' or 'frequency') -- pixel prompts are trainable pixel tensors; frequency prompts are FFT components
+  prompt_type: pixel
+
+prompt:
+  # Prompt size (pixels)
+  size: 16
+
+  # Number of source classes to map to each target class (depends on label mapping strategy)
+  num_source_classes_per_target: 5
+
+  # Prompt learning iterations during initial tuning
+  tuning_epochs: 5
+
+hyperparameters:
+  # Hyperparameter search space for tuning, including prompt size, input scale, model, label map strategy
+  prompt_size_options: [16, 48]
+  input_scale_options: [0.5, 1.0, 1.5]
+  model_choices: ['resnet18', 'resnext101-ig', 'swin-t', 'clip']
+  label_mapping_strategies: ['FreqMap', 'IterMap', 'SemanticMap', 'FullyMap']
+
+dataset:
+  # Dataset name (e.g., 'Flowers102', 'ISIC', etc.)
+  name: Flowers102
+
+  # Dataset root directory (to be specified at runtime)
+  root_dir: null  # to be filled at runtime
+
+  # Train/test split ratios or specific indices
+  train_split_ratio: 0.8
+  test_split_ratio: 0.2
+
+  # Image resize scale factor (to be selected by hyperparameter tuning)
+  scale_factor: 1.0
+
+  # Number of classes in dataset (e.g., 16 for Flowers102)
+  num_classes: 16
+
+evaluation:
+  # Metrics to compute
+  metrics:
+    classification_accuracy: true
+    iou_score: true
+    robustness_score: true
+
+  # Number of test samples to evaluate
+  test_samples: null  # default: evaluate full test set
+
+logging:
+  # Log directory for saving model checkpoints, visualizations, logs
+  log_dir: './logs'
+
+misc:
+  # Random seed for reproducibility
+  seed: 42
+
+  # Verbosity level ('DEBUG', 'INFO', 'WARNING', 'ERROR')
+  verbosity: INFO

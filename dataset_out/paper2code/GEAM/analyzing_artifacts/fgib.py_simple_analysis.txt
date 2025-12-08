@@ -1,0 +1,85 @@
+{
+  "file": "fgib.py",
+  "purpose": "Implement the Goal-aware Fragment Information Bottleneck (FGIB) module, which trains a GNN encoder to identify important molecular subgraphs (fragments) relevant to the target property Y, and score them for downstream fragment selection and molecule generation.",
+  "Key objectives": [
+    "Construct a GNN encoder with message passing layers (num_passes=3) to generate atom/node embeddings.",
+    "Aggregate node embeddings to form fragment embeddings using set-based operations (mean pooling).",
+    "Assign an importance weight (w_j) in [0,1] to each fragment via an MLP with sigmoid activation.",
+    "Inject noise into fragment embeddings based on importance weights to achieve goal-awareness (using equation 3).",
+    "Define and optimize the variational IB loss (equations 4 and 5) to encourage the encoder to focus on goal-relevant subgraphs—maximize I(Z, Y) and minimize I(Z, G).",
+    "Compute fragment scores post-training using equation 6, which considers the contribution of each fragment to the property Y across the dataset.",
+    "Support saving/loading trained models to enable reuse during molecule generation cycles.",
+    "Integrate with dataset_loader.py to obtain molecules and their properties during training."
+  ],
+  "Implementation details": [
+    "Input data: List of molecular graphs G_i with associated properties Y_i, in the form of RDKit molecules or torch_geometric Data objects.",
+    "Graph encoding: For each molecule G, run a MessagePassing Neural Network (MPNN) with 3 message passing layers, producing node embeddings h_i of size d per node.",
+    "Fragment extraction: Use a predefined chemical fragmentation method (e.g., BRICS) to decompose molecules into fragments F_j = (V_j, E_j). Each fragment is represented by the subgraph of G.",
+    "Compute fragment embedding: For each fragment F_j, get atom embeddings for its nodes v_l \in V_j, average over these embeddings: e_j = Avg({h_l : v_l \in V_j}).",
+    "Importance weight w_j: Pass e_j through an MLP with sigmoid activation: w_j = sigmoid(MLP(e_j)).",
+    "Noise injection: Using equation 3, inject Gaussian noise scaled by (1 - w_j):
+      \[
+      \tilde{e}_j = w_j e_j + (1 - w_j) \hat{\mu} + \epsilon,
+      \]
+      where \(\hat{\mu}\) is the dataset-wide empirical mean of fragment embeddings, \(\hat{\Sigma}\) the dataset covariance, and \(\epsilon \sim \mathcal{N}(0, (1-w_j) \hat{\Sigma})\).",
+    "Variance estimation: During training, compute \(\hat{\mu}\) and \(\hat{\Sigma}\) over all fragment embeddings in the dataset.",
+    "Loss function: Use the variational IB loss:
+      \[
+      \mathcal{L}_{IB} = -I(Z, Y) + \beta I(Z, G),
+      \]
+      bounded by the variational lower bound in equations 4 and 5."
+    - **Estimating I(Z, Y):**  
+      - Train a property predictor \(q_\phi(Y|Z)\) (neural network) to predict Y from Z. Use negative log-likelihood loss (e.g., MSE or binary cross-entropy depending on Y's distribution).  
+      - Incorporate the KL divergence term between the encoder distribution \(p_\theta(Z|G)\) (Gaussian with learned mean and covariance) and a prior u(Z) (standard Gaussian).
+    - **Estimating I(Z, G):**  
+      - Use the KL divergence between \(p_\theta(Z|G)\) and the prior u(Z).  
+      - Implement as a regularization term, scaled by \(\beta\).
+    - **Optimization:**  
+      - Minimize the total loss over encoder parameters \(\theta\) (GNN, importance MLP, noise parameters) and predictor parameters \(\phi\).  
+      - Use Adam optimizer with the specified learning rate (e.g., 0.001).
+    - **Training epochs:** 10 epochs per training round, with careful validation to prevent overfitting.
+    - **Filtering fragments:** During training, filter out chemically invalid fragments (e.g., invalid valences) via RDKit sanitization.
+  ],
+  "Post-training fragment scoring": [
+    "For each fragment \(F_j\), compute score as per equation 6:
+      \[
+      \text{score}(F_j) = \frac{1}{|S(F_j)|} \sum_{(G,Y) \in S(F_j)} \frac{w_j(G, F_j)}{\sqrt{|V_j|}} Y,
+      \]
+      where \(S(F_j)\) is the subset of dataset molecules containing \(F_j\),
+    "Compute \(w_j(G, F_j)\) via the trained importance predictor (significance of the fragment for property \(Y\)).",
+    "Average over molecules, weighting by property \(Y\) and fragment size to normalize importance.",
+    "Select the top-K fragments based on this score, to form the goal-aware fragment vocabulary for subsequent molecule generation.",
+    "Store these scores for use in the downstream modules."
+  ],
+  "Supporting functions": [
+    "save_model(filepath): Save trained GNN encoder, importance predictor, and scoring parameters.",
+    "load_model(filepath): Load saved models for reuse.",
+    "compute_mu_sigma(): Compute dataset-wide \(\hat{\mu}\) and \(\hat{\Sigma}\) for noise injection.",
+    "filter_invalid_fragments(): Use RDKit to validate fragments to avoid invalid molecules.",
+    "score_fragments_for_dataset(): Loop over dataset to score all candidate fragments."
+  ],
+  "Integration points": [
+    "Dataset loader provides molecular graphs and target property Y.",
+    "During training, after processing molecules, update dataset-wide \(\hat{\mu}\), \(\hat{\Sigma}\).",
+    "Post training, apply the scoring function to all dataset fragments, select top-K for the goal-aware vocabulary."
+  ],
+  "Key Hyperparameters": [
+    "IB regularization coefficient: beta = 1e-5",
+    "Number of message passing layers: 3",
+    "MLP layers: 2",
+    "Training epochs: 10",
+    "Noise parameters: mu=0, sigma=1 (as per config)",
+    "Top-K fragments selection: based on score thresholds or fixed size"
+  ],
+  "Unclear points/assumptions": [
+    "Whether importance scores \(w_j\) are updated during brief training iterations or computed once after the IB training.",
+    "Exact form of the property prediction network \(q_\phi(Y|Z)\); assume a simple MLP mapping from fragment embedding to property Y.",
+    "Implementation detail: whether to normalize fragment embeddings across the dataset, or just compute empirical moments once.",
+    "Threshold for fragment inclusion into the goal-aware vocabulary; assume selecting top-K based on scores."
+  ],
+  "Summary": {
+    "Objective": "Implement a GNN-based goal-aware fragment extraction using IB principles, importance scoring, and post-training fragment scoring, facilitating selection of goal-relevant fragments for molecular generation.",
+    "Methods": "Use message passing, set pooling, importance predictor, Gaussian noise injection, scaled IB loss, and dataset-wide statistics.",
+    "Outputs": "Trained FGIB model, fragment importance scores, top-K goal-aware fragments."
+  }
+}

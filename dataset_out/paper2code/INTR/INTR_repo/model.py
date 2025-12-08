@@ -1,0 +1,284 @@
+## model.py
+import torch
+import torch.nn as nn
+import torch.nn.functional as F
+from torchvision.models import resnet50
+from typing import List, Tuple, Dict, Any
+
+class CrossAttentionLayer(nn.Module):
+    """
+    Single multi-head cross-attention layer as used in the decoder.
+    It attends class queries to image features.
+    """
+    def __init__(
+        self,
+        embed_dim: int,
+        num_heads: int
+    ):
+        super().__init__()
+        self.embed_dim = embed_dim
+        self.num_heads = num_heads
+        # Each head has its own projection matrices
+        self.q_proj = nn.Linear(embed_dim, embed_dim)
+        self.k_proj = nn.Linear(embed_dim, embed_dim)
+        self.v_proj = nn.Linear(embed_dim, embed_dim)
+        self.out_proj = nn.Linear(embed_dim, embed_dim)
+        self.scale = embed_dim ** 0.5
+
+    def forward(
+        self,
+        class_queries: torch.Tensor,  # shape: [B, C, D]
+        memory: torch.Tensor         # shape: [B, N, D]
+    ) -> Tuple[torch.Tensor, torch.Tensor]:
+        """
+        Args:
+            class_queries: [B, C, D]
+            memory: [B, N, D]
+        Returns:
+            attended: [B, C, D]
+            attention_weights: [B, C, heads, N] - for interpretability
+        """
+        B, C, D = class_queries.shape
+        N = memory.shape[1]
+        H = self.num_heads
+        # Linear projections
+        Q = self.q_proj(class_queries)     # [B, C, D]
+        K = self.k_proj(memory)            # [B, N, D]
+        V = self.v_proj(memory)            # [B, N, D]
+
+        # Split heads
+        def split_heads(x):
+            # x: [B, *, D]
+            return x.view(B, -1, H, D // H).transpose(2,3)  # [B, *, H, D//H]
+
+        Qh = split_heads(Q)                  # [B, C, H, D//H]
+        Kh = split_heads(K)                  # [B, N, H, D//H]
+        Vh = split_heads(V)                  # [B, N, H, D//H]
+
+        # Compute scaled dot-product attention
+        # Q: [B, C, H, D//H], K: [B, N, H, D//H]
+        # Need to transpose Kh for matmul
+        Qh = Qh.permute(0,1,2,3)             # [B, C, H, D//H]
+        Kh = Kh.permute(0,2,1,3)             # [B, H, N, D//H]
+        attn_scores = torch.matmul(Qh, Kh.transpose(-2, -1)) / self.scale
+        # shape: [B, C, H, N]
+        attention_weights = F.softmax(attn_scores, dim=-1)
+
+        # Attend V
+        # Vh: [B, N, H, D//H], permute for matmul
+        Vh = Vh.permute(0,2,1,3)              # [B, H, N, D//H]
+        attn_out = torch.matmul(attention_weights, Vh)  # [B, C, H, D//H]
+        attn_out = attn_out.permute(0,1,2,3).contiguous()  # [B, C, H, D//H]
+        # Concatenate heads
+        attn_out = attn_out.view(B, C, D)
+        output = self.out_proj(attn_out)      # [B, C, D]
+
+        # For interpretability, return attention weights
+        # Reshape to [B, C, H, N]
+        attention_weights = attention_weights.view(B, C, H, N)
+
+        return output, attention_weights
+
+class DecoderLayer(nn.Module):
+    """
+    One decoder layer consisting of self-attention and cross-attention.
+    """
+    def __init__(self, embed_dim, num_heads):
+        super().__init__()
+        self.self_attn = nn.MultiheadAttention(embed_dim, num_heads, dropout=0.1)
+        self.cross_attn = CrossAttentionLayer(embed_dim, num_heads)
+        self.norm1 = nn.LayerNorm(embed_dim)
+        self.norm2 = nn.LayerNorm(embed_dim)
+        self.norm3 = nn.LayerNorm(embed_dim)
+        self.ff = nn.Sequential(
+            nn.Linear(embed_dim, embed_dim * 4),
+            nn.ReLU(),
+            nn.Linear(embed_dim * 4, embed_dim)
+        )
+
+    def forward(
+        self,
+        class_tokens: torch.Tensor,   # [B, C, D]
+        memory: torch.Tensor,         # [B, N, D]
+        self_attn_mask: torch.Tensor = None
+    ) -> Tuple[torch.Tensor, torch.Tensor]:
+        """
+        Args:
+            class_tokens: [B, C, D]
+            memory: [B, N, D]
+        Returns:
+            output tokens: [B, C, D]
+            cross-attention weights: [B, C, heads, N]
+        """
+        B, C, D = class_tokens.shape
+
+        # Self-attention over class tokens
+        class_tokens_flat = class_tokens.permute(1, 0, 2)  # [C, B, D]
+        self_attn_output, _ = self.self_attn(class_tokens_flat, class_tokens_flat, class_tokens_flat)
+        class_tokens = self.norm1(class_tokens + self_attn_output.permute(1,0,2))
+
+        # Cross-attention with memory
+        cross_output, attn_weights = self.cross_attn(class_tokens, memory)
+        class_tokens = self.norm2(class_tokens + cross_output)
+
+        # Feed-forward
+        ff_out = self.ff(class_tokens)
+        class_tokens = self.norm3(class_tokens + ff_out)
+
+        return class_tokens, attn_weights
+
+class INTRModel(nn.Module):
+    """
+    The main INTR model class implementing the described architecture.
+    """
+    def __init__(self, config: Dict[str, Any]):
+        super().__init__()
+        # Load backbone feature extractor
+        backbone_type = config.get("backbone", "vit").lower()
+        pretrained_weights_path = config.get("pretrained_weights", "")
+        embed_dim = config.get("embed_dim", 768)
+        num_heads = config.get("num_heads", 4)
+        num_layers = config.get("num_layers", 4)
+        num_classes = config.get("class_queries", 200)
+        query_dim = config.get("query_dim", embed_dim)
+
+        # Initialize backbone
+        # For simplicity, we use torchvision ResNet or a placeholder ViT
+        if backbone_type == "resnet":
+            self.backbone = resnet50(pretrained=False)
+            if pretrained_weights_path:
+                self.backbone.load_state_dict(torch.load(pretrained_weights_path))
+            self.backbone_output_dim = 2048  # ResNet-50 last layer features
+            self.backbone_fc = nn.Linear(self.backbone_output_dim, embed_dim)
+            self.feature_extractor = nn.Sequential(
+                nn.Conv2d(2048, embed_dim, kernel_size=1),
+                nn.AdaptiveAvgPool2d((1,1))
+            )
+            self.use_resnet = True
+        elif backbone_type == "vit":
+            # Placeholder: assuming a ViT model is loaded externally
+            # For reproducibility, load from a standard torch hub or custom import
+            # For now, define as an identity module
+            self.feature_extractor = nn.Identity()
+            self.use_resnet = False
+            self.backbone = None
+        else:
+            raise ValueError(f"Unsupported backbone: {backbone_type}")
+
+        # Class-specific learnable input queries
+        self.C = num_classes
+        self.D = embed_dim
+        self.query_dim = query_dim
+        self.Z_in = nn.Parameter(torch.randn(self.D, self.C))
+        # Class weight vector for classification
+        self.w = nn.Parameter(torch.randn(self.D))
+        # Decoder layers
+        self.num_layers = num_layers
+        self.heads = config.get("num_heads", 4)
+        self.decoder_layers = nn.ModuleList([
+            DecoderLayer(embed_dim=self.D, num_heads=self.heads)
+            for _ in range(self.num_layers)
+        ])
+
+        # Final classifier matrix
+        self.W_w = nn.Parameter(torch.randn(self.D, self.C))
+        # Optional: layer normalization or dropout can be added
+
+    def extract_features(self, images: torch.Tensor) -> torch.Tensor:
+        """
+        Extract feature map tensor [B,N,D] from images.
+        Supports ResNet or ViT.
+        """
+        if hasattr(self, 'use_resnet') and self.use_resnet:
+            feat = self.backbone(images)  # [B, 2048, H, W]
+            feat = self.feature_extractor(feat)  # [B, D, 1, 1]
+            feat = feat.squeeze(-1).squeeze(-1)  # [B, D]
+            # Expand spatially to form feature map N
+            # Alternatively, use last conv layer features with spatial size H,W
+            # For simplicity, replicate features N times
+            # Here, for more fidelity, implement actual feature map extraction
+            # For now, assume global pooled feature, shape [B, D]
+            # If spatial features required, modify accordingly
+            # To align with transformer input, create a spatial grid
+            # For now, treat as sequence of 1 feature vector
+            # Let's assume front-end provides a proper feature map
+            # For code simplicity, create dummy spatial features
+            # For real implementation, replace this with actual feature extraction
+            B = images.shape[0]
+            N = 196  # e.g., 14x14 patches
+            feats = self.backbone.conv1(images)
+            feats = self.backbone.bn1(feats)
+            feats = self.backbone.relu(feats)
+            feats = self.backbone.maxpool(feats)
+            feats = self.backbone.layer1(feats)
+            feats = self.backbone.layer2(feats)
+            feats = self.backbone.layer3(feats)
+            feats = self.backbone.layer4(feats)
+            # Now feats shape: [B, C, H, W]
+            H_feat, W_feat = feats.shape[2], feats.shape[3]
+            feats = F.adaptive_avg_pool2d(feats, (H_feat, W_feat))
+            N = H_feat * W_feat
+            feats_flat = feats.view(B, self.D, N).permute(0,2,1)  # [B, N, D]
+            return feats_flat
+        else:
+            # For ViT, assume feature map is provided as tokens
+            # Replace with actual ViT feature extractor
+            # Placeholder: generate dummy features
+            B = images.shape[0]
+            N = 196
+            return torch.randn(B, N, self.D, device=images.device)
+    
+    def forward(self, images: torch.Tensor, return_attention: bool=False):
+        """
+        Perform a forward pass:
+        - Extract features
+        - Pass class queries and features through decoder layers
+        - Perform classification
+        - Optionally returns attention maps for interpretability
+        """
+        B = images.shape[0]
+        # 1. Feature extraction
+        feat_map = self.extract_features(images)  # [B, N, D]
+
+        # 2. Prepare class queries
+        # Expand Z_in to batch
+        class_queries = self.Z_in.unsqueeze(0).expand(B, -1, -1)  # [B, C, D]
+
+        # Initialize list to store attention weights
+        attention_maps_per_layer: List[List[torch.Tensor]] = []
+
+        class_tokens = class_queries  # Start with input class queries
+
+        # 3. Decoder layers with cross-attention
+        for layer in self.decoder_layers:
+            class_tokens, attn_weights = layer(class_tokens, feat_map)  # [B, C, D], [B, C, heads, N]
+            if return_attention:
+                attention_maps_per_layer.append(attn_weights)
+
+        # 4. Classification: compute logits
+        # For each class c: w dot z_out^{(c)} -> shape [B, C]
+        # Element-wise dot: shape [B, C]
+        logits = torch.einsum('d, bcd -> bc', self.W_w, class_tokens)  # [B, C]
+
+        # 5. Predicted classes
+        preds = torch.argmax(logits, dim=1)  # [B]
+
+        # 6. For interpretability, collect final attention maps
+        final_attn_maps = None
+        if return_attention:
+            # Use last decoder layer's attention weights
+            # shape: [B, C, heads, N]
+            final_attn_maps = attn_weights  # from last iteration
+        if return_attention:
+            return logits, preds, final_attn_maps
+        else:
+            return logits, preds
+
+    def get_attention_maps(self) -> List[torch.Tensor]:
+        """
+        Placeholder if storing attention maps during forward
+        - In actual training/inference, store attention maps in member variables
+        """
+        # For this implementation, attention maps are returned during forward
+        # User should extract from forward call directly
+        pass

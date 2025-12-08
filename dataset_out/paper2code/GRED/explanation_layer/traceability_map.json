@@ -1,0 +1,382 @@
+{
+  "code_to_paper": {
+    "dataset_loader.py:GraphDataset": [
+      "The provided paper sections are not sufficient to link with the given code component. Please provide more detailed sections of the paper."
+    ],
+    "dataset_loader.py:__init__": [
+      "The code component does not provide enough information to link it to specific paper sections. Please provide more details or context."
+    ],
+    "evaluation.py:labels": [
+      "The provided information is insufficient to determine the most relevant paper sections for the code component. Please provide more details about the code component and the paper sections."
+    ],
+    "evaluation.py:load_cfg": [
+      "The information provided is insufficient to determine the most relevant paper sections for the code component. Please provide more details about the function in the file 'evaluation.py' and its purpose."
+    ],
+    "evaluation.py:get_device": [
+      "The information provided is insufficient to determine the most relevant paper sections for the code component. Please provide more details about the function in the file 'evaluation.py'."
+    ],
+    "evaluation.py:load_model": [
+      "The information provided is insufficient to determine the most relevant paper sections for the code component. Please provide more details about the function in the file 'evaluation.py' and its purpose."
+    ],
+    "evaluation.py:evaluate": [
+      "Evaluation Methodology",
+      "Results and Discussion",
+      "Model Implementation"
+    ],
+    "evaluation.py:plot_eigenvalues": [
+      "The provided paper sections are not sufficient to link with the given code component. Please provide more relevant paper sections."
+    ],
+    "evaluation.py:main": [
+      "The information provided is insufficient to determine the most relevant paper sections for the code component. Please provide more details about the function in the file 'evaluation.py' and its purpose."
+    ],
+    "main.py:load_config": [
+      "The provided paper sections are not sufficient to link with the given code component. Please provide more relevant paper sections."
+    ],
+    "main.py:main": [
+      "The provided information is insufficient to determine the most relevant paper sections for the code component. Please provide more details about the function in the file main.py and the content of the paper sections."
+    ],
+    "model.py:MLP": [
+      "The provided information does not include any paper sections related to the code component. Please provide relevant paper sections."
+    ],
+    "model.py:GLULayer": [
+      "Without specific section names",
+      "it's impossible to provide an accurate answer. However",
+      "typically",
+      "sections like \"Methodology\"",
+      "\"Implementation Details\"",
+      "\"Model Architecture\"",
+      "or \"Experimental Setup\" might be relevant for a code component like this."
+    ],
+    "model.py:RNNEncoder": [
+      "Without specific section names",
+      "it's hard to provide an accurate answer. However",
+      "based on the code description",
+      "the most relevant sections could be something like \"Model Implementation\"",
+      "\"RNN Encoder\"",
+      "\"Spectral Radius Constraints\". Please provide the actual section names for a more accurate match."
+    ],
+    "model.py:GREDLayer": [
+      "The provided information does not include any paper section names/titles. Please provide the correct details to proceed."
+    ],
+    "model.py:GraphGRED": [
+      "The code component description does not provide enough information to accurately link it to specific paper sections. Please provide more detailed information about the code component or the paper sections."
+    ],
+    "model.py:__init__": [
+      "Without the specific titles of the paper sections",
+      "it's impossible to accurately identify the most relevant sections for the code component. However",
+      "typically",
+      "sections like \"Methodology\"",
+      "\"Model Implementation\"",
+      "\"Results and Discussion\" might be relevant for a code component like this."
+    ],
+    "trainer.py:load_config": [
+      "The information provided is insufficient to determine the most relevant paper sections for the code component. Please provide more details about the function in the trainer.py file and the content of the paper sections."
+    ],
+    "trainer.py:main": [
+      "The provided information is insufficient to determine the most relevant paper sections for the code component. Please provide more details about the function in the trainer.py file and the content of the paper sections."
+    ],
+    "trainer.py:collate_fn": [
+      "Methodology",
+      "Data Preprocessing",
+      "Experiment and Results"
+    ],
+    "utils.py:linear_rnn_encoding": [
+      "The provided paper sections are not enough to determine the relevance to the code component. Please provide more detailed sections of the paper."
+    ],
+    "utils.py:complex_matmul": [
+      "The provided paper sections do not seem to contain any relevant information related to the code component. Please provide more relevant paper sections."
+    ]
+  },
+  "paper_to_code": {
+    "The provided paper sections are not sufficient to link with the given code component. Please provide more detailed sections of the paper.": [
+      {
+        "component": "dataset_loader.py:GraphDataset",
+        "description": "Custom dataset class to handle graph data, compute shortest paths,\n    and neighborhood masks.\n    Supports datasets from torch_geometric or custom loading.",
+        "file": "dataset_loader.py"
+      }
+    ],
+    "The code component does not provide enough information to link it to specific paper sections. Please provide more details or context.": [
+      {
+        "component": "dataset_loader.py:__init__",
+        "description": "Args:\n            dataset_name (str): Name of dataset, e.g., 'CIFAR10', 'MNIST', 'PATTERN', 'CLUSTER', etc.\n            dataset_path (str): Path to dataset directory if needed.\n            max_K (int): Maximum neighborhood distance (graph diameter or hyper-parameter).",
+        "file": "dataset_loader.py"
+      }
+    ],
+    "The provided information is insufficient to determine the most relevant paper sections for the code component. Please provide more details about the code component and the paper sections.": [
+      {
+        "component": "evaluation.py:labels",
+        "description": "",
+        "file": "evaluation.py"
+      }
+    ],
+    "The information provided is insufficient to determine the most relevant paper sections for the code component. Please provide more details about the function in the file 'evaluation.py' and its purpose.": [
+      {
+        "component": "evaluation.py:load_cfg",
+        "description": "",
+        "file": "evaluation.py"
+      },
+      {
+        "component": "evaluation.py:load_model",
+        "description": "",
+        "file": "evaluation.py"
+      },
+      {
+        "component": "evaluation.py:main",
+        "description": "",
+        "file": "evaluation.py"
+      }
+    ],
+    "The information provided is insufficient to determine the most relevant paper sections for the code component. Please provide more details about the function in the file 'evaluation.py'.": [
+      {
+        "component": "evaluation.py:get_device",
+        "description": "",
+        "file": "evaluation.py"
+      }
+    ],
+    "Evaluation Methodology": [
+      {
+        "component": "evaluation.py:evaluate",
+        "description": "Evaluate the model on the dataset using the specified metric.",
+        "file": "evaluation.py"
+      }
+    ],
+    "Results and Discussion": [
+      {
+        "component": "evaluation.py:evaluate",
+        "description": "Evaluate the model on the dataset using the specified metric.",
+        "file": "evaluation.py"
+      }
+    ],
+    "Model Implementation": [
+      {
+        "component": "evaluation.py:evaluate",
+        "description": "Evaluate the model on the dataset using the specified metric.",
+        "file": "evaluation.py"
+      }
+    ],
+    "The provided paper sections are not sufficient to link with the given code component. Please provide more relevant paper sections.": [
+      {
+        "component": "evaluation.py:plot_eigenvalues",
+        "description": "Plot the complex eigenvalues in the complex plane.\n    eigenvalues: tensor of shape (d_s, 2), real and imaginary parts.",
+        "file": "evaluation.py"
+      },
+      {
+        "component": "main.py:load_config",
+        "description": "Load configuration dictionary from YAML file.",
+        "file": "main.py"
+      }
+    ],
+    "The provided information is insufficient to determine the most relevant paper sections for the code component. Please provide more details about the function in the file main.py and the content of the paper sections.": [
+      {
+        "component": "main.py:main",
+        "description": "",
+        "file": "main.py"
+      }
+    ],
+    "The provided information does not include any paper sections related to the code component. Please provide relevant paper sections.": [
+      {
+        "component": "model.py:MLP",
+        "description": "A simple 2-layer MLP with optional activation and dropout.",
+        "file": "model.py"
+      }
+    ],
+    "Without specific section names": [
+      {
+        "component": "model.py:GLULayer",
+        "description": "Gated Linear Unit (GLU) activation.",
+        "file": "model.py"
+      },
+      {
+        "component": "model.py:RNNEncoder",
+        "description": "Diagonal Linear RNN encoder with trainable eigenvalues.\n    Implements recurrence:\n        s_{v,k} = Lambda * s_{v,k-1} + W_in * x_{v,K-k}\n    with spectral radius constraints to ensure stability.",
+        "file": "model.py"
+      }
+    ],
+    "it's impossible to provide an accurate answer. However": [
+      {
+        "component": "model.py:GLULayer",
+        "description": "Gated Linear Unit (GLU) activation.",
+        "file": "model.py"
+      }
+    ],
+    "typically": [
+      {
+        "component": "model.py:GLULayer",
+        "description": "Gated Linear Unit (GLU) activation.",
+        "file": "model.py"
+      },
+      {
+        "component": "model.py:__init__",
+        "description": "Gated Linear Unit (GLU) activation.",
+        "file": "model.py"
+      }
+    ],
+    "sections like \"Methodology\"": [
+      {
+        "component": "model.py:GLULayer",
+        "description": "Gated Linear Unit (GLU) activation.",
+        "file": "model.py"
+      },
+      {
+        "component": "model.py:__init__",
+        "description": "Gated Linear Unit (GLU) activation.",
+        "file": "model.py"
+      }
+    ],
+    "\"Implementation Details\"": [
+      {
+        "component": "model.py:GLULayer",
+        "description": "Gated Linear Unit (GLU) activation.",
+        "file": "model.py"
+      }
+    ],
+    "\"Model Architecture\"": [
+      {
+        "component": "model.py:GLULayer",
+        "description": "Gated Linear Unit (GLU) activation.",
+        "file": "model.py"
+      }
+    ],
+    "or \"Experimental Setup\" might be relevant for a code component like this.": [
+      {
+        "component": "model.py:GLULayer",
+        "description": "Gated Linear Unit (GLU) activation.",
+        "file": "model.py"
+      }
+    ],
+    "it's hard to provide an accurate answer. However": [
+      {
+        "component": "model.py:RNNEncoder",
+        "description": "Diagonal Linear RNN encoder with trainable eigenvalues.\n    Implements recurrence:\n        s_{v,k} = Lambda * s_{v,k-1} + W_in * x_{v,K-k}\n    with spectral radius constraints to ensure stability.",
+        "file": "model.py"
+      }
+    ],
+    "based on the code description": [
+      {
+        "component": "model.py:RNNEncoder",
+        "description": "Diagonal Linear RNN encoder with trainable eigenvalues.\n    Implements recurrence:\n        s_{v,k} = Lambda * s_{v,k-1} + W_in * x_{v,K-k}\n    with spectral radius constraints to ensure stability.",
+        "file": "model.py"
+      }
+    ],
+    "the most relevant sections could be something like \"Model Implementation\"": [
+      {
+        "component": "model.py:RNNEncoder",
+        "description": "Diagonal Linear RNN encoder with trainable eigenvalues.\n    Implements recurrence:\n        s_{v,k} = Lambda * s_{v,k-1} + W_in * x_{v,K-k}\n    with spectral radius constraints to ensure stability.",
+        "file": "model.py"
+      }
+    ],
+    "\"RNN Encoder\"": [
+      {
+        "component": "model.py:RNNEncoder",
+        "description": "Diagonal Linear RNN encoder with trainable eigenvalues.\n    Implements recurrence:\n        s_{v,k} = Lambda * s_{v,k-1} + W_in * x_{v,K-k}\n    with spectral radius constraints to ensure stability.",
+        "file": "model.py"
+      }
+    ],
+    "\"Spectral Radius Constraints\". Please provide the actual section names for a more accurate match.": [
+      {
+        "component": "model.py:RNNEncoder",
+        "description": "Diagonal Linear RNN encoder with trainable eigenvalues.\n    Implements recurrence:\n        s_{v,k} = Lambda * s_{v,k-1} + W_in * x_{v,K-k}\n    with spectral radius constraints to ensure stability.",
+        "file": "model.py"
+      }
+    ],
+    "The provided information does not include any paper section names/titles. Please provide the correct details to proceed.": [
+      {
+        "component": "model.py:GREDLayer",
+        "description": "Single layer of GRED:\n    - Neighborhood aggregation via AGG (MLPs + sum)\n    - Sequence encoding with trainable diagonal linear RNN\n    - Node update via MLP and residual",
+        "file": "model.py"
+      }
+    ],
+    "The code component description does not provide enough information to accurately link it to specific paper sections. Please provide more detailed information about the code component or the paper sections.": [
+      {
+        "component": "model.py:GraphGRED",
+        "description": "The overall GRED model stacking multiple GRED layers.",
+        "file": "model.py"
+      }
+    ],
+    "Without the specific titles of the paper sections": [
+      {
+        "component": "model.py:__init__",
+        "description": "Gated Linear Unit (GLU) activation.",
+        "file": "model.py"
+      }
+    ],
+    "it's impossible to accurately identify the most relevant sections for the code component. However": [
+      {
+        "component": "model.py:__init__",
+        "description": "Gated Linear Unit (GLU) activation.",
+        "file": "model.py"
+      }
+    ],
+    "\"Model Implementation\"": [
+      {
+        "component": "model.py:__init__",
+        "description": "Gated Linear Unit (GLU) activation.",
+        "file": "model.py"
+      }
+    ],
+    "\"Results and Discussion\" might be relevant for a code component like this.": [
+      {
+        "component": "model.py:__init__",
+        "description": "Gated Linear Unit (GLU) activation.",
+        "file": "model.py"
+      }
+    ],
+    "The information provided is insufficient to determine the most relevant paper sections for the code component. Please provide more details about the function in the trainer.py file and the content of the paper sections.": [
+      {
+        "component": "trainer.py:load_config",
+        "description": "",
+        "file": "trainer.py"
+      }
+    ],
+    "The provided information is insufficient to determine the most relevant paper sections for the code component. Please provide more details about the function in the trainer.py file and the content of the paper sections.": [
+      {
+        "component": "trainer.py:main",
+        "description": "",
+        "file": "trainer.py"
+      }
+    ],
+    "Methodology": [
+      {
+        "component": "trainer.py:collate_fn",
+        "description": "Collate function to batch graph data with neighborhood masks.",
+        "file": "trainer.py"
+      }
+    ],
+    "Data Preprocessing": [
+      {
+        "component": "trainer.py:collate_fn",
+        "description": "Collate function to batch graph data with neighborhood masks.",
+        "file": "trainer.py"
+      }
+    ],
+    "Experiment and Results": [
+      {
+        "component": "trainer.py:collate_fn",
+        "description": "Collate function to batch graph data with neighborhood masks.",
+        "file": "trainer.py"
+      }
+    ],
+    "The provided paper sections are not enough to determine the relevance to the code component. Please provide more detailed sections of the paper.": [
+      {
+        "component": "utils.py:linear_rnn_encoding",
+        "description": "Encode a sequence using the diagonal linear RNN with eigenvalues.\n    Args:\n        x_seq: tensor (batch_size, seq_len, d)\n        eigenvalues: tensor (d, 2) real + imag parts stored separately\n    Returns:\n        s_K: final hidden state tensor (batch_size, d)",
+        "file": "utils.py"
+      }
+    ],
+    "The provided paper sections do not seem to contain any relevant information related to the code component. Please provide more relevant paper sections.": [
+      {
+        "component": "utils.py:complex_matmul",
+        "description": "Complex matrix multiplication: (a_re + j a_im)*(b_re + j b_im)\n    Returns:\n        real part, imag part",
+        "file": "utils.py"
+      }
+    ]
+  },
+  "paper_sections": [
+    {
+      "section": "Abstract",
+      "text": "Yuhui Ding 1 Antonio Orvieto 2 Bobby He 1 Thomas Hofmann 1",
+      "ontology": "abstract"
+    }
+  ],
+  "coverage_score": 36.0
+}

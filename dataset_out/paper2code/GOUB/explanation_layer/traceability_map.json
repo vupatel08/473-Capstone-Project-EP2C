@@ -1,0 +1,556 @@
+{
+  "code_to_paper": {
+    "dataset_loader.py:DatasetLoader": [
+      "Methodology",
+      "Dataset and Preprocessing",
+      "Experimental Setup"
+    ],
+    "dataset_loader.py:__init__": [
+      "Dataset Preparation",
+      "Methodology",
+      "Experiment Setup"
+    ],
+    "evaluation.py:Evaluation": [
+      "Methods/Experimental Setup",
+      "Results/Evaluation"
+    ],
+    "evaluation.py:__init__": [
+      "The code component does not provide enough information to accurately link it to specific paper sections. Please provide more context or details."
+    ],
+    "main.py:main": [
+      "The provided information is insufficient to determine the most relevant paper sections for the code component. Please provide more details about the function in the main.py file and the sections in the paper."
+    ],
+    "model.py:TimestepEmbedding": [
+      "The provided paper sections do not seem to contain any relevant information related to the code component. Please provide more relevant paper sections."
+    ],
+    "model.py:ConvBlock": [
+      "The paper sections are not clearly defined in the provided information. Please provide the titles of the paper sections."
+    ],
+    "model.py:DownSampleBlock": [
+      "The provided information does not include any paper sections related to the code component. Please provide relevant paper sections."
+    ],
+    "model.py:UpSampleBlock": [
+      "Without specific section names",
+      "it's impossible to accurately link the code component to the paper sections. However",
+      "typically",
+      "sections like \"Methodology\"",
+      "\"Implementation Details\"",
+      "\"Model Architecture\"",
+      "or \"Experimental Setup\" might contain relevant information about the code component."
+    ],
+    "model.py:UNetEncoder": [
+      "The paper sections are not provided in the question. Please provide the paper sections to proceed."
+    ],
+    "model.py:UNetDecoder": [
+      "The paper sections are not provided in the question. Please provide the paper sections to proceed."
+    ],
+    "model.py:ScoreUNet": [
+      "The provided information does not include any paper sections. Please provide the relevant paper sections to proceed."
+    ],
+    "model.py:__init__": [
+      "Without more specific section titles",
+      "it's hard to accurately determine the most relevant sections for this code component. However",
+      "based on the information given",
+      "the code seems to be related to the implementation of a model",
+      "possibly involving machine learning or data processing. Therefore",
+      "potential relevant sections could be \"Methodology\"",
+      "\"Implementation Details\"",
+      "\"Results and Discussion\"",
+      "or \"Experimental Setup\". Please provide more specific section titles for a more accurate analysis."
+    ],
+    "sampling.py:Sampler": [
+      "The provided paper sections are not sufficient to link with the given code component. Please provide more relevant paper sections."
+    ],
+    "sampling.py:__init__": [
+      "The provided paper sections do not seem to match the code component. Please provide relevant paper sections such as \"Methodology\"",
+      "\"Implementation Details\"",
+      "\"Experimental Setup\"",
+      "etc."
+    ],
+    "schedule_utils.py:get_time_schedule": [
+      "Without specific section names",
+      "it's hard to provide an accurate answer. However",
+      "based on the code component",
+      "the most relevant sections could be \"Methodology\"",
+      "\"Data Processing\"",
+      "\"Experiment Setup\" or \"Results and Discussion\"."
+    ],
+    "schedule_utils.py:compute_theta": [
+      "The provided information does not include any paper sections related to the code component. Please provide relevant paper sections."
+    ],
+    "schedule_utils.py:compute_cum_theta": [
+      "The provided information does not include any paper sections related to the code component. Please provide relevant paper sections."
+    ],
+    "schedule_utils.py:compute_g": [
+      "Without specific section names or titles",
+      "it's impossible to accurately link the code component to the paper sections. However",
+      "based on the code description",
+      "sections that might be relevant could be titled something like \"Methodology\"",
+      "\"Algorithm Implementation\"",
+      "\"Schedule Computation\"",
+      "or \"Variance Parameter Calculation\". Please provide the actual section names or titles for a more accurate analysis."
+    ],
+    "schedule_utils.py:compute_sigma_t": [
+      "Without specific section names",
+      "it's hard to provide an exact match. However",
+      "based on the code component",
+      "the most relevant sections of the paper would likely be \"Methodology\"",
+      "\"Algorithm Implementation\"",
+      "or \"Experimental Setup\"."
+    ],
+    "schedule_utils.py:compute_sigma_t_T": [
+      "Without specific section names",
+      "it's hard to accurately identify the most relevant sections. However",
+      "based on the code description",
+      "the most relevant sections could be \"Methodology\"",
+      "\"Algorithm Implementation\"",
+      "and \"Results and Discussion\"."
+    ],
+    "trainer.py:DiffusionTrainer": [
+      "The provided information does not include any paper sections relevant to the code component. Please provide the correct paper sections."
+    ],
+    "trainer.py:__init__": [
+      "The provided paper sections are not sufficient to link with the given code component. Please provide more relevant paper sections."
+    ]
+  },
+  "paper_to_code": {
+    "Methodology": [
+      {
+        "component": "dataset_loader.py:DatasetLoader",
+        "description": "DatasetLoader initializes datasets for various image restoration tasks:\n        inpainting, super-resolution, deraining.\n\n        Args:\n            dataset_path (str): Root directory containing images.\n            batch_size (int): Batch size (not used directly here, handled by DataLoader).\n            mode (str): 'train' or 'test'.\n            dataset_type (str): 'inpainting', 'super-resolution', 'deraining'.\n            image_size (int): Size to resize images to (e.g., 128).\n            mask_type (str): For inpainting, 'thin' or 'thick' masks.\n            scale_factor (int): Downsampling scale for super-resolution.\n            mask_prob (float): Probability of generating a mask.\n            rain_overlay (bool): Whether to add rain effect for deraining task.",
+        "file": "dataset_loader.py"
+      },
+      {
+        "component": "dataset_loader.py:__init__",
+        "description": "DatasetLoader initializes datasets for various image restoration tasks:\n        inpainting, super-resolution, deraining.\n\n        Args:\n            dataset_path (str): Root directory containing images.\n            batch_size (int): Batch size (not used directly here, handled by DataLoader).\n            mode (str): 'train' or 'test'.\n            dataset_type (str): 'inpainting', 'super-resolution', 'deraining'.\n            image_size (int): Size to resize images to (e.g., 128).\n            mask_type (str): For inpainting, 'thin' or 'thick' masks.\n            scale_factor (int): Downsampling scale for super-resolution.\n            mask_prob (float): Probability of generating a mask.\n            rain_overlay (bool): Whether to add rain effect for deraining task.",
+        "file": "dataset_loader.py"
+      }
+    ],
+    "Dataset and Preprocessing": [
+      {
+        "component": "dataset_loader.py:DatasetLoader",
+        "description": "DatasetLoader initializes datasets for various image restoration tasks:\n        inpainting, super-resolution, deraining.\n\n        Args:\n            dataset_path (str): Root directory containing images.\n            batch_size (int): Batch size (not used directly here, handled by DataLoader).\n            mode (str): 'train' or 'test'.\n            dataset_type (str): 'inpainting', 'super-resolution', 'deraining'.\n            image_size (int): Size to resize images to (e.g., 128).\n            mask_type (str): For inpainting, 'thin' or 'thick' masks.\n            scale_factor (int): Downsampling scale for super-resolution.\n            mask_prob (float): Probability of generating a mask.\n            rain_overlay (bool): Whether to add rain effect for deraining task.",
+        "file": "dataset_loader.py"
+      }
+    ],
+    "Experimental Setup": [
+      {
+        "component": "dataset_loader.py:DatasetLoader",
+        "description": "DatasetLoader initializes datasets for various image restoration tasks:\n        inpainting, super-resolution, deraining.\n\n        Args:\n            dataset_path (str): Root directory containing images.\n            batch_size (int): Batch size (not used directly here, handled by DataLoader).\n            mode (str): 'train' or 'test'.\n            dataset_type (str): 'inpainting', 'super-resolution', 'deraining'.\n            image_size (int): Size to resize images to (e.g., 128).\n            mask_type (str): For inpainting, 'thin' or 'thick' masks.\n            scale_factor (int): Downsampling scale for super-resolution.\n            mask_prob (float): Probability of generating a mask.\n            rain_overlay (bool): Whether to add rain effect for deraining task.",
+        "file": "dataset_loader.py"
+      }
+    ],
+    "Dataset Preparation": [
+      {
+        "component": "dataset_loader.py:__init__",
+        "description": "DatasetLoader initializes datasets for various image restoration tasks:\n        inpainting, super-resolution, deraining.\n\n        Args:\n            dataset_path (str): Root directory containing images.\n            batch_size (int): Batch size (not used directly here, handled by DataLoader).\n            mode (str): 'train' or 'test'.\n            dataset_type (str): 'inpainting', 'super-resolution', 'deraining'.\n            image_size (int): Size to resize images to (e.g., 128).\n            mask_type (str): For inpainting, 'thin' or 'thick' masks.\n            scale_factor (int): Downsampling scale for super-resolution.\n            mask_prob (float): Probability of generating a mask.\n            rain_overlay (bool): Whether to add rain effect for deraining task.",
+        "file": "dataset_loader.py"
+      }
+    ],
+    "Experiment Setup": [
+      {
+        "component": "dataset_loader.py:__init__",
+        "description": "DatasetLoader initializes datasets for various image restoration tasks:\n        inpainting, super-resolution, deraining.\n\n        Args:\n            dataset_path (str): Root directory containing images.\n            batch_size (int): Batch size (not used directly here, handled by DataLoader).\n            mode (str): 'train' or 'test'.\n            dataset_type (str): 'inpainting', 'super-resolution', 'deraining'.\n            image_size (int): Size to resize images to (e.g., 128).\n            mask_type (str): For inpainting, 'thin' or 'thick' masks.\n            scale_factor (int): Downsampling scale for super-resolution.\n            mask_prob (float): Probability of generating a mask.\n            rain_overlay (bool): Whether to add rain effect for deraining task.",
+        "file": "dataset_loader.py"
+      }
+    ],
+    "Methods/Experimental Setup": [
+      {
+        "component": "evaluation.py:Evaluation",
+        "description": "Initialize Evaluation object.\n        \n        Args:\n            model (nn.Module): trained neural net or sampler with a restore method.\n            dataset (DatasetLoader): dataset object providing inputs and ground truths.\n            config (dict): configuration dictionary from YAML.\n            device (torch.device or None): device to perform evaluation on.",
+        "file": "evaluation.py"
+      }
+    ],
+    "Results/Evaluation": [
+      {
+        "component": "evaluation.py:Evaluation",
+        "description": "Initialize Evaluation object.\n        \n        Args:\n            model (nn.Module): trained neural net or sampler with a restore method.\n            dataset (DatasetLoader): dataset object providing inputs and ground truths.\n            config (dict): configuration dictionary from YAML.\n            device (torch.device or None): device to perform evaluation on.",
+        "file": "evaluation.py"
+      }
+    ],
+    "The code component does not provide enough information to accurately link it to specific paper sections. Please provide more context or details.": [
+      {
+        "component": "evaluation.py:__init__",
+        "description": "Initialize Evaluation object.\n        \n        Args:\n            model (nn.Module): trained neural net or sampler with a restore method.\n            dataset (DatasetLoader): dataset object providing inputs and ground truths.\n            config (dict): configuration dictionary from YAML.\n            device (torch.device or None): device to perform evaluation on.",
+        "file": "evaluation.py"
+      }
+    ],
+    "The provided information is insufficient to determine the most relevant paper sections for the code component. Please provide more details about the function in the main.py file and the sections in the paper.": [
+      {
+        "component": "main.py:main",
+        "description": "",
+        "file": "main.py"
+      }
+    ],
+    "The provided paper sections do not seem to contain any relevant information related to the code component. Please provide more relevant paper sections.": [
+      {
+        "component": "model.py:TimestepEmbedding",
+        "description": "Sinusoidal positional embedding for timesteps.\n    Converts scalar timestep t into a high-dimensional embedding.",
+        "file": "model.py"
+      }
+    ],
+    "The paper sections are not clearly defined in the provided information. Please provide the titles of the paper sections.": [
+      {
+        "component": "model.py:ConvBlock",
+        "description": "Basic convolutional block: Conv2d -> LeakyReLU",
+        "file": "model.py"
+      }
+    ],
+    "The provided information does not include any paper sections related to the code component. Please provide relevant paper sections.": [
+      {
+        "component": "model.py:DownSampleBlock",
+        "description": "Downsampling block: ConvBlock followed by downsampling",
+        "file": "model.py"
+      },
+      {
+        "component": "schedule_utils.py:compute_theta",
+        "description": "Compute schedule for theta_t over the time array.\n\n    Args:\n        t_array (np.ndarray): Array of normalized times in [0, T], shape (N+1,).\n        schedule_type (str): Type of schedule, default 'cosine'.\n\n    Returns:\n        theta_array (np.ndarray): Array of theta_t values, shape (N+1,).",
+        "file": "schedule_utils.py"
+      },
+      {
+        "component": "schedule_utils.py:compute_cum_theta",
+        "description": "Compute cumulative integral of theta_z dz: \\bar{\\theta}_t = \\int_0^t \\theta_z dz\n    \n    Args:\n        theta_array (np.ndarray): Array of theta_z, shape (N+1,)\n        t_array (np.ndarray): Time array, shape (N+1,)\n\n    Returns:\n        cum_theta (np.ndarray): Array of \\bar{\\theta}_t, shape (N+1,)",
+        "file": "schedule_utils.py"
+      }
+    ],
+    "Without specific section names": [
+      {
+        "component": "model.py:UpSampleBlock",
+        "description": "Upsampling block: Upsample + ConvBlock",
+        "file": "model.py"
+      },
+      {
+        "component": "schedule_utils.py:get_time_schedule",
+        "description": "Generate a uniform discretization of time from 0 to T.\n\n    Args:\n        T (float): Total time duration, default 1.0.\n        N (int): Number of steps, default 100.\n\n    Returns:\n        t_array (np.ndarray): Array of shape (N+1,) with times in [0, T].",
+        "file": "schedule_utils.py"
+      },
+      {
+        "component": "schedule_utils.py:compute_sigma_t",
+        "description": "Compute \\bar{\\sigma}_t^2 = (g_t^2 / (2 * theta_t)) * (1 - exp(-2 * \\bar{\\theta}_t))\n    Handle theta_t=0 case with small epsilon for stability.\n\n    Args:\n        t_array (np.ndarray): Time array.\n        theta_array (np.ndarray): Theta_t values.\n        cum_theta (np.ndarray): \\bar{\\theta}_t values.\n        lambda_sq (float): Variance scale.\n\n    Returns:\n        sigma_sq (np.ndarray): \\bar{\\sigma}_t^2 for each time step.",
+        "file": "schedule_utils.py"
+      },
+      {
+        "component": "schedule_utils.py:compute_sigma_t_T",
+        "description": "Compute \\bar{\\sigma}_{t:T}^2 = (g_t^2 / (2 * theta_t)) * (exp(-2 * \\bar{\\theta}_t) - exp(-2 * \\bar{\\theta}_T))\n    Handle theta_t=0 with epsilon for stability.\n\n    Args:\n        t_array (np.ndarray): Time array.\n        cum_theta (np.ndarray): \\bar{\\theta}_t for each t.\n        T (float): Final time boundary.\n        lambda_sq (float): Variance scale.\n\n    Returns:\n        sigma_t_T (np.ndarray): \\bar{\\sigma}_{t:T}^2 for each t.",
+        "file": "schedule_utils.py"
+      }
+    ],
+    "it's impossible to accurately link the code component to the paper sections. However": [
+      {
+        "component": "model.py:UpSampleBlock",
+        "description": "Upsampling block: Upsample + ConvBlock",
+        "file": "model.py"
+      },
+      {
+        "component": "schedule_utils.py:compute_g",
+        "description": "Compute g_t^2 proportional to theta_t, using g_t^2 = 2 * lambda^2 * theta_t.\n    Can be adapted if needed.\n\n    Args:\n        t_array (np.ndarray): Array of times or discretized points.\n        theta_array (np.ndarray): theta_t schedule.\n        lambda_sq (float): Variance parameter, default 30.\n\n    Returns:\n        g_sq (np.ndarray): Array of g_t^2, shape (N+1,)",
+        "file": "schedule_utils.py"
+      }
+    ],
+    "typically": [
+      {
+        "component": "model.py:UpSampleBlock",
+        "description": "Upsampling block: Upsample + ConvBlock",
+        "file": "model.py"
+      }
+    ],
+    "sections like \"Methodology\"": [
+      {
+        "component": "model.py:UpSampleBlock",
+        "description": "Upsampling block: Upsample + ConvBlock",
+        "file": "model.py"
+      }
+    ],
+    "\"Implementation Details\"": [
+      {
+        "component": "model.py:UpSampleBlock",
+        "description": "Upsampling block: Upsample + ConvBlock",
+        "file": "model.py"
+      },
+      {
+        "component": "model.py:__init__",
+        "description": "Args:\n            t (torch.Tensor): Tensor of timesteps shape (batch, ), assumed to be scalar or 1D.\n        Returns:\n            embeddings (torch.Tensor): shape (batch, embedding_dim)",
+        "file": "model.py"
+      },
+      {
+        "component": "sampling.py:__init__",
+        "description": "Initialize the Sampler.\n        Args:\n            model (nn.Module): Trained neural network estimating epsilon residuals.\n            schedule_params (dict): Precomputed schedule arrays: theta, g, cum_theta, sigma, sigma_t_T.\n            config (dict): Inference configuration, including steps, use_mean_ode.",
+        "file": "sampling.py"
+      }
+    ],
+    "\"Model Architecture\"": [
+      {
+        "component": "model.py:UpSampleBlock",
+        "description": "Upsampling block: Upsample + ConvBlock",
+        "file": "model.py"
+      }
+    ],
+    "or \"Experimental Setup\" might contain relevant information about the code component.": [
+      {
+        "component": "model.py:UpSampleBlock",
+        "description": "Upsampling block: Upsample + ConvBlock",
+        "file": "model.py"
+      }
+    ],
+    "The paper sections are not provided in the question. Please provide the paper sections to proceed.": [
+      {
+        "component": "model.py:UNetEncoder",
+        "description": "Encoder: Stack of downsampling ConvBlocks with skip connections",
+        "file": "model.py"
+      },
+      {
+        "component": "model.py:UNetDecoder",
+        "description": "Decoder: Upsampling with skip connections",
+        "file": "model.py"
+      }
+    ],
+    "The provided information does not include any paper sections. Please provide the relevant paper sections to proceed.": [
+      {
+        "component": "model.py:ScoreUNet",
+        "description": "U-Net architecture with no group norm/self-attention, conditioned on x_T and timestep embedding",
+        "file": "model.py"
+      }
+    ],
+    "Without more specific section titles": [
+      {
+        "component": "model.py:__init__",
+        "description": "Args:\n            t (torch.Tensor): Tensor of timesteps shape (batch, ), assumed to be scalar or 1D.\n        Returns:\n            embeddings (torch.Tensor): shape (batch, embedding_dim)",
+        "file": "model.py"
+      }
+    ],
+    "it's hard to accurately determine the most relevant sections for this code component. However": [
+      {
+        "component": "model.py:__init__",
+        "description": "Args:\n            t (torch.Tensor): Tensor of timesteps shape (batch, ), assumed to be scalar or 1D.\n        Returns:\n            embeddings (torch.Tensor): shape (batch, embedding_dim)",
+        "file": "model.py"
+      }
+    ],
+    "based on the information given": [
+      {
+        "component": "model.py:__init__",
+        "description": "Args:\n            t (torch.Tensor): Tensor of timesteps shape (batch, ), assumed to be scalar or 1D.\n        Returns:\n            embeddings (torch.Tensor): shape (batch, embedding_dim)",
+        "file": "model.py"
+      }
+    ],
+    "the code seems to be related to the implementation of a model": [
+      {
+        "component": "model.py:__init__",
+        "description": "Args:\n            t (torch.Tensor): Tensor of timesteps shape (batch, ), assumed to be scalar or 1D.\n        Returns:\n            embeddings (torch.Tensor): shape (batch, embedding_dim)",
+        "file": "model.py"
+      }
+    ],
+    "possibly involving machine learning or data processing. Therefore": [
+      {
+        "component": "model.py:__init__",
+        "description": "Args:\n            t (torch.Tensor): Tensor of timesteps shape (batch, ), assumed to be scalar or 1D.\n        Returns:\n            embeddings (torch.Tensor): shape (batch, embedding_dim)",
+        "file": "model.py"
+      }
+    ],
+    "potential relevant sections could be \"Methodology\"": [
+      {
+        "component": "model.py:__init__",
+        "description": "Args:\n            t (torch.Tensor): Tensor of timesteps shape (batch, ), assumed to be scalar or 1D.\n        Returns:\n            embeddings (torch.Tensor): shape (batch, embedding_dim)",
+        "file": "model.py"
+      }
+    ],
+    "\"Results and Discussion\"": [
+      {
+        "component": "model.py:__init__",
+        "description": "Args:\n            t (torch.Tensor): Tensor of timesteps shape (batch, ), assumed to be scalar or 1D.\n        Returns:\n            embeddings (torch.Tensor): shape (batch, embedding_dim)",
+        "file": "model.py"
+      }
+    ],
+    "or \"Experimental Setup\". Please provide more specific section titles for a more accurate analysis.": [
+      {
+        "component": "model.py:__init__",
+        "description": "Args:\n            t (torch.Tensor): Tensor of timesteps shape (batch, ), assumed to be scalar or 1D.\n        Returns:\n            embeddings (torch.Tensor): shape (batch, embedding_dim)",
+        "file": "model.py"
+      }
+    ],
+    "The provided paper sections are not sufficient to link with the given code component. Please provide more relevant paper sections.": [
+      {
+        "component": "sampling.py:Sampler",
+        "description": "Implements the reverse diffusion sampling process based on the trained neural network.\n    Supports both stochastic reverse SDE and deterministic Mean-ODE sampling.",
+        "file": "sampling.py"
+      },
+      {
+        "component": "trainer.py:__init__",
+        "description": "Initialize the trainer with configuration parameters.\n        Args:\n            config (dict): Configuration dictionary loaded from YAML.",
+        "file": "trainer.py"
+      }
+    ],
+    "The provided paper sections do not seem to match the code component. Please provide relevant paper sections such as \"Methodology\"": [
+      {
+        "component": "sampling.py:__init__",
+        "description": "Initialize the Sampler.\n        Args:\n            model (nn.Module): Trained neural network estimating epsilon residuals.\n            schedule_params (dict): Precomputed schedule arrays: theta, g, cum_theta, sigma, sigma_t_T.\n            config (dict): Inference configuration, including steps, use_mean_ode.",
+        "file": "sampling.py"
+      }
+    ],
+    "\"Experimental Setup\"": [
+      {
+        "component": "sampling.py:__init__",
+        "description": "Initialize the Sampler.\n        Args:\n            model (nn.Module): Trained neural network estimating epsilon residuals.\n            schedule_params (dict): Precomputed schedule arrays: theta, g, cum_theta, sigma, sigma_t_T.\n            config (dict): Inference configuration, including steps, use_mean_ode.",
+        "file": "sampling.py"
+      }
+    ],
+    "etc.": [
+      {
+        "component": "sampling.py:__init__",
+        "description": "Initialize the Sampler.\n        Args:\n            model (nn.Module): Trained neural network estimating epsilon residuals.\n            schedule_params (dict): Precomputed schedule arrays: theta, g, cum_theta, sigma, sigma_t_T.\n            config (dict): Inference configuration, including steps, use_mean_ode.",
+        "file": "sampling.py"
+      }
+    ],
+    "it's hard to provide an accurate answer. However": [
+      {
+        "component": "schedule_utils.py:get_time_schedule",
+        "description": "Generate a uniform discretization of time from 0 to T.\n\n    Args:\n        T (float): Total time duration, default 1.0.\n        N (int): Number of steps, default 100.\n\n    Returns:\n        t_array (np.ndarray): Array of shape (N+1,) with times in [0, T].",
+        "file": "schedule_utils.py"
+      }
+    ],
+    "based on the code component": [
+      {
+        "component": "schedule_utils.py:get_time_schedule",
+        "description": "Generate a uniform discretization of time from 0 to T.\n\n    Args:\n        T (float): Total time duration, default 1.0.\n        N (int): Number of steps, default 100.\n\n    Returns:\n        t_array (np.ndarray): Array of shape (N+1,) with times in [0, T].",
+        "file": "schedule_utils.py"
+      },
+      {
+        "component": "schedule_utils.py:compute_sigma_t",
+        "description": "Compute \\bar{\\sigma}_t^2 = (g_t^2 / (2 * theta_t)) * (1 - exp(-2 * \\bar{\\theta}_t))\n    Handle theta_t=0 case with small epsilon for stability.\n\n    Args:\n        t_array (np.ndarray): Time array.\n        theta_array (np.ndarray): Theta_t values.\n        cum_theta (np.ndarray): \\bar{\\theta}_t values.\n        lambda_sq (float): Variance scale.\n\n    Returns:\n        sigma_sq (np.ndarray): \\bar{\\sigma}_t^2 for each time step.",
+        "file": "schedule_utils.py"
+      }
+    ],
+    "the most relevant sections could be \"Methodology\"": [
+      {
+        "component": "schedule_utils.py:get_time_schedule",
+        "description": "Generate a uniform discretization of time from 0 to T.\n\n    Args:\n        T (float): Total time duration, default 1.0.\n        N (int): Number of steps, default 100.\n\n    Returns:\n        t_array (np.ndarray): Array of shape (N+1,) with times in [0, T].",
+        "file": "schedule_utils.py"
+      },
+      {
+        "component": "schedule_utils.py:compute_sigma_t_T",
+        "description": "Compute \\bar{\\sigma}_{t:T}^2 = (g_t^2 / (2 * theta_t)) * (exp(-2 * \\bar{\\theta}_t) - exp(-2 * \\bar{\\theta}_T))\n    Handle theta_t=0 with epsilon for stability.\n\n    Args:\n        t_array (np.ndarray): Time array.\n        cum_theta (np.ndarray): \\bar{\\theta}_t for each t.\n        T (float): Final time boundary.\n        lambda_sq (float): Variance scale.\n\n    Returns:\n        sigma_t_T (np.ndarray): \\bar{\\sigma}_{t:T}^2 for each t.",
+        "file": "schedule_utils.py"
+      }
+    ],
+    "\"Data Processing\"": [
+      {
+        "component": "schedule_utils.py:get_time_schedule",
+        "description": "Generate a uniform discretization of time from 0 to T.\n\n    Args:\n        T (float): Total time duration, default 1.0.\n        N (int): Number of steps, default 100.\n\n    Returns:\n        t_array (np.ndarray): Array of shape (N+1,) with times in [0, T].",
+        "file": "schedule_utils.py"
+      }
+    ],
+    "\"Experiment Setup\" or \"Results and Discussion\".": [
+      {
+        "component": "schedule_utils.py:get_time_schedule",
+        "description": "Generate a uniform discretization of time from 0 to T.\n\n    Args:\n        T (float): Total time duration, default 1.0.\n        N (int): Number of steps, default 100.\n\n    Returns:\n        t_array (np.ndarray): Array of shape (N+1,) with times in [0, T].",
+        "file": "schedule_utils.py"
+      }
+    ],
+    "Without specific section names or titles": [
+      {
+        "component": "schedule_utils.py:compute_g",
+        "description": "Compute g_t^2 proportional to theta_t, using g_t^2 = 2 * lambda^2 * theta_t.\n    Can be adapted if needed.\n\n    Args:\n        t_array (np.ndarray): Array of times or discretized points.\n        theta_array (np.ndarray): theta_t schedule.\n        lambda_sq (float): Variance parameter, default 30.\n\n    Returns:\n        g_sq (np.ndarray): Array of g_t^2, shape (N+1,)",
+        "file": "schedule_utils.py"
+      }
+    ],
+    "based on the code description": [
+      {
+        "component": "schedule_utils.py:compute_g",
+        "description": "Compute g_t^2 proportional to theta_t, using g_t^2 = 2 * lambda^2 * theta_t.\n    Can be adapted if needed.\n\n    Args:\n        t_array (np.ndarray): Array of times or discretized points.\n        theta_array (np.ndarray): theta_t schedule.\n        lambda_sq (float): Variance parameter, default 30.\n\n    Returns:\n        g_sq (np.ndarray): Array of g_t^2, shape (N+1,)",
+        "file": "schedule_utils.py"
+      },
+      {
+        "component": "schedule_utils.py:compute_sigma_t_T",
+        "description": "Compute \\bar{\\sigma}_{t:T}^2 = (g_t^2 / (2 * theta_t)) * (exp(-2 * \\bar{\\theta}_t) - exp(-2 * \\bar{\\theta}_T))\n    Handle theta_t=0 with epsilon for stability.\n\n    Args:\n        t_array (np.ndarray): Time array.\n        cum_theta (np.ndarray): \\bar{\\theta}_t for each t.\n        T (float): Final time boundary.\n        lambda_sq (float): Variance scale.\n\n    Returns:\n        sigma_t_T (np.ndarray): \\bar{\\sigma}_{t:T}^2 for each t.",
+        "file": "schedule_utils.py"
+      }
+    ],
+    "sections that might be relevant could be titled something like \"Methodology\"": [
+      {
+        "component": "schedule_utils.py:compute_g",
+        "description": "Compute g_t^2 proportional to theta_t, using g_t^2 = 2 * lambda^2 * theta_t.\n    Can be adapted if needed.\n\n    Args:\n        t_array (np.ndarray): Array of times or discretized points.\n        theta_array (np.ndarray): theta_t schedule.\n        lambda_sq (float): Variance parameter, default 30.\n\n    Returns:\n        g_sq (np.ndarray): Array of g_t^2, shape (N+1,)",
+        "file": "schedule_utils.py"
+      }
+    ],
+    "\"Algorithm Implementation\"": [
+      {
+        "component": "schedule_utils.py:compute_g",
+        "description": "Compute g_t^2 proportional to theta_t, using g_t^2 = 2 * lambda^2 * theta_t.\n    Can be adapted if needed.\n\n    Args:\n        t_array (np.ndarray): Array of times or discretized points.\n        theta_array (np.ndarray): theta_t schedule.\n        lambda_sq (float): Variance parameter, default 30.\n\n    Returns:\n        g_sq (np.ndarray): Array of g_t^2, shape (N+1,)",
+        "file": "schedule_utils.py"
+      },
+      {
+        "component": "schedule_utils.py:compute_sigma_t",
+        "description": "Compute \\bar{\\sigma}_t^2 = (g_t^2 / (2 * theta_t)) * (1 - exp(-2 * \\bar{\\theta}_t))\n    Handle theta_t=0 case with small epsilon for stability.\n\n    Args:\n        t_array (np.ndarray): Time array.\n        theta_array (np.ndarray): Theta_t values.\n        cum_theta (np.ndarray): \\bar{\\theta}_t values.\n        lambda_sq (float): Variance scale.\n\n    Returns:\n        sigma_sq (np.ndarray): \\bar{\\sigma}_t^2 for each time step.",
+        "file": "schedule_utils.py"
+      },
+      {
+        "component": "schedule_utils.py:compute_sigma_t_T",
+        "description": "Compute \\bar{\\sigma}_{t:T}^2 = (g_t^2 / (2 * theta_t)) * (exp(-2 * \\bar{\\theta}_t) - exp(-2 * \\bar{\\theta}_T))\n    Handle theta_t=0 with epsilon for stability.\n\n    Args:\n        t_array (np.ndarray): Time array.\n        cum_theta (np.ndarray): \\bar{\\theta}_t for each t.\n        T (float): Final time boundary.\n        lambda_sq (float): Variance scale.\n\n    Returns:\n        sigma_t_T (np.ndarray): \\bar{\\sigma}_{t:T}^2 for each t.",
+        "file": "schedule_utils.py"
+      }
+    ],
+    "\"Schedule Computation\"": [
+      {
+        "component": "schedule_utils.py:compute_g",
+        "description": "Compute g_t^2 proportional to theta_t, using g_t^2 = 2 * lambda^2 * theta_t.\n    Can be adapted if needed.\n\n    Args:\n        t_array (np.ndarray): Array of times or discretized points.\n        theta_array (np.ndarray): theta_t schedule.\n        lambda_sq (float): Variance parameter, default 30.\n\n    Returns:\n        g_sq (np.ndarray): Array of g_t^2, shape (N+1,)",
+        "file": "schedule_utils.py"
+      }
+    ],
+    "or \"Variance Parameter Calculation\". Please provide the actual section names or titles for a more accurate analysis.": [
+      {
+        "component": "schedule_utils.py:compute_g",
+        "description": "Compute g_t^2 proportional to theta_t, using g_t^2 = 2 * lambda^2 * theta_t.\n    Can be adapted if needed.\n\n    Args:\n        t_array (np.ndarray): Array of times or discretized points.\n        theta_array (np.ndarray): theta_t schedule.\n        lambda_sq (float): Variance parameter, default 30.\n\n    Returns:\n        g_sq (np.ndarray): Array of g_t^2, shape (N+1,)",
+        "file": "schedule_utils.py"
+      }
+    ],
+    "it's hard to provide an exact match. However": [
+      {
+        "component": "schedule_utils.py:compute_sigma_t",
+        "description": "Compute \\bar{\\sigma}_t^2 = (g_t^2 / (2 * theta_t)) * (1 - exp(-2 * \\bar{\\theta}_t))\n    Handle theta_t=0 case with small epsilon for stability.\n\n    Args:\n        t_array (np.ndarray): Time array.\n        theta_array (np.ndarray): Theta_t values.\n        cum_theta (np.ndarray): \\bar{\\theta}_t values.\n        lambda_sq (float): Variance scale.\n\n    Returns:\n        sigma_sq (np.ndarray): \\bar{\\sigma}_t^2 for each time step.",
+        "file": "schedule_utils.py"
+      }
+    ],
+    "the most relevant sections of the paper would likely be \"Methodology\"": [
+      {
+        "component": "schedule_utils.py:compute_sigma_t",
+        "description": "Compute \\bar{\\sigma}_t^2 = (g_t^2 / (2 * theta_t)) * (1 - exp(-2 * \\bar{\\theta}_t))\n    Handle theta_t=0 case with small epsilon for stability.\n\n    Args:\n        t_array (np.ndarray): Time array.\n        theta_array (np.ndarray): Theta_t values.\n        cum_theta (np.ndarray): \\bar{\\theta}_t values.\n        lambda_sq (float): Variance scale.\n\n    Returns:\n        sigma_sq (np.ndarray): \\bar{\\sigma}_t^2 for each time step.",
+        "file": "schedule_utils.py"
+      }
+    ],
+    "or \"Experimental Setup\".": [
+      {
+        "component": "schedule_utils.py:compute_sigma_t",
+        "description": "Compute \\bar{\\sigma}_t^2 = (g_t^2 / (2 * theta_t)) * (1 - exp(-2 * \\bar{\\theta}_t))\n    Handle theta_t=0 case with small epsilon for stability.\n\n    Args:\n        t_array (np.ndarray): Time array.\n        theta_array (np.ndarray): Theta_t values.\n        cum_theta (np.ndarray): \\bar{\\theta}_t values.\n        lambda_sq (float): Variance scale.\n\n    Returns:\n        sigma_sq (np.ndarray): \\bar{\\sigma}_t^2 for each time step.",
+        "file": "schedule_utils.py"
+      }
+    ],
+    "it's hard to accurately identify the most relevant sections. However": [
+      {
+        "component": "schedule_utils.py:compute_sigma_t_T",
+        "description": "Compute \\bar{\\sigma}_{t:T}^2 = (g_t^2 / (2 * theta_t)) * (exp(-2 * \\bar{\\theta}_t) - exp(-2 * \\bar{\\theta}_T))\n    Handle theta_t=0 with epsilon for stability.\n\n    Args:\n        t_array (np.ndarray): Time array.\n        cum_theta (np.ndarray): \\bar{\\theta}_t for each t.\n        T (float): Final time boundary.\n        lambda_sq (float): Variance scale.\n\n    Returns:\n        sigma_t_T (np.ndarray): \\bar{\\sigma}_{t:T}^2 for each t.",
+        "file": "schedule_utils.py"
+      }
+    ],
+    "and \"Results and Discussion\".": [
+      {
+        "component": "schedule_utils.py:compute_sigma_t_T",
+        "description": "Compute \\bar{\\sigma}_{t:T}^2 = (g_t^2 / (2 * theta_t)) * (exp(-2 * \\bar{\\theta}_t) - exp(-2 * \\bar{\\theta}_T))\n    Handle theta_t=0 with epsilon for stability.\n\n    Args:\n        t_array (np.ndarray): Time array.\n        cum_theta (np.ndarray): \\bar{\\theta}_t for each t.\n        T (float): Final time boundary.\n        lambda_sq (float): Variance scale.\n\n    Returns:\n        sigma_t_T (np.ndarray): \\bar{\\sigma}_{t:T}^2 for each t.",
+        "file": "schedule_utils.py"
+      }
+    ],
+    "The provided information does not include any paper sections relevant to the code component. Please provide the correct paper sections.": [
+      {
+        "component": "trainer.py:DiffusionTrainer",
+        "description": "Initialize the trainer with configuration parameters.\n        Args:\n            config (dict): Configuration dictionary loaded from YAML.",
+        "file": "trainer.py"
+      }
+    ]
+  },
+  "paper_sections": [
+    {
+      "section": "Abstract",
+      "text": "Conghan Yue 1 Zhengwei Peng 1 Junlong Ma 1 Shiyan Du 1 Pengxu Wei 1 2 Dongyu Zhang 1",
+      "ontology": "abstract"
+    }
+  ],
+  "coverage_score": 50.0
+}

@@ -1,0 +1,49 @@
+```python
+## text_prompt.py
+import torch
+from transformers import CLIPTokenizer, CLIPModel
+
+class TextPromptEmbedder:
+    def __init__(self, model_name: str = "openai/clip-vit-base-patch32", device: str = "cuda"):
+        """
+        Initializes the TextPromptEmbedder with a pretrained CLIP model for encoding prompts.
+        
+        Args:
+            model_name (str): Name or path of the pretrained CLIP model.
+            device (str): Device to load the model onto ('cuda' or 'cpu').
+        """
+        self.device = torch.device(device if torch.cuda.is_available() else "cpu")
+        self.tokenizer = CLIPTokenizer.from_pretrained(model_name)
+        self.model = CLIPModel.from_pretrained(model_name)
+        self.model.to(self.device)
+        self.model.eval()
+        # No gradient computations needed during inference
+        for param in self.model.parameters():
+            param.requires_grad = False
+
+    def embed(self, prompts):
+        """
+        Encode input prompt(s) into normalized embedding tensor suitable for conditioning.
+        
+        Args:
+            prompts (str or List[str]): Single prompt string or list of prompts.
+        
+        Returns:
+            torch.Tensor: Embeddings tensor of shape [batch_size, embedding_dim].
+        """
+        if isinstance(prompts, str):
+            prompts = [prompts]
+        # Tokenize prompts with padding
+        inputs = self.tokenizer(
+            prompts,
+            padding=True,
+            truncation=True,
+            return_tensors="pt",
+            max_length=77
+        ).to(self.device)
+        with torch.no_grad():
+            text_outputs = self.model.get_text_features(**inputs)
+            # Normalize the embeddings to unit sphere
+            embeddings = torch.nn.functional.normalize(text_outputs, p=2, dim=-1)
+        return embeddings
+```

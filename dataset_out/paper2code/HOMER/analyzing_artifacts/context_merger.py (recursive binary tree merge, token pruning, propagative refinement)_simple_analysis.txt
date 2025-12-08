@@ -1,0 +1,151 @@
+### Logic Analysis for `context_merger.py`
+
+This module implements the core recursive hierarchical context merging algorithm, including token pruning and propagative refinement, to process long input sequences efficiently and produce compact, fixed-length embeddings. The implementation strictly follows the methodology and design specifications described in the paper and the plan, respecting the existing data structures and interfaces.
+
+---
+
+#### **1. Core Objectives and Responsibilities**
+
+- Recursively merge adjacent chunks (leaf nodes) into larger chunks until a single, global context embedding remains.
+- At each merge step:
+  - Run the current chunk through designated transformer layers.
+  - Compute attention-based significance scores for tokens.
+  - Prune tokens with low significance scores to limit chunk size.
+  - Merge adjacent chunks via concatenation.
+  - Propagate pruning decisions downward to refine lower-layer embeddings.
+- Apply memory-efficient traversal via a DFS order for large sequences, reducing peak memory from linear to logarithmic with respect to input length.
+- Ensure compatibility with the `TransformerModel` class to run inference and access attention scores.
+
+---
+
+#### **2. Input/Output and Interfaces**
+
+- **Input:**  
+  - A list of initial chunks (`InputChunk`), each with token IDs and embeddings, created from tokenizing long input sequence.  
+  - The start layer and end layer indices to define the transformer layers to process.
+  - Thresholds for importance pruning, calibrated beforehand.
+- **Output:**  
+  - A single `InputChunk` representing the entire sequence, with pruned tokens and aggregated embeddings.  
+  - Possibly, a set or list of layerwise fixed-length embeddings for downstream use.
+
+---
+
+#### **3. Data Structures and State Management**
+
+- **InputChunk:**  
+  Contains token IDs and embeddings (`Tensor`), attention importance scores, and a list of pruned tokens.  
+- **Tree Representation:**  
+  - Each node corresponds to a merge operation on either input chunks (leaves) or merged chunks (internal nodes).  
+  - Use a recursive function `recursive_merge(node: Node)`—where each node encapsulates data: child nodes, merged embeddings, importance scores, etc.
+
+---
+
+#### **4. Main Recursive Merge Function (`recursive_merge`)**
+
+Input: List of chunks (`chunks`), layer indices, importance thresholds.  
+Operation flow:
+
+1. **Base case (leaf node):**  
+   - For each initial chunk, run it through early transformer layers (from `start_layer` to `max_layer`).  
+   - Obtain layerwise hidden states.  
+   - Store embeddings in the `InputChunk`.
+   
+2. **Recursive case (internal node):**  
+   - Recursively process the left and right children, obtaining their refined embeddings.
+   - For merging:
+     - **Token Importance Scoring:**  
+       - Run attention from the final token (e.g., last token in the chunk) over current embeddings to derive attention weights.  
+       - **Compute significance scores:**  
+         \[
+         s_i^{\text{sig}} = l_{\text{att}}^{i} - l_{\text{bias}}^{\text{dist}(i)}
+         \]  
+         where \(l_{\text{att}}^i\) is the attention logit for token \(i\) and \(l_{\text{bias}}^{\text{dist}(i)}\) is the bias based on relative position.  
+       - **Calibration:** Subtract bias logits derived from datasets for stable importance scores across scales.
+     - **Token Pruning:**  
+       - Select tokens with the highest \(s_i^{\text{sig}}\), pruning the lowest according to the predefined ratio (e.g., keep top 50%).  
+       - Remove pruned tokens from the embeddings; store pruned tokens for propagative pruning.
+     - **Concatenate Adjacent Chunks:**  
+       - Merge the pruned embeddings of left and right child chunks via concatenation.  
+       - Manage position IDs to ensure positional consistency across chunks, reusing IDs for affixes and shared segments.
+     - **Run Transformer Layers:**  
+       - Feed the merged chunk through higher transformer layers for refinement.
+       - **Propagative Pruning:**  
+         - Use pruning decisions from the top layer to prune adjacent lower-layer embeddings (propagation downward).  
+         - This can be done by filtering the lower-layer embeddings with the same importance mask, ensuring synchronization.
+     - **Create Merged Node Data:**  
+       - Encapsulate merged embeddings, importance scores, and token info into a new `InputChunk`.
+       - Style the node as either an internal node with `left` and `right` children or, at the top recursion, the entire sequence.
+
+3. **Memory and Computational Optimization:**  
+   - Implement the recursion following a DFS order with the node depth/hierarchy, allowing peak memory to be lowered from linear to logarithmic.
+   - Use internal buffers or stack-based access for memory management.
+   - Run only the necessary parts of the model to obtain attention scores for importance without recomputing entire forward passes unnecessarily.
+
+---
+
+#### **5. Token Importance and Pruning Steps**
+
+- Utilize the attention-based importance scores, with attention weights extracted from the last token’s attention scores during the forward pass.
+- Compute significance scores (\(s_i^{\text{sig}}\)) as per the equation:
+  \[
+  s_{i}^{\text{sig}} = l_{\text{att}}^{i} - l_{\text{bias}}^{\text{dist}(i)}
+  \]
+- **Calibration process:**  
+  - Use a subset of validation samples in advance.  
+  - For each attention distribution, average the last token's attention over tokens at various distances to derive bias logits \(l_{\text{bias}}^{\text{dist}}\).  
+  - Fix a significance threshold to prune tokens below a certain importance level.
+
+- **Pruning policy:**  
+  - Keep tokens with highest \(s_i^{\text{sig}}\), remove others, maintaining a target ratio (e.g., 50%).
+
+---
+
+#### **6. Propagative Refinement and Layer Synchronization**
+
+- As pruning occurs at the top layer, propagate the pruning mask down to lower-layer embeddings—meaning prune the same tokens across all lower layers.
+- Ensures fixed-length, uniform embeddings per layer, suitable for kv-cache use.
+- Implementation:  
+  - During the lower-layer forward pass, filter the embeddings according to the propagated importance mask.
+  - Store the pruned embeddings separately or overwrite existing embeddings.
+
+---
+
+#### **7. Memory & Runtime Efficiency**
+
+- Implement node processing in DFS order, traversing the binary tree from leaves to root recursively to limit peak memory.
+- During traversal:
+  - Process each chunk independently at lower levels.
+  - Merge and prune tokens at higher levels, reducing sequence length.
+  - Use functions to dynamically allocate buffers, avoiding unnecessary memory replication.
+- Use caching of attention scores, embeddings, and pruning masks to minimize recomputation.
+
+---
+
+#### **8. Integration with Base Model**
+
+- The `TransformerModel` API should be used to:
+  - Run initial inference on chunks (early layers).
+  - Retrieve attention weights for importance calculation.
+  - Run higher-level merges (additional layers) on concatenated embeddings.
+- The process should be compatible with the existing `access_layer` method and batch processing as needed.
+
+---
+
+#### **9. Final Output**
+
+- The root node delivers the last merged embedding—representing the entire long input, compressed via token pruning.
+- Layerwise embeddings are stored for later use in autoregressive decoding as fixed-length context summaries.
+
+---
+
+#### **10. Summary**
+
+This module:
+- Recursively merges chunks with attention-based token pruning.
+- Propagates pruning decisions downward to produce fixed-length, rich context representations.
+- Uses a DFS traversal for memory efficiency.
+- Incorporates calibration of importance scores for stability.
+- Interfaces seamlessly with the `TransformerModel` for layer access and inference.
+- Produces a comprehensive set of long-context embeddings, enabling efficient long-sequence generation and downstream tasks.
+
+This thorough logic analysis ensures that the code implementation will adhere to the methodology outlined in the paper while respecting the interfaces and design constraints specified.

@@ -1,0 +1,122 @@
+#!/usr/bin/env python3
+# main.py
+
+import yaml
+import os
+import sys
+import torch
+import random
+import numpy as np
+from dataset_loader import DatasetLoader
+from model import LanguageModel
+from reward_model import RewardModel
+from trainer import ModelTrainer
+from evaluation import Evaluator
+from utils import utils
+from tqdm import tqdm
+
+def main():
+    # Load configuration
+    config_path = 'config.yaml'
+    with open(config_path, 'r') as f:
+        config = yaml.safe_load(f)
+
+    # Set device
+    device = config.get('model', {}).get('device', 'cuda')
+    if device == 'cuda' and not torch.cuda.is_available():
+        print("CUDA not available, switching to CPU.")
+        device = 'cpu'
+
+    # Set random seeds for reproducibility
+    seed = 42
+    torch.manual_seed(seed)
+    np.random.seed(seed)
+    random.seed(seed)
+    if device == 'cuda':
+        torch.cuda.manual_seed_all(seed)
+
+    # Paths and hyperparameters from config
+    pretrained_model_path = config.get('model', {}).get('pretrained_model_path', 'gpt2-large')
+    reward_model_path = config.get('reward_model', {}).get('model_path', '')
+    preference_data_path = config.get('dataset', {}).get('preference_data_path', '')
+    prompts_path = config.get('dataset', {}).get('prompts_path', '')
+    max_training_steps = config.get('training', {}).get('max_training_steps', 5000)
+    batch_size = config.get('training', {}).get('batch_size', 64)
+    response_samples = config.get('training', {}).get('response_samples', 8)
+    response_temperature = config.get('training', {}).get('response_temperature', 0.8)
+    importance_beta = config.get('training', {}).get('importance_sampling_beta', 0.5)
+    divergence_beta = config.get('training', {}).get('divergence_regularization_beta', 0.1)
+    eval_steps = config.get('evaluation', {}).get('eval_steps', 3000)
+
+    # Initialize dataset loader
+    dataset_loader = DatasetLoader(preference_data_path)
+    dataset_loader.load_prompts(prompts_path)
+
+    # Initialize models
+    lm = LanguageModel(pretrained_model_path, device=device)
+    reward_model = RewardModel(reward_model_path, device=device)
+
+    # Initialize trainer and evaluator
+    trainer = ModelTrainer(lm, reward_model, dataset_loader, config)
+    evaluator = Evaluator(lm, reward_model)
+
+    # Optionally, set evaluator to the trainer if needed
+    trainer.evaluator = evaluator
+
+    # Main training loop
+    print("Starting training...")
+    for step in tqdm(range(1, max_training_steps + 1)):
+        # Sample prompts for this batch
+        prompts_batch = np.random.choice(dataset_loader.get_prompts(), size=batch_size, replace=True)
+
+        responses_batch = []
+        reward_scores_batch = []
+        # Generate responses and score
+        for prompt in prompts_batch:
+            responses = lm.generate_responses(prompt, num_responses=response_samples, temperature=response_temperature)
+            responses_batch.append(responses)
+            scores = reward_model.score_responses(prompt, responses)
+            reward_scores_batch.append(scores)
+
+        # For each prompt, compute importance weights and update
+        for prompt, responses, reward_scores in zip(prompts_batch, responses_batch, reward_scores_batch):
+            # For each response, get log probs
+            log_probs = lm.log_probs(prompt, responses)  # total log prob per response
+            # Compute scaled reward scores for importance weights
+            scaled_rewards = np.array(reward_scores) / importance_beta
+            # Compute importance weights
+            weights = utils.importance_weights(responses, scaled_rewards, None, importance_beta)  # logits placeholder
+            # Perform a training step with weighted likelihood
+            # The train_step function will handle gradient update
+            trainer.train_step(prompt, responses, weights, divergence_beta)
+
+        # Periodic evaluation
+        if step % eval_steps == 0:
+            print(f"Evaluation at step {step}")
+            eval_prompts = dataset_loader.get_prompts()[:100]  # or pick a fixed eval set
+            responses_eval = []
+            for prompt in eval_prompts:
+                responses = lm.generate_responses(prompt, num_responses=response_samples, temperature=response_temperature)
+                responses_eval.append(responses)
+            # Compute reward scores
+            eval_rewards = []
+            for prompt, responses in zip(eval_prompts, responses_eval):
+                scores = reward_model.score_responses(prompt, responses)
+                eval_rewards.extend(scores)
+            # Estimate divergence (reverse KL)
+            divergence_estimate = evaluator.estimate_reverse_kl(eval_prompts, responses_eval, None)  # placeholder
+            # Log metrics
+            avg_reward = np.mean(eval_rewards)
+            print(f"Step {step}: Avg Reward = {avg_reward:.4f}, Divergence ~ {divergence_estimate:.4f}")
+            # Optionally save checkpoint
+            checkpoint_path = f'checkpoint_step_{step}.pt'
+            trainer.save_checkpoint(checkpoint_path)
+            print(f"Saved checkpoint to {checkpoint_path}")
+
+    # Final save
+    final_path = 'final_model.pt'
+    trainer.save_checkpoint(final_path)
+    print(f"Training complete. Final model saved to {final_path}")
+
+if __name__ == "__main__":
+    main()

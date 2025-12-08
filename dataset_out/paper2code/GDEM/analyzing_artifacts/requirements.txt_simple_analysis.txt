@@ -1,0 +1,59 @@
+# requirements.txt
+
+# This file documents the detailed reasoning and dependencies necessary for implementing the "Graph Distillation with Eigenbasis Matching" (GDEM) framework, aligned with the provided plan, design, and configuration.
+
+# 1. Programming Environment
+# - Python 3.8+ recommended for compatibility with PyTorch, PyTorch Geometric, and scientific libraries.
+
+# 2. Core Deep Learning Framework
+torch==1.13.1
+# - Provides tensor computations, neural network modules, and GPU acceleration.
+
+# 3. Graph Data Handling
+torch-geometric==2.2.0
+# - Facilitates easy loading, batching, and processing of graph data.
+# - Provides GNN layers and graph utility functions.
+# - Supports sparse matrices and adjacency operations essential for eigen-decomposition.
+
+# 4. Scientific Computing & Eigen-Decomposition
+scipy==1.10.0
+# - Used for:
+#   - Eigen-decomposition of the normalized Laplacian (via scipy.sparse.linalg.eigsh).
+#   - Handling large sparse matrices.
+#   - Performing spectrum-based operations for spectrum reproduction and analysis.
+
+# 5. Numerical Operations
+numpy==1.21.0
+# - Numerical array operations.
+# - Used for data preprocessing, eigenvector/eigenvalue processing, and general calculations.
+
+# 6. Model Evaluation and Visualization
+sklearn==0.24.2
+# - Provides metrics like accuracy score.
+# - Might be used for train/test split utilities.
+
+matplotlib==3.5.3
+# - Visualization of spectral properties, convergence curves, and distribution plots.
+# - Plotting Total Variation (TV) and accuracy metrics as described in the paper.
+
+# 7. Optional Visualization Utilities
+# - Additional optional libraries like seaborn can be included for advanced plotting, but are not mandatory.
+
+# 8. Experimental Setup Dependencies
+# - Ensure that all dependencies support CUDA (if GPU is available) for efficient eigen-decomposition and GNN training.
+
+# 9. Additional Notes
+# - The code should be compatible with the specified versions to ensure reproducibility.
+# - No third-party dependencies outside of the above are required according to the plan.
+# - For large graphs where eigen-decomposition is computationally intensive, consider using eigen-solver options that support approximate methods (e.g., Lanczos).
+
+# 10. Validation and Testing
+# - Use pytest or unittest (not listed here) to verify code correctness, especially for spectral calculations and basis orthogonality constraints.
+
+# 11. Hyperparameter Control
+# - All hyperparameters (e.g., number of eigenvectors, regularization weights, learning rates) will be set via configuration and do not necessitate additional packages.
+
+# Summary:  
+# The above dependencies cover all necessary scientific and library needs for implementing the GDEM framework, including data loading, spectral analysis, optimization, and visualization, ensuring alignment with the provided design and experimental details.
+
+# End of requirements.txt

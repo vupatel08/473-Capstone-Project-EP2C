@@ -1,0 +1,158 @@
+{
+  "title": "Make Your LLM Fully Utilize the Context",
+  "abstract": "Shengnan $\\mathbf { A } \\mathbf { n } ^ { * \\diamondsuit , \\ast }$ , Zexiong $\\mathbf { M } \\mathbf { a } ^ { * \\bigcirc , * }$ , Zeqi $\\mathbf { L i n } ^ { \\dagger \\mathbf { \\delta } }$ , Nanning Zheng†♢, Jian-Guang Lou♣, Weizhu Chen♣ ♢National Key Laboratory of Human-Machine Hybrid Augmented Intelligence, National Engineering Research Center of Visual Information and Applications, Institute of Artificial Intelligence and Robotics, Xi’an Jiaotong University ♣Microsoft ♡Peking University",
+  "authors": [],
+  "body_text": [
+    {
+      "text": "# Make Your LLM Fully Utilize the Context"
+    },
+    {
+      "text": "Shengnan $\\mathbf { A } \\mathbf { n } ^ { * \\diamondsuit , \\ast }$ , Zexiong $\\mathbf { M } \\mathbf { a } ^ { * \\bigcirc , * }$ , Zeqi $\\mathbf { L i n } ^ { \\dagger \\mathbf { \\delta } }$ , Nanning Zheng†♢, Jian-Guang Lou♣, Weizhu Chen♣ ♢National Key Laboratory of Human-Machine Hybrid Augmented Intelligence, National Engineering Research Center of Visual Information and Applications, Institute of Artificial Intelligence and Robotics, Xi’an Jiaotong University ♣Microsoft ♡Peking University"
+    },
+    {
+      "text": "♢{an1006634493@stu,nnzheng@mail}.xjtu.edu.cn, ♡mazexiong@stu.pku.edu.cn, $\\clubsuit$ {Zeqi.Lin,jlou,wzchen}@microsoft.com"
+    },
+    {
+      "text": "# Abstract"
+    },
+    {
+      "text": "While many contemporary large language models (LLMs) can process lengthy input, they still struggle to fully utilize information within the long context, known as the lost-in-the-middle challenge. We hypothesize that it stems from insufficient explicit supervision during the long-context training, which fails to emphasize that any position in a long context can hold crucial information. Based on this intuition, our study presents INformation-INtensive (IN2) training, a purely data-driven solution to overcome lost-in-the-middle. Specifically, IN2 training leverages a synthesized long-context question-answer dataset, where the answer requires (1) fine-grained information awareness on a short segment $\\mathord { \\sim } 1 2 8$ tokens) within a synthesized long context (4K−32K tokens), and (2) the integration and reasoning of information from two or more short segments. Through applying this information-intensive training on Mistral-7B, we present FILM-7B (FILlin-the-Middle). To thoroughly assess the ability of FILM-7B for utilizing long contexts, we design three probing tasks that encompass various context styles (document, code, and structured-data context) and information retrieval patterns (forward, backward, and bi-directional retrieval). The probing results demonstrate that FILM-7B can robustly retrieve information from different positions in its 32K context window. Beyond these probing tasks, FILM-7B significantly improves the performance on real-world long-context tasks (e.g., $2 3 . 5 \\substack {  2 6 . 9 }$ F1 score on NarrativeQA), while maintaining a comparable performance on short-context tasks (e.g., $5 9 . 3  5 9 . 2 $ accuracy on MMLU)."
+    },
+    {
+      "text": "# 1 Introduction"
+    },
+    {
+      "text": "To a great mind, nothing is little."
+    },
+    {
+      "text": "—Arthur Conan Doyle"
+    },
+    {
+      "text": "![](images/df3bb4b5d50473b0d56750802b8db8b5a55daca1277d3bcdb7139237c146e29e.jpg)  \nFigure 1: Performance of FILM-7B, Mistral-7B-Instruct-v0.2, and GPT4-Turbo on our three probing tasks. FILM-7B significantly overcomes the problem of information loss in the middle of the context."
+    },
+    {
+      "text": "tokens, thereby enabling these models to process extensive context as input. This extended training context window can enhance many real-world downstream tasks such as long-context question answering (Kocisk ˇ y et al., 2018; Dasigi et al., 2021; Bai et al., 2023) and summarization (Fabbri \\` et al., 2019; Huang et al., 2021; Zhong et al., 2021)."
+    },
+    {
+      "text": "However, recent studies have revealed that these long-context LLMs struggle to effectively and robustly utilize all the information provided in the context, known as the lost-in-the-middle challenge (Liu et al., 2024b; Xu et al., 2023). It implies that while the LLM can comprehend the information at the beginning and end of the long context, it often overlooks the information in the middle. This challenge could significantly hinder the development of long-context LLMs, as they even often fail to pass simple probing tasks such as Needle-in-the-Haystack and passkey retrieval (Mohtashami & Jaggi, 2024). Consequently, a pressing research question arises: how can we make long-context LLMs fully utilize the information in the long context?"
+    },
+    {
+      "text": "We hypothesize that the root cause of lost-in-the-middle stems from the unintentional bias hidden in the general training data. In auto-regressive pre-training, the loss on predicting the next token is more likely to be influenced by a few nearby pre-tokens rather than long-distance tokens (Sharan et al., 2018; Sun et al., 2021). For supervised fine-tuning and alignment, the system message, which strongly influences the generation of the response, is typically presented at the beginning of the context (Touvron et al., 2023; Cai et al., 2024). As a result, the general training process may inadvertently introduce a position bias, suggesting that important information is always located at the beginning and end of the context."
+    },
+    {
+      "text": "Based on this hypothesis, our work introduces INformation-INtensive (IN2) training to explicitly teach the model that the crucial information can be intensively present throughout the context, not just at the beginning and end. IN2 training is a purely data-driven solution that utilizes a synthesized long-context question-answer dataset. The long context (ranging from 4K to 32K tokens) is concatenated from many short segments $\\mathord { \\sim } 1 2 8$ tokens), and the question-answer (QA) pairs ask for the information contained in one or more segments which are randomly placed in the long context. Specifically, we generate two types of questions, requiring (1) fine-grained information awareness on exactly one short segment, and (2) the integration and reasoning of information from two or more segments. These QA pairs are generated by prompting GPT-4-Turbo (OpenAI, 2023b) with the designed instructions and the raw segments."
+    },
+    {
+      "text": "By applying this information-intensive training on Mistral-7B (Jiang et al., 2023), we present FILM7B (FILl-in-the-Middle). To thoroughly assess the long-context information awareness of FILM-7B, we design three probing tasks encompassing various context styles (document, code, and structureddata context) and information retrieval patterns (forward, backward, and bi-directional retrieval). The probing results (Figure 1) demonstrate that IN2 training significantly overcomes the lost-in-themiddle problem for the backbone model. Moreover, it can enhance the open-source model to achieve comparable or even more robust performance compared with proprietary LLMs such as GPT-4-Turbo."
+    },
+    {
+      "text": "Beyond these probing tasks, the performance of FILM-7B on real-world long-context tasks also exhibits significant improvements (e.g., $2 3 . 5 \\substack {  2 6 . 9 }$ F1 score on NarrativeQA (Kocisk ˇ y et al., 2018)). \\` This demonstrates that the post-training on synthesized long-context data can be generalized to real-world scenarios. Moreover, FILM-7B maintains a comparable performance on short-context tasks compared with the vanilla backbone model (e.g., $5 9 . 3  5 9 . 2 $ accuracy on MMLU (Hendrycks et al., 2020)). This indicates that the short-context capability of FILM-7B is not compromised during training. Our further analysis explores how the sliding window strategy and the choice of RoPE base $\\theta$ influence the performance of IN2 training."
+    },
+    {
+      "text": "![](images/64b49bc9c64cb18976f596650e2c7dc71f15aaf8a78c14e239e1f4ee27cbc64e.jpg)  \nFigure 2: The data construction process for IN2 training, aimed at enhancing the fine-grained information awareness (upper), and the integration and reasoning of information (lower)."
+    },
+    {
+      "text": "# 2 Information-Intensive Training"
+    },
+    {
+      "text": "This section introduces the construction of the dataset for IN2 training and the detailed training process of our model FILM-7B."
+    },
+    {
+      "text": "# 2.1 Training Data Construction"
+    },
+    {
+      "text": "Overview. The IN2 training aims to explicitly teach the model that any position in a long context can contain crucial information. To achieve this goal, we construct a long-context question-answer training dataset $\\mathbb { D } = \\{ \\mathcal { L } _ { i } , q _ { i } , a _ { i } \\}$ , where the answer $a _ { i }$ to the question $q _ { i }$ requires the information contained in some short segments that are randomly placed in the whole long context $\\mathcal { L } _ { i }$ ."
+    },
+    {
+      "text": "Figure 2 illustrates an overview of the data construction process. Specifically, the training data $\\mathbb { D }$ is constructed based on a general natural language corpus $\\mathbb { C }$ . Given a raw text $\\mathcal { C } _ { i } \\in \\mathbb { C }$ , we first generate a question-answer pair $( q _ { i } , a _ { i } )$ using a powerful LLM, then synthesize a long context $\\mathcal { L } _ { i }$ that includes the necessary information from $\\mathcal { C } _ { i }$ and other randomly sampled texts from $\\mathbb { C }$ . We generate two types of question-answer pairs that require (1) the awareness of fine-grained information in the long context, and (2) the integration and reasoning of information appearing at different positions in the long context. We take the realnewslike subset from the C4 corpus (Raffel et al., 2020) as $\\mathbb { C }$ and take GPT-4-Turbo (OpenAI, 2023b) as the LLM to generate QA pairs."
+    },
+    {
+      "text": "Fine-grained information awareness. We consider a 128-token segment as the minimum information unit of the context3. Given a raw text $\\mathcal { C } _ { i }$ , we first randomly extract a 128-token segment $s _ { i }$ from it, then generate the $q _ { i } , a _ { i }$ and $\\mathcal { L } _ { i }$ accordingly,"
+    },
+    {
+      "text": "$$\n( q _ { i } , a _ { i } ) \\sim \\mathrm { P r o m p t i n g } ( s _ { i } , I _ { f } ; \\mathrm { L L M } ) , \\quad \\mathcal { L } _ { i } = \\oplus \\{ \\mathrm { S h u f f e } ( s _ { i } , [ r _ { j } ] ) \\} ,\n$$"
+    },
+    {
+      "text": "![](images/5b87a7802b812a36e7fbaca5a8b4595a111084f1198a4eecb85401e00592490c.jpg)  \nFigure 3: Three tasks in VAL Probing. The retrieval patterns are determined by the relative positions between the retrieval keywords and the information to be retrieved."
+    },
+    {
+      "text": "where $( q _ { i } , a _ { i } )$ is sampled by prompting the powerful LLM with the segment $s _ { i }$ and the instruction $I _ { f }$ , $\\mathbb { \\oplus \\{ \\cdot \\} }$ represents the concatenation of the contained segments, and $\\left[ r _ { j } \\right]$ are randomly sampled from 128-token segments in $\\mathbb { C }$ . Note that $I _ { f }$ instructs the LLM to make the question-answer pair highly specific to the information provided in $s _ { i }$ ."
+    },
+    {
+      "text": "Integration and reasoning of information. Beyond utilizing each single segment, we consider to generate question-answer pairs for information contained in two or more segments. Following the setting of the minimum information unit above, we split a full text $\\mathcal { C } _ { i }$ into a set of 128-token segments $[ s _ { i } ]$ , then generate the $q _ { i } , a _ { i }$ and $\\mathcal { L } _ { i }$ accordingly,"
+    },
+    {
+      "text": "$$\n( q _ { i } , a _ { i } ) \\sim \\mathrm { P r o m p t i n g } ( [ s _ { i } ] , I _ { r } ; \\mathrm { L L M } ) , \\quad \\mathcal { L } _ { i } = \\oplus \\{ \\mathrm { S h u f f e } ( [ s _ { i } ] , [ r _ { j } ] ) \\} ,\n$$"
+    },
+    {
+      "text": "where $I _ { r }$ instructs the LLM to generate a multi-hop question-answer pair that requires the information within at least two segments in $\\left[ s _ { i } \\right]$ . All segments in $[ s _ { i } ]$ and $[ r _ { j } ]$ are jointly shuffled, so the required segments may appear far apart in the context."
+    },
+    {
+      "text": "Context length balance and data mixture. To prevent length bias during IN2 training, we ensure the length of the long context $\\mathcal { L } _ { i }$ is evenly distributed from 4K to 32K tokens. Such a length balance strategy can be implemented with restricted sampling on $[ r _ { j } ]$ , according to Equation 1 and 2. To alleviate catastrophic forgetting on short-context capabilities, we retain ${ \\sim } 1 0 \\%$ question-answer pairs with the original texts $\\mathcal { C } _ { i }$ instead of converting them into a longer context, and add some general instruction-tuning data from the OpenOrca (Lian et al., 2023) dataset."
+    },
+    {
+      "text": "Overall, our dataset for IN2 training contains 1.1M long-context data for the fine-grained information awareness $( \\sim 6 3 \\% )$ , 300K long-context data for the integration and reasoning of information $( \\sim 1 7 \\% )$ , 150K short-context question-answer data $( \\sim 9 \\% )$ , and 200K general instruction-tuning data $( \\sim 1 1 \\% )$ . Appendix I contains the handcraft instructions for data generation. Appendix H illustrates some examples of our constructed long-context QA data. Appendix A describes the filtering strategy to avoid data contamination for evaluation."
+    },
+    {
+      "text": "# 2.2 Training Details"
+    },
+    {
+      "text": "Using the training data constructed above, we further fine-tune the Mistral-7B-Instruct- $\\mathrm { v 0 } . 2 ^ { 4 }$ (Jiang et al., 2023) to get our FILM-7B (FILl-in-the-Middle). We perform IN2 training in the instructiontuning paradigm: the long contexts and questions are used as instructions, and the loss on the answer parts are used to update the model. Appendix I contains the system template used for formatting the training data. For hyper-parameters, we set the global batch size as 128 and conduct one-epoch training with $\\mathord { \\sim } 1 4 \\mathrm { K }$ training steps. We use the cosine learning rate decay with a 1e-6 maximum learning rate and $3 \\%$ warm-up steps. The training process is conducted on 16 nodes of $8 \\mathrm { x } 8 0 \\mathrm { G }$ A100 GPUs with the full sharding strategy and cpu offload strategy implemented by pytorch FSDP (Zhao et al., 2023). One entire training process (for a single FILM-7B model) consumes ${ \\sim } 3 0 0$ GPU days."
+    },
+    {
+      "text": "![](images/167461de1e4b5498bc85bb285c5e7dddf61ab24ce9a4adb9469f446bd1e64a45.jpg)  \nFigure 4: Performance of FILM-7B on VAL Probing and the comparisons with (a) Mistral, (b) LongAlign, and (c) InternLM2. The $\\mathbf { X }$ -axis is the relative position in the context ${ \\sim } 3 2 \\mathrm { K }$ tokens)."
+    },
+    {
+      "text": "# 3 Long-Context Probing"
+    },
+    {
+      "text": "In this section, we first show the preliminary evaluation of FILM-7B on the Needle-in-the-Haystack and discuss about the inadequacies of this probing task. Subsequently, to comprehensively evaluate the long-context information awareness of FILM-7B, we introduce VArious Long-context (VAL) Probing. This includes three tasks that cover various context styles (document, code, and structureddata context) and information retrieval patterns (forward, backward, and bi-directional retrieval)."
+    },
+    {
+      "text": "Table 1: Quantified performances of various models on VAL Probing."
+    },
+    {
+      "text": "<table><tr><td rowspan=\"2\">Model</td><td colspan=\"2\">Document</td><td colspan=\"2\">Code</td><td colspan=\"2\">Database</td><td colspan=\"2\">All</td></tr><tr><td>Avg</td><td>Gap↓</td><td>Avg</td><td>Gap↓</td><td>Avg</td><td>Gap↓</td><td>Avg</td><td>Gap</td></tr><tr><td>Mistral-7B-Instruct-v0.1 (Jiang et al., 2023)</td><td>44.8</td><td>29.9</td><td>6.8</td><td>53.2</td><td>8.8</td><td>74.5</td><td>20.1</td><td>52.5</td></tr><tr><td>Mistral-7B-Instruct-v0.2 (Jiang et al., 2023)</td><td>74.2</td><td>32.1</td><td>20.3</td><td>59.5</td><td>47.5</td><td>77.0</td><td>47.3</td><td>56.2</td></tr><tr><td>LongAlign-7B-64K (Bai et al., 2024)</td><td>65.3</td><td>16.9</td><td>39.3</td><td>56.0</td><td>55.0</td><td>36.2</td><td>53.2</td><td>36.4</td></tr><tr><td>LongAlign-13B-64K (Bai et al., 2024)</td><td>71.7</td><td>13.4</td><td>50.8</td><td>40.8</td><td>82.9</td><td>27.0</td><td>68.5</td><td>27.1</td></tr><tr><td>InternLM2-chat-7B (Cai et al., 2024)</td><td>68.8</td><td>18.7</td><td>50.2</td><td>44.1</td><td>61.2</td><td>57.1</td><td>60.1</td><td>40.0</td></tr><tr><td>InternLM2-chat-20B (Cai et al., 2024)</td><td>66.4</td><td>27.2</td><td>63.4</td><td>45.5</td><td>74.9</td><td>57.2</td><td>68.2</td><td>43.3</td></tr><tr><td>GPT-4-Turbo (OpenAI, 2023b)</td><td>81.3</td><td>31.7</td><td>66.1</td><td>46.5</td><td>89.6</td><td>18.0</td><td>79.0</td><td>32.1</td></tr><tr><td>FILM-7B (ours)</td><td>85.4</td><td>6.1</td><td>83.3</td><td>18.7</td><td>89.0</td><td>16.8</td><td>85.9</td><td>13.9</td></tr></table>"
+    },
+    {
+      "text": "# 3.1 Near-Perfect Performance on Needle-in-the-Haystack: Are We There Yet?"
+    },
+    {
+      "text": "The Needle-in-the-Haystack (Ivgi et al., 2023; Liu et al., 2024b) is widely used to assess how robustly a model utilizes information positioned in the long context. It reveals that even some powerful proprietary LLMs, such as GPT-4 and Claude 2.1 (Anthropic, 2023), struggle to fully exploit the information within the long context."
+    },
+    {
+      "text": "We use the Needle-in-the-Haystack task5 to preliminarily evaluate the long-context capability of FILM-7B. Appendix B demonstrates that FILM-7B has achieved near-perfect performance on this task. This result is not surprising as recent open-source LLMs, such as LongAlign (Bai et al., 2024) and InternLM2 (Cai et al., 2024), have also shown near-perfect performance on this task."
+    },
+    {
+      "text": "However, the near-perfect performance on Needle-in-the-Haystack may overestimate the long-context capabilities of LLMs (Lei et al., 2024; Hsieh et al., 2024). Specifically, we have the following two concerns:"
+    },
+    {
+      "text": "• Needle-in-the-Haystack employs a document-style context, which LLMs could be quite familiar with due to the pre-training on natural language corpora.   \n• The forward retrieval pattern in Needle-in-the-Haystack may simplify the difficulty of information seeking in the long context."
+    },
+    {
+      "text": "The “forward retrieval” means that the information being retrieved directly follows the retrieval keyword in a long context. For example, the default question used in Needle-in-the-Haystack is \"What is the best thing to do in San Francisco?\" and the answer is contained in \"The best thing to do in San Francisco is eat a sandwich and sit in Dolores Park on a sunny day.\" The retrieved information \"eat a sandwich and ...\" just follows the retrieval keywords \"best thing to do in San Francisco\". According to the mechanism of induction head (Olsson et al., 2022), such a following-up copying is an easily learned pattern for LLMs, thus less challenging for evaluating long context utilization (just like the observation of “reversal curse” (Berglund et al., 2024))."
+    },
+    {
+      "text": "Given these considerations, we suggest that performances on Needle-in-the-Haystack may not adequately reflect the long-context capabilities of LLMs. Therefore, we propose VAL Probing for a more comprehensive evaluation involving various context styles and retrieval patterns."
+    },
+    {
+      "text": "# 3.2 VAL Probing"
+    },
+    {
+      "text": "Our retrieval-based VAL Probing considers three context styles (document, code, and structured-data context) and three retrieval patterns (forward, backward, and bi-directional retrieval). Each context in VAL Probing contains ${ \\sim } 3 2 \\mathrm { K }$ tokens, and each task contains ${ \\sim } 3 \\mathrm { K }$ examples. Figure 3 briefly illustrates the contexts and retrieval instructions in VAL Probing."
+    },
+    {
+      "text": "Document Sentence Retrieval (Bi-Direction). The contexts consist of numerous natural language sentences, and the instruction aims to retrieve a single sentence containing a given piece. The sentences are sampled from the abstracts of papers on arXiv6. This task follows the bi-directional retrieval pattern, as the expected retrieval results contain words both before and after the given piece in the context. The evaluation metric is the word-level recall score."
+    },
+    {
+      "text": "![](images/9dc68507c44f96a987b362104333d5618fcc1198db88a8c6a926fc0aef913d77.jpg)  \nFigure 5: Compare the performance of IN2 training and general instruction tuning (IT). Both two training process takes the same number of training instances $20 \\%$ of the full data size, 300K examples). Compare with Mistral $^ +$ IN2 training, the gains from normal instruction tuning are marginal and unstable."
+    },
+    {
+      "text": "Table 2: Quantified comparison between IN2 training and normal instruction tuning."
+    },
+    {
+      "text": "<table><tr><td rowspan=\"2\">Model</td><td colspan=\"2\">Document</td><td colspan=\"2\">Code</td><td colspan=\"2\">Database</td><td colspan=\"2\">All</td></tr><tr><td>Avg</td><td>Gap↓</td><td>Avg</td><td>Gap↓</td><td>Avg</td><td>Gap↓</td><td>Avg</td><td>Gap↓</td></tr><tr><td>Mistral-7B-Instruct-v0.2 (Jiang et al., 2023)</td><td>74.2</td><td>32.1</td><td>20.3</td><td>59.5</td><td>47.5</td><td>77.0</td><td>47.3</td><td>56.2</td></tr><tr><td>+ Normal Instruction Tuning (Lian et al., 2023)</td><td>69.0</td><td>25.9</td><td>30.2</td><td>76.5</td><td>53.4</td><td>54.4</td><td>50.9</td><td>52.3</td></tr><tr><td>+ Information-Intensive Training (ours)</td><td>82.9</td><td>11.5</td><td>74.5</td><td>27.7</td><td>83.5</td><td>31.6</td><td>80.3</td><td>23.6</td></tr></table>"
+    }
+  ],
+  "url": ""
+}

@@ -1,0 +1,135 @@
+```python
+## evaluation.py
+import numpy as np
+from scipy.stats import norm
+
+class Evaluation:
+    """
+    Class to evaluate the imputation performance with metrics:
+    MAE, RMSE, CRPS, NLLK.
+    Supports handling deterministic point estimates and probabilistic posterior samples.
+    """
+    def __init__(self, metrics=None):
+        """
+        Initialize the evaluator.
+        Args:
+            metrics (list): list of metric names to compute.
+        """
+        if metrics is None:
+            self.metrics = ['MAE', 'RMSE', 'CRPS', 'NLLK']
+        else:
+            self.metrics = metrics
+        # Accumulators for metrics
+        self.reset()
+
+    def reset(self):
+        """Reset all accumulators."""
+        self.sum_MAE = 0.0
+        self.sum_RMSE = 0.0
+        self.sum_CRPS = 0.0
+        self.sum_NLLK = 0.0
+        self.count = 0
+        self.metric_records = []
+
+    def evaluate(self, y_true, y_pred_mean, mask_missing, y_pred_samples=None, y_pred_std=None):
+        """
+        Compute metrics for a batch or dataset.
+        Args:
+            y_true (np.ndarray): ground truth values, shape (num_samples, D)
+            y_pred_mean (np.ndarray): predicted means, shape (num_samples, D)
+            mask_missing (np.ndarray): boolean array indicating missing entries, shape (num_samples, D)
+            y_pred_samples (np.ndarray or None): posterior samples for missing entries, shape (num_samples, M_samples, D)
+            y_pred_std (np.ndarray or None): predicted std deviations for missing entries, shape (num_samples, D)
+        """
+        # Select only missing entries
+        y_true_missing = y_true[mask_missing]
+        y_pred_mean_missing = y_pred_mean[mask_missing]
+
+        # Calculate MAE
+        mae = np.mean(np.abs(y_pred_mean_missing - y_true_missing))
+        # Calculate RMSE
+        rmse = np.sqrt(np.mean((y_pred_mean_missing - y_true_missing)**2))
+        # Initialize CRPS and NLLK
+        crps = np.nan
+        nllk = np.nan
+
+        # For probabilistic metrics, check if samples are provided
+        if y_pred_samples is not None:
+            # y_pred_samples shape: (num_missing, M_samples, D)
+            samples_missing = y_pred_samples.reshape(-1, y_pred_samples.shape[2])  # shape (N_missing*M, D)
+            n_samples_total = y_pred_samples.shape[1]
+            total_missing_samples = y_pred_samples.shape[0]
+
+            # Compute CRPS for each missing point
+            # Using empirical formula: CRPS ≈ mean absolute error between samples and obs
+            crps_per_point = []
+            for i in range(total_missing_samples):
+                obs = y_true_missing[i]
+                samples_i = y_pred_samples[i]
+                # Approximate CRPS per point
+                crps_point = np.mean(np.abs(samples_i - obs.reshape(1, -1))) - 0.5 * np.mean(
+                    np.abs(samples_i[:, None, :] - samples_i[None, :, :]), axis=(0, 1))
+                crps_per_point.append(np.mean(crps_point))
+            crps = np.mean(crps_per_point)
+
+            # Compute NLLK (assuming Gaussian)
+            if y_pred_std is not None:
+                sigma = y_pred_std[mask_missing]
+                mu = y_pred_mean[mask_missing]
+                # Clip sigma to avoid log(0)
+                sigma = np.clip(sigma, 1e-8, None)
+                residuals = y_true_missing - mu
+                nllk_values = 0.5 * np.log(2*np.pi * sigma**2) + (residuals**2) / (2 * sigma**2)
+                nllk = np.mean(nllk_values)
+            else:
+                # fallback if std not provided: approximate from samples
+                # compute empirical mean and std per point
+                mu_est = np.mean(y_pred_samples, axis=1)  # shape (N_missing, D)
+                sigma_est = np.std(y_pred_samples, axis=1)  # same shape
+                sigma_est = np.clip(sigma_est, 1e-8, None)
+                residuals = y_true_missing - mu_est
+                nllk_vals = 0.5 * np.log(2*np.pi*sigma_est**2) + (residuals**2)/(2*sigma_est**2)
+                nllk = np.mean(nllk_vals)
+
+        # Update accumulators
+        self.sum_MAE += mae * len(y_true_missing)
+        self.sum_RMSE += rmse * len(y_true_missing)
+        if not hasattr(self, 'count'):
+            self.count = 0
+        self.count += len(y_true_missing)
+        if 'CRPS' in self.metrics:
+            self.sum_CRPS += crps * len(y_true_missing)
+        if 'NLLK' in self.metrics:
+            self.sum_NLLK += nllk * len(y_true_missing)
+
+    def get_metrics(self):
+        """
+        Compute and return aggregated metrics.
+        Returns:
+            dict: metrics with 3 decimal places
+        """
+        avg_mae = self.sum_MAE / self.count if self.count > 0 else np.nan
+        avg_rmse = self.sum_RMSE / self.count if self.count > 0 else np.nan
+        avg_crps = self.sum_CRPS / self.count if self.count > 0 and 'CRPS' in self.metrics else np.nan
+        avg_nllk = self.sum_NLLK / self.count if self.count > 0 and 'NLLK' in self.metrics else np.nan
+
+        metrics_dict = {}
+        if 'MAE' in self.metrics:
+            metrics_dict['MAE'] = round(avg_mae, 3)
+        if 'RMSE' in self.metrics:
+            metrics_dict['RMSE'] = round(avg_rmse, 3)
+        if 'CRPS' in self.metrics:
+            metrics_dict['CRPS'] = round(avg_crps, 3)
+        if 'NLLK' in self.metrics:
+            metrics_dict['NLLK'] = round(avg_nllk, 3)
+
+        return metrics_dict
+
+    def report(self):
+        """
+        Print formatted report of current metrics.
+        """
+        metrics = self.get_metrics()
+        report_str = ', '.join([f"{k}: {v:.3f}" for k,v in metrics.items()])
+        print(f"Evaluation Metrics: {report_str}")
+```

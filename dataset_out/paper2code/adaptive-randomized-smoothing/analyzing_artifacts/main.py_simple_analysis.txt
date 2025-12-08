@@ -1,0 +1,143 @@
+# Logic Analysis for main.py
+
+This script serves as the orchestrator for the entire experimental pipeline described in the paper. Its core responsibilities are: parsing configurations, initializing datasets and models, conducting training, and performing evaluation and certification. The flow must be aligned with the methodology, hyperparameters, and evaluation protocols as specified, ensuring reproducibility and fidelity to the paper's experiments.
+
+---
+
+# 1. Initialization and Argument Parsing
+- Parse command-line arguments specifying:
+  - Mode: 'train', 'evaluate', or 'certify'
+  - Dataset subset (if applicable)
+  - Hyperparameter tuning mode (grid search, etc.)
+  - Debug/verbose flags
+- Load configuration from **config.yaml** to ensure all parameters are set as per the paper:
+  - Dataset parameters
+  - Model hyperparameters (mask model, classifier)
+  - Noise levels (sigma, split factor)
+  - Training parameters (epochs, batch size, learning rate, optimizer)
+  - Evaluation parameters (Monte Carlo samples, confidence levels)
+  - Hyperparameter search spaces
+
+---
+
+# 2. Dataset Initialization
+- Instantiate DatasetLoader class:
+  - Use dataset parameters: name (CIFAR10, CelebA, ImageNet), background scale, data split.
+  - For CIFAR-10/CelebA:
+    - Resize background images to `background_scale` (e.g., 640).
+    - Place CIFAR images or CelebA cropped images randomly on backgrounds for the BG experiments.
+    - Apply relevant data augmentations if specified.
+  - For ImageNet:
+    - Load standard validation or test fold images.
+- Prepare datasets for:
+  - Training (with augmentation if specified)
+  - Validation (for hyperparameter selection)
+  - Testing (for final evaluation and certification)
+
+---
+
+# 3. Model Construction
+- **Mask Model (w)**:
+  - Instantiate MaskUNet with parameters:
+    - base_channels=32
+    - channel_mult=[1,2,4,8]
+    - step_size=40
+    - gamma=0.5
+  - Initialize weights with standard methods (He, Xavier).
+  - Setup optimizer (AdamW) with learning rate 1e-3, weight decay 1e-4.
+  - Prepare for end-to-end training.
+    
+- **Base Classifier (g)**:
+  - Instantiate with architecture specified (ResNet50, ResNet110).
+  - Initialize weights.
+  - Setup optimizer with learning rate 1e-3, weight decay 1e-4.
+  - Load pretrained weights if doing pretraining, or initialize randomly for joint training.
+
+---
+
+# 4. Training Procedures
+- **Hyperparameter Selection (if needed)**:
+  - Depending on mode, run grid search over the following:
+    - $\sigma$ (0.25, 0.5, 1.0, 1.5)
+    - $\beta$ (2.0, 2.25)
+    - Mask model hyperparameters (e.g., learning rate schedule)
+  - For each candidate hyperparameter set:
+    - Train mask model and classifier jointly end-to-end.
+    - Use the training dataset:
+      - For each batch:
+        - Generate Gaussian noise $z_1 \sim \mathcal{N}(0, \sigma_1^2 I)$ with $\sigma_1 = \sqrt{2}\sigma$ (per config).
+        - Pass noisy input $X + z_1$ through mask network to produce $w(m_1)$.
+        - Apply mask to input: $w(m_1) \odot X$.
+        - Add second Gaussian noise $z_2 \sim \mathcal{N}(0, \sigma_2^2 I)$ with $\sigma_2 = \sqrt{2}\sigma$.
+        - Build combined input $\hat{X}$ via linear weights calculated to ensure unbiased estimate.
+        - Train classifier with cross-entropy loss on prediction output.
+        - Train mask network with, e.g., masked-cross entropy or an auxiliary loss if specified.
+    - Validate on validation subset, record metrics.
+- **Final model training**:
+  - Select best hyperparameters per validation performance.
+  - Train the final model(s) with the chosen hyperparameters and full training data.
+
+---
+
+# 5. Inference Workflow
+- For each test sample:
+  - Generate multiple Monte Carlo samples ($\sim$1000 as per config):
+    - For each sample:
+      - Draw noise $z_1$, compute mask $w(m_1)$.
+      - Generate $m_1$ (from noisy input + $z_1$).
+      - Compute masked input: $w(m_1) \odot X$.
+      - Draw noise $z_2$, compute $m_2$.
+      - Compute linear combination $\hat{X}$:
+        - Coefficients are calculated as per formulas to minimize variance while maintaining unbiasedness.
+      - Feed $\hat{X}$ into classifier $g$ to get class logits.
+  - Average class logits/probabilities over all samples.
+  - Determine class prediction based on maximum average probability.
+  - Compute class probabilities ($p_+$, $p_-$) from the sampled predictions.
+  
+---
+
+# 6. Certification Calculation
+- For each sample prediction:
+  - Acquire class probabilities: $\underline{p_+}$, $\overline{p_-}$ using statistical estimation (Clopper-Pearson, Monte Carlo bounds).
+  - Use formulas:
+    - Eq. 2.2 / 2.4 / 2.5:
+      - Calculate the radius $r_X^\infty$ using class probabilities, noise levels, and the inverse Gaussian CDF $\Phi^{-1}$.
+      - For $L_\infty$, include the dimension scaling (dividing the radius estimate accordingly).
+    - For adaptive steps, incorporate the $f$-DP composition result (Equation 3/4).
+- Determine the certified robustness radius per sample.
+- Collect and aggregate results:
+  - Certified accuracy: fraction of samples with radius ≥ threshold.
+  - Standard accuracy: fraction of correct predictions without robustness bound filter.
+
+---
+
+# 7. Logging & Output
+- Save raw class probabilities, predicted classes, and radius bounds.
+- Record per-sample and overall metrics:
+  - Standard accuracy.
+  - Certified robustness at various radii thresholds.
+- Save model checkpoints with hyperparameters and training logs.
+- Generate plots for:
+  - Certified accuracy vs. radius.
+  - Standard accuracy vs. $\sigma$.
+  - Visualizations of masks (especially significant for interpretability).
+
+---
+
+# 8. Additional Considerations
+- Use fixed random seeds for reproducibility.
+- Manage GPU resources per environment: e.g., allocate sufficient memory, clear cache after each run.
+- Handle large background images efficiently in data pipeline.
+- Document hyperparameters, training time, and experimental details for reproducibility and alignment with paper.
+
+---
+
+# 9. Unclear or Optional Enhancements
+- Exact number of Monte Carlo samples needed for stability: ensure at least 1000 samples.
+- Confidence intervals for class probabilities: typically, use the Clopper-Pearson method or Bayesian bounds.
+- Hyperparameter tuning details: adopt grid search or Bayesian optimization based on validation performance.
+- For large-scale experiments, consider distributed training or evaluation if resources permit.
+
+---
+
+This thorough analysis ensures that every step reflects the paper’s methodology, experimental protocols, and evaluation criteria, enabling faithful implementation and reproducibility.

@@ -1,0 +1,133 @@
+# model.py
+import torch
+from transformers import AutoModelForCausalLM, AutoTokenizer
+from peft import get_peft_model, LoraConfig
+from typing import Optional, Dict
+import logging
+
+class LLMModel:
+    def __init__(self, config: Dict):
+        """
+        Initialize the LLMModel for loading the pretrained Llama2-7B, with optional prompt tuning or LoRA fine-tuning.
+        Uses configuration from the provided dictionary, aligning with "config.yaml".
+        """
+        # Extract configuration options with defaults
+        self.model_name: str = config.get("model_name", "Llama2-7B")
+        self.model_precision: str = config.get("model_precision", "fp16")
+        self.max_input_tokens: int = config.get("max_input_tokens", 512)
+        self.prompt_length: int = config.get("prompt_length", 10)  # number of soft prompt tokens
+        self.prompt_learning_rate: float = config.get("prompt_learning_rate", 1e-5)
+        self.trainable_method: str = config.get("trainable_method", "LoRA")  # "LoRA" or "prompt_tuning"
+        # For simplicity, using defaults; optional other configs could be added
+
+        # Set device
+        self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+
+        # Load tokenizer
+        self.tokenizer = AutoTokenizer.from_pretrained(self.model_name)
+
+        # Load the base model with FP16 if specified
+        self.model = AutoModelForCausalLM.from_pretrained(self.model_name)
+        if self.model_precision == "fp16":
+            self.model = self.model.half()
+        self.model.to(self.device)
+        # Freeze all parameters initially
+        for param in self.model.parameters():
+            param.requires_grad = False
+
+        # Initialize prompt tuning or LoRA
+        if self.trainable_method == "prompt_tuning":
+            # Initialize learnable prompt embedding: shape (prompt_length, hidden_size)
+            self.prompt_embeddings = torch.randn(self.prompt_length, self.model.config.hidden_size).to(self.device)
+            self.prompt_embeddings = torch.nn.Parameter(self.prompt_embeddings)
+            # Optimizer will be external; here, just store
+        elif self.trainable_method == "LoRA":
+            # Define LoRA config
+            lora_cfg = LoraConfig(r=16, lora_alpha=16, target_modules=["q_proj", "v_proj"], lora_dropout=0.05)
+            # Load model with PEFT LoRA extensions
+            self.model = get_peft_model(self.model, lora_cfg)
+            # Now, only LoRA parameters require grad
+            self.model.train()
+        else:
+            raise ValueError(f"Unsupported trainable_method: {self.trainable_method}")
+
+        # Save parameters for training if needed (training is outside scope here)
+        # For inference, prompt embedding tensor is used directly in generate
+
+    def prepare_prompt(self, graph_text: str, question: str) -> Dict:
+        """
+        Prepare input embeddings by combining optimized prompt tokens (for prompt tuning)
+        and the tokenized question + graph description.
+        Returns a dict with 'inputs_embeds' and 'attention_mask' for generation.
+        """
+        # Compose prompt text: e.g., "Graph:\n{graph_text}\nQuestion: {question}\nAnswer:"
+        prompt_text = f"Graph:\n{graph_text}\nQuestion: {question}\nAnswer:"
+        encoding = self.tokenizer(prompt_text, max_length=self.max_input_tokens,
+                                  padding='max_length', truncation=True, return_tensors='pt')
+
+        input_ids = encoding['input_ids'].to(self.device)  # shape: (1, seq_len)
+        attention_mask = encoding['attention_mask'].to(self.device)  # shape: (1, seq_len)
+
+        # Get input embeddings
+        with torch.no_grad():
+            inputs_embeds = self.model.get_input_embeddings()(input_ids).squeeze(0)  # shape: (seq_len, hidden_dim)
+
+        # If prompt tuning, replace first prompt_length tokens with prompt embeddings
+        if self.trainable_method == "prompt_tuning":
+            # For simplicity, insert prompt embeddings at the start
+            # First, ensure the prompt embeddings are of shape (prompt_length, hidden_dim)
+            # Replace first prompt_length embeddings
+            if self.prompt_embeddings.shape[0] != self.prompt_length:
+                # Resize if needed
+                self.prompt_embeddings = torch.nn.Parameter(
+                    torch.randn(self.prompt_length, self.model.config.hidden_size).to(self.device)
+                )
+            inputs_embeds[:self.prompt_length, :] = self.prompt_embeddings
+
+        return {'inputs_embeds': inputs_embeds.unsqueeze(0),  # shape: (1, seq_len, hidden_dim)
+                'attention_mask': torch.ones(1, inputs_embeds.shape[0], dtype=torch.long).to(self.device)}
+
+    def generate(self, graph_text: str, question: str, max_new_tokens: int = 32) -> str:
+        """
+        Generate an answer token sequence from the model given textual graph description and question.
+        Uses the prepared prompt embeddings as input.
+        """
+        prompt_inputs = self.prepare_prompt(graph_text, question)
+        # Generate tokens
+        output_ids = self.model.generate(
+            inputs_embeds=prompt_inputs['inputs_embeds'],
+            attention_mask=prompt_inputs['attention_mask'],
+            max_new_tokens=max_new_tokens,
+            do_sample=False  # deterministic; set True if sampling desired
+        )
+        # Decode output tokens to text
+        response = self.tokenizer.decode(output_ids[0], skip_special_tokens=True)
+        return response
+
+    def save_prompt(self, save_path: str):
+        """
+        Save prompt embeddings or LoRA weights.
+        """
+        if self.trainable_method == "prompt_tuning":
+            torch.save(self.prompt_embeddings.detach().cpu(), save_path)
+        elif self.trainable_method == "LoRA":
+            # Save the entire model with PEFT adapter
+            self.model.save_pretrained(save_path)
+        else:
+            raise ValueError(f"Unknown trainable_method: {self.trainable_method}")
+
+    def load_prompt(self, load_path: str):
+        """
+        Load prompt embeddings or LoRA weights.
+        """
+        if self.trainable_method == "prompt_tuning":
+            loaded = torch.load(load_path).to(self.device)
+            self.prompt_embeddings.data.copy_(loaded)
+        elif self.trainable_method == "LoRA":
+            # Load LoRA adapter weights into the model
+            self.model = AutoModelForCausalLM.from_pretrained(self.model_name)
+            self.model = get_peft_model(self.model, LoraConfig())
+            self.model.load_adapter(load_path)
+            self.model.train()
+        else:
+            raise ValueError(f"Unsupported trainable_method: {self.trainable_method}")

@@ -1,0 +1,143 @@
+# Logic Analysis for dataset_loader.py
+
+## Purpose and Role
+`dataset_loader.py` is tasked with implementing the `DatasetLoader` class, which is central to ingesting all data required for constructing RLTs, training reward models, and evaluating policies. It must load preference feedback data, trajectories, ground-truth rewards, and environment configurations. The class acts as a data interface, ensuring that subsequent modules (RLT construction, reward training, and evaluation) can access structured and consistent data inputs.
+
+---
+
+## Core Responsibilities
+1. Load preference feedback data:
+   - Preference labels between trajectory segments.
+   - Support for different feedback types (binary, ternary, and listwise), as dictated by the experimental setup.
+   
+2. Load trajectory episodes:
+   - Segments or trajectories represented by sequences of states, actions, and optional features.
+   - Pre-extracted features should be in a format suitable for neural network inputs.
+   
+3. Load ground-truth rewards:
+   - For validation and reward correlation analysis.
+   - Rewards are labeled per segment, enabling reward ranking and comparison.
+
+4. Initialize environment details:
+   - Select environment type: `'gym'` or `'metaworld'`.
+   - Load environment-specific parameters, such as environment name, seed, etc., to enable consistent environment instantiation.
+   
+5. Provide structured interfaces:
+   - Methods to query preference data (e.g., get preferences for segment pairs).
+   - Methods to retrieve segments and their features.
+   - Methods to access environment parameters and instantiate environment objects.
+
+6. Support synthetic preference generation:
+   - When ground-truth rewards are available, generate synthetic preference labels for validation.
+   - Incorporate or simulate human preferences if required.
+
+---
+
+## Input and Data Format Assumptions
+- **Preference Feedback Data Files:**
+  - Structure: CSV, JSON, or Pickle containing:
+    - Pairs of segment identifiers.
+    - Preference labels (`preferred`, `dispreferred`, `equal`).
+  - Possible format:
+    ```json
+    [
+      {"segment_a_id": "s1", "segment_b_id": "s2", "label": "preferred"},
+      ...
+    ]
+    ```
+  - Labels could be numeric: `0` (preferred), `1` (dispreferred), `0.5` (equal), aligned with the paper's conventions.
+
+- **Trajectory Data Files:**
+  - Contain sequences with a common segment ID.
+  - Each segment: list of states/actions/features.
+  - Format: Pickle/Numpy arrays, CSV, or HDF5.
+  - Data structure:
+    ```python
+    segments = {
+      "s1": {"states": np.ndarray, "actions": np.ndarray, "features": np.ndarray},
+      ...
+    }
+    ```
+- **Ground-truth Rewards:**
+  - Per segment or per trajectory.
+  - Format: CSV or Numpy array, mapping segment IDs to reward values.
+  - Use: For validation; not necessary during reward learning unless for synthetic label generation.
+
+- **Environment Configurations:**
+  - Environment type (`'gym'` or `'metaworld'`).
+  - Environment name, seed, and parameters as per YAML configuration.
+  - Integration: Import environment APIs, create environment instance as needed in other modules.
+
+---
+
+## Functional and Method Design
+
+### Initialization
+- Parse configuration parameters:
+  - Data paths for preference labels, trajectories, rewards.
+  - Environment setup parameters.
+- Load data files:
+  - Preference data: from specified file formats.
+  - Trajectory data: load all segments and their features.
+  - Ground-truth rewards: load for validation.
+
+### Methods
+- `load_preference_data()`
+  - Returns a list or DataFrame of preference tuples:
+    ```python
+    List[Tuple[str, str, int]]  # segment_a_id, segment_b_id, preference_label
+    ```
+  - Supports filtering, sampling, and synthetic label generation.
+  
+- `load_trajectories()`
+  - Returns a dictionary or list of `Segment` objects.
+  - Each `Segment` includes features suitable for model input.
+
+- `load_ground_truth_rewards()`
+  - Returns a dictionary or array:
+    ```python
+    Dict[str, float]  # segment_id -> reward_value
+    ```
+
+- `load_environment_config()`
+  - Parses environment parameters.
+  - Provides interface to instantiate environments externally.
+
+- Utility methods:
+  - Generate synthetic preferences based on ground-truth rewards if needed.
+  - Sample segments or pairs for RLT construction.
+
+---
+
+## Supporting Functions
+- Data validation:
+  - Check consistency of segment IDs between preference data, trajectories, and rewards.
+  - Validate label format and value ranges.
+  
+- Data preprocessing:
+  - Normalize or standardize features if required.
+  - Encode labels into numeric form(s), e.g., `-1` (preferred), `0` (tie), `1` (dispreferred).
+
+- Data access:
+  - Methods to query preference labels between two segments quickly.
+  - Map segment IDs to feature vectors for model training.
+
+---
+
+## Error Handling and Robustness
+- File existence and format validation.
+- Handle missing data or mismatched segment IDs gracefully.
+- Support partial data loading (e.g., when ground-truth rewards are unavailable).
+- Include informative exceptions and warnings for data inconsistencies.
+
+---
+
+## Summary
+`DatasetLoader` in `dataset_loader.py` must:
+- Be initialized with configuration paths.
+- Load preference datasets, trajectories, and rewards.
+- Provide clear, efficient interfaces to access preference pairs and segment features.
+- Support synthetic preference generation based on ground-truth, for validation.
+- Maintain data integrity and validation throughout.
+
+This design ensures the core data dependencies are cleanly abstracted, enabling modular, reproducible experiment pipelines aligned with the paper’s methodology.

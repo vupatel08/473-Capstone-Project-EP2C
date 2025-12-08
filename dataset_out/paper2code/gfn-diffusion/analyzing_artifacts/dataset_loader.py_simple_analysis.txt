@@ -1,0 +1,50 @@
+{
+  "dataset_loader.py - Logic Analysis": [
+    {
+      "Purpose": "Implement a flexible data loading module to provide training, validation, and test data for synthetic energy-based tasks and optionally for real datasets like MNIST, supporting both unconditional and conditional sampling scenarios.",
+      "Key Responsibilities": [
+        "Load and generate datasets appropriate for the specified energy or data type.",
+        "For synthetic energy tasks (e.g., Manywell, Funnel, GMM), generate samples directly via the energy functions defined in the experiment setup.",
+        "For high-dimensional synthetic distributions, implement sampling routines that can produce representative data (e.g., samples from the mixture models, or from the specified potential function).",
+        "For conditional models (e.g., VAE on MNIST), load real dataset images, process them into suitable formats, and prepare conditioning variables.",
+        "Ensure datasets are correctly split into training and testing sets, or provide fixed test sets for evaluation consistency."
+      ],
+      "Inputs": [
+        "Configuration parameters (from config.yaml), such as dataset type, name, dimensionality, energy function, conditional flags.",
+        "Predefined or synthetic energy functions (as Python functions or callable objects).",
+        "Paths to datasets (e.g., MNIST), or routines to generate synthetic data."
+      ],
+      "Outputs": [
+        "A dataset object or generator (e.g., PyTorch Dataset, DataLoader) providing batches of data samples.",
+        "For synthetic energy functions, a sampling function that generates samples on demand.",
+        "For conditional datasets, pairs of (condition, data) samples in appropriate tensor formats."
+      ],
+      "Implementation Details": [
+        "Create a class or functions that can instantiate either synthetic data or load real datasets based on configuration flags.",
+        "For synthetic tasks: define the energy function (either inline or imported), and implement a 'sample_data' routine that samples from the unnormalized density R(x) = exp(-E(x)).",
+        "Use rejection sampling or MCMC in low-dimensional cases if needed to obtain samples from complex distributions, but prefer direct generation methods for high-dimensional models.",
+        "Normalize data to appropriate ranges (e.g., [0, 1] for images).",
+        "Provide functions for precomputing or caching samples for reproducibility if needed.",
+        "Support datasets being generated 'on-the-fly' (for synthetic) or loaded from disk (for real data)."
+      ],
+      "Considerations for Reproducibility": [
+        "Set random seeds (e.g., torch.manual_seed, numpy.random.seed).",
+        "Document data generation procedures (parameters, energy functions).",
+        "Ensure deterministic sampling if possible, especially for synthetic data."
+      ],
+      "Potential Challenges": [
+        "Correctly implementing and verifying synthetic energy functions predefined in the paper.",
+        "Ensuring the generated samples match the distributions used in experiments (matching parameters, distributions).",
+        "Handling conditional datasets: aligning conditioning variables with model input expectations.",
+        "Balancing computational efficiency with sample correctness (e.g., avoiding expensive MCMC when unnecessary)."
+      ],
+      "Assumptions": [
+        "Energy functions for synthetic tasks are defined as Python functions consistent with those used during training (e.g., 2D GMM, funnel).",
+        "For MNIST, datasets are preprocessed appropriately, normalized, and split into training/test sets.",
+        "Reproducibility is maintained via fixed seeds and consistent function implementations."
+      ],
+      "In summary": "The dataset_loader.py module should be capable of (a) generating or loading high-dimensional synthetic datasets defined by energy functions (e.g., Manywell, Funnel), (b) providing batches of samples for training using the specific sampling methods described, (c) supporting conditional datasets such as MNIST with VAEs, and (d) ensuring data reproducibility and compatibility with training and evaluation procedures. The implementation must respect constraints related to energy function definitions, data formats, and reproducibility as per the experimental setup.",
+      "Next steps": "Develop classes/functions for dataset generation/loading, ensure energy functions are correctly implemented, and integrate seed management for reproducibility."
+    }
+  ]
+}

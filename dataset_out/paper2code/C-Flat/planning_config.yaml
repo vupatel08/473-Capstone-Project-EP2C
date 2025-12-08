@@ -1,0 +1,51 @@
+training:
+  learning_rate: 0.1          # Initial learning rate, scheduled to decay over epochs
+  batch_size: 64              # Batch size for training
+  epochs: 150                 # Total epochs per task phase
+  schedule:
+    decay_type: exponential   # Learning rate schedule type
+    decay_rate: 0.1           # Decay factor for learning rate
+  regularization:
+    rho: 0.2                  # Neighborhood radius for regularizers
+    lambda: 0.5               # Regularization weight for flatness penalties
+    neighborhood_eval_per_epoch: 1  # Evaluate neighborhood regularizers per epoch
+
+model:
+  architecture: ResNet18      # Model backbone; can be changed to other architectures
+  optimizer: SGD              # Optimizer type
+  optimizer_params:
+    momentum: 0.9             # Momentum parameter
+    weight_decay: 1e-4        # Weight decay for regularization
+  scheduler:
+    type: MultiStepLR        # Learning rate scheduler type
+    milestones: [50, 100]    # Epochs at which to decay LR
+    decay_factor: 0.1        # Decay factor at each milestone
+
+dataset:
+  name: CIFAR-100             # Main dataset for experiments
+  split_scheme: class_incremental      # or 'half_classes_then_increment'
+  classes_per_task: 10        # Number of classes learned per task
+  total_tasks: 10             # Total number of incremental tasks
+  seed: 1993                  # Random seed for class order shuffling
+
+regularization:
+  neighborhood_radius: 0.2    # Neighborhood radius (\(\rho\))
+  lambda: 0.5                # Regularization strength (\(\lambda\))
+  eval_frequency: 1          # Evaluation/landscape visualization frequency (per epoch)
+
+evaluation:
+  metrics:
+    accuracy: true            # Track average accuracy per phase
+    forgetting: true          # Track forgetting
+    landscape_visualization: true  # Visualize loss landscape periodically
+
+logging:
+  output_dir: logs/experiment1  # Directory to store logs, checkpoints, and plots
+  save_frequency: 10             # Save model/checkpoints every 10 epochs
+
+hardware:
+  gpu: true                   # Enable GPU acceleration
+  multi_gpu: false            # Use multiple GPUs if available
+
+misc:
+  random_seed: 1993            # Seed for all randomness in training

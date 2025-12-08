@@ -1,0 +1,46 @@
+{
+  "smoke": "The smt_checker.py module is designed to perform formal logical equivalence checks between two geometric formulas or statements, represented as strings or formal objects, utilizing an SMT solver, specifically Z3.",
+  "key_functions": [
+    {
+      "function_name": "check_equivalence",
+      "inputs": [
+        "formula1: str",
+        "formula2: str"
+      ],
+      "output": "bool",
+      "description": "Returns True if the two formulas are semantically equivalent (i.e., their equivalence can be proved), False otherwise."
+    }
+  ],
+  "core_logic": [
+    "Transform formulas into SMT_LIB-compatible representations: The formulas, expressed as geometric relations, need to be mapped into logical assertions understood by Z3.",
+    "Encode the individual formulas: For both formula1 and formula2, define their predicates and relations as logical assertions. This includes encoding geometric primitives like lengths, angles, parallelism, and other relations, as well as any axioms or assumptions relevant.",
+    "Set up the equivalence query: To check if formula1 is equivalent to formula2, encode the negation of their equivalence, i.e., assert (formula1 ≠ formula2).",
+    "Construct the SMT problem: Formulate a conjunction of the assertions for formula1, formula2, and the negation of their equivalence. For example: (assert (not (= formula1 formula2))).",
+    "Run the SMT solver: Submit this set of assertions to Z3 with a timeout to prevent indefinite runs.",
+    "Analyze the result: If Z3 returns UNSAT, it indicates the negation is unsatisfiable, hence formula1 and formula2 are equivalent (return True). If Satisfiable, they are not equivalent (return False).",
+    "Optionally, implement partial checks: For approximate equivalence, compare individual parts such as preconditions, postconditions, angle relations, or segment lengths separately to gather a semantic similarity measure."
+  ],
+  "defining": [
+    "The encoding of formulas involves translating geometric relations such as |(a--b)|, ∠ a:b:c, and others into boolean or real-valued assertions.",
+    "For lengths: define real variables (e.g., length_ab, length_ac, etc.) and assert their equality when relevant, e.g., length_ab == length_ac, or inequalities like length_ab > length_bc.",
+    "For angles: similarly, assign real variables for each angle, e.g., angle_abc, and assert equalities or inequalities based on the formulas.",
+    "For predicates like parallel or intersect: encode as boolean variables or relations, e.g., parallel_line(L1, L2) — represented as a boolean, and assertions reflecting the geometric facts.",
+    "Relate these encodings to the formal predicates used within the Lean formal system (as per the formal system E described in the paper).",
+    "If formulas contain quantifiers, represent these via SMT quantified statements (forall) or instantiate with specific variables. Since typically these are universally quantified geometric relations within proofs, quantify accordingly.",
+    "For the negation of equivalence: encode (not (= formula1 formula2)) and submit as assertion."
+  ],
+  "handling": [
+    "SMT Solver Interface: Use the Python API for Z3 to create a context, add assertions, and run the solver.",
+    "Timeouts and resource constraints: Use solver parameters to limit runtime and resource use.",
+    "Result interpretation: UNSAT implies the formulas are equivalent; SAT implies they differ under the current encoding.",
+    "Logging & diagnostics: Capture counterexamples for SAT cases to understand why formulas are not equivalent, which can guide further proof repair.",
+    "Error handling: Manage exceptions or solver failures gracefully, returning False or raising custom exceptions."
+  ],
+  "additional_considerations": [
+    "Formalizing geometric semantics: Establish clear, consistent encodings from geometric formulas (from the input strings or objects) to logical constraints, following the predicate definitions (e.g., onLine, isCentre, ∠, | | ).",
+    "Variable scope and naming: Maintain consistent variable naming from input formulas to avoid mismatch between logical assertions.",
+    "Partial verification support: To speed verification, consider supporting clause-by-clause or sub-formula checks when full proof of equivalence is computationally expensive.",
+    "Use existing libraries or helper functions: For common geometric encodings, reuse or adapt the functions that translate geometric relations into Z3 assertions."
+  ],
+  "summary": "The core logic of smt_checker.py is to translate geometric formulas into SMT-LIB logical assertions, submit the combined negation of their equivalence to Z3, and interpret the solver's satisfiability result to determine whether the formulas are semantically equivalent, thereby providing an automatic, sound, and efficient semantic verification for autoformalized theorem statements."
+}

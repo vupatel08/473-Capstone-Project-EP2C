@@ -1,0 +1,190 @@
+**Logic Analysis for dataset_loader.py – DatasetLoader Class**
+
+---
+
+### 1. Purpose and Responsibilities of DatasetLoader
+
+- To load datasets for different pixel-wise prediction tasks:
+  - Semantic segmentation (Pascal VOC 2012)
+  - Optical flow estimation (KITTI 2015)
+  - Image restoration (GoPro)
+  - Image denoising (SSID)
+- To handle dataset-specific formats, preprocessing, and augmentation.
+- To provide an iterator/generator over samples for batch or single-sample processing.
+- To ensure data is normalized correctly, and labels are in a format compatible with model inputs.
+- To offer flexibility for train, validation, and test splits, as specified in the configuration.
+
+---
+
+### 2. Inputs and Initialization Parameters
+
+- **dataset_name** (e.g., "PascalVOC2012", "KITTI2015", "GoPro", "SSID")
+- **data_path**: root directory containing dataset images and annotations.
+- **task** (e.g., "semantic_segmentation", "optical_flow", "image_restoration", "image_denoising")
+- **split**: "train", "validation", or "test"
+- **augment**: boolean, whether to apply data augmentation (cropping, flipping, scaling, color jitter, etc.), especially during training.
+- **input_size**: size to resize images (height, width); default sizes based on dataset (e.g., 512x512, 1280x720).
+
+### 3. Dataset-specific Details and Loading
+
+---
+
+#### **Semantic Segmentation (Pascal VOC 2012)**
+
+- **Data components**:
+  - Images: RGB images in formats like PNG or JPEG.
+  - Labels: pixel-wise class labels as 2D arrays or images.
+- **Location**:
+  - Images: usually in a 'JPEGImages' folder.
+  - Labels: in 'SegmentationClass' folder (or similar).
+- **Preprocessing**:
+  - Resize images and labels to `input_size` (512x512 in config).
+  - Normalize images: pixel values scaled to [0,1] (divide by 255).
+- **Labels**:
+  - Load as integer class indices (0..N-1).
+  - For loss computation: convert to one-hot encoding if needed, or keep as class indices for cross-entropy.
+- **Supporting augmentations**:
+  - Random crop, flip, color jitter applied during training.
+
+---
+
+#### **Optical Flow (KITTI 2015)**
+
+- **Data components**:
+  - Image pairs: two consecutive frames (e.g., 3D RGB images).
+  - Ground truth flow: 2D vector field per pixel.
+- **Location**:
+  - Images: in a folder, e.g., "training/image_2/".
+  - Flow labels: in a separate folder, e.g., "training/flow_occ/"; stored as .png or .flo files.
+- **Preprocessing**:
+  - Resize images and flow to `input_size`.
+  - Normalize images to [0,1].
+  - Flow: load as float tensors; apply resizing while keeping vector directions consistent.
+- **Labels**:
+  - Flow fields: 2-channel tensors (horizontal and vertical components).
+  - Missing or occluded areas: handled via a mask or ignore label.
+- **Supporting augmentations**:
+  - Random cropping, flipping, slight color adjustments during training.
+
+---
+
+#### **Image Restoration (GoPro)**
+
+- **Data components**:
+  - Degraded images (blurred, etc.).
+  - Ground-truth sharp images.
+- **Location**:
+  - Images in 'train' or 'test' folders.
+- **Preprocessing**:
+  - Resize images to input_size (1280x720).
+  - Normalize images to [0,1].
+- **Labels**:
+  - Ground-truth images: floating-point tensors.
+- **Supporting augmentations**:
+  - Random cropping, flipping, brightness, contrast adjustments during training.
+
+---
+
+#### **Image Denoising (SSID)**
+
+- **Data components**:
+  - Noisy images and clean ground truths.
+- **Location**:
+  - Same structure as GoPro.
+- **Preprocessing**:
+  - Resize, normalize similarly.
+
+---
+
+### 4. Data Loading and Formatting Strategies
+
+- Use a Python dataset class (inherits `torch.utils.data.Dataset`):
+  - Implement `__len__` and `__getitem__`.
+- Inside `__getitem__`:
+  - Load image(s) and label(s):
+    - For segmentation: load image and label mask.
+    - For optical flow: load image pair and flow vectors.
+    - For restoration/denoising: load degraded and ground truth images.
+  - Resize to `input_size`.
+  - Normalize images.
+  - Convert labels into appropriate format:
+    - Integer class labels (for cross-entropy).
+    - Float flow vectors.
+    - Raw images (for restoration).
+  - Apply augmentation if `augment` is true.
+  - Return a dictionary or tuple: `(inputs, labels)`.
+
+---
+
+### 5. Handling Dataset-specific Edge Cases & Details
+
+- **Missing labels or occlusion masks**:
+  - For optical flow: mask invalid regions.
+- **Data augmentation**:
+  - Random crops: aligned for image and label.
+  - Flips: same flip consistent for image and label.
+  - Color jitter: only for images.
+- **Data types**:
+  - Convert to `torch.FloatTensor` or `torch.LongTensor` as appropriate.
+  - Keep labels as integers for cross-entropy.
+- **One-hot encoding**:
+  - Optional, for a batch of labels, convert as needed when computing loss.
+
+---
+
+### 6. Dataset Split Handling
+
+- Based on `split` parameter:
+  - Load data from train/validation/test directories.
+  - Use separate data subsets for training, validation, attack, and evaluation.
+- Assume dataset paths are correctly structured; implement directory parsing accordingly.
+
+---
+
+### 7. Implementation Considerations
+
+- Lazy loading: load images on demand in `__getitem__`.
+- Multi-threaded data loading via `DataLoader`.
+- Consistent normalization: define a utility function or method for normalization.
+- Flexible input sizing: resize images to specified `input_size`.
+- Compatibility with model input expectations.
+
+---
+
+### 8. Output and Usage
+
+- The class provides an iterator over dataset samples.
+- Each sample is a tuple/dict:
+  
+  ```python
+  {
+    'image': torch.Tensor,             # normalized image tensor
+    'label' or 'flow' or 'target':  # depending on task
+  }
+  ```
+  
+- DatasetLoader can be instantiated multiple times with different parameters for different experiments.
+
+---
+
+### 9. Summary of Key Components
+
+- Constructor:
+  - Initializes dataset paths, split, augmentation, input size.
+- `load_dataset()`:
+  - Reads file lists, creates dataset object.
+- `__getitem__`:
+  - Loads image(s), label(s).
+  - Resizes.
+  - Normalizes.
+  - Applies augmentations if needed.
+  - Returns sample dict.
+- Support functions:
+  - Image reading (`PIL`, `cv2`).
+  - Resizing (`cv2.resize`, `transforms`).
+  - Normalization.
+  - Label processing (categorical conversion, flow normalization).
+
+---
+
+**This comprehensive logic analysis should guide the implementation of `dataset_loader.py`, ensuring accurate, dataset-specific, and task-specific data loading aligned with the experimental setup and the descriptions provided by the paper and supplementary material.**

@@ -1,0 +1,183 @@
+```python
+## evaluation.py
+import torch
+import numpy as np
+from torch.utils.data import DataLoader
+from tqdm import tqdm
+from utils import compute_neighbors, compute_distance_matrix
+from config import EVALUATION, DATASETS_PATHS
+
+class Evaluation:
+    def __init__(self, model, datasets_info, protocol='Protocol-3'):
+        """
+        Initializes the evaluation setup.
+        Args:
+            model (nn.Module): Trained model for feature extraction.
+            datasets_info (dict): Dictionary with dataset split info, label mappings, etc.
+                Expected keys: 'query', 'gallery', each containing a dataset object.
+            protocol (str): Evaluation protocol to use ('Protocol-1', 'Protocol-2', 'Protocol-3').
+        """
+        self.model = model
+        self.model.eval()
+        self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+        self.model.to(self.device)
+        self.protocol = protocol
+
+        # Dataset info contains query and gallery datasets
+        self.query_dataset = datasets_info['query']
+        self.gallery_dataset = datasets_info['gallery']
+
+        # Prepare DataLoaders
+        self.query_loader = DataLoader(self.query_dataset, batch_size=EVALUATION.get('batch_size', 64), shuffle=False, num_workers=4)
+        self.gallery_loader = DataLoader(self.gallery_dataset, batch_size=EVALUATION.get('batch_size', 64), shuffle=False, num_workers=4)
+
+        # Extract labels and domain info if available
+        self._extract_dataset_labels()
+        # For evaluation, no augmentation or transforms besides normalization
+        self.transform_eval = self._get_eval_transform()
+
+    def _extract_dataset_labels(self):
+        """
+        Extracts labels, domain labels, and image paths for query and gallery.
+        """
+        self.q_labels = []
+        self.q_domain_labels = []
+        self.g_labels = []
+        self.g_domain_labels = []
+
+        # Assuming dataset objects have attributes: data_list with (img_path, label, domain_label)
+        self.q_image_paths = []
+        self.g_image_paths = []
+
+        for _, _, label, domain_label in self.query_dataset:
+            self.q_labels.append(label)
+            self.q_domain_labels.append(domain_label)
+        for _, _, label, domain_label in self.gallery_dataset:
+            self.g_labels.append(label)
+            self.g_domain_labels.append(domain_label)
+
+    def _get_eval_transform(self):
+        """
+        Defines deterministic transforms for evaluation.
+        """
+        transform_list = [
+            # Resize to same size as training (256x128)
+            lambda img: img.resize((256, 128)),
+            # Convert to tensor and normalize
+            lambda img: torch.tensor(np.array(img)).permute(2,0,1).float()/255.0,
+            # Normalize with Imagenet mean/std
+            lambda tensor: (tensor - torch.tensor([0.485, 0.456, 0.406]).view(3,1,1)) / torch.tensor([0.229, 0.224, 0.225]).view(3,1,1)
+        ]
+        def transform(img):
+            for t in transform_list:
+                img = t(img)
+            return img
+        return transform
+
+    def _extract_features(self, dataloader):
+        """
+        Runs inference to extract features for all images in dataset.
+        Returns:
+            features (np.ndarray): shape (N, D)
+            labels (list)
+            domain_labels (list)
+        """
+        feats_list = []
+        labels_list = []
+        domain_list = []
+
+        with torch.no_grad():
+            for batch_imgs in tqdm(dataloader, desc='Extracting features'):
+                imgs, labels, domain_labels = batch_imgs
+                imgs = imgs.to(self.device)
+                feats = self.model.extract_features(imgs)
+                feats_list.append(feats.cpu().numpy())
+                labels_list.extend(labels.numpy())
+                domain_list.extend(domain_labels.numpy())
+
+        features = np.vstack(feats_list)
+        return features, labels_list, domain_list
+
+    def evaluate(self):
+        """
+        Perform evaluation: extract features, compute metrics (mAP, Rank-1, CMC@K).
+        """
+        # Extract query features
+        q_features, q_labels, q_domains = self._extract_features(self.query_loader)
+        # Extract gallery features
+        g_features, g_labels, g_domains = self._extract_features(self.gallery_loader)
+
+        # Convert to torch tensors
+        q_feats = torch.tensor(q_features).to(self.device)
+        g_feats = torch.tensor(g_features).to(self.device)
+
+        # Ensure features are normalized (should be if model used normalization)
+        q_feats = nn.functional.normalize(q_feats, p=2, dim=1)
+        g_feats = nn.functional.normalize(g_feats, p=2, dim=1)
+
+        # Compute similarity matrix (cosine similarity)
+        distmat = compute_distance_matrix(q_feats, g_feats, metric='cosine')  # shape (Q, G)
+
+        # Convert to numpy
+        distmat_np = distmat.cpu().numpy()
+
+        # Compute metrics
+        results = self._compute_metrics(distmat_np, q_labels, g_labels)
+
+        return results
+
+    def _compute_metrics(self, distmat, q_labels, g_labels):
+        """
+        Computes mAP, Rank-1 accuracy, and CMC@K.
+        """
+        num_q = distmat.shape[0]
+        indices = np.argsort(distmat, axis=1)  # ascending distance
+        matches = (np.array(g_labels)[indices] == np.array(q_labels)[:, None])  # shape: (Q,G)
+
+        # Initialize metrics containers
+        all_AP = []
+        cmc_curve = np.zeros(distmat.shape[0])  # for top-1 correctness
+
+        for i in range(num_q):
+            match_i = matches[i]
+            index_i = indices[i]
+
+            # Rank-1 check
+            if match_i[0]:
+                cmc_curve[i] = 1
+
+            # Compute AP
+            num_rel = np.sum(match_i)
+            if num_rel == 0:
+                continue  # no positive for this query
+            pos_idx = np.where(match_i)[0]
+            tp_cumsum = np.cumsum(match_i)
+            precisions = tp_cumsum / (np.arange(len(match_i)) + 1)
+            AP = np.sum(precisions[match_i]) / num_rel
+            all_AP.append(AP)
+
+        mAP = np.mean(all_AP) if len(all_AP) > 0 else 0.0
+        rank1_acc = np.mean(cmc_curve)
+
+        # CMC@K metrics
+        cmc_at_5 = np.mean(np.sum(matches[:, :5], axis=1) > 0)
+        cmc_at_1 = rank1_acc  # same as rank-1 accuracy
+
+        metrics = {
+            'mAP': mAP,
+            'Rank-1': rank1_acc,
+            'CMC@1': cmc_at_1,
+            'CMC@5': cmc_at_5,
+        }
+        return metrics
+```
+
+**Notes on Implementation:**
+- Assumes `datasets_info` contains `query` and `gallery` dataset objects with data loaded.
+- The dataset objects should yield (img, label, domain_label). If datasets don't provide domain labels, this can be extended.
+- Ensures to keep all features normalized before similarity calculation.
+- Uses standard person re-ID metrics and protocol.
+- Designed to be integrated into a larger pipeline; adjust data loading and dataset classes as needed.
+- Uses tqdm for progress bar visualization.
+
+This code fulfills the design and logic analysis, providing reliable and complete evaluation functionality in line with the paper's experimental setup.

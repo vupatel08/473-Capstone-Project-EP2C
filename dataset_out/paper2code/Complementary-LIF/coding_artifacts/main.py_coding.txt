@@ -1,0 +1,142 @@
+```python
+# main.py
+import os
+import sys
+import yaml
+import torch
+import torch.nn as nn
+import torch.optim as optim
+import numpy as np
+import random
+
+# Import custom modules as per project structure
+from dataset_loader import DatasetLoader
+from model import build_model
+from trainer import Trainer
+from evaluation import Evaluation
+from utils import set_seed
+
+def main():
+    # 1. Load configuration from 'config.yaml'
+    config_path = 'config.yaml'
+    if not os.path.exists(config_path):
+        print(f"Configuration file {config_path} not found.")
+        sys.exit(1)
+    with open(config_path, 'r') as f:
+        config = yaml.safe_load(f)
+
+    # 2. Set seeds for reproducibility
+    seed = 2022  # explicitly from config or hardcoded
+    if 'training' in config and 'seed' in config['training']:
+        seed = config['training']['seed']
+    set_seed(seed)
+
+    # 3. Determine device
+    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+
+    # 4. Initialize dataset loader and data loaders
+    dataset_cfg = config.get('dataset', {})
+    loader = DatasetLoader(dataset_cfg)
+    train_dataset, test_dataset = loader.load_data()
+
+    batch_size = dataset_cfg.get('batch_size', 128)
+    num_workers = dataset_cfg.get('num_workers', 4)
+
+    train_loader = torch.utils.data.DataLoader(
+        train_dataset, batch_size=batch_size, shuffle=True, num_workers=num_workers, pin_memory=True)
+    test_loader = torch.utils.data.DataLoader(
+        test_dataset, batch_size=batch_size, shuffle=False, num_workers=num_workers, pin_memory=True)
+
+    # 5. Build the model with specified architecture and parameters
+    model_cfg = config.get('model', {})
+    architecture = model_cfg.get('architecture', 'ResNet18')
+    num_classes = model_cfg.get('num_classes', 10)
+    T = model_cfg.get('timesteps', 6)
+    input_channels = model_cfg.get('input_channels', 3)
+    # Build model based on architecture; assuming 'build_model' handles implementation
+    model = build_model(architecture=architecture,
+                        input_channels=input_channels,
+                        num_classes=num_classes,
+                        T=T,
+                        neuron_type=config.get('neuron', {}).get('type', 'CLIF'),
+                        neuron_threshold=1.0,
+                        neuron_tau=1.5)
+    model.to(device)
+
+    # 6. Setup optimizer and learning schedule
+    optim_cfg = config.get('training', {})
+    lr = optim_cfg.get('learning_rate', 0.01)
+    weight_decay = optim_cfg.get('weight_decay', 5e-5)
+    optimizer = optim.SGD(model.parameters(), lr=lr, momentum=0.9, weight_decay=weight_decay)
+
+    # Optional scheduler setup
+    scheduler = None
+    if 'scheduler' in optim_cfg:
+        # e.g., step scheduler
+        step_size = optim_cfg.get('step_size', 50)
+        gamma = optim_cfg.get('gamma', 0.1)
+        scheduler = optim.lr_scheduler.StepLR(optimizer, step_size=step_size, gamma=gamma)
+
+    # 7. Initialize Trainer
+    trainer_params = {
+        'model': model,
+        'optimizer': optimizer,
+        'train_loader': train_loader,
+        'device': device,
+        'epochs': optim_cfg.get('epochs', 200),
+        'timesteps': model_cfg.get('timesteps',6),
+        'neuron_params': {
+            'V_th': 1.0,
+            'tau': optim_cfg.get('time_constant_tau', 1.5)
+        },
+        'log_interval': config.get('logging', {}).get('log_interval', 10),
+        'save_dir': config.get('logging', {}).get('save_dir', './checkpoints')
+    }
+
+    trainer = Trainer(**trainer_params)
+
+    # 8. Run training epochs
+    for epoch in range(1, trainer_params['epochs'] + 1):
+        trainer.train_one_epoch()
+        if scheduler:
+            scheduler.step()
+
+        # Save checkpoint every epoch or as needed
+        ckpt_path = os.path.join(trainer_params['save_dir'], f'checkpoint_epoch_{epoch}.pt')
+        torch.save(model.state_dict(), ckpt_path)
+
+        # Optional validation and logging can be added here
+
+    # 9. After training, evaluate on test set
+    eval_cfg = {
+        'convert_for_inference': True,  # or from config
+        'energy_estimation': True,
+        'output_dir': os.path.join(trainer_params['save_dir'], 'evaluation'),
+        'metrics': ['accuracy']
+    }
+
+    evaluator = Evaluation(model, test_loader, eval_cfg)
+    eval_metrics = evaluator.run()
+
+    # 10. Optionally, convert CLIF to LIF and evaluate again
+    if eval_cfg.get('convert_for_inference', True):
+        print("Converting CLIF to LIF for inference...")
+        # Assuming model has method 'convert_to_LIF'
+        if hasattr(model, 'convert_to_LIF'):
+            model_LIF = model.convert_to_LIF()
+        else:
+            # If not implemented, just use the current model (or implement conversion)
+            model_LIF = model
+        model_LIF.to(device)
+        model_LIF.eval()
+
+        # Run inference on test set with converted model
+        test_eval = Evaluation(model_LIF, test_loader, {'convert_for_inference': False})
+        inference_metrics = test_eval.run()
+        print(f"Final converted model inference accuracy: {inference_metrics.get('accuracy', 'N/A')}%")
+    else:
+        print("Inference conversion skipped.")
+
+if __name__ == "__main__":
+    main()
+```

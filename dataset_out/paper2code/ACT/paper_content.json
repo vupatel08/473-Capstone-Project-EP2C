@@ -1,0 +1,158 @@
+{
+  "title": "Unveiling and Harnessing Hidden Attention Sinks: Enhancing Large Language Models without Training through Attention Calibration",
+  "abstract": "Zhongzhi $\\mathbf { Y } \\mathbf { u } ^ { \\mathrm { ~ \\ast ~ 1 ~ } }$ Zheng Wang \\* 1 Yonggan Fu 1 Huihong Shi 1 Khalid Shaikh 1 Yingyan (Celine) Lin 1",
+  "authors": [],
+  "body_text": [
+    {
+      "text": "# Unveiling and Harnessing Hidden Attention Sinks: Enhancing Large Language Models without Training through Attention Calibration"
+    },
+    {
+      "text": "Zhongzhi $\\mathbf { Y } \\mathbf { u } ^ { \\mathrm { ~ \\ast ~ 1 ~ } }$ Zheng Wang \\* 1 Yonggan Fu 1 Huihong Shi 1 Khalid Shaikh 1 Yingyan (Celine) Lin 1"
+    },
+    {
+      "text": "# Abstract"
+    },
+    {
+      "text": "# 1. Introduction"
+    },
+    {
+      "text": "Attention is a fundamental component behind the remarkable achievements of large language models (LLMs). However, our current understanding of the attention mechanism, especially regarding how attention distributions are established, remains limited. Inspired by recent studies that explore the presence of attention sink in the initial token, which receives disproportionately large attention scores despite their lack of semantic importance, this work delves deeper into this phenomenon. We aim to provide a more profound understanding of the existence of attention sinks within LLMs and to uncover ways to enhance the achievable accuracy of LLMs by directly optimizing the attention distributions, without the need for weight finetuning. Specifically, this work begins with comprehensive visualizations of the attention distributions in LLMs during inference across various inputs and tasks. Based on these visualizations, to the best of our knowledge, we are the first to discover that (1) attention sinks occur not only at the start of sequences but also within later tokens of the input, and (2) not all attention sinks have a positive impact on the achievable accuracy of LLMs. Building upon our findings, we propose a training-free Attention Calibration Technique (ACT) that automatically optimizes the attention distributions on the fly during inference in an input-adaptive manner. Extensive experiments validate that ACT consistently enhances the accuracy of various LLMs across different applications. Specifically, ACT achieves an average improvement of up to $7 . 3 0 \\%$ in accuracy across different datasets when applied to Llama-30B. Our code is available at https: //github.com/GATECH-EIC/ACT."
+    },
+    {
+      "text": "In recent days, large language models (LLMs) have garnered significant attention due to their impressive performance across a wide range of tasks (Touvron et al., 2023a;b; OpenAI, 2023a; Waisberg et al., 2023; Fu et al., 2023; OpenAI, 2023b). One of the key components contributing to the remarkable performance of LLMs is the attention mechanism, which effectively identifies relationships among tokens in a sequence. This ability enables LLMs to comprehend intricate contexts and details, greatly enhancing their capacity to process and generate text that closely resembles human language (Vaswani et al., 2017; Radford et al., 2018). However, despite the immense potential of the attention mechanism, our current understanding of how attention distributions are established and their relationship to the achievable performance of LLMs remains inadequately explored."
+    },
+    {
+      "text": "Along this direction, a pioneering study, StreamLLM (Xiao et al., 2023), has undertaken an initial investigation and improved our understanding of attention distributions by uncovering the existence of attention sinks. In particular, they find that the initial token of an input text receives a disproportionately large attention score, despite often lacking semantic significance. This phenomenon arises from the visibility of the initial token to almost all subsequent tokens in autoregressive language modeling, causing them to become the recipients of these “unnecessary” attention values. Motivated by the impact of attention sinks on attention distributions, we aim to delve deeper into their general existence to gain a better understanding of how they affect LLMs’ reasoning and generation capabilities. This, in turn, will inspire new strategies to enhance the achievable accuracy of LLMs. To achieve this goal, we pose the following three intriguing research questions: Q1: Does an attention sink only exist in the initial token? Q2: Will preserving attention sinks always benefit LLMs’ accuracy in different scenarios? Q3: Can we enhance LLMs’ accuracy by solely manipulating attention sinks without any weight finetuning?"
+    },
+    {
+      "text": "In our endeavor to address the aforementioned three questions, we make the following contributions:"
+    },
+    {
+      "text": "• We conduct comprehensive visualizations of the attention distributions in LLMs across a variety of tasks and inputs. To the best of our knowledge, we are the first to discover that attention sinks manifest not only in the initial token but also within subsequent tokens throughout the input context. Intriguingly, similar to the attention sink observed in the initial token by (Xiao et al., 2023), attention sinks in later tokens also tend to be concentrated on tokens of less semantic importance."
+    },
+    {
+      "text": "• Excited by the above observation, we further probe into the relationship between attention sinks at different locations and the accuracy of the generated content at those respective locations. Interestingly, we discover that not all attention sinks have a positive impact on maintaining LLMs’ performance, which complements the findings in (Xiao et al., 2023)."
+    },
+    {
+      "text": "• Leveraging the findings above, we have developed a training-free Attention Calibration Technique, named ACT, that automatically optimizes attention distributions on the fly during inference in an input-adaptive manner, improving the achievable accuracy of pretrained LLMs on downstream tasks. Additionally, it can even lead to a comparable accuracy as compared to the commonly used in-context learning technique, and further be combined with the latter for boosted accuracy. As such, our ACT has provided an alternative new design knob for LLM enhancement."
+    },
+    {
+      "text": "• Extensive experiments and ablation studies validate that our proposed method can achieve up to a $7 . 3 0 \\%$ higher accuracy than the vanilla inference baseline across various tasks. Furthermore, ACT is capable of improving LLMs’ performance in challenging multiround conversation tasks. Specifically, applying ACT to different variants of Llama2 boosts the achievable score by up to 0.13 on the challenging MT-Bench dataset."
+    },
+    {
+      "text": "# 2. Related Works"
+    },
+    {
+      "text": "# 2.1. Large language models"
+    },
+    {
+      "text": "Transformer-based language models (Vaswani et al., 2017; Devlin et al., 2018; Raffel et al., 2020; Roberts et al., 2022) have demonstrated their remarkable ability to effectively extract relationships among tokens from complex input sequences, thanks to the utilization of the attention mechanism in their model architecture. Furthermore, their attentioncentric design enables decent scalability (Qin et al., 2023; Kaplan et al., 2020; Biderman et al., 2023): as the model size and pretraining dataset scale increase, the performance of transformer-based language models continues to improve. This phenomenon has given rise to the emergence of LLMs. One of the earliest impressive LLMs is GPT-3 (Brown et al., 2020), which showcases remarkable zero-shot and fewshot in-context learning capabilities. This achievement has further fueled the development of various LLMs, such as OPT (Zhang et al., 2022), Llama (Touvron et al., 2023a), Llama2 (Touvron et al., 2023b), BLOOM (Workshop et al.,"
+    },
+    {
+      "text": "2022), GPT-J (Wang & Komatsuzaki, 2021), Pythia (Biderman et al., 2023), and GLM (Du et al., 2021). These models have further pushed the boundaries of deep learning, gradually moving us toward achieving artificial general intelligence."
+    },
+    {
+      "text": "# 2.2. Parameter-efficient tuning"
+    },
+    {
+      "text": "Despite the promising zero-shot and few-shot capabilities of LLMs, one common approach to achieving strong performance in real-world applications is to finetune pretrained LLMs for downstream tasks. However, the enormous size of LLMs makes traditional weight tuning computationally expensive, requiring significant storage and memory overhead. To address this challenge, various parameter-efficient tuning (PET) methods have been proposed (Hu et al., 2021; Lester et al., 2021; Zhang et al., 2020; Sung et al., 2022; Yu et al., 2023a; Fu et al., 2022). Specifically, instead of updating all parameters in the target LLM, PET selectively updates a small set of learnable modules during finetuning (Qi et al., 2023; Xia et al., 2024; Zhao et al., 2024; Yu et al., 2023b; 2024; Zhang et al., 2023a; Li et al., 2023). While PET methods can reduce computational, storage, and memory overheads, even state-of-the-art (SOTA) PET methods still face challenges in efficiently finetuning LLMs (Dettmers et al., 2023). Our proposed method is orthogonal to PET: we aim to enhance the performance of LLMs by directly optimizing attention distributions on the fly during inference, eliminating the need for weight finetuning."
+    },
+    {
+      "text": "# 2.3. Observations regarding LLMs’ attention"
+    },
+    {
+      "text": "Despite being one of the key components of LLMs, the understanding of the attention mechanism has been slow to evolve compared to the rapid advancement of LLMs themselves. Early works focus on studying attention in small-scale transformers. For instance, (Clark et al., 2019b) visualizes specific types of attention patterns in pretrained BERT (Devlin et al., 2018), and (Vig, 2019) identifies biases and localized relevant attention heads. Additionally, (Sun & Lu, 2020) discovers that the degree of association between a word token and a class label affects their attention score. However, the exploration of the unique attention distribution in LLMs with larger model sizes and datasets is still in its infancy. Along this trajectory, some pioneering works have made interesting observations related to the attention mechanism in LLMs. For instance, (Kou et al., 2023) finds that the attention distribution in LLMs differs from that in humans, and (Zhang et al., 2023b) observes that increasing the attention score of manually defined tokens at specific heads can improve LLMs’ ability to follow instructions. However, determining the relationship between attention distributions and the achievable performance of LLMs, as well as automating the enhancement of LLMs’ performance by calibrating attention distributions during inference, still remain open challenges."
+    },
+    {
+      "text": "![](images/d0f9f4f1e33851a732e8f1785515c40a2bc8baa896c22b996d8e8a69dae9000d.jpg)  \nFigure 1. Upper: Visualization of the averaged attention maps across all heads and layers of Llama2-7B-chat on different datasets. Lower: Visualization of the averaged attention maps across all heads in each layer when processing a sample from SST2 with Llama2-7B-chat. Identified attention sinks in the averaged attention map from SST2 are bounded with green boxes."
+    },
+    {
+      "text": "# 3. Preliminaries"
+    },
+    {
+      "text": "LLMs and multi-head attention. LLMs (Touvron et al., 2023a; Brown et al., 2020; OpenAI, 2023b) are typically constructed by stacking $L$ transformer blocks, each comprising a feed-forward network (FFN) and a multi-head attention (MHA) module that captures the pairwise relationships among all $N$ input tokens in the input sequence. Specifically, for a given input $\\mathbf { X } ^ { l } \\in \\mathbb { R } ^ { N \\times d }$ to the $l$ -th block, the output feature $\\mathbf { \\bar { F } } _ { h } ^ { l } \\in \\bar { \\mathbb { R } ^ { N \\times d } }$ generated at head $h$ can be represented as:"
+    },
+    {
+      "text": "$$\n\\begin{array} { r l } & { \\mathbf { A } _ { h } ^ { l } = \\mathsf { S o f t m a x } \\left( \\frac { f _ { Q } ^ { l } ( \\mathbf { X } ^ { l } ) \\cdot f _ { K } ^ { l } ( \\mathbf { X } ^ { l } ) ^ { T } } { \\sqrt { d _ { k } } } \\right) , } \\\\ & { \\mathbf { F } _ { h } ^ { l } = \\mathbf { A } _ { h } ^ { l } \\cdot f _ { V } ^ { l } ( \\mathbf { X } ^ { l } ) , } \\end{array}\n$$"
+    },
+    {
+      "text": "where the em $f _ { Q } ^ { l } , f _ { K } ^ { l }$ , and  dime $f _ { V . } ^ { l }$ are projection laon of each head, $d _ { k } = d / h$ $\\bar { \\mathbf { A } } _ { h } ^ { l ^ { \\kappa } } \\in \\mathbb { R } ^ { N \\times N }$ $h$   \n${ \\bf A } _ { h } ^ { l } [ i , j ]$ represents the relationship between the $i$ -th and   \n$j$ -th tokens in $\\mathbf { X } ^ { l }$ . The attention score is defined as $a _ { h } ^ { l } =$   \n$[ \\textstyle \\sum _ { j = 1 } ^ { i } \\mathbf { A } _ { h } ^ { l } [ i , j ] / i , \\forall i \\in \\{ 1 , \\cdots , N \\} ]$ , and $a _ { h } ^ { l } [ i ]$ denotes the   \nattention score for the $i$ -th token at head $h$ , layer $l$ ."
+    },
+    {
+      "text": "Next, the features $\\mathbf { F } _ { h } ^ { l }$ of each head $h$ are combined to generate the output $\\mathbf { O } ^ { l }$ of MHA by"
+    },
+    {
+      "text": "$$\n\\mathbf { O } ^ { l } = f _ { O } ^ { l } ( \\mathsf { C o n c a t } ( \\mathbf { F } _ { 1 } ^ { l } , \\cdot \\cdot \\cdot , \\mathbf { F } _ { h } ^ { l } ) ) ,\n$$"
+    },
+    {
+      "text": "where $f _ { O } ^ { l }$ represents a projection layer. In the remainder O of this paper, we primarily utilize the distribution of $\\mathbf { A } _ { h } ^ { \\top }$ generated by various inputs $\\mathbf { X } ^ { l }$ for all $h$ and $l$ within the"
+    },
+    {
+      "text": "LLM as the key knob to address the three research questions outlined in Sec. 1."
+    },
+    {
+      "text": "StreamLLM and the attention sink. StreamLLM (Xiao et al., 2023) identifies the presence of an attention sink, which is a token that receives a significantly higher attention score than other tokens but provides limited semantic information. StreamLLM observes that the attention sink only exists in the initial token and suggests always preserving these tokens when processing long input sequences to prevent forgetting."
+    },
+    {
+      "text": "# 4. Unveil and Harness Hidden Attention Sinks"
+    },
+    {
+      "text": "Overview. We aim to investigate the general existence of attention sinks and explore their impact on the reasoning and generation process of LLMs. To achieve this goal, we adopt a deductive approach by sequentially addressing three intriguing research questions outlined in Sec. 1: Firstly, we address Q1 to investigate whether attention sinks are limited to the initial token or if they persist in various locations, as discussed in Sec. 4.1. Secondly, we explore Q2 to shed light on the effects of these identified attention sinks on the achievable accuracy of LLMs, as discussed in Sec. 4.2. Finally, building upon the findings gained from Q1 and Q2, we address Q3 by developing the ACT to enhance the performance of LLMs in a training-free manner during inference, as discussed in Sec. 4.3. Unless otherwise specified, for the remainder of this section, our exploration is based on one of the SOTA LLMs, Llama2-7B-chat (Touvron et al., 2023b)."
+    },
+    {
+      "text": "Table 1. Frequency of tokens appear with significantly higher attention scores."
+    },
+    {
+      "text": "<table><tr><td>Token name</td><td>&#x27;&lt;s&gt;&#x27;</td><td>:&#x27;</td><td>&#x27;&lt; 0x0A &gt;&#x27;</td><td></td><td>&#x27;Answer&#x27;</td></tr><tr><td>Frequency</td><td>1621135</td><td>958992</td><td>636902</td><td>65078</td><td>46297</td></tr><tr><td>Ratio</td><td>48.2%</td><td>28.5%</td><td>18.9%</td><td>1.9%</td><td>1.3%</td></tr><tr><td>Token name</td><td>,</td><td>&#x27;Type&#x27;</td><td>&#x27;iment</td><td>&#x27;D&#x27;</td><td>Total</td></tr><tr><td>Frequency</td><td>21841</td><td>4430</td><td>3896</td><td>2644</td><td>3363296</td></tr><tr><td>Ratio</td><td>0.6%</td><td>0.1%</td><td>0.1%</td><td>0.1%</td><td>100%</td></tr></table>"
+    },
+    {
+      "text": "# 4.1. Q1: Do attention sinks only exist in the initial token?"
+    },
+    {
+      "text": "The attention sink has been observed at the initial token of LLMs (Xiao et al., 2023). However, the presence and distribution of attention sinks in later tokens remain an open yet crucial question, especially considering that these tokens contain ample semantic information. Therefore, our objective is to investigate the overall existence of attention sinks that consistently draw significant attention across the entire input sequence."
+    },
+    {
+      "text": "Settings. To address Q1, we first visualize two metrics: (1) the averaged attention maps across all heads and layers, denoted a s (PHh=1 PLl=1 Alh)/(H · L), on different datasets, and (2) the averaged attention maps of each layer, i.e., $( \\sum _ { h = 1 } ^ { H } \\mathbf { A } _ { h } ^ { l } ) / H )$ , when processing a single input sample, as illustrated in Fig. 1. Additional visualizations on various datasets and models can be found in Appendix C. To generalize these observations across a larger range of datasets, we first visualize the distribution of token-wise attention scores across different datasets to validate the significant gap between high-attention and normal tokens. We further determine that the $i \\cdot$ -th token has a significantly higher attention score if $a _ { h } ^ { l } [ i ] > \\alpha / N$ (i.e., more than $\\alpha$ times the average attention score) and is considered an attention sink. Specifically, we set $\\alpha = 5$ based on our upcoming visualization in Fig. 2 unless otherwise specified. We summarize the frequency of tokens exhibiting significantly higher attention scores across all samples in a mixed dataset comprising 100 samples collected from each of the 18 datasets mentioned in Sec. 5.1."
+    },
+    {
+      "text": "Observations. We can draw the following observations from Fig. 1: Obs-(1) several tokens consistently attract significantly higher attention values than other tokens. Moreover, as visualized in Fig. 2, the distribution of highattention tokens’ attention values has a notable boundary with those of other tokens across different datasets, validating that the difference in attention scores between identified high-attention tokens and other tokens is significant; Obs-(2) as illustrated in Table 1, aside from the initial token ${ < } S >$ , which corresponds exactly to the attention sink observed in StreamLLM (Xiao et al., 2023), there also exist a nontrivial number of other attention sinks that contain limited semantic information (e.g., “.”, “:”, and $^ { * * } < 0 x 0 A > \" $ ), yet frequently draw significantly higher attention scores at various locations; and Obs-(3) attention sinks often manifest in the intermediate layers of LLMs, while the first two layers exhibit more evenly distributed attention scores, and the final layer focuses more on local information with diagonal attention patterns."
+    },
+    {
+      "text": "![](images/3aad506f1915cfcbe3e384d2501b1880503235081aac2eded30b826bd735c2af.jpg)  \nFigure 2. Attention score distribution of the initial token (i.e., the attention sink observed in StreamLLM (Xiao et al., 2023)), noninitial high attention tokens, and other tokens for classification tasks (top) and multiple-choice tasks (bottom)."
+    },
+    {
+      "text": "Our answer to Q1. In complement to the observations made in StreamLLM, we conclude that attention sinks are found not only in the initial token but also in later tokens, particularly during the intermediate layers of LLMs."
+    },
+    {
+      "text": "# 4.2. Q2: Will preserving attention sinks always benefit LLMs’ accuracy in different scenarios?"
+    },
+    {
+      "text": "Considering that the newly identified attention sinks in later tokens, with their substantial attention values, divert a significant portion of attention away from other non-attentionsink tokens, it is imperative to investigate the impact of this notable diversion on the reasoning and generation capabilities of LLMs. While StreamLLM (Xiao et al., 2023) suggests preserving the attention sink of the initial token, it remains unclear whether preserving later attention sinks also enhances the accuracy of LLMs. Therefore, in this subsection, we delve into the impact of attention sinks on LLMs’ accuracy in downstream tasks."
+    },
+    {
+      "text": "Settings. We make a heuristic attempt to verify the influence of attention sinks by decreasing the attention scores of each attention head associated with attention sinks and examining whether this can enhance the accuracy achieved by LLMs on the MMLU dataset (Hendrycks et al., 2020). Taking into account the various layer-wise attention patterns discussed in Sec. 4.1-Obs-(3), we only apply this operation to attention heads between the third layer and the second-to-last layer."
+    },
+    {
+      "text": "To effectively reduce the attention scores of attention sink tokens and leverage the reduced attention scores to improve the achievable performance of the target LLM by distributing them across other tokens, we propose a simple calibration technique comprising three steps:"
+    },
+    {
+      "text": "1. Identify a set of attention sink tokens $S _ { h } ^ { l } ~ = ~ \\{ t ~ \\in$ $\\{ 1 , \\cdot \\cdot \\cdot , T \\} \\mid a _ { h } ^ { l } [ t ] > \\alpha \\cdot 1 / N \\}$ , where $\\alpha = 5$ by default."
+    },
+    {
+      "text": "2. Reduce the attention scores of attention sinks located in later tokens by setting $\\hat { A } _ { h } ^ { l } [ k , s ] = A _ { h } ^ { l } [ k , s ] \\times \\beta$ for all $s \\in \\mathcal S _ { h } ^ { l }$ for each row $k$ in the attention map $A _ { h } ^ { l }$ , where $\\beta$ is a hyperparameter controlling the extent to which we want to eliminate the excessive attention scores of attention sinks."
+    },
+    {
+      "text": "3. To leverage the reduced attention scores, we propose to maintain the target LLM’s original attention distribution to preserve token-wise relationships while slightly increasing the attention scores to enforce greater focus on the semantic information of non-attention sink tokens by setting $\\begin{array} { r } { \\hat { A } _ { h } ^ { l } [ k , s ] = A _ { h } ^ { l } [ k , t ] + ( \\sum _ { s \\in S _ { h } ^ { l } } \\hat { A } _ { h } ^ { l } [ k , s ] - \\dot { A _ { h } ^ { l } } [ k , s ] ) \\times } \\end{array}$ $\\begin{array} { r } { A _ { h } ^ { l } [ k , t ] \\sum _ { i \\in 1 , \\cdots , T - S _ { h } ^ { l } } A _ { h } ^ { l } [ k , i ] } \\end{array}$ for all $s \\notin \\mathcal { S } _ { h } ^ { l }$ , which ensures that the sum of each row $k$ remains one."
+    },
+    {
+      "text": "Observations. As demonstrated in Fig. 3, we can make two observations: Obs-(1) despite the simplicity of the calibration technique we propose, in more than $7 6 . 8 \\%$ of cases, the LLM after attention calibration can achieve better accuracy compared to the vanilla inference baseline; and $O b s$ -(2) not all heads can benefit from the calibration, for instance, calibrating certain heads can result in an accuracy drop as significant as $0 . 3 9 \\%$ ."
+    },
+    {
+      "text": "Our answer to Q2. In contrast to the observation made in StreamLLM (Xiao et al., 2023) that suggests preserving attention sinks to enhance LLMs’ achievable accuracy, we highlight that not all attention sinks are beneficial for LLMs. Specifically, for the majority of attention sinks occurring in the middle or later parts of inputs, reducing their attention scores can result in improved accuracy. We suspect this is because frequently occurring attention sinks excessively divert attention and reducing them can effectively allocate more attention to tokens with richer semantic information."
+    },
+    {
+      "text": "# 4.3. Q3: Can we enhance LLMs’ accuracy by solely manipulating attention sinks without finetuning?"
+    }
+  ],
+  "url": ""
+}

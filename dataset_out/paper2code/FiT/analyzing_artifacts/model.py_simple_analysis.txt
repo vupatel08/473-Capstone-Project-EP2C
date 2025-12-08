@@ -1,0 +1,124 @@
+# Logic Analysis for `model.py`
+
+This module is central to implementing the FiT (Flexible Vision Transformer) backbone that underpins the generative diffusion process. It must be carefully designed to facilitate flexible resolution handling, incorporate the novel positional encodings (decoupled 2D RoPE), and enable resolution extrapolation during inference.
+
+---
+
+## 1. **Module Overview**
+
+- Define a class `FiTTransformer` (or similar name) which inherits from `nn.Module`.
+- Key responsibilities:
+  - Construct the ViT architecture (layers, attention, MLP/SwiGLU, etc.).
+  - Integrate the flexible positional encoding mechanism (via `positional_encoding.py`).
+  - Support methods for:
+    - Setting resolution scaling factors for inference-time extrapolation.
+    - Updating rotary bases according to the scale factors.
+    - Forward passing tokens and positional data for training and inference.
+
+---
+
+## 2. **Class Components**
+
+### (a) **Initialization (`__init__`)**
+
+- **Architectural hyperparameters:**
+  - `hidden_dims` (e.g., 768)
+  - `layers` (e.g., 12)
+  - `attention_heads` (e.g., 12)
+  - `patch_size` (fixed at 2, per experiments)
+  - `ffn_type`: `'SwiGLU'`
+- **Positional encoding:**
+  - Instantiate a `PositionalEncoding` object (from `positional_encoding.py`) with parameters:
+    - `dim=hidden_dims`
+    - `max_resolution` (from config; e.g., 1024×1024)
+    - `mode='NTK'` or `'YaRN'` (from config)
+- **Transformer layers:**
+  - Stack of `nn.TransformerEncoderLayer` (or custom implementation) with:
+    - Multi-head self-attention (with scaled rotary embeddings)
+    - SwiGLU FCNs
+    - Layer norms, residuals
+- **Additional parameters:**
+  - Store current scale factors for height and width (initially 1.0).
+  - Store rotary bases `b_h`, `b_w`, for resolution extrapolation (initially defaults: `1e4` as in the paper).
+  - **Methods to update rotary bases:** `set_resolution_scale()`, `inject_rotary_bases()`.
+
+### (b) **Methods for Resolution & Rotary Bases Scaling**
+
+- `set_resolution_scale(h_scale: float, w_scale: float)`:
+  - Sets internal scale factors used during positional encoding.
+  - Used during inference to handle arbitrary resolutions.
+- `inject_rotary_bases(scale_h: float, scale_w: float)`:
+  - Recompute rotary frequency parameters (`b_h`, `b_w`) based on the scale factors and the equations:
+    \[
+    b'_h = b \cdot s_h^{\frac{|D|}{|D|-2}} \\
+    b'_w = b \cdot s_w^{\frac{|D|}{|D|-2}}
+    \]
+  - Update the positional encoding module with the new rotary bases.
+
+### (c) **Forward Pass**
+
+- Inputs:
+  - Sequence tokens: shape `(batch_size, sequence_length, hidden_dim)`
+  - Positional information: height and width indices for each token (can be inferred from the token layout or explicitly given)
+- Process:
+  1. Obtain positional encodings from the `PositionalEncoding` object, passing in current resolution scale factors.
+  2. Apply the rotary embeddings to the input tokens:
+     - For each token position `(w, h)`, compute the rotary embedding vectors using the updated `b_h`, `b_w`.
+     - Apply rotary positional embedding in the self-attention layer.
+  3. Pass tokens through the transformer layers:
+     - The multi-head attention should incorporate the rotary embeddings.
+  4. Incorporate SwiGLU in the feed-forward network:
+     - Replace standard MLP with SwiGLU following the specifications:
+       \[
+       \mathrm {FFN}(x) = \text{SwiGLU}(x W_1, x V) W_3
+       \]
+  5. Return the output token sequence (possibly combined with residuals).
+
+### (d) **Implementation Details**
+
+- **Positional Encoding:**
+  - For each token, compute `(w, h)` coordinates based on its position in the sequence.
+  - Use `PositionalEncoding.encode_position(w, h, scale_h, scale_w)` to get the scaled rotary components.
+  - Apply the rotary embedding in the attention mechanism: during Q/K computations, multiply or incorporate the rotary components as per the design.
+
+- **Initialization:**
+  - Use the pretrained VAE encoder path for encoding images into latent tokens (from `main.py` + `diffusion_pipeline.py`).
+  - Initialize the transformer with flexible positional embedding parameters.
+
+- **Extension for extrapolation:**
+  - The methods `set_resolution_scale()` and `inject_rotary_bases()` enable dynamic adjustment of rotary frequencies for inference on resolutions outside training distribution.
+  - These methods update internal variables (`b_h`, `b_w`) which are used in the forward pass.
+
+---
+
+## 3. **Design Constraints & Notes**
+
+- **Strict adherence to the provided design:**
+  - Do NOT modify method signatures or class properties beyond what's described.
+  - Do NOT change the architecture parameters directly; keep them configurable via the class constructor.
+  - The forward method must accept tokens + positional input, and return processed tokens.
+
+- **Resolutions & aspect ratios:**
+  - Support arbitrary `(H, W)` during inference by adjusting rotary bases.
+  - During training, positional encodings are fixed; during inference, scale can be adjusted for extrapolation.
+
+- **Compatibility:**
+  - The module must seamlessly work with diffusion sampling pipeline.
+  - Should support variable maximum token lengths and flexible resolution scaling.
+
+---
+
+## 4. **Summary**
+
+| Functionality | Implementation details |
+|----------------|-------------------------|
+| Initialization | Build transformer with attention, SwiGLU layers, initialize positional encoding object with max resolution and approach mode (NTK or YaRN). |
+| Resolution scaling | Implement methods `set_resolution_scale()` and `inject_rotary_bases()` to update rotary bases dynamically based on test resolution ratios. |
+| Positional encoding | Use decoupled 2D RoPE, applying separate rotary frequencies for height and width, combining in the attention calculation. |
+| Forward pass | Incorporate rotary embedding into multi-head attention; process tokens through layers; output transformed tokens. |
+
+This detailed logic analysis provides comprehensive guidance for implementing the core transformer backbone that fulfills cited requirements and aligns with the methods outlined in the paper.
+
+---
+
+**Would you like me to prepare the skeleton code following this logic?**
