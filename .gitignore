@@ -11,6 +11,8 @@ build/
 .eggs/
 
 Paper2Code/
+dataset_out/
+tempy/
 
 # Virtual environments
 .venv/

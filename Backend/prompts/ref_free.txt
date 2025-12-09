@@ -8,13 +8,13 @@ Please make sure you read and understand these instructions carefully. Keep this
 
 Evaluation Criteria:
 
-Correctness (1-5): The quality of the repository in accurately implementing the paper’s concepts, methodology, and algorithms without logical errors. Additionally, provide a critique focusing on the completeness, accuracy, and implementation choices made in the repository relative to the methodology and algorithms described in the paper.
+Correctness (1.00-5.00): The quality of the repository in accurately implementing the paper’s concepts, methodology, and algorithms without logical errors. Additionally, provide a critique focusing on the completeness, accuracy, and implementation choices made in the repository relative to the methodology and algorithms described in the paper.
 
-1: Very Poor. The repository does not correctly implement the core concepts, methodology, or algorithms from the paper. Major logical errors or missing components are present.
-2: Poor. The repository attempts to implement the paper’s concepts but contains significant mistakes or missing components, making the implementation incorrect.
-3: Fair. Some core components and concepts are correctly implemented, but there are notable logical errors or inaccuracies in the methodology.
-4: Good. The repository correctly implements the key components and methodology, with only minor inaccuracies that do not significantly affect correctness.
-5: Excellent. The repository fully and accurately implements all key components, methodology, and algorithms from the paper without logical errors.
+1.00-1.99: Very Poor. The repository does not correctly implement the core concepts, methodology, or algorithms from the paper. Major logical errors or missing components are present.
+2.00-2.99: Poor. The repository attempts to implement the paper’s concepts but contains significant mistakes or missing components, making the implementation incorrect.
+3.00-3.99: Fair. Some core components and concepts are correctly implemented, but there are notable logical errors or inaccuracies in the methodology.
+4.00-4.99: Good. The repository correctly implements the key components and methodology, with only minor inaccuracies that do not significantly affect correctness.
+5.00: Excellent. The repository fully and accurately implements all key components, methodology, and algorithms from the paper without logical errors.
 
 ---
 
@@ -83,4 +83,4 @@ Code Repository:
 
 ---
 
-Please provide a critique list for the code repository and a single numerical rating (1, 2, 3, 4, or 5) based on the quality of the sample, following the Example JSON format, without any additional commentary, formatting, or chattiness.
+Please provide a critique list for the code repository and a single floating point numerical rating (1.00 through 5.00 to the hundredths place) based on the quality of the sample, following the Example JSON format, without any additional commentary, formatting, or chattiness.

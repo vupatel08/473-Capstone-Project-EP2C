@@ -1,8 +1,0 @@
-# requirements.txt
-```python
-torch==1.11.0
-numpy==1.21.0
-matplotlib==3.5.0
-scikit-learn==0.24.2
-h5py==3.1.0
-```
