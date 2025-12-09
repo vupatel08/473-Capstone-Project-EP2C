@@ -19,5 +19,5 @@ torch>=2.2.2
 transformers>=4.43.3
 
 # Code parsing
-tree-sitter>=0.20.4
-tree_sitter_languages
+tree-sitter==0.20.1
+tree-sitter-languages==1.10.2
