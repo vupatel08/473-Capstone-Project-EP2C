@@ -1,0 +1,158 @@
+# Main.py Logic Analysis for G-Retriever Framework
+
+This document provides a comprehensive, step-by-step analysis of the main.py script, which serves as the central orchestrator of the entire G-Retriever pipeline. Its purpose is to coordinate dataset loading, graph encoding, retrieval, subgraph construction via PCST, prompt preparation, LLM-based response generation, and evaluation. All components and flow should adhere strictly to the design, data structures, and hyperparameters specified.
+
+---
+
+# 1. Initialization and Configuration Loading
+
+- **Load configuration (`config.yaml`)**:
+  - Parse hyperparameters such as learning rates, batch sizes, prompt length, top-K retrieval, PCST edge cost, etc.
+  - Extract model names, evaluation settings, and other parameters.
+- **Initialize Components**:
+  - DatasetLoader instance: for loading datasets (`ExplaGraphs`, `SceneGraphs`, `WebQSP`)
+  - Embedding Module: with text encoder (SentenceBERT or similar)
+  - Retrieval System: FAISS index built from embedded nodes/edges
+  - Graph Encoder: GAT network
+  - PCST Solver: instance configured with edge cost and prizes
+  - LLM Model: chat-based Llama2-7B with optional prompt tuning or LoRA
+  - Prompt Tuning/LoRA: loaded if tuning is enabled
+  - Evaluation module: set up for metrics calculation
+
+---
+
+# 2. Dataset Loading and Preprocessing
+
+- For each dataset (or selected subset):
+  - **Load raw data** using DatasetLoader:
+    - Datasets are likely in JSON or CSV formats, converted into internal dict/list structures.
+    - Structure expected: list of graphs, each with nodes, edges, attributes (`x_n`, `x_e`) and questions (`x_q`), plus answers.
+  - **Convert raw graph data into textual descriptions**:
+    - Use `graph_processor.py`'s `textualize_graph()`:
+      - Expand node attributes, edge attributes, and relationships into a structured, concatenated string (e.g., `"node_id: attribute; relation: node_id"`).
+  - **Split datasets** into training, validation, and test sets as per dataset specs (original, then possibly re-split with 6:2:2 ratio).
+
+---
+
+# 3. Precompute Embeddings and Build Index
+
+- For every graph:
+  - **Encode nodes and edges**:
+    - Use the embedding module to generate vectors (`z_n`, `z_e`) for each node and edge based on their textual attributes.
+  - **Compute graph embedding**:
+    - Use the GAT network to encode the entire graph into a single vector (`h_g`).
+  - **Store textual descriptions** for later prompt construction.
+- **Build FAISS index**:
+  - Collect all node/edge embeddings across datasets.
+  - Insert into FAISS index for fast cosine similarity search.
+- Keep references (e.g., IDs, texts, embeddings) for retrieval.
+
+---
+
+# 4. Query Processing and Retrieval
+
+- **For each test/query example**:
+  - **Encode question**:
+    - Using text embedder (`SentenceTransformer` or LHLM's first layer) to get `z_q`.
+  - **Retrieve candidate nodes and edges**:
+    - Use FAISS `search()` with cosine similarity.
+    - Collect top-`k` nodes and edges (k from config), e.g., `k=5`.
+  - **Assign prizes**:
+    - Sorted by similarity; highest gets `k-1`, next `k-2`, etc., zero beyond top-`k`.
+  - **Construct a weighted subgraph for PCST**:
+    - Use the indices of retrieved nodes and edges.
+    - Include their respective prizes.
+    - Set edge costs as per config (`C_e=1`, or other value).
+    - Handle negative prizes via virtual nodes as described in the paper.
+  - **Solve PCST**:
+    - Run the PCST algorithm (`pcst_solver.solve_pcst()`), obtaining a connected subgraph `S*`.
+  - **Store/prepare `S*`** for textualization.
+
+---
+
+# 5. Conversion of Subgraph to Textual Prompt
+
+- Use `graph_processor.py`'s `textualize_graph(S*)`:
+  - Convert nodes, relationships, and edges to a well-structured descriptive string.
+  - Maintain consistent formatting similar to dataset style.
+- **Concatenate** textualized subgraph with the query:
+  - Final prompt: `[Textualized Subgraph] [Question]`.
+  - Apply prompt templates if necessary to guide LLM responses.
+
+---
+
+# 6. Prepare Input for LLM
+
+- **Graph prompt embedding**:
+  - Use the `PromptTuning` or `LoRA` modules:
+    - Generate or update graph token representations (`\hat{h}_g`) as soft prompts.
+    - Concatenate `\hat{h}_g` and the textual prompt embedding (`h_t`) derived from the combined textual description + question.
+- **Formulate prompt input**:
+  - Input tokens: `[Graph prompt] [Textual question]`.
+  - Input embeddings: merge soft prompt vectors with text embeddings.
+
+---
+
+# 7. Inference and Response Generation
+
+- **Generate answer**:
+  - Feed combined input into the frozen or fine-tuned LLM (`Llama2-7B`):
+    - Use `generate()` method with max new tokens (`max_length=32`) and temperature settings as per config.
+    - During prompt tuning only prompts are trained; if fine-tuning, adjust entire model accordingly.
+- **Output**:
+  - Capture generated response text.
+  - Save responses for evaluation.
+
+---
+
+# 8. Evaluation and Metrics Computation
+
+- **Metrics**:
+  - Accuracy against ground truth answers (for classification datasets).
+  - Hit@1 and hallucination metrics:
+    - Compare referenced nodes/edges in responses against ground truth.
+    - Compute the fraction of valid nodes/edges cited.
+  - Log response quality, hallucination reduction, and parsing errors.
+- **Optional**:
+  - For qualitative assessment, store examples and subgraphs.
+
+---
+
+# 9. Iterative and Batch Processing
+
+- Process data in mini-batches:
+  - Batch size as per config (`batch_size=16`).
+  - Use appropriate data loaders.
+- For large datasets, run in a loop:
+  - For each dataset example:
+    - Load, encode, retrieve, construct subgraph, textualize, prompt, generate, and evaluate.
+- Record metrics and logs periodically.
+
+---
+
+# 10. Final Output and Reporting
+
+- **Produce main evaluation reports**:
+  - Aggregate metrics over dataset splits.
+  - Generate detailed logs for hallucination analysis.
+- **Save**:
+  - Embeddings, retrieved subgraphs, generated responses.
+  - Model checkpoints (for fine-tuning).
+  - Configurations and hyperparameters used.
+
+---
+
+# Additional Considerations
+- Ensure all external dependencies (FAISS, transformers, PyTorch, etc.) are initialized once for efficiency.
+- Use device management (`cuda`/`cpu`) for speed.
+- Incorporate exception handling for missing data, failed retrieval, or PCST solutions.
+- Modular structure: encapsulate steps into functions or classes while maintaining clear flow.
+
+---
+
+# Summary
+The main.py script systematically manages each stage: dataset ingestion, embedding, retrieval, subgraph construction, textualization, prompt preparation, LLM inference, and evaluation. Its implementation should strictly respect the data interfaces, hyperparameters, and modular design outlined. The process fosters accurate, scalable, and explainable graph questioning aligned with the paper’s methodology.
+
+---
+
+Would you like me to produce pseudocode snippets, class diagrams, or a detailed step-by-step flow for implementation?

@@ -1,0 +1,143 @@
+# Logic Analysis for dataset_loader.py
+
+## Overview and Purpose
+The `dataset_loader.py` module implements the `DatasetLoader` class, which handles the loading of static datasets (e.g., GSM8K, BBQ, BBH Dyck) from predefined file paths, parsing raw data into structured `DataPoint` objects, and saving new or perturbed data points post-augmentation. It should support flexible data formats, ensure reproducibility, facilitate data validation, and be compatible with subsequent modules. This class is critical for establishing a reliable foundation for reasoning graph extraction and dataset augmentation within the overall DARG pipeline.
+
+---
+
+## Core Responsibilities
+- Load datasets from specified paths, which are usually in JSON or similar structured formats.
+- Parse raw data entries into `DataPoint` objects, ensuring correct mapping of each data component:
+  - `question_text`: The textual question or prompt.
+  - `answer`: The correct answer or label.
+  - `reasoning_text`: Explanation or reasoning chain, if available.
+  - `reasoning_graph`: Structured object representing the reasoning structure (may initially be empty or inferred).
+- Save generated or perturbed data points back to disk, supporting JSON serialization.
+- Validate dataset entries against schema or format standards (to prevent parsing errors).
+- Support data sampling, subset creation, and ensuring reproducibility via consistent file I/O.
+
+---
+
+## Input Data Formats
+1. **Original datasets**:
+   - Commonly in JSON format, where each entry is a dictionary containing at least: `"question"`, `"answer"`, `"reasoning"`, `"graph"` (optional).
+   - Example:
+     ```json
+     {
+       "question": "...",
+       "answer": "...",
+       "reasoning": "...",
+       "reasoning_graph": {...}
+     }
+     ```
+   - Metadata such as dataset splits (train/test) may be embedded or managed externally.
+2. **Perturbed/generated data**:
+   - Saved in similar JSON format, possibly with additional attributes indicating perturbation level or complexity.
+   - The class should support appending new data points with consistent schema.
+
+3. **Auxiliary files**:
+   - Supporting files (e.g., schema definitions, validation schemas, prompt templates) may be stored separately or embedded within code.
+
+---
+
+## Output Data Formats
+- **Loaded Data**:
+  - Represented internally as a list of `DataPoint` objects.
+  - Each `DataPoint` object encapsulates the fields listed above.
+- **Saved Data**:
+  - Serialize list of `DataPoint` objects back into JSON files matching input structure.
+  - Optionally include additional metadata (complexity levels, perturbation parameters).
+
+---
+
+## Functional Tasks & Implementation Details
+
+### 1. Initialization (`__init__`)
+- Accept dataset path (JSON or other format).
+- Load dataset file into memory, parse entries into `DataPoint`.
+- Maintain internal storage (e.g., `self.data_points: List[DataPoint]`).
+
+### 2. `load_data()`
+- Read dataset file.
+- Deserialize JSON into dictionaries.
+- Validate each entry:
+  - Check required fields (`question`, `answer`, `reasoning`, `reasoning_graph`).
+  - Ensure data types are correct (strings, dicts).
+- Instantiate `DataPoint` objects with parsed data.
+- Handle exceptions:
+  - Missing fields: log warning/error, decide whether to skip or raise.
+  - Malformed JSON: handle gracefully.
+- Return list of `DataPoint` objects.
+
+### 3. `save_dataset(output_path)`
+- Serialize current `DataPoint` objects into JSON.
+- For each `DataPoint`, use `to_json()` method.
+- Write JSON array to file at `output_path`.
+- Ensure proper formatting (indentation, encoding).
+
+### 4. Data Validation & Schema Checking
+- Optional: integrate JSON Schema validation to verify data consistency.
+- Use `jsonschema` package (if applicable).
+- Validation should confirm:
+  - presence and correct format of all required fields.
+  - type correctness (strings, objects).
+  - schema compliance for `reasoning_graph`.
+
+### 5. Data Sampling & Subset Creation
+- Methods to select subsets (e.g., for evaluation).
+- Support for random sampling or deterministic subset selection (using seed).
+
+### 6. Data Point Class (`DataPoint`)
+- Fields:
+  - `question_text`, `answer`, `reasoning_text`, `reasoning_graph`.
+- Methods:
+  - `to_json()`: serialize into dict compatible with JSON.
+  - `from_json()`: create an instance from dict.
+
+### 7. Additional Support
+- Log progress, errors.
+- Optional: support de-duplication, filtering, and annotation checks.
+- Compatibility with other modules (e.g., reasoning graph extraction).
+
+---
+
+## Data Handling & Error Management
+- Use try-except blocks when reading/parsing.
+- Validate each entry against schema before adding.
+- In case of errors, decide whether to skip entry or raise exception.
+- During save, ensure the output file structure matches original format.
+
+---
+
+## Reproducibility & Consistency
+- Support consistent random seed for sampling.
+- Support loading datasets from specific versions or splits.
+- Maintain a versioning system or naming conventions for dataset versions (original, augmented, perturbed).
+
+---
+
+## Summary of Key Implementation Points
+- **Input**: Dataset path (e.g., `path/to/gsm8k_dataset.json`)
+- **Process**:
+  - Load dataset
+  - Parse entries into `DataPoint`
+  - Validate data
+- **Output**:
+  - List of `DataPoint` objects
+  - Save method for JSON/dictionary output
+- **Edge Cases**:
+  - Missing or malformed reasoning graphs
+  - Inconsistent data types
+  - Large datasets requiring efficient I/O
+- **Validation**:
+  - Use validation schemas
+  - Run sample tests to confirm parsing correctness.
+
+---
+
+## Final notes:
+- The class should be designed for extensibility, allowing easy addition of new datasets or formats.
+- Modular functions for dataset parsing, validation, and saving enable maintainability.
+- Refer to the shared data schemas in the code structure and configuration files to ensure compliance.
+
+This thorough logic analysis provides a comprehensive blueprint for implementing `dataset_loader.py` aligned with the paper’s methodology and experimental design.

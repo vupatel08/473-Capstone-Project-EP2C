@@ -1,10 +1,12 @@
 from openai import OpenAI
+from openai import RateLimitError
 import json
 import os
 from tqdm import tqdm
 import re
 import sys
 import copy
+import time
 from pathlib import Path
 from dotenv import load_dotenv
 
@@ -157,19 +159,62 @@ Next, you must write only the "{todo_file_name}".
     return write_msg
 
 
-def api_call(msg):
-    if "o3-mini" in gpt_version:
-        completion = client.chat.completions.create(
-            model=gpt_version, 
-            reasoning_effort="high",
-            messages=msg
-        )
-    else:
-        completion = client.chat.completions.create(
-            model=gpt_version, 
-            messages=msg
-        )
-    return completion
+def api_call(msg, max_retries=5, base_delay=1.0):
+    """
+    Make an API call with automatic retry on rate limit errors.
+    
+    Args:
+        msg: Messages to send to the API
+        max_retries: Maximum number of retry attempts
+        base_delay: Base delay in seconds for exponential backoff
+    
+    Returns:
+        API completion response
+    """
+    for attempt in range(max_retries):
+        try:
+            if "o3-mini" in gpt_version:
+                completion = client.chat.completions.create(
+                    model=gpt_version, 
+                    reasoning_effort="high",
+                    messages=msg
+                )
+            else:
+                completion = client.chat.completions.create(
+                    model=gpt_version, 
+                    messages=msg
+                )
+            return completion
+        except RateLimitError as e:
+            if attempt == max_retries - 1:
+                # Last attempt failed, raise the error
+                raise
+            
+            # Try to extract retry-after time from error message
+            error_message = str(e)
+            retry_after = None
+            
+            # Look for "try again in X.XXXs" pattern in error message
+            match = re.search(r'try again in ([\d.]+)s', error_message, re.IGNORECASE)
+            if match:
+                retry_after = float(match.group(1))
+            
+            # If no specific retry-after found, use exponential backoff
+            if retry_after is None:
+                retry_after = base_delay * (2 ** attempt)
+            
+            # Add a small jitter to avoid thundering herd
+            jitter = retry_after * 0.1 * (0.5 + (hash(str(msg)) % 100) / 100)
+            wait_time = retry_after + jitter
+            
+            print(f"⚠️  Rate limit reached (attempt {attempt + 1}/{max_retries}). Waiting {wait_time:.2f}s before retry...")
+            time.sleep(wait_time)
+        except Exception as e:
+            # For other errors, raise immediately
+            raise
+    
+    # Should never reach here, but just in case
+    raise Exception("Failed to make API call after all retries")
     
 
 # testing for checking

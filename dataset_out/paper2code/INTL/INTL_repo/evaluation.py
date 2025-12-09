@@ -1,0 +1,138 @@
+## evaluation.py
+import torch
+import numpy as np
+from sklearn.linear_model import LogisticRegression
+from sklearn.neighbors import KNeighborsClassifier
+from sklearn.metrics import accuracy_score
+
+class Evaluation:
+    """
+    Performs evaluation of a trained SSLModel on a specified dataset split.
+    Supports 'linear_classification' and 'knn' evaluation types.
+    """
+
+    def __init__(self, model, data, config):
+        """
+        Args:
+            model (SSLModel): Trained SSL model with encoder and projection head.
+            data (dict): Dictionary with 'train' and 'test' DataLoader or dataset tuples.
+            config (dict): Evaluation configuration parameters.
+        """
+        self.model = model
+        self.model.eval()
+        self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+        self.model.to(self.device)
+
+        # Extract dataset info and evaluation parameters
+        self.eval_type = config.get('eval_type', 'linear_classification')
+        self.dataset_name = config.get('dataset', 'ImageNet-100')
+        self.metric = config.get('metric', 'accuracy')
+
+        # Determine dataset for evaluation
+        if 'train' in data:
+            self.train_loader = data['train']
+        elif isinstance(data.get('train'), torch.utils.data.Dataset):
+            self.train_loader = torch.utils.data.DataLoader(data['train'], batch_size=256, shuffle=False)
+        else:
+            self.train_loader = data['train']
+
+        if 'test' in data:
+            self.test_loader = data['test']
+        elif isinstance(data.get('test'), torch.utils.data.Dataset):
+            self.test_loader = torch.utils.data.DataLoader(data['test'], batch_size=256, shuffle=False)
+        else:
+            self.test_loader = data['test']
+
+    def extract_features(self, dataloader):
+        """
+        Extract features for entire dataset by passing data through encoder.
+        Args:
+            dataloader (DataLoader): DataLoader for dataset split.
+        Returns:
+            features (np.ndarray): Array of shape [num_samples, feature_dim]
+            labels (np.ndarray): Corresponding labels
+        """
+        feats = []
+        lbls = []
+        with torch.no_grad():
+            for batch in dataloader:
+                # Handle batch: assume each batch is (inputs, labels)
+                if isinstance(batch, dict):
+                    inputs = batch['input']
+                    labels = batch['label']
+                elif isinstance(batch, list) or isinstance(batch, tuple):
+                    inputs = batch[0]
+                    labels = batch[1]
+                else:
+                    # fallback: assume batch[0]=inputs, batch[1]=labels
+                    inputs, labels = batch
+                inputs = inputs.to(self.device)
+                emb = self.model.encode(inputs)
+                feats.append(emb.cpu())
+                lbls.append(labels.cpu())
+        features = torch.cat(feats, dim=0).numpy()
+        labels = torch.cat(lbls, dim=0).numpy()
+        return features, labels
+
+    def linear_classification(self):
+        """
+        Perform linear protocol: train a logistic regression on frozen features.
+        Returns:
+            dict: metrics including 'accuracy' and 'top5_accuracy'
+        """
+        # Extract features from training and test datasets
+        train_feats, train_labels = self.extract_features(self.train_loader)
+        test_feats, test_labels = self.extract_features(self.test_loader)
+
+        # Train logistic regression classifier
+        clf = LogisticRegression(max_iter=1000, solver='lbfgs', n_jobs=-1)
+        clf.fit(train_feats, train_labels)
+        pred_labels = clf.predict(test_feats)
+        pred_scores = clf.predict_proba(test_feats)
+
+        # Compute accuracy
+        accuracy = accuracy_score(test_labels, pred_labels)
+        # Compute Top-5 accuracy if dataset is large enough
+        top5_accuracy = np.mean(np.argsort(-pred_scores, axis=1)[:, :5] == test_labels.reshape(-1, 1)).mean()
+
+        return {
+            'accuracy': accuracy,
+            'top5_accuracy': top5_accuracy
+        }
+
+    def knn_evaluation(self, k: int = 5):
+        """
+        Perform k-NN evaluation directly on embedded features.
+        Args:
+            k (int): number of neighbors. Default=5.
+        Returns:
+            dict: metrics including 'accuracy' (on test samples).
+        """
+        # Extract features
+        train_feats, train_labels = self.extract_features(self.train_loader)
+        test_feats, test_labels = self.extract_features(self.test_loader)
+
+        # Fit k-NN on train features
+        knn = KNeighborsClassifier(n_neighbors=k)
+        knn.fit(train_feats, train_labels)
+        pred_labels = knn.predict(test_feats)
+        accuracy = accuracy_score(test_labels, pred_labels)
+
+        return {
+            'accuracy': accuracy
+        }
+
+    def run(self):
+        """
+        Run the evaluation according to the specified type and return metrics.
+        """
+        results = {}
+        if self.eval_type == 'linear_classification':
+            res = self.linear_classification()
+            results.update(res)
+        elif self.eval_type == 'knn':
+            res = self.knn_evaluation(k=5)
+            results.update(res)
+        else:
+            raise ValueError(f"Unknown evaluation type: {self.eval_type}")
+        return results

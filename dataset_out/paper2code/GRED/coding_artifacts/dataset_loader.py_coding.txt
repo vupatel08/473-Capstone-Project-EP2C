@@ -1,0 +1,190 @@
+```python
+# dataset_loader.py
+
+import os
+import numpy as np
+import torch
+from torch.utils.data import Dataset as TorchDataset
+from torch_geometric.datasets import TUDataset, Planetoid, CIFAR10, MNIST
+from torch_geometric.data import Data
+from scipy.sparse import csr_matrix
+from scipy.sparse.csgraph import shortest_path
+
+class GraphDataset(TorchDataset):
+    """
+    Custom dataset class to handle graph data, compute shortest paths,
+    and neighborhood masks.
+    Supports datasets from torch_geometric or custom loading.
+    """
+    def __init__(self, dataset_name: str, dataset_path: str = None, max_K: int = None):
+        """
+        Args:
+            dataset_name (str): Name of dataset, e.g., 'CIFAR10', 'MNIST', 'PATTERN', 'CLUSTER', etc.
+            dataset_path (str): Path to dataset directory if needed.
+            max_K (int): Maximum neighborhood distance (graph diameter or hyper-parameter).
+        """
+        super().__init__()
+        self.dataset_name = dataset_name
+        self.dataset_path = dataset_path
+        self.max_K = max_K
+        self.graphs = []  # list of Data objects for graph datasets
+        self.node_features = []  # concatenated feature tensors for all graphs
+        self.labels = []  # label tensors for graph or node labels
+        self.shortest_paths_list = []  # list of np.ndarray shortest paths per graph
+        self.neighborhood_masks = []  # list of dicts per graph: { node_idx: masks per hop }
+        # Load data
+        self._load_dataset()
+        # Compute neighborhoods
+        self._precompute_shortest_paths()
+        self._generate_neighborhood_masks()
+
+    def _load_dataset(self):
+        # Load datasets and convert into graph format
+        # Support for CIFAR10, MNIST, PATTERN, CLUSTER, TUDataset, etc.
+        if self.dataset_name.lower() == 'cifar10':
+            dataset = CIFAR10(self.dataset_path if self.dataset_path else '.', train=True, download=True)
+            test_dataset = CIFAR10(self.dataset_path if self.dataset_path else '.', train=False, download=True)
+            self.graphs = dataset + test_dataset
+            # For CIFAR10, convert images into graphs
+            for data in self.graphs:
+                # Convert image tensor to node features
+                # Here, flatten image pixels as features; alternatively, adapt as needed
+                img = data.x if hasattr(data, 'x') else None
+                if img is None:
+                    # Use raw image data if stored differently
+                    img_tensor = data
+                    # Example: reshape to (num_nodes, feature_dim)
+                    # For simplicity, flatten
+                    node_feat = torch.flatten(torch.tensor(img_tensor)).unsqueeze(0)  # shape (1, num_features)
+                else:
+                    node_feat = img
+                data.num_nodes = node_feat.shape[0]
+                data.x = node_feat
+        elif self.dataset_name.lower() == 'mnist':
+            dataset = MNIST(self.dataset_path if self.dataset_path else '.', train=True, download=True)
+            test_dataset = MNIST(self.dataset_path if self.dataset_path else '.', train=False, download=True)
+            self.graphs = dataset + test_dataset
+            # Use image pixels as node features
+            for data in self.graphs:
+                img = data.x if hasattr(data, 'x') else None
+                if img is None:
+                    img_tensor = data
+                    node_feat = torch.flatten(torch.tensor(img_tensor)).unsqueeze(0)
+                else:
+                    node_feat = img
+                data.num_nodes = node_feat.shape[0]
+                data.x = node_feat
+        elif self.dataset_name.upper() in ['PATTERN', 'CLUSTER', 'Peptides-func', 'Peptides-struct']:
+            # For custom datasets, load accordingly.
+            # Placeholder: load from disk or generate synthetic graphs as needed.
+            # Here, we assume datasets are stored as list of Data objects in a directory.
+            # Implementation depends on dataset format.
+            raise NotImplementedError(f"Custom dataset '{self.dataset_name}' not implemented.")
+        elif self.dataset_name.lower().endswith('.pt') or self.dataset_name.lower().endswith('.ptx'):
+            # Load datasets saved as torch files
+            data_list = torch.load(self.dataset_name)
+            self.graphs = data_list
+        elif hasattr(self, 'graphs') and len(self.graphs) > 0:
+            # Already loaded
+            pass
+        else:
+            raise ValueError(f"Unsupported dataset: {self.dataset_name}")
+
+        # Aggregate features and labels
+        # For datasets with labels at graph level
+        self.labels = []
+        feat_list = []
+        for g in self.graphs:
+            # Assuming each graph data object has features and labels
+            if hasattr(g, 'y'):
+                self.labels.append(g.y)
+            elif hasattr(g, 'label'):
+                self.labels.append(g.label)
+            else:
+                # For datasets without labels, assign dummy labels
+                self.labels.append(torch.tensor(0))
+            if hasattr(g, 'x'):
+                feat_list.append(g.x)
+            else:
+                # Initialize with zeros if no features
+                feat_list.append(torch.zeros((g.num_nodes, 1)))
+        self.node_features = torch.cat(feat_list, dim=0)
+
+    def _precompute_shortest_paths(self):
+        """
+        For each graph, compute the shortest path matrix using Floyd-Warshall.
+        Store as numpy array.
+        """
+        for g in self.graphs:
+            num_nodes = g.num_nodes
+            # Initialize adjacency matrix
+            adj = torch.zeros((num_nodes, num_nodes))
+            if hasattr(g, 'edge_index'):
+                edge_index = g.edge_index
+            elif hasattr(g, 'edges'):
+                edge_index = g.edges
+            else:
+                # For datasets with adjacency info, define as needed
+                # Placeholder: assume no edges
+                edge_index = None
+
+            if edge_index is not None:
+                # Make undirected adjacency
+                src = edge_index[0]
+                dst = edge_index[1]
+                adj = torch.zeros((num_nodes, num_nodes))
+                adj[src, dst] = 1
+                adj[dst, src] = 1
+            else:
+                # No edges, adjacency remains zeros
+                pass
+
+            # Convert adjacency to sparse matrix for Floyd-Warshall
+            sparse_adj = csr_matrix(adj.numpy())
+            # Run Floyd-Warshall to get shortest distance matrix
+            dist_matrix = shortest_path(csgraph=sparse_adj, directed=False, unweighted=True)
+            # Replace infinities with a large number
+            dist_matrix = np.where(np.isinf(dist_matrix), 1e9, dist_matrix)
+            self.shortest_paths_list.append(dist_matrix)
+
+    def _generate_neighborhood_masks(self):
+        """
+        For each graph, generate masks for each node's neighborhoods up to max_K.
+        Masks are boolean tensors of shape (num_nodes, num_nodes),
+        indicating whether node u belongs to neighborhood of node v at distance k.
+        """
+        for idx, dist_mat in enumerate(self.shortest_paths_list):
+            num_nodes = dist_mat.shape[0]
+            # Determine max_K for this graph
+            local_K = self.max_K
+            if local_K is None:
+                local_K = int(np.max(dist_mat))
+            masks_per_node = dict()
+            for v in range(num_nodes):
+                node_mask_dict = dict()
+                for k in range(local_K + 1):
+                    # mask nodes where distance == k
+                    mask = np.isclose(dist_mat[v], k)
+                    node_mask_dict[k] = torch.tensor(mask, dtype=torch.bool)
+                masks_per_node[v] = node_mask_dict
+            self.neighborhood_masks.append(masks_per_node)
+
+    def __len__(self):
+        return len(self.graphs)
+
+    def __getitem__(self, idx):
+        """
+        Return data object containing graph, features, label, neighborhood masks
+        """
+        graph = self.graphs[idx]
+        dist_mat = self.shortest_paths_list[idx]
+        masks = self.neighborhood_masks[idx]
+        label = self.labels[idx]
+        return {
+            'graph': graph,
+            'features': self.node_features,
+            'label': label,
+            'dist_matrix': dist_mat,
+            'neighborhood_masks': masks
+        }
+```

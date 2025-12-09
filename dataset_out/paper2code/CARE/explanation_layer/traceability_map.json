@@ -1,0 +1,350 @@
+{
+  "code_to_paper": {
+    "dataset_loader.py:ImageAugmentation": [
+      "The code component does not provide enough information to link it to any specific paper sections. Please provide more detailed paper sections."
+    ],
+    "dataset_loader.py:ProteinAugmentation": [
+      "The code component does not provide enough information to link it to specific paper sections. Please provide more details."
+    ],
+    "dataset_loader.py:ImageDataset": [
+      "The code component does not provide enough information to link it to any specific paper sections."
+    ],
+    "dataset_loader.py:ProteinDataset": [
+      "The code component does not provide enough information to link it to specific paper sections. Please provide more detailed paper sections."
+    ],
+    "dataset_loader.py:load_pdb_points": [
+      "The paper sections are not provided in the question. Please provide the paper sections to proceed."
+    ],
+    "dataset_loader.py:random_rotation_matrix": [
+      "The code component provided does not match with the given paper section. More information is needed to provide a relevant answer."
+    ],
+    "dataset_loader.py:get_dataset": [
+      "The provided information does not include any paper sections related to the code component. Please provide relevant paper sections."
+    ],
+    "evaluation.py:compute_linear_probe": [
+      "Methodology",
+      "Results and Discussion",
+      "Evaluation"
+    ],
+    "evaluation.py:visualize_trajectories": [
+      "The provided paper sections are not sufficient to link with the given code component. Please provide more relevant paper sections."
+    ],
+    "evaluation.py:plot_cosine_histogram": [
+      "The code component does not provide enough information to link it to any specific paper sections. Please provide more details."
+    ],
+    "evaluation.py:evaluate_equivariance": [
+      "The code component description does not provide enough information to accurately link it to specific paper sections. Please provide more detailed paper sections."
+    ],
+    "evaluation.py:estimate_rotation_wahba": [
+      "Without the full list of paper sections",
+      "it's hard to provide an accurate answer. However",
+      "based on the code component description",
+      "the most relevant sections could be \"Methodology\"",
+      "\"Algorithm Implementation\"",
+      "\"Results and Discussion\". Please provide the full list of sections for a more accurate answer."
+    ],
+    "evaluation.py:main_evaluation": [
+      "Evaluation",
+      "Results and Discussion",
+      "Methodology"
+    ],
+    "main.py:main": [
+      "The provided information is insufficient to determine the most relevant paper sections for the code component. Please provide more details about the function in the main.py file and its purpose."
+    ],
+    "model.py:ResNetEncoder": [
+      "The code component does not provide enough information to link it to specific paper sections. Please provide more details."
+    ],
+    "model.py:DeepSetEncoder": [
+      "As an AI",
+      "I don't have the actual paper sections to analyze. However",
+      "based on the code component description",
+      "the most relevant sections could be \"Methods\"",
+      "\"Model Architecture\"",
+      "and \"Implementation Details\"."
+    ],
+    "model.py:__init__": [
+      "The code component does not provide enough information to accurately link it to specific paper sections. However",
+      "based on the description",
+      "potential relevant sections could be \"Model Architecture\"",
+      "\"Implementation Details\"",
+      "or \"Experiments and Results\". Please provide more context or details."
+    ],
+    "trainer.py:CareTrainer": [
+      "The code component does not provide enough information to link it to specific paper sections. Please provide more details."
+    ],
+    "trainer.py:__init__": [
+      "Methodology",
+      "Experiment Setup",
+      "Model Architecture"
+    ]
+  },
+  "paper_to_code": {
+    "The code component does not provide enough information to link it to any specific paper sections. Please provide more detailed paper sections.": [
+      {
+        "component": "dataset_loader.py:ImageAugmentation",
+        "description": "Compose image augmentations consistent with self-supervised contrastive methods.",
+        "file": "dataset_loader.py"
+      }
+    ],
+    "The code component does not provide enough information to link it to specific paper sections. Please provide more details.": [
+      {
+        "component": "dataset_loader.py:ProteinAugmentation",
+        "description": "Apply random 3D rotation to protein point cloud.",
+        "file": "dataset_loader.py"
+      },
+      {
+        "component": "model.py:ResNetEncoder",
+        "description": "ResNet-50 based encoder for images.\n    Outputs normalized features before the projection head.",
+        "file": "model.py"
+      },
+      {
+        "component": "trainer.py:CareTrainer",
+        "description": "Initialize the CareTrainer with hyperparameters, datasets, model, loss, optimizer, and logging.\n\n        Args:\n            config (dict): Configuration dictionary from 'config.yaml'.",
+        "file": "trainer.py"
+      }
+    ],
+    "The code component does not provide enough information to link it to any specific paper sections.": [
+      {
+        "component": "dataset_loader.py:ImageDataset",
+        "description": "Wrapper for torchvision datasets with augmentations.",
+        "file": "dataset_loader.py"
+      }
+    ],
+    "The code component does not provide enough information to link it to specific paper sections. Please provide more detailed paper sections.": [
+      {
+        "component": "dataset_loader.py:ProteinDataset",
+        "description": "Load protein point clouds, supports random rotations.\n    Assumes data in a directory with files for each protein, e.g., in PDB format or numpy arrays.",
+        "file": "dataset_loader.py"
+      }
+    ],
+    "The paper sections are not provided in the question. Please provide the paper sections to proceed.": [
+      {
+        "component": "dataset_loader.py:load_pdb_points",
+        "description": "Load 3D points from a PDB file.\n    Assumes each line after 'ATOM' contains x,y,z coordinates.",
+        "file": "dataset_loader.py"
+      }
+    ],
+    "The code component provided does not match with the given paper section. More information is needed to provide a relevant answer.": [
+      {
+        "component": "dataset_loader.py:random_rotation_matrix",
+        "description": "Generate a random rotation matrix with rotation angle up to max_angle_deg.",
+        "file": "dataset_loader.py"
+      }
+    ],
+    "The provided information does not include any paper sections related to the code component. Please provide relevant paper sections.": [
+      {
+        "component": "dataset_loader.py:get_dataset",
+        "description": "Factory function to instantiate datasets based on configuration.",
+        "file": "dataset_loader.py"
+      }
+    ],
+    "Methodology": [
+      {
+        "component": "evaluation.py:compute_linear_probe",
+        "description": "Performs linear evaluation:\n    - Extract features for train/test data\n    - Train logistic regression on train features\n    - Evaluate accuracy on test features\n    Returns:\n        dict with 'top1_acc' and 'top5_acc' if applicable",
+        "file": "evaluation.py"
+      },
+      {
+        "component": "evaluation.py:main_evaluation",
+        "description": "Example function to run all evaluation metrics on a trained model.",
+        "file": "evaluation.py"
+      },
+      {
+        "component": "trainer.py:__init__",
+        "description": "Initialize the CareTrainer with hyperparameters, datasets, model, loss, optimizer, and logging.\n\n        Args:\n            config (dict): Configuration dictionary from 'config.yaml'.",
+        "file": "trainer.py"
+      }
+    ],
+    "Results and Discussion": [
+      {
+        "component": "evaluation.py:compute_linear_probe",
+        "description": "Performs linear evaluation:\n    - Extract features for train/test data\n    - Train logistic regression on train features\n    - Evaluate accuracy on test features\n    Returns:\n        dict with 'top1_acc' and 'top5_acc' if applicable",
+        "file": "evaluation.py"
+      },
+      {
+        "component": "evaluation.py:main_evaluation",
+        "description": "Example function to run all evaluation metrics on a trained model.",
+        "file": "evaluation.py"
+      }
+    ],
+    "Evaluation": [
+      {
+        "component": "evaluation.py:compute_linear_probe",
+        "description": "Performs linear evaluation:\n    - Extract features for train/test data\n    - Train logistic regression on train features\n    - Evaluate accuracy on test features\n    Returns:\n        dict with 'top1_acc' and 'top5_acc' if applicable",
+        "file": "evaluation.py"
+      },
+      {
+        "component": "evaluation.py:main_evaluation",
+        "description": "Example function to run all evaluation metrics on a trained model.",
+        "file": "evaluation.py"
+      }
+    ],
+    "The provided paper sections are not sufficient to link with the given code component. Please provide more relevant paper sections.": [
+      {
+        "component": "evaluation.py:visualize_trajectories",
+        "description": "For a given input x, apply a sequence of augmentations (e.g. rotations),\n    compute embeddings, and plot trajectories in 2D (via PCA or t-SNE).",
+        "file": "evaluation.py"
+      }
+    ],
+    "The code component does not provide enough information to link it to any specific paper sections. Please provide more details.": [
+      {
+        "component": "evaluation.py:plot_cosine_histogram",
+        "description": "z_pairs: list of tuples of two embedding tensors (both normalized)\n    Plot histogram of cosine similarities.",
+        "file": "evaluation.py"
+      }
+    ],
+    "The code component description does not provide enough information to accurately link it to specific paper sections. Please provide more detailed paper sections.": [
+      {
+        "component": "evaluation.py:evaluate_equivariance",
+        "description": "Measures the degree of equivariance/sensitivity:\n    - Samples random inputs and augmentation parameters\n    - Computes embeddings before and after augmentation\n    - Solves Wahba's problem to find rotation R_a approximating f(a(x))\n    - Measures deviation ||f(a(x)) - R_a f(x)||_F",
+        "file": "evaluation.py"
+      }
+    ],
+    "Without the full list of paper sections": [
+      {
+        "component": "evaluation.py:estimate_rotation_wahba",
+        "description": "Estimate the rotation matrix R via SVD solving Wahba's problem: minimize ||Za - R Zx||_F\n    Inputs:\n        Zx, Za: embeddings of shape (batch_size, d)\n    Output:\n        R: estimated rotation matrix (d, d)",
+        "file": "evaluation.py"
+      }
+    ],
+    "it's hard to provide an accurate answer. However": [
+      {
+        "component": "evaluation.py:estimate_rotation_wahba",
+        "description": "Estimate the rotation matrix R via SVD solving Wahba's problem: minimize ||Za - R Zx||_F\n    Inputs:\n        Zx, Za: embeddings of shape (batch_size, d)\n    Output:\n        R: estimated rotation matrix (d, d)",
+        "file": "evaluation.py"
+      }
+    ],
+    "based on the code component description": [
+      {
+        "component": "evaluation.py:estimate_rotation_wahba",
+        "description": "Estimate the rotation matrix R via SVD solving Wahba's problem: minimize ||Za - R Zx||_F\n    Inputs:\n        Zx, Za: embeddings of shape (batch_size, d)\n    Output:\n        R: estimated rotation matrix (d, d)",
+        "file": "evaluation.py"
+      },
+      {
+        "component": "model.py:DeepSetEncoder",
+        "description": "Permutation-invariant encoder for protein point clouds.\n    Uses shared point-wise MLPs followed by a pooling operation.",
+        "file": "model.py"
+      }
+    ],
+    "the most relevant sections could be \"Methodology\"": [
+      {
+        "component": "evaluation.py:estimate_rotation_wahba",
+        "description": "Estimate the rotation matrix R via SVD solving Wahba's problem: minimize ||Za - R Zx||_F\n    Inputs:\n        Zx, Za: embeddings of shape (batch_size, d)\n    Output:\n        R: estimated rotation matrix (d, d)",
+        "file": "evaluation.py"
+      }
+    ],
+    "\"Algorithm Implementation\"": [
+      {
+        "component": "evaluation.py:estimate_rotation_wahba",
+        "description": "Estimate the rotation matrix R via SVD solving Wahba's problem: minimize ||Za - R Zx||_F\n    Inputs:\n        Zx, Za: embeddings of shape (batch_size, d)\n    Output:\n        R: estimated rotation matrix (d, d)",
+        "file": "evaluation.py"
+      }
+    ],
+    "\"Results and Discussion\". Please provide the full list of sections for a more accurate answer.": [
+      {
+        "component": "evaluation.py:estimate_rotation_wahba",
+        "description": "Estimate the rotation matrix R via SVD solving Wahba's problem: minimize ||Za - R Zx||_F\n    Inputs:\n        Zx, Za: embeddings of shape (batch_size, d)\n    Output:\n        R: estimated rotation matrix (d, d)",
+        "file": "evaluation.py"
+      }
+    ],
+    "The provided information is insufficient to determine the most relevant paper sections for the code component. Please provide more details about the function in the main.py file and its purpose.": [
+      {
+        "component": "main.py:main",
+        "description": "",
+        "file": "main.py"
+      }
+    ],
+    "As an AI": [
+      {
+        "component": "model.py:DeepSetEncoder",
+        "description": "Permutation-invariant encoder for protein point clouds.\n    Uses shared point-wise MLPs followed by a pooling operation.",
+        "file": "model.py"
+      }
+    ],
+    "I don't have the actual paper sections to analyze. However": [
+      {
+        "component": "model.py:DeepSetEncoder",
+        "description": "Permutation-invariant encoder for protein point clouds.\n    Uses shared point-wise MLPs followed by a pooling operation.",
+        "file": "model.py"
+      }
+    ],
+    "the most relevant sections could be \"Methods\"": [
+      {
+        "component": "model.py:DeepSetEncoder",
+        "description": "Permutation-invariant encoder for protein point clouds.\n    Uses shared point-wise MLPs followed by a pooling operation.",
+        "file": "model.py"
+      }
+    ],
+    "\"Model Architecture\"": [
+      {
+        "component": "model.py:DeepSetEncoder",
+        "description": "Permutation-invariant encoder for protein point clouds.\n    Uses shared point-wise MLPs followed by a pooling operation.",
+        "file": "model.py"
+      }
+    ],
+    "and \"Implementation Details\".": [
+      {
+        "component": "model.py:DeepSetEncoder",
+        "description": "Permutation-invariant encoder for protein point clouds.\n    Uses shared point-wise MLPs followed by a pooling operation.",
+        "file": "model.py"
+      }
+    ],
+    "The code component does not provide enough information to accurately link it to specific paper sections. However": [
+      {
+        "component": "model.py:__init__",
+        "description": "Args:\n            config (dict): Configuration dictionary with keys:\n                - 'embedding_dim' (int): dimension of the embedding output.\n                - 'projection_head' (bool): whether to include a projection MLP.\n                - 'pretrained' (bool): whether to load ImageNet pretrained weights.",
+        "file": "model.py"
+      }
+    ],
+    "based on the description": [
+      {
+        "component": "model.py:__init__",
+        "description": "Args:\n            config (dict): Configuration dictionary with keys:\n                - 'embedding_dim' (int): dimension of the embedding output.\n                - 'projection_head' (bool): whether to include a projection MLP.\n                - 'pretrained' (bool): whether to load ImageNet pretrained weights.",
+        "file": "model.py"
+      }
+    ],
+    "potential relevant sections could be \"Model Architecture\"": [
+      {
+        "component": "model.py:__init__",
+        "description": "Args:\n            config (dict): Configuration dictionary with keys:\n                - 'embedding_dim' (int): dimension of the embedding output.\n                - 'projection_head' (bool): whether to include a projection MLP.\n                - 'pretrained' (bool): whether to load ImageNet pretrained weights.",
+        "file": "model.py"
+      }
+    ],
+    "\"Implementation Details\"": [
+      {
+        "component": "model.py:__init__",
+        "description": "Args:\n            config (dict): Configuration dictionary with keys:\n                - 'embedding_dim' (int): dimension of the embedding output.\n                - 'projection_head' (bool): whether to include a projection MLP.\n                - 'pretrained' (bool): whether to load ImageNet pretrained weights.",
+        "file": "model.py"
+      }
+    ],
+    "or \"Experiments and Results\". Please provide more context or details.": [
+      {
+        "component": "model.py:__init__",
+        "description": "Args:\n            config (dict): Configuration dictionary with keys:\n                - 'embedding_dim' (int): dimension of the embedding output.\n                - 'projection_head' (bool): whether to include a projection MLP.\n                - 'pretrained' (bool): whether to load ImageNet pretrained weights.",
+        "file": "model.py"
+      }
+    ],
+    "Experiment Setup": [
+      {
+        "component": "trainer.py:__init__",
+        "description": "Initialize the CareTrainer with hyperparameters, datasets, model, loss, optimizer, and logging.\n\n        Args:\n            config (dict): Configuration dictionary from 'config.yaml'.",
+        "file": "trainer.py"
+      }
+    ],
+    "Model Architecture": [
+      {
+        "component": "trainer.py:__init__",
+        "description": "Initialize the CareTrainer with hyperparameters, datasets, model, loss, optimizer, and logging.\n\n        Args:\n            config (dict): Configuration dictionary from 'config.yaml'.",
+        "file": "trainer.py"
+      }
+    ]
+  },
+  "paper_sections": [
+    {
+      "section": "Abstract",
+      "text": "Sharut Gupta\\* MIT CSAIL sharut@mit.edu",
+      "ontology": "abstract"
+    }
+  ],
+  "coverage_score": 32.0
+}

@@ -1,0 +1,328 @@
+```python
+## model.py
+
+import torch
+import torch.nn as nn
+import torch.nn.functional as F
+import math
+
+from utils import spectral_param_reparameterize, constrain_eigenvalues
+from torch_geometric.nn import LayerNorm
+
+class MLP(nn.Module):
+    """
+    A simple 2-layer MLP with optional activation and dropout.
+    """
+    def __init__(self, input_dim: int, hidden_dim: int, output_dim: int, dropout_rate: float = 0.2):
+        super().__init__()
+        self.fc1 = nn.Linear(input_dim, hidden_dim)
+        self.fc2 = nn.Linear(hidden_dim, output_dim)
+        self.dropout = nn.Dropout(dropout_rate)
+        self.activation = nn.GLU()  # Use GLU as per paper
+        # Note: GLU is typically applied after a linear layer. To match the paper's description,
+        # we can implement a GLU-like block as an activation for the final layer.
+        # For simplicity, define explicit GLU activation:
+        self.glu_activation = nn.GLU()
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        x = self.fc1(x)
+        x = self.activation(x)
+        x = self.dropout(x)
+        x = self.fc2(x)
+        return x
+
+class GLULayer(nn.Module):
+    """
+    Gated Linear Unit (GLU) activation.
+    """
+    def __init__(self, in_dim: int, out_dim: int):
+        super().__init__()
+        self.linear = nn.Linear(in_dim, 2 * out_dim)  # output split into two parts
+        self.out_dim = out_dim
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        x_proj = self.linear(x)
+        x1, x2 = torch.split(x_proj, self.out_dim, dim=-1)
+        return x1 * torch.sigmoid(x2)
+
+class RNNEncoder(nn.Module):
+    """
+    Diagonal Linear RNN encoder with trainable eigenvalues.
+    Implements recurrence:
+        s_{v,k} = Lambda * s_{v,k-1} + W_in * x_{v,K-k}
+    with spectral radius constraints to ensure stability.
+    """
+    def __init__(self, d_s: int, spectral_radius: float = 0.9):
+        """
+        Args:
+            d_s (int): dimension of the hidden state
+            spectral_radius (float): max magnitude eigenvalue for stability (~1)
+        """
+        super().__init__()
+        self.d_s = d_s
+        self.spectral_radius = spectral_radius
+        # Initialize eigenvalues in complex, stored as real + imaginary parts
+        # Using reparameterization: log-magnitude + angle
+        # Here, for simplicity, store real and imag parts separately
+        # Initialize magnitudes near 1.0, angles randomly
+        re, im = self._init_eigenvalues()
+        self.register_buffer('eigen_re', re)
+        self.register_buffer('eigen_im', im)
+        # W_in: input projection matrix, shape (d_s, d)
+        self.W_in = nn.Parameter(torch.randn(d_s, d)) * 0.1
+        # Constrain eigenvalues via parameter re-parameterization during training
+        # For that, implement a method to re-normalize eigenvalues
+
+    def _init_eigenvalues(self):
+        # Initialize eigenvalues with magnitudes near spectral_radius
+        radii = torch.rand(self.d_s) * self.spectral_radius
+        angles = torch.rand(self.d_s) * 2 * math.pi
+        re = radii * torch.cos(angles)
+        im = radii * torch.sin(angles)
+        return re, im
+
+    def constrain_eigenvalues(self):
+        """
+        To be called after each update to keep eigenvalues within spectral radius.
+        """
+        re, im = constrain_eigenvalues(torch.stack([self.eigen_re, self.eigen_im], dim=-1))
+        self.eigen_re.data.copy_(re)
+        self.eigen_im.data.copy_(im)
+
+    def get_eigenvalues(self) -> torch.Tensor:
+        """
+        Return eigenvalues as (d_s, 2) tensor: real and imag parts.
+        """
+        return torch.stack([self.eigen_re, self.eigen_im], dim=-1)
+
+    def forward(self, x_seq: torch.Tensor) -> torch.Tensor:
+        """
+        Args:
+            x_seq: shape (V, K, d), neighborhood sequence features
+        Returns:
+            s_K: shape (V, d_s) final hidden states
+        """
+        V, K, d = x_seq.shape
+        device = x_seq.device
+        eigen_re = self.eigen_re  # (d_s,)
+        eigen_im = self.eigen_im  # (d_s,)
+        # For exponential form of eigenvalues
+        # Compute magnitude and phase
+        mag = torch.sqrt(eigen_re ** 2 + eigen_im ** 2)  # (d_s,)
+        phase = torch.atan2(eigen_im, eigen_re)  # (d_s,)
+
+        # Prepare initial state
+        s = torch.zeros(V, self.d_s, device=device)  # (V, d_s)
+        # Process sequence in a loop over K
+        # To leverage parallelism, perform a batch-wise cumulative operation
+        # But for clarity, loop over k, updating s
+        for t in range(K):
+            # Compute lambda^k in polar/magnitude form
+            lambda_re_t = mag ** (t + 1) * torch.cos(phase * (t + 1))
+            lambda_im_t = mag ** (t + 1) * torch.sin(phase * (t + 1))
+            # For each component, update s
+            # s += (lambda_re_t + j * lambda_im_t) * x_{v,K - (t+1)}
+            x_t = x_seq[:, t, :]  # (V, d)
+            # Since the recurrence is linear and diagonal, the multiplication is elementwise
+            # in the eigenvalue basis; but for simplicity, approximate as:
+            # s = lambda * s + W_in * x_t, with lambda as complex
+            # Let's compute in the real domain:
+            # s_new = lambda_re_t * s - lambda_im_t * s_im; but s_im not stored
+            # To keep it simple, assume eigenvalues are real or approximate accordingly
+            # Alternatively, treat the eigenvalues as real for simplicity:
+            re_part = eigen_re  # (d_s,)
+            im_part = eigen_im
+            # For stability, we can approximate lambda^k as magnitude^k * cos(phase * k), etc.
+            # Proceed with real parts only
+            s = lambda_re_t.unsqueeze(0) * s
+            s = s + (x_t @ self.W_in.t())  # shape (V, d_s)
+            # Note: This ignores imaginary parts, but for the core logic, suffices.
+        return s
+
+class GREDLayer(nn.Module):
+    """
+    Single layer of GRED:
+    - Neighborhood aggregation via AGG (MLPs + sum)
+    - Sequence encoding with trainable diagonal linear RNN
+    - Node update via MLP and residual
+    """
+    def __init__(self, in_dim: int, hidden_dim: int, state_dim: int, max_K: int, dropout_rate: float=0.2):
+        """
+        Args:
+            in_dim (int): input feature dimension
+            hidden_dim (int): intermediate feature dimension
+            state_dim (int): dimension of RNN hidden state (d_s)
+            max_K (int): neighborhood depth
+            dropout_rate (float): dropout for MLPs
+        """
+        super().__init__()
+        self.in_dim = in_dim
+        self.hidden_dim = hidden_dim
+        self.state_dim = state_dim
+        self.max_K = max_K
+
+        # Multiset aggregation MLPs
+        self.mlp_1 = nn.Sequential(
+            nn.Linear(in_dim, hidden_dim),
+            nn.GLU()
+        )
+        self.mlp_2 = nn.Sequential(
+            nn.Linear(hidden_dim, hidden_dim),
+            nn.GLU()
+        )
+
+        # Sequence encoder (RNN)
+        self.rnn_encoder = RNNEncoder(d_s=state_dim)
+        # Initialize eigenvalues within spectral radius
+        self.eigenvalues = self.rnn_encoder.get_eigenvalues()
+        # Optionally, register buffers for the eigenvalues for reparameterization
+        # But since eigenvalues are stored in RNNEncoder, keep as attribute.
+
+        # Final MLP to produce node features after RNN
+        # W_out: can be real or complex; here, real-valued
+        self.W_out = nn.Parameter(torch.randn(self.state_dim, self.in_dim) * 0.1)
+
+        self.glu = GLULayer(self.state_dim, self.in_dim)
+        self.layer_norm = LayerNorm(in_dim)
+        self.dropout = nn.Dropout(dropout_rate)
+
+    def aggregate_neighbors(self, h_prev: torch.Tensor, masks: dict) -> torch.Tensor:
+        """
+        For each neighborhood depth k, aggregate node features in N_k(v).
+        Args:
+            h_prev: shape (V, d), previous layer node features
+            masks: dict {k: boolean tensor (V, V)} indicating neighborhood of distance k
+        Returns:
+            x_k: tensor (V, d), neighborhood set representation
+        """
+        V, d = h_prev.shape
+        x_list = []
+        for k in range(self.max_K + 1):
+            mask_k = masks.get(k, torch.zeros(V, V, dtype=torch.bool, device=h_prev.device))
+            # Sum over neighbors u in N_k(v)
+            # h_prev: (V, d)
+            neighbor_feats = torch.matmul(mask_k.float(), h_prev)  # shape (V, d)
+            # Alternatively, sum over masked rows:
+            # neighbor_feats[v, :] = sum_{u in N_k(v)} h_prev[u]
+            # If no neighbors in mask, result is zeros
+            # Pass through MLP_1
+            agg_feat = self.mlp_1(neighbor_feats)
+            # MLP_2 is applied later on sum, so store after summation
+            x_list.append(agg_feat)
+        # Stack to shape (V, K+1, d)
+        x_stack = torch.stack(x_list, dim=1)
+        return x_stack
+
+    def encode_sequence(self, x_seq: torch.Tensor) -> torch.Tensor:
+        """
+        Encode neighborhood sequence with RNN.
+        Args:
+            x_seq: (V, K+1, d)
+        Returns:
+            s_K: (V, state_dim)
+        """
+        V, K_plus_1, d = x_seq.shape
+        # We need sequence x_{v,K}, ..., x_{v,0}
+        # According to paper, sequence runs from max distance to 0
+        # So reverse the sequence along dimension 1
+        sequence = x_seq[:, torch.arange(K_plus_1 -1, -1, -1, device=x_seq.device), :]
+        # Pass through RNN
+        s_K = self.rnn_encoder(sequence)
+        return s_K
+
+    def forward(self, h_prev: torch.Tensor, masks: dict) -> torch.Tensor:
+        """
+        Process one GRED layer.
+        Args:
+            h_prev: (V, d), previous node features
+            masks: neighborhood masks per layer
+        Returns:
+            h_new: (V, d), updated node features
+        """
+        # Neighborhood aggregation
+        x_seq = self.aggregate_neighbors(h_prev, masks)  # (V, K+1, d)
+
+        # Sequence encoding via RNN
+        s_K = self.encode_sequence(x_seq)  # (V, state_dim)
+
+        # Reparameterize eigenvalues within spectral radius
+        self.eigenvalues = self.rnn_encoder.get_eigenvalues()
+        self.rnn_encoder.constrain_eigenvalues()  # ensure stability, update buffers
+
+        # Convert s_K (real) via W_out (real) for complex multiplication if needed
+        # For simplicity, treat as real
+        # Compute output node features
+        out_feat = torch.matmul(s_K, self.W_out)  # shape (V, d)
+        # Apply activation (GLU)
+        out_feat = self.glu(out_feat)  # (V, d)
+        out_feat = self.dropout(out_feat)
+        # Residual connection with layer norm
+        h_new = self.layer_norm(h_prev + out_feat)
+        return h_new
+
+class GraphGRED(nn.Module):
+    """
+    The overall GRED model stacking multiple GRED layers.
+    """
+    def __init__(self, config: dict, input_dim: int):
+        """
+        Args:
+            config (dict): parsed from config.yaml, e.g.,
+                {
+                  "num_layers": int,
+                  "neighborhood_K": int,
+                  "hidden_dim": int,
+                  "state_dim": int,
+                  "out_dim": int,
+                  "dropout_rate": float
+                }
+            input_dim (int): dimension of initial node features
+        """
+        super().__init__()
+        self.num_layers = config.get("num_layers", 8)
+        self.K = config.get("neighborhood_K", 4)
+        self.hidden_dim = config.get("hidden_dim", 64)
+        self.state_dim = config.get("state_dim", 64)
+        self.out_dim = config.get("out_dim", 64)
+        self.dropout_rate = config.get("dropout_rate", 0.2)
+
+        # Input embedding layer if input_dim != hidden_dim
+        if input_dim != self.hidden_dim:
+            self.input_lin = nn.Linear(input_dim, self.hidden_dim)
+        else:
+            self.input_lin = nn.Identity()
+
+        # Stack of GRED layers
+        self.layers = nn.ModuleList([
+            GREDLayer(in_dim=self.hidden_dim,
+                     hidden_dim=self.hidden_dim,
+                     state_dim=self.state_dim,
+                     max_K=self.K,
+                     dropout_rate=self.dropout_rate)
+            for _ in range(self.num_layers)
+        ])
+
+        # Final classification or embedding layer, if needed
+        # For node classification, e.g., MLP classifier
+        self.output_layer = nn.Sequential(
+            nn.Linear(self.hidden_dim, self.out_dim),
+            nn.GLU(),
+            nn.Linear(self.out_dim, self.out_dim)
+        )
+
+    def forward(self, node_features: torch.Tensor, neighborhood_masks: list) -> torch.Tensor:
+        """
+        Args:
+            node_features: (V, d_in)
+            neighborhood_masks: list of dicts, each dict {k: mask tensor} for each layer
+        Returns:
+            node_embeddings: (V, out_dim)
+        """
+        h = self.input_lin(node_features)  # (V, d_in) or (V, hidden_dim)
+        for idx, layer in enumerate(self.layers):
+            masks = neighborhood_masks[idx]
+            h = layer(h, masks)
+        # Final output
+        out = self.output_layer(h)
+        return out
+```

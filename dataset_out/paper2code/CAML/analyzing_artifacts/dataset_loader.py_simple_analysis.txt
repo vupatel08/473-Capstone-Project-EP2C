@@ -1,0 +1,170 @@
+**Logic Analysis for dataset_loader.py: DatasetLoader Class**
+
+---
+
+### 1. **Purpose and Responsibilities**
+
+The `DatasetLoader` class serves as the core component for managing datasets used during pretraining, episodic sampling for meta-learning, and cross-dataset evaluation. Its responsibilities include:
+
+- Loading multiple datasets (from different sources) as specified in the `config.yaml`.
+- Providing an API to sample support and query sets according to `way` (number of classes) and `shot` (support images per class).
+- Ensuring data are appropriately preprocessed and normalized for the vision encoder (e.g., CLIP).
+- Supporting flexibility in dataset formats, class labels, and data splits (`train`, `val`, `test`).
+
+---
+
+### 2. **Inputs and Initialization (`__init__(config)`)**
+
+- **Inputs:**
+  - `config`: a dictionary parsed from `config.yaml`, containing at least:
+    - `dataset.datasets`: list of dataset specifications, each with:
+      - `name`: e.g., `'mini-ImageNet'`, `'CIFAR-fs'`.
+      - `split`: `'train'`, `'test'`, `'val'`.
+
+- **Actions:**
+  - For each dataset in `config['dataset']['datasets']`:
+    - Instantiate a dataset object, depending on the dataset type:
+      - For standard datasets (e.g., ImageNet, CIFAR, Pascal), likely use torchvision datasets or custom loaders.
+      - For specialized datasets (e.g., Paintings, ChestX), implement or import dataset-specific loaders.
+    - Store dataset objects in a list or dictionary (e.g., `self.datasets`), keyed by dataset name or index.
+  - Save dataset configurations such as dataset paths, splits.
+  - Set dataset-specific preprocessing parameters:
+    - Resize, crop, normalization compatible with pre-trained encoder (e.g., CLIP normalization).
+  - Initialize random seed if deterministic behavior is desired.
+  - Optionally, prepare class mappings (class label to index) per dataset.
+  - Initialize internal state variables needed for sampling.
+
+---
+
+### 3. **Loading Data (`load_data()`)**
+
+- **Purpose:**
+  - Load datasets into memory or prepare data pipelines.
+  - For efficiency, data may be loaded lazily or cached.
+  - May involve:
+    - Downloading datasets if not locally available.
+    - Building datasets with class labels, data splits (`train`, `test`, etc.).
+
+- **Implementation notes:**
+  - For torchvision datasets, use provided dataset classes: e.g., `ImageFolder`, `CIFAR10`, etc.
+  - For custom datasets (Paintings, ChestX), load images and labels into structured format.
+  - Use dataset-specific transforms to resize and normalize images compatible with CLIP:
+    - Resize to 224x224 (or as required).
+    - Normalize pixel values to match CLIP normalization (mean, std).
+
+- **Output:**
+  - Store datasets internally (e.g., attributes like `self.datasets`) for sampling.
+  - Return may be unnecessary if datasets are stored as class attributes.
+
+---
+
+### 4. **Sampling Tasks (`sample_task(way, shot)`)**
+
+- **Purpose:**
+  - Generate a single episodic task comprising:
+    - `way` classes (distinct classes).
+    - `shot` support images per class.
+    - Corresponding query images for evaluation.
+
+- **Steps:**
+  - For each dataset chosen:
+    - Randomly select `way` classes from available classes in the dataset split.
+    - For each selected class:
+      - Sample `shot` images as support examples.
+      - Sample additional query images (number determined by evaluation protocol, e.g., 15 or 20).
+  - The sampling must ensure:
+    - Support set has `way * shot` images with labels.
+    - Query set has images from the same classes but different images.
+  - Return:
+    - Support support images and labels.
+    - Query images and labels.
+    - Metadata: dataset name, class labels, indices.
+
+- **Data format:**
+  - Support set:
+    - List or tensor of images (support images).
+    - Corresponding list/tensor of labels (class labels).
+  - Query set:
+    - List or tensor of images.
+    - Corresponding labels.
+
+- **Implementation details:**
+  - Convert images to tensors if not already.
+  - Keep data as raw images or preprocessed images, to be fed into the encoder later.
+  - Use a consistent label encoding scheme (e.g., numeric labels 0..way-1, mapped during training).
+  - Random seed control for reproducibility.
+
+---
+
+### 5. **Handling Multiple Datasets**
+
+- Datasets are predefined in the config; during `load_data()`, instantiate data loaders for each dataset.
+- When sampling an episode, randomly pick one dataset from the list.
+- The `sample_task()` method should either:
+  - Take an optional dataset name or index.
+  - Be called separately for each dataset.
+- Cross-dataset tasks are expected; sampling should reflect this diversity (e.g., during validation or testing across datasets).
+
+---
+
+### 6. **Preprocessing & Data Augmentation**
+
+- Each dataset's images should undergo:
+  - Resize to 224x224.
+  - Normalize for CLIP: mean/std normalization.
+- Lazy on-the-fly transform during dataset loading for efficiency.
+- For datasets with specific formatting (e.g., Paintings, ChestX), ensure compatible image formats.
+
+---
+
+### 7. **Edge Cases and Additional Notes**
+
+- For datasets with variable class counts or labels:
+  - Create class-to-index mapping.
+- For datasets with limited images:
+  - Handle cases where requested class instances are fewer than `shot + query`.
+  - Possible to oversample or discard such classes during sampling.
+- Maintain a record/log of sampled class IDs and images for debugging.
+- As datasets are loaded, ensure thread safety if multi-processing is used.
+
+---
+
+### 8. **Assumptions & Clarifications Needed**
+
+- Exact dataset formats: are images stored in directory structures, or as annotations?
+- Dataset download URLs or paths are either pre-configured or need to be handled externally.
+- Whether evaluation datasets are separate from training datasets or overlap.
+- Whether support/query images are selected with or without replacement.
+- How many query images per task (not specified in config; assume a fixed number, e.g., 15 or 20, or derived from dataset split).
+
+---
+
+### **Summary of core logic flow in `dataset_loader.py`:**
+
+```plaintext
+- __init__(config):
+    - Parse dataset list.
+    - Instantiate dataset loaders for each dataset.
+    - Store class mappings, dataset splits, transforms.
+
+- load_data():
+    - Load datasets into memory or set up data pipelines.
+    - Prepare class-to-index mapping.
+    - Apply dataset-specific transformations.
+    - Ready datasets for episodic sampling.
+
+- sample_task(way, shot):
+    - Select a dataset at random or specified.
+    - Randomly sample 'way' classes.
+    - For each class:
+        - Sample 'shot' support images.
+        - Sample query images.
+    - Return:
+        - support_images (list or tensor),
+        - support_labels (list or tensor),
+        - query_images,
+        - query_labels,
+        - dataset info.
+```
+
+This detailed logic provides the blueprint to implement the class with clear control over data management for the meta-learning experiments following the CAML approach in the paper.

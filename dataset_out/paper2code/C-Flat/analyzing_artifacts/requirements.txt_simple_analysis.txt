@@ -1,0 +1,42 @@
+# requirements.txt
+
+# Core deep learning framework
+torch==1.11.0
+
+# Numerical computing and array operations
+numpy==1.21.0
+
+# Visualization tools for landscape plots and Hessian eigenvalues
+matplotlib==3.5.0
+
+# Scikit-learn for additional utilities, possibly for evaluation metrics or class splitting
+scikit-learn==0.24.2
+
+# HDF5 support if saving/loading large datasets or models
+h5py==3.1.0
+
+# Auxiliary packages for reproducibility, optional but recommended
+# (e.g., for dataset handling, progress bars, or logging)
+# No additional third-party dependencies specified beyond core packages
+
+# Additional notes:
+# - The code will depend heavily on PyTorch’s autograd for neighborhood regularizer approximations,
+#   including gradient computation and Hessian-vector products.
+# - For visualization of loss landscapes and Hessian eigenvalues, PyHessian or custom routines
+#   will be used; ensure compatible versions if explicitly required.
+# - No dependencies on special packages like GPytorch or Hessian approximation libraries are specified, 
+#   but implementing efficient Hessian-vector products may require them if desired.
+# - Ensure reproducibility with seed settings in code, as the seed is specified as 1993.
+# - No other language dependencies are expected; all code should be written in Python.
+# - For hardware considerations, use GPU acceleration if available, but code must support CPU fallback.
+# - If implementing advanced neighborhood evaluation (like multiple steps or iterations), plan for batching and memory management accordingly.
+
+# Additional notes for implementation:
+# - The regularizers involve neighborhood evaluations that can be computationally intensive.
+# - Design functions to approximate loss and gradient in a neighborhood using efficient autograd operations.
+# - Schedule hyperparameters (\(\rho\), \(\lambda\), learning rate) according to the config or schedule.
+# - For landscape visualization, prepare utility functions compatible with matplotlib or PyHessian.
+
+# No extra third-party packages are explicitly required as per the plan, but optional packages for Hessian computations or visualization may be included if needed.
+
+# End of requirements.txt

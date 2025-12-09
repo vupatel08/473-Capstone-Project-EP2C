@@ -1,0 +1,61 @@
+{
+  "utils.py": [
+    {
+      "Function/Component": "surrogate_gradient",
+      "Purpose": "Implement the surrogate gradient function for non-differentiable spike functions, specifically using the sigmoid derivative to approximate the gradient of a spike activation.",
+      "Details": "Return a smooth approximation of ∂s/∂u during backpropagation to enable gradient-based learning in the spiking neural network. Use the sigmoid derivative formula: (1/a1) * exp((V_th - u) / a1) / (1 + exp((V_th - u) / a1))^2, with a1 ~ 0.25 for stability.",
+      "Inputs": ["u (Tensor): Membrane potential tensor, shape matching neurons or spike trains."],
+      "Outputs": ["grad_s (Tensor): Surrogate gradient tensor matching the shape of u."]
+    },
+    {
+      "Function/Component": "delay_quantize",
+      "Purpose": "Quantize the real-valued delay parameters into integer discrete delays suitable for simulation and hardware implementation, employing straight-through estimator for backpropagation.",
+      "Details": "Scale delays by a scale factor (e.g., delay_scale or delay_scale_relation), apply sigmoid to bound delays, multiply by max delay, and round to nearest integer. During backprop, use straight-through estimator to pass gradients unaltered through the quantization process.",
+      "Inputs": ["d (Tensor): Delay parameters before quantization, shape: number of relations or edges."],
+      "Outputs": ["d_int (Tensor): Quantized delay tensor with shape matching d."]
+    },
+    {
+      "Function/Component": "decode_spike_train_first_spike",
+      "Purpose": "Decode the spike train at a target node to estimate the shortest path or first spike time, which encodes path length information.",
+      "Details": "For each neuron or the combined spike train, find the earliest time point at which a spike occurs. Return tensor of shape: batch size or number of nodes, containing the first spike time for each entity.",
+      "Inputs": ["spike_train (Tensor): Spike train over T time steps, shape: (num_neurons, T) or batch size x neurons x T."],
+      "Outputs": ["first_spike_times (Tensor): Earliest spike times, shape: matching number of entities."]
+    },
+    {
+      "Function/Component": "decode_spike_train_weighted_sum",
+      "Purpose": "Decode spike trains into a vector representation by applying exponential weighting over spike counts, emulating relation importance and relevance encoding.",
+      "Details": "Sum spikes across neurons and time steps, weight with λ^τ (decay factor), and normalize over total weights. Used for relation-sensitive path encoding as in Eq. (B.2).",
+      "Inputs": ["spike_train (Tensor): Shape: neurons x T, representing spike occurrences."],
+      "Outputs": ["vector_rep (Tensor): Decoded vector for pair representation."]
+    },
+    {
+      "Function/Component": "plot_paths_importance",
+      "Purpose": "Visualize illustrative reasoning paths based on edge importance scores derived during backpropagation through spike trains, aiding interpretability.",
+      "Details": "Accept edge importance scores, path sequences, and path importance weights. Generate plots (e.g., network graphs or path sequences) highlighting relevant paths and their contributions. Useful for path importance analysis in Appendix F.2.",
+      "Inputs": ["edges (list or array): Edge sequence or graph structure.", "edge_importances (Tensor): Importance scores per edge.", "paths (list): Extracted paths for a given query."],
+      "Outputs": ["None"]: Produces static plots or interactive visualizations for interpretability analysis."]
+    },
+    {
+      "Function/Component": "initialize_relation_embeddings",
+      "Purpose": "Create and initialize relation embedding vectors used for current injection and delay parameterization, according to configuration.",
+      "Details": "Use uniform or Xavier initialization for relation embeddings, with dimension consistent with dataset relation count. These embeddings serve as input for delay and current calculation.",
+      "Inputs": ["num_relations (int): Total number of relation types, from dataset."],
+      "Outputs": ["relation_embeddings (Tensor): shape: num_relations x embedding_dim."]
+    },
+    {
+      "Function/Component": "update_delays_from_params",
+      "Purpose": "Apply the learned parameters (relation, edge importance) to compute the final delays, including sigmoid transformation and scaling, ensuring delay constraints are satisfied, typically in the range [0, delay_scale].",
+      "Details": "Given delay parameters (e.g., delay_scale_relation * sigmoid(W_r * r^q + b_r)), compute continuous delay values, then quantize via delay_quantize().",
+      "Inputs": ["relation_relation_params (Tensor): Learnable parameters for delay, shape: relation_count x param_dim."],
+      "Outputs": ["final_delays (Tensor): Discrete delays for each edge or edge-relation pair."]
+    },
+    {
+      "Function/Component": "spike_train_to_path_importance",
+      "Purpose": "Estimate the importance of each path based on spike timing and importance weights used in decoding, especially for interpretability and analysis.",
+      "Details": "Aggregate spike arrival times and importance scores (e.g., via gradient importance), sum contributions across paths, possibly threshold to identify most relevant paths as in beam search.",
+      "Inputs": ["spike_trains (list): Spike trains at target nodes for multiple paths.", "path_weights (list): Importance scores for the paths."],
+      "Outputs": ["path_importances (list): Importance value per path, for visualization."]
+    }
+  ],
+  "Remarks": "Ensure all functions support batch processing for efficiency. Use torch.autograd.Function subclasses to implement custom backward passes where needed, especially for delay quantization and surrogate gradients. Maintain clarity and modularity to facilitate integration with the main training, modeling, and evaluation pipelines."
+}

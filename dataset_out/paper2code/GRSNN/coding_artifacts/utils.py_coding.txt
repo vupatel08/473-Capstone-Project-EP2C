@@ -1,0 +1,225 @@
+```python
+# utils.py
+
+import torch
+import torch.nn as nn
+import torch.nn.functional as F
+
+# ------------------------------
+# Surrogate Gradient Function
+# ------------------------------
+def surrogate_gradient(u: torch.Tensor, V_th: float = 1.0, a1: float = 0.25) -> torch.Tensor:
+    """
+    Compute the surrogate gradient for the non-differentiable spike function using a sigmoid derivative.
+    
+    Args:
+        u (Tensor): Membrane potential tensor of shape (...).
+        V_th (float, optional): Spike threshold. Defaults to 1.0.
+        a1 (float, optional): Slope parameter controlling gradient sharpness. Defaults to 0.25.
+        
+    Returns:
+        Tensor: Surrogate gradient tensor of shape (...), same as u.
+    """
+    # Compute the sigmoid approximation
+    sigmoid_arg = (V_th - u) / a1
+    # Reflect positive gradient
+    grad = (1.0 / a1) * torch.exp(sigmoid_arg) / (1.0 + torch.exp(sigmoid_arg)) ** 2
+    return grad
+
+# ------------------------------
+# Delay Quantization with Straight-Through Estimator
+# ------------------------------
+class DelayQuantize(torch.autograd.Function):
+    """
+    Quantizes real-valued delays into integer discrete delays, with straight-through estimator.
+    """
+    @staticmethod
+    def forward(ctx, d: torch.Tensor, delay_scale: float) -> torch.Tensor:
+        """
+        Forward pass: scale and discretize delays.
+        Args:
+            d (Tensor): continuous delay parameters, shape (relation/edge count,).
+            delay_scale (float): maximum delay scale factor.
+        Returns:
+            Tensor: quantized delays as integers.
+        """
+        # Save for backward
+        ctx.save_for_backward(d)
+        ctx.delay_scale = delay_scale
+        
+        # Apply sigmoid boundary (0, 1)
+        d_scaled = torch.sigmoid(d) * delay_scale
+        # Quantize by rounding to nearest integer
+        d_int = torch.round(d_scaled).clamp(min=0).long()
+        return d_int
+
+    @staticmethod
+    def backward(ctx, grad_output):
+        """
+        Straight-through estimator: pass the gradient as is through the sigmoid scale.
+        """
+        d, = ctx.saved_tensors
+        delay_scale = ctx.delay_scale
+        # Compute gradient wrt input d
+        sigmoid_grad = torch.sigmoid(d)
+        grad_d = grad_output.float() * sigmoid_grad * (1 - sigmoid_grad) * delay_scale
+        return grad_d, None
+
+def delay_quantize(d: torch.Tensor, delay_scale: float) -> torch.LongTensor:
+    """
+    Interface function for delay quantization.
+    """
+    return DelayQuantize.apply(d, delay_scale)
+
+# --------------------------------------------
+# Decode Spike Train to First Spike Time
+# --------------------------------------------
+def decode_spike_train_first_spike(spike_train: torch.Tensor) -> torch.Tensor:
+    """
+    Decode spike train to get earliest spike times per neuron/entity.
+    Args:
+        spike_train (Tensor): Shape (num_neurons, T) or (batch, neurons, T).
+    Returns:
+        Tensor: Earliest spike time per neuron/entity. Shape same as batch, or (num_neurons,).
+    """
+    # Find first occurrence of spike (>0)
+    # If no spike, return large number (e.g., T+1)
+    T = spike_train.shape[-1]
+    # Mask for spikes
+    spike_mask = spike_train > 0
+    # For batch, keep dims
+    if spike_train.dim() == 3:
+        # shape: batch x neurons x T
+        first_spike_time, _ = torch.min(
+            torch.where(spike_mask, torch.arange(T, device=spike_train.device).unsqueeze(0).unsqueeze(0), torch.full_like(spike_mask, T+1)),
+            dim=-1
+        )
+        return first_spike_time.squeeze()
+    elif spike_train.dim() == 2:
+        # shape: neurons x T
+        first_spike_time, _ = torch.min(
+            torch.where(spike_mask, torch.arange(T, device=spike_train.device), torch.full_like(spike_mask, T+1)),
+            dim=-1
+        )
+        return first_spike_time
+    else:
+        raise ValueError("Expected spike_train tensor with 2 or 3 dimensions.")
+
+# --------------------------------------------
+# Decode Spike Train to Weighted Sum Representation
+# --------------------------------------------
+def decode_spike_train_weighted_sum(spike_train: torch.Tensor, lambda_: float = 0.95) -> torch.Tensor:
+    """
+    Decode spike train into a vector by weighted sum over spike counts, applying exponential decay.
+    Args:
+        spike_train (Tensor): Shape (neurons, T).
+        lambda_ (float): Decay factor (0< lambda_ <1).
+    Returns:
+        Tensor: Vector representation, shape (neurons,).
+    """
+    # Spike counts per neuron per timestep
+    spike_counts = spike_train  # assuming binary: 0/1 over T
+    T = spike_train.shape[-1]
+    time_indices = torch.arange(T, device=spike_train.device).float()
+    # Exponential weights per timestep
+    weights = lambda_ ** time_indices
+    # Sum weighted spikes
+    weighted_sum = (spike_counts * weights.unsqueeze(0)).sum(dim=-1)
+    # Normalize by sum of weights
+    norm_factor = weights.sum()
+    vector_rep = weighted_sum / norm_factor
+    return vector_rep
+
+# ----------------------------------------------
+# Visualization of Paths Importance (Optional)
+# ----------------------------------------------
+def plot_paths_importance(edges, edge_importances, paths):
+    """
+    Visualize the importance of reasoning paths based on edge importance scores.
+    Args:
+        edges (list or array): Sequence of edges in a path.
+        edge_importances (Tensor): Importance scores per edge.
+        paths (list): List of paths (each path is a list of edges).
+    """
+    import matplotlib.pyplot as plt
+    import networkx as nx
+
+    G = nx.DiGraph()
+    # Add edges with importance as edge attribute
+    for idx, edge in enumerate(edges):
+        G.add_edge(edge[0], edge[1], weight=edge_importances[idx].item())
+
+    # Plot graph, emphasizing edges with importance
+    pos = nx.spring_layout(G)
+    edge_weights = [G[u][v]['weight'] for u, v in G.edges()]
+    nx.draw(G, pos, with_labels=True, node_color='lightblue', edge_color='gray', width=5*torch.tensor(edge_weights))
+    plt.title("Importance of Reasoning Path")
+    plt.show()
+
+# ----------------------------------------------
+# Initialize Relation Embeddings
+# ----------------------------------------------
+def initialize_relation_embeddings(num_relations: int, embedding_dim: int = 64, init_method: str = 'xavier') -> torch.Tensor:
+    """
+    Create and initialize relation embeddings.
+    Args:
+        num_relations (int): Total number of relation types.
+        embedding_dim (int): Embedding dimension.
+        init_method (str): 'uniform' or 'xavier'.
+    Returns:
+        Tensor: shape (num_relations, embedding_dim)
+    """
+    embeddings = torch.empty((num_relations, embedding_dim))
+    if init_method == 'xavier':
+        nn.init.xavier_uniform_(embeddings)
+    elif init_method == 'uniform':
+        nn.init.uniform_(embeddings, a=-0.1, b=0.1)
+    else:
+        raise ValueError(f"Unknown init_method: {init_method}")
+    return embeddings
+
+# ----------------------------------------------
+# Update Delays From Parameters
+# ----------------------------------------------
+def update_delays_from_params(
+    relation_params: torch.Tensor,
+    delay_scale_relation: float,
+    W_r: torch.nn.Parameter,
+    b_r: torch.nn.Parameter
+) -> torch.LongTensor:
+    """
+    Generate final discrete delays from learnable relation parameters and relation embedding.
+    Args:
+        relation_params (Tensor): shape (relation_count, param_dim)
+        delay_scale_relation (float): scale factor for delays
+        W_r (Parameter): weight matrix for relation delay
+        b_r (Parameter): bias vector for relation delay
+    Returns:
+        LongTensor: quantized discrete delays, shape (relation_count,)
+    """
+    # Compute delay in continuous space
+    delay_continuous = delay_scale_relation * torch.sigmoid(torch.matmul(relation_params, W_r.T) + b_r)
+    # Quantize delays
+    delay_discrete = delay_quantize(delay_continuous, delay_scale_relation)
+    return delay_discrete
+
+# ----------------------------------------------
+# Spike Train Importance for Interpretability
+# ----------------------------------------------
+def spike_train_to_path_importance(spike_trains, path_weights):
+    """
+    Compute path importance scores based on spike timing and assigned importance weights.
+    Args:
+        spike_trains (list): list of spike train tensors per path.
+        path_weights (list): list of importance scores for each path.
+    Returns:
+        list: importance scores per path.
+    """
+    importance_scores = []
+    for i, spike_train in enumerate(spike_trains):
+        # Example: importance proportional to earliest spike arrival time
+        first_spike = decode_spike_train_first_spike(spike_train)
+        importance = torch.exp(-first_spike) * path_weights[i]
+        importance_scores.append(importance.item())
+    return importance_scores
+```

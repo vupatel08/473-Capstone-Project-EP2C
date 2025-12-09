@@ -1,0 +1,264 @@
+{
+  "code_to_paper": {
+    "conditioning.py:ConditioningEncoder": [
+      "The provided paper sections are not sufficient to link with the given code component. Please provide more relevant paper sections."
+    ],
+    "conditioning.py:__init__": [
+      "The provided paper sections are not relevant to the code component. Please provide the correct paper sections."
+    ],
+    "dataset_loader.py:class": [
+      "The paper sections are not provided in the question. Please provide the paper sections to proceed."
+    ],
+    "dataset_loader.py:__init__": [
+      "The code component does not provide enough information to link it to specific paper sections. Please provide more context or the actual paper sections."
+    ],
+    "diffusion_utils.py:diffusion_utils": [
+      "The provided information does not include any paper sections related to the code component. Please provide relevant paper sections."
+    ],
+    "evaluation.py:EvaluationMetrics": [
+      "The provided paper sections are not relevant to the code component. Please provide the correct paper sections."
+    ],
+    "evaluation.py:__init__": [
+      "The paper sections are not provided in the question. Please provide the paper sections to proceed."
+    ],
+    "evaluation.py:_sqrtm": [
+      "The provided paper sections do not seem to contain any relevant information related to the code component. Please provide more relevant paper sections."
+    ],
+    "main.py:main": [
+      "The provided information is insufficient to determine the relevance of the paper sections to the code component. Please provide more details about the function in the file main.py and the content of the paper sections."
+    ],
+    "main.py:smooth_z_sequence": [
+      "The provided paper sections do not seem to contain any relevant information related to the code component. Please provide the actual sections of the paper for a proper analysis."
+    ],
+    "model.py:Conv3dInflated": [
+      "The provided paper sections do not seem to contain any relevant information related to the code component. Please provide the correct paper sections."
+    ],
+    "model.py:CrossFrameMultiHeadAttention": [
+      "The provided paper sections are not sufficient to link with the given code component. Please provide more relevant paper sections."
+    ],
+    "model.py:InflatedUNet3D": [
+      "Without specific section names",
+      "it's hard to provide an accurate answer. However",
+      "based on the code description",
+      "the most relevant sections could be \"Methodology\"",
+      "\"Model Architecture\"",
+      "and \"3D Convolution and Cross-frame Attention\"."
+    ],
+    "model.py:ControlVideoModel": [
+      "The provided paper sections are not relevant to the code component. Please provide the correct paper sections."
+    ],
+    "model.py:__init__": [
+      "The provided paper sections are not sufficient to link with the given code component. Please provide more relevant paper sections such as 'Methodology'",
+      "'Implementation Details'",
+      "'Results'",
+      "'Discussion'",
+      "etc."
+    ],
+    "text_prompt.py:TextPromptEmbedder": [
+      "The provided paper sections do not seem to contain any relevant information related to the code component. Please provide more detailed sections of the paper."
+    ],
+    "text_prompt.py:__init__": [
+      "The provided paper sections do not seem to contain any relevant information related to the code component. Please provide more relevant paper sections."
+    ],
+    "trainer.py:Trainer": [
+      "The provided paper sections are not sufficient to link with the given code component. Please provide more detailed sections of the paper."
+    ],
+    "trainer.py:__init__": [
+      "The provided paper sections are not sufficient to link with the given code component. Please provide more relevant paper sections."
+    ]
+  },
+  "paper_to_code": {
+    "The provided paper sections are not sufficient to link with the given code component. Please provide more relevant paper sections.": [
+      {
+        "component": "conditioning.py:ConditioningEncoder",
+        "description": "Initialize the ConditioningEncoder based on control_type.\n        Loads appropriate pre-trained encoders or models for each condition type.\n        \n        Args:\n            control_type (str): Type of control map (\"edges\", \"depth\", \"pose\").\n            device (torch.device): Device to load models onto.",
+        "file": "conditioning.py"
+      },
+      {
+        "component": "model.py:CrossFrameMultiHeadAttention",
+        "description": "Cross-Frame Multi-Head Attention Module.\n    \n    Supports full cross-frame attention as well as sparse or causal variants.\n    For simplicity, this implementation assumes full cross-frame attention.",
+        "file": "model.py"
+      },
+      {
+        "component": "trainer.py:__init__",
+        "description": "Initialize the trainer with configuration parameters.\n        Loads models, encoders, and prepares conditions and prompts.",
+        "file": "trainer.py"
+      }
+    ],
+    "The provided paper sections are not relevant to the code component. Please provide the correct paper sections.": [
+      {
+        "component": "conditioning.py:__init__",
+        "description": "Initialize the ConditioningEncoder based on control_type.\n        Loads appropriate pre-trained encoders or models for each condition type.\n        \n        Args:\n            control_type (str): Type of control map (\"edges\", \"depth\", \"pose\").\n            device (torch.device): Device to load models onto.",
+        "file": "conditioning.py"
+      },
+      {
+        "component": "evaluation.py:EvaluationMetrics",
+        "description": "This class provides methods to evaluate generated videos on:\n    - CLIP similarity (prompt fidelity)\n    - Temporal consistency (frame stability)\n    - FID (distribution similarity to real videos)\n    \n    It relies on pretrained CLIP and optional video feature extractors.",
+        "file": "evaluation.py"
+      },
+      {
+        "component": "model.py:ControlVideoModel",
+        "description": "Encapsulates the entire model for control, inflation, and denoising.",
+        "file": "model.py"
+      }
+    ],
+    "The paper sections are not provided in the question. Please provide the paper sections to proceed.": [
+      {
+        "component": "dataset_loader.py:class",
+        "description": "Initialize DatasetLoader.\n        \n        Args:\n            dataset_path (str): Path to dataset directory containing videos.\n            annotations (dict): Mapping from video filename to source caption/prompt.\n            control_types (list): Types of control conditions to extract.\n            resize_size (int): Size to resize frames and maps to.\n            use_cache (bool): Whether to cache extracted maps to disk for reuse.",
+        "file": "dataset_loader.py"
+      },
+      {
+        "component": "evaluation.py:__init__",
+        "description": "Initialize models for feature extraction and set configuration.\n        \n        Args:\n            config (dict): Configuration dictionary (parsed from 'config.yaml').",
+        "file": "evaluation.py"
+      }
+    ],
+    "The code component does not provide enough information to link it to specific paper sections. Please provide more context or the actual paper sections.": [
+      {
+        "component": "dataset_loader.py:__init__",
+        "description": "Initialize DatasetLoader.\n        \n        Args:\n            dataset_path (str): Path to dataset directory containing videos.\n            annotations (dict): Mapping from video filename to source caption/prompt.\n            control_types (list): Types of control conditions to extract.\n            resize_size (int): Size to resize frames and maps to.\n            use_cache (bool): Whether to cache extracted maps to disk for reuse.",
+        "file": "dataset_loader.py"
+      }
+    ],
+    "The provided information does not include any paper sections related to the code component. Please provide relevant paper sections.": [
+      {
+        "component": "diffusion_utils.py:diffusion_utils",
+        "description": "Collection of static methods related to diffusion process.",
+        "file": "diffusion_utils.py"
+      }
+    ],
+    "The provided paper sections do not seem to contain any relevant information related to the code component. Please provide more relevant paper sections.": [
+      {
+        "component": "evaluation.py:_sqrtm",
+        "description": "Compute matrix square root using scipy.linalg.sqrtm.",
+        "file": "evaluation.py"
+      },
+      {
+        "component": "text_prompt.py:__init__",
+        "description": "Initializes the TextPromptEmbedder with a pretrained CLIP model for encoding prompts.\n        \n        Args:\n            model_name (str): Name or path of the pretrained CLIP model.\n            device (str): Device to load the model onto ('cuda' or 'cpu').",
+        "file": "text_prompt.py"
+      }
+    ],
+    "The provided information is insufficient to determine the relevance of the paper sections to the code component. Please provide more details about the function in the file main.py and the content of the paper sections.": [
+      {
+        "component": "main.py:main",
+        "description": "",
+        "file": "main.py"
+      }
+    ],
+    "The provided paper sections do not seem to contain any relevant information related to the code component. Please provide the actual sections of the paper for a proper analysis.": [
+      {
+        "component": "main.py:smooth_z_sequence",
+        "description": "Apply the interleaved-frame smoothing (Alg. 1).\n    Args:\n        z_sequence: list of latent tensors for each frame (length N)\n        t: current timestep\n        control_map: conditioning tensor for control\n        prompt_emb: prompt embedding tensor\n        diffusion_model: instance with unet_3d and get_alpha method\n        device: torch.device\n    Returns:\n        smoothed_z_sequence: list of latent tensors after smoothing",
+        "file": "main.py"
+      }
+    ],
+    "The provided paper sections do not seem to contain any relevant information related to the code component. Please provide the correct paper sections.": [
+      {
+        "component": "model.py:Conv3dInflated",
+        "description": "Helper class to create inflated 3D convolution from 2D convolution.\n    We initialize the 3D conv by copying from the pre-trained 2D conv,\n    expanding kernel in temporal dimension by repeating or adding singleton dimensions.",
+        "file": "model.py"
+      }
+    ],
+    "Without specific section names": [
+      {
+        "component": "model.py:InflatedUNet3D",
+        "description": "Inflated U-Net for 3D (temporal + spatial) processing.\n    Based on pre-trained SD U-Net, extended to handle 3D convolutions and cross-frame attention.",
+        "file": "model.py"
+      }
+    ],
+    "it's hard to provide an accurate answer. However": [
+      {
+        "component": "model.py:InflatedUNet3D",
+        "description": "Inflated U-Net for 3D (temporal + spatial) processing.\n    Based on pre-trained SD U-Net, extended to handle 3D convolutions and cross-frame attention.",
+        "file": "model.py"
+      }
+    ],
+    "based on the code description": [
+      {
+        "component": "model.py:InflatedUNet3D",
+        "description": "Inflated U-Net for 3D (temporal + spatial) processing.\n    Based on pre-trained SD U-Net, extended to handle 3D convolutions and cross-frame attention.",
+        "file": "model.py"
+      }
+    ],
+    "the most relevant sections could be \"Methodology\"": [
+      {
+        "component": "model.py:InflatedUNet3D",
+        "description": "Inflated U-Net for 3D (temporal + spatial) processing.\n    Based on pre-trained SD U-Net, extended to handle 3D convolutions and cross-frame attention.",
+        "file": "model.py"
+      }
+    ],
+    "\"Model Architecture\"": [
+      {
+        "component": "model.py:InflatedUNet3D",
+        "description": "Inflated U-Net for 3D (temporal + spatial) processing.\n    Based on pre-trained SD U-Net, extended to handle 3D convolutions and cross-frame attention.",
+        "file": "model.py"
+      }
+    ],
+    "and \"3D Convolution and Cross-frame Attention\".": [
+      {
+        "component": "model.py:InflatedUNet3D",
+        "description": "Inflated U-Net for 3D (temporal + spatial) processing.\n    Based on pre-trained SD U-Net, extended to handle 3D convolutions and cross-frame attention.",
+        "file": "model.py"
+      }
+    ],
+    "The provided paper sections are not sufficient to link with the given code component. Please provide more relevant paper sections such as 'Methodology'": [
+      {
+        "component": "model.py:__init__",
+        "description": "Cross-Frame Multi-Head Attention Module.\n    \n    Supports full cross-frame attention as well as sparse or causal variants.\n    For simplicity, this implementation assumes full cross-frame attention.",
+        "file": "model.py"
+      }
+    ],
+    "'Implementation Details'": [
+      {
+        "component": "model.py:__init__",
+        "description": "Cross-Frame Multi-Head Attention Module.\n    \n    Supports full cross-frame attention as well as sparse or causal variants.\n    For simplicity, this implementation assumes full cross-frame attention.",
+        "file": "model.py"
+      }
+    ],
+    "'Results'": [
+      {
+        "component": "model.py:__init__",
+        "description": "Cross-Frame Multi-Head Attention Module.\n    \n    Supports full cross-frame attention as well as sparse or causal variants.\n    For simplicity, this implementation assumes full cross-frame attention.",
+        "file": "model.py"
+      }
+    ],
+    "'Discussion'": [
+      {
+        "component": "model.py:__init__",
+        "description": "Cross-Frame Multi-Head Attention Module.\n    \n    Supports full cross-frame attention as well as sparse or causal variants.\n    For simplicity, this implementation assumes full cross-frame attention.",
+        "file": "model.py"
+      }
+    ],
+    "etc.": [
+      {
+        "component": "model.py:__init__",
+        "description": "Cross-Frame Multi-Head Attention Module.\n    \n    Supports full cross-frame attention as well as sparse or causal variants.\n    For simplicity, this implementation assumes full cross-frame attention.",
+        "file": "model.py"
+      }
+    ],
+    "The provided paper sections do not seem to contain any relevant information related to the code component. Please provide more detailed sections of the paper.": [
+      {
+        "component": "text_prompt.py:TextPromptEmbedder",
+        "description": "Initializes the TextPromptEmbedder with a pretrained CLIP model for encoding prompts.\n        \n        Args:\n            model_name (str): Name or path of the pretrained CLIP model.\n            device (str): Device to load the model onto ('cuda' or 'cpu').",
+        "file": "text_prompt.py"
+      }
+    ],
+    "The provided paper sections are not sufficient to link with the given code component. Please provide more detailed sections of the paper.": [
+      {
+        "component": "trainer.py:Trainer",
+        "description": "Initialize the trainer with configuration parameters.\n        Loads models, encoders, and prepares conditions and prompts.",
+        "file": "trainer.py"
+      }
+    ]
+  },
+  "paper_sections": [
+    {
+      "section": "Abstract",
+      "text": "Yabo Zhang1 Yuxiang Wei1 Dongsheng Jiang2 Xiaopeng Zhang2 Wangmeng Zuo1 $( \\boxtimes )$ Qi Tian2",
+      "ontology": "abstract"
+    }
+  ],
+  "coverage_score": 22.0
+}

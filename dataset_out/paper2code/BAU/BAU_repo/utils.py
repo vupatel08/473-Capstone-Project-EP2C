@@ -1,0 +1,322 @@
+## utils.py
+import numpy as np
+import torch
+import torchvision.transforms.functional as TF
+from sklearn.neighbors import NearestNeighbors
+import random
+from PIL import Image, ImageEnhance
+import math
+
+# =========================
+# Neighbor Search & Reciprocal k-NN
+# =========================
+
+def compute_neighbors(features: torch.Tensor, k: int) -> torch.Tensor:
+    """
+    Computes the k-nearest neighbors for each feature vector using sklearn's NearestNeighbors.
+    Args:
+        features (torch.Tensor): shape (N, D), feature vectors.
+        k (int): number of neighbors to retrieve.
+    Returns:
+        neighbor_indices (torch.LongTensor): shape (N, k), indices of neighbors for each feature.
+    """
+    features_np = features.detach().cpu().numpy()
+    nbrs = NearestNeighbors(n_neighbors=k + 1, algorithm='auto', metric='euclidean').fit(features_np)
+    distances, indices = nbrs.kneighbors(features_np)
+    # Exclude self (distance zero) if present
+    neighbor_indices = indices[:, 1:]  # shape (N, k)
+    return torch.from_numpy(neighbor_indices).long()
+
+def compute_reciprocal_neighbors(features: torch.Tensor, k: int) -> list:
+    """
+    Computes reciprocal neighbor sets R_k(f_i) for each feature.
+    Args:
+        features (torch.Tensor): shape (N, D)
+        k (int): neighbor count
+    Returns:
+        rec_neighbors_list (list): list of sets, each containing indices of R_k(f_i)
+    """
+    neighbor_indices = compute_neighbors(features, k)  # (N, k)
+    N = features.shape[0]
+    # Build adjacency matrix (boolean) for neighbor relations
+    neighbor_set_indices = [
+        set(neighbor_indices[i].cpu().numpy()) for i in range(N)
+    ]
+    rec_neighbors_list = []
+    for i in range(N):
+        R_k_i = neighbor_set_indices[i]
+        reciprocal_set = set()
+        for j in R_k_i:
+            if i in neighbor_set_indices[j]:
+                reciprocal_set.add(j)
+        rec_neighbors_list.append(reciprocal_set)
+    return rec_neighbors_list
+
+# =========================
+# Compute Jaccard Weights w_{ij}
+# =========================
+
+def compute_weight_matrix(
+    features: torch.Tensor,
+    rec_neighbors_list: list,
+    positive_pairs: list
+) -> torch.Tensor:
+    """
+    Computes normalized reciprocal neighbor weights w_{ij} for positive pairs.
+    Args:
+        features (torch.Tensor): shape (N, D)
+        rec_neighbors_list (list): list of sets, reciprocal neighbors for each sample
+        positive_pairs (list): list of (i, j) tuples with same label
+    Returns:
+        w_normalized (Tensor): shape (len(positive_pairs),), normalized weights summing to 1
+    """
+    W = []
+    for (i, j) in positive_pairs:
+        R_i = rec_neighbors_list[i]
+        R_j = rec_neighbors_list[j]
+        intersection = R_i.intersection(R_j)
+        union = R_i.union(R_j)
+        weight = len(intersection) / len(union) if len(union) > 0 else 0.0
+        W.append(weight)
+    W = np.array(W)
+    sum_W = np.sum(W)
+    if sum_W > 0:
+        W /= sum_W  # normalize to sum to 1
+    return torch.from_numpy(W).float()
+
+# =========================
+# Data Augmentation Functions
+# =========================
+
+def apply_random_erasing(img: Image.Image, p: float = 0.25) -> Image.Image:
+    """
+    Applies Random Erasing augmentation with probability p.
+    Args:
+        img (Image): PIL Image
+        p (float): probability to apply
+    Returns:
+        augmented Image
+    """
+    if random.random() > p:
+        return img
+    width, height = img.size
+    # Random rectangle size (5% to 30%)
+    erase_area_ratio = random.uniform(0.05, 0.3)
+    erase_area = erase_area_ratio * width * height
+    aspect_ratio = random.uniform(0.3, 3.3)
+    erase_h = int(math.sqrt(erase_area / aspect_ratio))
+    erase_w = int(math.sqrt(erase_area * aspect_ratio))
+    # Random position
+    x1 = random.randint(0, max(0, width - erase_w))
+    y1 = random.randint(0, max(0, height - erase_h))
+    # Fill rectangle with random color
+    erase_color = tuple([random.randint(0,255) for _ in range(3)])
+    for x in range(x1, x1 + erase_w):
+        for y in range(y1, y1 + erase_h):
+            img.putpixel((x, y), erase_color)
+    return img
+
+def apply_rand_augment(img: Image.Image, num_ops: int = 2, magnitude: int = 9) -> Image.Image:
+    """
+    Apply RandAugment: random sequence of transformations.
+    Args:
+        img (Image): PIL Image
+        num_ops (int): number of transformations
+        magnitude (int): magnitude level (1-10)
+    Returns:
+        augmented Image
+    """
+    augment_list = [
+        ('AutoContrast', lambda img: ImageEnhance.Contrast(img).autocontrast()),
+        ('Equalize', lambda img: ImageOps.equalize(img)),
+        ('Rotate', lambda img: img.rotate(random.uniform(-30, 30))),
+        ('Posterize', lambda img: ImageOps.posterize(img, random.randint(4,8))),
+        ('Solarize', lambda img: ImageOps.solarize(img, threshold=random.randint(64, 192))),
+        ('Color', lambda img: ImageEnhance.Color(img).enhance(random.uniform(0.5,1.5))),
+        ('Contrast', lambda img: ImageEnhance.Contrast(img).enhance(random.uniform(0.5,1.5))),
+        ('Brightness', lambda img: ImageEnhance.Brightness(img).enhance(random.uniform(0.5,1.5))),
+        ('Sharpness', lambda img: ImageEnhance.Sharpness(img).enhance(random.uniform(0.5,2.0))),
+        ('ShearX', lambda img: img.transform(
+            img.size, Image.Affine, (1, random.uniform(-0.3, 0.3), 0, 0, 1, 0))),
+        ('ShearY', lambda img: img.transform(
+            img.size, Image.Affine, (1, 0, 0, random.uniform(-0.3, 0.3), 1, 0))),
+        ('TranslateX', lambda img: img.transform(
+            img.size, Image.Affine, (1, 0, random.uniform(-0.2, 0.2)*img.size[0], 0, 1, 0))),
+        ('TranslateY', lambda img: img.transform(
+            img.size, Image.Affine, (1, 0, 0, 0, 1, random.uniform(-0.2, 0.2)*img.size[1])))
+    ]
+    num_ops = max(1, min(num_ops, len(augment_list)))
+    selected_ops = random.sample(augment_list, num_ops)
+    aug_img = img
+    for name, func in selected_ops:
+        try:
+            aug_img = func(aug_img)
+        except:
+            continue
+    return aug_img
+
+def apply_color_jitter(
+    img: Image.Image,
+    brightness: float = 0.2,
+    contrast: float = 0.2,
+    saturation: float = 0.2,
+    hue: float = 0.1,
+    p: float = 0.3
+) -> Image.Image:
+    """
+    Applies ColorJitter with probability p.
+    """
+    if random.random() > p:
+        return img
+    jitter_transform = torchvision.transforms.ColorJitter(
+        brightness=brightness,
+        contrast=contrast,
+        saturation=saturation,
+        hue=hue
+    )
+    return jitter_transform(img)
+
+# =========================
+# Prototype Bank Class
+# =========================
+
+class PrototypeBank:
+    """
+    Stores class prototypes, updates via momentum, and retrieves nearest prototypes for domain-specific uniformity.
+    """
+    def __init__(self, num_classes: int, feat_dim: int, momentum: float = 0.999, device: torch.device = torch.device('cpu')):
+        """
+        Initialize class prototypes randomly or with zeros.
+        """
+        self.num_classes = num_classes
+        self.feat_dim = feat_dim
+        self.momentum = momentum
+        self.device = device
+        # Initialize prototypes (e.g., zeros)
+        self.prototypes = torch.zeros((num_classes, feat_dim), device=self.device)
+        self.initialized = False  # will set after first batch
+
+    def update(self, features: torch.Tensor, class_labels: list):
+        """
+        Update class prototypes with features corresponding to each class.
+        Args:
+            features (Tensor): shape (batch_size, feat_dim)
+            class_labels (list): list of class indices for each feature
+        """
+        for feat, lbl in zip(features, class_labels):
+            if not self.initialized:
+                self.prototypes[lbl] = feat.detach()
+                self.initialized = True
+            else:
+                self.prototypes[lbl] = (
+                    self.momentum * self.prototypes[lbl] + (1 - self.momentum) * feat.detach()
+                )
+
+    def get_prototypes(self) -> torch.Tensor:
+        """
+        Return current prototypes.
+        """
+        return self.prototypes
+
+    def assign_closest_prototypes(
+        self,
+        features: torch.Tensor,
+        domain_labels: list,
+        N: int = 5
+    ) -> list:
+        """
+        For each feature, find top N closest prototypes from the set of prototypes belonging to the same domain.
+        Args:
+            features (Tensor): (batch_size, feat_dim)
+            domain_labels (list): domain label for each feature
+            N (int): number of nearest prototypes to assign
+        Returns:
+            neighbor_prototypes (list): list of tensors with indices or prototype vectors
+        """
+        # Placeholder: in practice, compute cosine similarity or euclidean distance
+        neighbor_protos_list = []
+        proto_vecs = self.get_prototypes()
+        for feat, dom_lab in zip(features, domain_labels):
+            # Get prototypes of the same domain (assuming all prototypes)
+            # For more specificity, could maintain separate domain prototypes
+            d_protos = proto_vecs  # if domain info is used, filter accordingly
+            # Compute distances
+            dists = torch.norm(d_protos - feat.unsqueeze(0), dim=1)  # (num_classes,)
+            top_vals, top_idxs = torch.topk(dists, N, largest=False)
+            neighbor_protos_list.append(top_idxs)
+        return neighbor_protos_list
+
+# =========================
+# Evaluation Metrics (mAP, Rank-1)
+# =========================
+
+def compute_distance_matrix(q_feats: torch.Tensor, g_feats: torch.Tensor, metric: str = 'cosine') -> np.ndarray:
+    """
+    Computes distance or similarity matrix between query and gallery sets.
+    Args:
+        q_feats (Tensor): (Q, D)
+        g_feats (Tensor): (G, D)
+        metric (str): 'cosine' or 'euclidean'
+    Returns:
+        dist_mat (np.ndarray): (Q, G)
+    """
+    q = q_feats.cpu().numpy()
+    g = g_feats.cpu().numpy()
+    if metric == 'cosine':
+        q_norm = q / np.linalg.norm(q, axis=1, keepdims=True)
+        g_norm = g / np.linalg.norm(g, axis=1, keepdims=True)
+        dist = 1 - np.dot(q_norm, g_norm.T)
+    elif metric == 'euclidean':
+        dist = np.linalg.norm(q[:, None, :] - g[None, :, :], axis=2)
+    else:
+        raise ValueError("Unknown metric")
+    return dist
+
+def compute_cmc_map(
+    q_feats: torch.Tensor,
+    q_labels: list,
+    g_feats: torch.Tensor,
+    g_labels: list,
+    topk: int = 5,
+    metric: str = 'cosine'
+) -> dict:
+    """
+    Compute mAP and Rank-k for query set.
+    """
+    dist_mat = compute_distance_matrix(q_feats, g_feats, metric)
+    indices = np.argsort(dist_mat, axis=1)  # ascending order
+    matches = np.array([np.array(g_labels)[indices[i]] == q_labels[i] for i in range(len(q_labels))])
+    # Compute Rank-1 accuracy and mAP
+    cmc = np.zeros(len(g_labels))
+    all_AP = []
+    for i in range(len(q_labels)):
+        match_i = matches[i]
+        rank_indices = indices[i]
+        # Rank-1
+        cmc[i] = match_i[0]
+        # AP
+        cum_pos = np.cumsum(match_i)
+        precision = cum_pos / (np.arange(len(match_i)) + 1)
+        AP = (np.sum(precision * match_i)) / max(np.sum(match_i), 1)
+        all_AP.append(AP)
+    rank1 = np.mean(cmc)
+    mAP = np.mean(all_AP)
+    cmc_scores = {}
+    for top in range(1, topk + 1):
+        cmc_scores[f'Rank-{top}'] = np.mean(cmc >= top)
+    return {'mAP': mAP, 'Rank-1': rank1, **cmc_scores}
+
+# =========================
+# Seed & Utility functions
+# =========================
+
+def set_seed(seed: int = 42):
+    """
+    Set random seed for reproducibility.
+    """
+    random.seed(seed)
+    np.random.seed(seed)
+    torch.manual_seed(seed)
+    torch.cuda.manual_seed_all(seed)
+    torch.backends.cudnn.deterministic = True
+

@@ -1,0 +1,132 @@
+# Logic Analysis for label_mapping.py
+
+## Overview
+This module implements multiple strategies for mapping source model predictions to target dataset labels within the AutoVP framework. The primary class, **LabelMapper**, encapsulates all strategies, with specific subclasses or implemented options for each. This module provides methods for:
+
+- **map()**: convert raw source model predictions into mapped labels based on the selected strategy.
+- **update_mapping()**: refine the mapping dynamically during training for strategies like IterMap and FullyMap with weight updates.
+- **visualize_mapping()**: produce visual explanations or representations of mapping relationships, such as class correspondences or learned weights.
+
+The strategies include:
+- Frequency Mapping (FreqMap)
+- Iterative Mapping (IterMap)
+- Semantic Mapping (SemanticMap)
+- Fully Connected Layer Mapping (FullyMap)
+
+---
+
+## Inputs and Outputs
+### Inputs
+- **Predictions**: source model outputs, typically logits or class scores, possibly raw or post-softmax.
+- **Class Names**:
+  - Source class names (list or dict)
+  - Target class names (list or dict)
+- **Mapping parameters**:
+  - For FreqMap: number of classes to map per target class
+  - For SemanticMap: class name lists, or class label embeddings
+  - For FullyMap: initial weights and biases
+  - For IterMap: current mapping, used to update iteratively
+- **Embeddings**:
+  - For SemanticMap: text embeddings of class names, computed via CLIP text encoder
+
+### Outputs
+- **Mapped labels**: tensor or list of predictions aligned to target classes.
+- **Updated mapping matrices or parameters**: e.g., the weight matrix for FullyMap.
+- **Visualizations**: images or diagrams illustrating class correspondences or weight distributions.
+
+---
+
+## Internal Structure and Control Flow
+
+### 1. Initialization
+- The LabelMapper class is instantiated with configuration parameters:
+  - *strategy* (string): 'FreqMap', 'IterMap', 'SemanticMap', 'FullyMap'
+  - *source_class_names* (list): class names in the source model
+  - *target_class_names* (list): label names in target dataset
+  - *map_params* (dict): additional parameters such as n_classes_per_target, initial weights, number of source classes, embeddings, etc.
+
+- For **SemanticMap**:
+  - Compute embeddings for source class names using CLIP text encoder
+  - Compute embeddings for target class names similarly
+  - Compute similarities between source and target class embeddings
+  - Establish initial class correspondence
+
+- For **FullyMap**:
+  - Initialize a linear layer (weights and biases)
+  - If weight initialization via semantic info is enabled, assign weights accordingly
+
+### 2. map(predictions)
+- **Input**: raw predictions (logits or scores)
+- Based on the strategy:
+  - *FreqMap*: 
+    - Aggregate predictions over training data for each class
+    - For each target class, assign the source class that most frequently predicts that target class
+    - For each new prediction, assign label according to the established frequency mapping
+  - *IterMap*:
+    - Call **update_mapping()** at each epoch or iteration to refresh the mapping depending on current model predictions
+  - *SemanticMap*:
+    - For each predicted class (from source model), find the target class with the highest cosine similarity between embeddings
+    - Map source predictions to target labels accordingly
+  - *FullyMap*:
+    - Pass source logits through the learned linear layer
+    - Convert final logits to predicted class labels in target space
+
+### 3. update_mapping()
+- Only applicable for **IterMap** and **FullyMap**:
+  - *IterMap*:
+    - Recompute frequency-based mapping using current model predictions on training target data
+    - Update internal mapping matrix or class correspondence
+  - *FullyMap*:
+    - Update linear layer weights, possibly with a special initialization based on semantic similarity or learned via training
+  - This process usually involves:
+    - Forward passing input images (or training set) through the source model + current prompts
+    - Gathering prediction statistics
+    - Re-establishing or refining class correspondences
+
+### 4. visualize_mapping()
+- For **FreqMap**:
+  - Show class counts or confusion matrices
+- For **SemanticMap**:
+  - Plot class embeddings, similarities, or class naming correspondence
+- For **FullyMap**:
+  - Visualize weight matrices as heatmaps or per-class weight distributions
+- For **IterMap**:
+  - Show evolution of class mappings over iterations
+
+---
+
+## Implementation Details and Edge Cases
+- **Semantic Map**:
+  - Requires explicit class name lists and CLIP text encoder
+  - Robust to semantic mismatch — might require thresholding
+- **FreqMap**:
+  - Needs access to training data predictions; must store prediction counts for each class
+  - Handle classes with limited data or heavily skewed data
+- **IterMap**:
+  - Needs to be called at each epoch or iteration
+  - Mapping might fluctuate; limit the number of source classes mapped per target
+- **FullyMap**:
+  - Parameters W and b are trainable; initialize carefully (e.g., identity or semantic-based)
+- **General**:
+  - All strategies should return labels in a consistent format (tensor or list of indices)
+  - Properly handle unmatched classes (e.g., in semantic mapping, if cosine similarity is below threshold)
+  
+---
+
+## Summary
+- **Class**: LabelMapper
+- **Main attributes**:
+  - strategy
+  - class name lists
+  - mapping matrices or weights
+  - embeddings (for semantic mapping)
+- **Methods**:
+  - **map(predictions)**: returns target class predictions
+  - **update_mapping()**: updates internal mapping based on latest model output
+  - **visualize_mapping()**: produces visual explanations
+
+This structure ensures modularity, flexibility, and alignment with the paper's approach. Properly implementing these will support AutoVP's joint optimization and automated strategy selection.
+
+---
+
+**Note**: This logic analysis assumes access to class name info, trained CLIP embeddings, and training data predictions, which are standard for this module.

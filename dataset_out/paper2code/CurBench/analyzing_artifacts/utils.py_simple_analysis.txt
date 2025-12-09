@@ -1,0 +1,148 @@
+# Logic Analysis for `utils.py`
+
+This file provides essential utility functions to support reproducibility, configuration handling, resource logging, random seed setting, and data visualization. It ensures consistent experimental conditions and convenient logging of experiment metrics, resource usage, and hyperparameters. Below is a detailed breakdown of its core functions and their design considerations:
+
+---
+
+## 1. Configuration Parsing and Handling
+
+**Objective:**  
+- Read and process the experimental configuration from the `config.yaml` file.
+- Provide an easy interface to access nested parameters.
+- Enable consistency across modules by centralized configuration management.
+
+**Design Decisions:**  
+- Use `PyYAML` to load `config.yaml`.
+- Parse nested structures into a dictionary.
+- Implement utility functions:
+  - `load_config(filepath: str) -> dict`  
+    - Reads the YAML file.
+  - `get_config_value(config: dict, key_path: str, default=None)`  
+    - Access nested parameters (e.g., `config['dataset']['noise_ratio']`) using dot-separated key paths.
+- Set default values if certain parameters are missing, ensuring robustness.
+
+**Implementation considerations:**  
+- Lazy loading or caching — load config once at startup.
+- Validation: ensure that essential keys are present (`dataset`, `model`, `hyperparameters`).
+
+---
+
+## 2. Reproducibility & Random Seed Setting
+
+**Objective:**  
+- Guarantee reproducible experiments by fixing randomness across libraries and frameworks.
+
+**Key Libraries:**  
+- `torch`: seed via `torch.manual_seed()` for CPU and CUDA.
+- `numpy`: seed via `np.random.seed()`.
+- Python built-in `random`: seed via `random.seed()`.
+
+**Design of `set_seed(seed: int) -> None`:**  
+- Accepts an integer seed (from config or experiment argument).
+- Sets:
+  - `random.seed(seed)`
+  - `np.random.seed(seed)`
+  - `torch.manual_seed(seed)`
+  - If CUDA is used: `torch.cuda.manual_seed_all(seed)`
+- Additional configurations:
+  - `torch.backends.cudnn.deterministic = True` (trade-off with performance)
+  - `torch.backends.cudnn.benchmark = False`
+
+**Impact:**  
+- Ensures deterministic behavior of data shuffling, weight initialization, and other stochastic processes.
+- Facilitates reproducibility across experiments.
+
+---
+
+## 3. Resource Logging (Time and Memory)
+
+**Objective:**  
+- Track training time per epoch and maximum GPU memory consumption.
+- Store logs for analysis, visualization, or debugging.
+
+**Design of resource monitoring functions:**  
+- `log_time_start()`, `log_time_end()`:  
+  - Record timestamps at the start and end of training/epoch.
+- `get_elapsed_time() -> float`:  
+  - Calculate elapsed time.
+- `log_gpu_memory() -> float` or `max_gpu_memory() -> float`:  
+  - Use `torch.cuda.max_memory_allocated()` to get maximum memory during training.
+  - Or `torch.cuda.memory_summary()` for detailed info.
+
+**Implementation:**  
+- Use `time.time()` or `datetime.datetime.now()` for timestamps.
+- Implement handlers or context managers for automatic logging.
+- Store logs in a file or in-memory structure for later export.
+
+**Notes:**  
+- Timing should measure only training phases, excluding setup.
+- Memory logs should be reset at the start of each epoch, and maximum values tracked during the epoch.
+
+---
+
+## 4. Data Augmentation & Preprocessing Utilities
+
+**Objective:**  
+- Provide functions to apply standard data transformations consistently across datasets.
+- Support dataset-specific augmentations, e.g., random crop, flip for CV datasets.
+
+**Design considerations:**  
+- Functions like `get_data_transform(dataset_name: str, phase: str)` returning transformation pipelines compatible with `torchvision.transforms`.
+- Support additional transformations if specified (e.g., noise injection, class imbalance handling).
+
+---
+
+## 5. Miscellaneous Utilities
+
+**Logging Setup:**  
+- Initialize logging with `logging` module.
+- Configure log format, level, and output file if necessary.
+
+**Seed & experiment reproducibility:**  
+- Functions to set global seeds upon startup + reproducibility flags.
+
+**Plotting & Visualization:**  
+- `plot_metrics(metrics_dict: dict, save_path: str)`  
+  - Plot training/validation metrics over epochs.
+  - Save plots to disk with clear labels/right format.
+
+---
+
+## 6. Summary of Key Functions & Their Signatures
+
+| Function Name                     | Purpose                                              | Input Parameters                                              | Output/Notes                                              |
+|----------------------------------|------------------------------------------------------|-------------------------------------------------------------|-----------------------------------------------------------|
+| `load_config(filepath: str) -> dict` | Load `config.yaml` configuration into a dictionary     | Path to config file                                         | Dict with nested configurations                            |
+| `get_config_value(config: dict, key_path: str, default=None)` | Access nested config param via dot notation             | Config dict, key path (`dataset.noise_ratio`)                | Corresponding value or default                            |
+| `set_seed(seed: int) -> None`     | Set random seeds for reproducibility                  | Seed integer                                                | None                                                      |
+| `log_time_start() -> float`       | Record start time for an experiment/epoch           | None                                                        | Start timestamp                                              |
+| `log_time_end(start_time: float) -> float` | Compute elapsed time since start                    | Start timestamp                                             | Duration in seconds                                         |
+| `log_gpu_memory()`               | Log current maximum GPU memory usage during training | None                                                        | Returns current max memory in bytes                         |
+| `save_metrics(metrics: dict, filepath: str)` | Save metrics dict into a file (JSON, CSV)          | Metrics dict, file path                                    | None                                                      |
+| `plot_metrics(metrics: dict, save_path: str)` | Plot metrics curves over epochs                     | Dict of metrics, path to save figure                     | Generates and saves plots                                   |
+| `setup_logger()`                  | Initialize logging configuration                      | Optional: file name, level, format                        | Logging configured                                           |
+
+---
+
+## 7. Additional Notes & Clarifications
+
+- **Dataset annotations:**  
+  - For difficulty annotations (e.g., noise labels), these should be generated prior to training or embedded in dataset loaders; utility can support their loading and validation.
+- **Resource logging APIs:**  
+  - Use `torch.cuda.max_memory_allocated()` and `torch.cuda.reset_max_memory_allocated()` for accurate tracking.
+  - Timing functions should use high-resolution timers (`time.perf_counter()`).
+- **Hyperparameter access:**  
+  - Leverage config parsing functions to ensure hyperparameters are set consistently and passed into other modules.
+- **Reproducibility Controls:**  
+  - Enforce seed setting at the start of each run.
+  - Disable nondeterministic behaviors as feasible.
+
+---
+
+## Final Summary
+
+The `utils.py` module will serve as a foundational component, enabling experiment reproducibility, resource tracking, configuration management, and visualization. It requires careful implementation of functions to support seamless integration with the main training, dataset, model, and curriculum modules. Consistent interface design and extensive use of the configuration file will ensure that all experiments are controlled, comparable, and traceable.
+
+---
+
+This completes the thorough logic analysis for `utils.py`, aligning with the paper, design framework, and experimental protocol requirements.

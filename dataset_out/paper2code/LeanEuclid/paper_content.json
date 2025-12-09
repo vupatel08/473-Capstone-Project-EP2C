@@ -1,0 +1,158 @@
+{
+  "title": "Autoformalizing Euclidean Geometry",
+  "abstract": "Logan Murphy 1 \\* Kaiyu Yang 2 \\* Jialiang Sun 1 Zhaoyu Li 1 Anima Anandkumar 2 Xujie Si 1",
+  "authors": [],
+  "body_text": [
+    {
+      "text": "# Autoformalizing Euclidean Geometry"
+    },
+    {
+      "text": "Logan Murphy 1 \\* Kaiyu Yang 2 \\* Jialiang Sun 1 Zhaoyu Li 1 Anima Anandkumar 2 Xujie Si 1"
+    },
+    {
+      "text": "# Abstract"
+    },
+    {
+      "text": "Autoformalization involves automatically translating informal math into formal theorems and proofs that are machine-verifiable. Euclidean geometry provides an interesting and controllable domain for studying autoformalization. In this paper, we introduce a neuro-symbolic framework for autoformalizing Euclidean geometry, which combines domain knowledge, SMT solvers, and large language models (LLMs). One challenge in Euclidean geometry is that informal proofs rely on diagrams, leaving gaps in texts that are hard to formalize. To address this issue, we use theorem provers to fill in such diagrammatic information automatically, so that the LLM only needs to autoformalize the explicit textual steps, making it easier for the model. We also provide automatic semantic evaluation for autoformalized theorem statements. We construct LeanEuclid, an autoformalization benchmark consisting of problems from Euclid’s Elements and the UniGeo dataset formalized in the Lean proof assistant. Experiments with GPT-4 and GPT-4V show the capability and limitations of state-of-the-art LLMs on autoformalizing geometry problems. The data and code are available at https://github. com/loganrjmurphy/LeanEuclid."
+    },
+    {
+      "text": "# 1. Introduction"
+    },
+    {
+      "text": "Euclidean geometry is one of the oldest branches of mathematics. It has served as a test of human intelligence for more than two millennia and has recently been used to test AI. Substantial work has focused on solving geometry problems automatically (Wu, 2008), e.g., AlphaGeometry (Trinh et al., 2023) can solve some of the IMO geometry problems. These methods consume problems and produce solutions in structured formats. In this work, we address a complementary task, autoformalization: Can AI understand human-written problems/solutions and translate them automatically into formal theorems/proofs? Specifically, we focus on the setting where formal theorems/proofs can be verified by the Lean proof assistant (de Moura & Ullrich, 2021). Lean provides a language for writing formal proofs. It is popular among mathematicians and has a growing ecosystem of integration with large language models (LLMs), e.g., LeanDojo (Yang et al., 2023) and Lean Copilot (Song et al., 2024)."
+    },
+    {
+      "text": "We demonstrate that Euclidean geometry provides an interesting and controllable domain for autoformalization. First, an automatic evaluation of autoformalized theorems is difficult in general but feasible in Euclidean geometry. Second, the logical gaps in informal proofs are well understood in Euclidean geometry, making it easier to faithfully formalize the proofs. Third, combining text-based and diagrammatic reasoning makes Euclidean geometry a natural domain to study multimodal reasoning models. Therefore, autoformalizing Euclidean geometry is an attractive target for AI."
+    },
+    {
+      "text": "Evaluating Autoformalized Theorem Statements. Despite the promise of machine learning and LLMs in autoformalizing theorems (Wu et al., 2022), a major roadblock is the lack of reliable and automatic evaluation. Comparing the model output verbatim with ground truth would be too rigid since there are many valid ways to formalize a theorem. Checking the logical equivalence between two theorems is generally intractable. Researchers have resorted to proxy metrics such as the BLEU score (Papineni et al., 2002). However, LLMs can score high on such metrics without generating correct formalization (Jiang et al., 2023b). Alternatively, human evaluation is widely used as a last resort, but it is costly, especially if we want to use the results to improve the method iteratively."
+    },
+    {
+      "text": "Our Approach to Evaluating Autoformalization. To overcome the evaluation bottleneck, we introduce a new automatic approach for evaluating the semantics of autoformalized theorems. The key insight is that equivalence checking can be made feasible in specific domains (such as Euclidean geometry) by combining domain knowledge with automated reasoning tools, such as satisfiability modulo theories (SMT) solvers (Barrett & Tinelli, 2018)."
+    },
+    {
+      "text": "To evaluate the autoformalized theorems, we develop a symbolic reasoning engine based on SMT solvers. As Fig. 1 (Top right) shows, given a ground-truth formal theorem $T _ { g t }$ and the autoformalized theorem $T _ { p r e d }$ produced by a language model, we use the symbolic engine to try to prove their equivalence $( T _ { g t } \\Leftrightarrow T _ { p r e d , }$ ). If successful, their logical gap is small enough to conclude that $T _ { p r e d }$ is correct. Even if the symbolic engine cannot prove $T _ { g t } \\Leftrightarrow T _ { p r e d }$ , it can provide partial results useful for a more fine-grained analysis. We validate this evaluation protocol by showing it correlates well with human evaluation."
+    },
+    {
+      "text": "![](images/aa2409488d877accd4fdd91db0eddee19e27da11d4e1b6943a3a3ea84b3413be.jpg)  \nFigure 1. Left: Proposition 1 in Euclid’s Elements (Book I). The orange text involves diagrammatic reasoning: Euclid did not explicitly prove the two circles actually intersect, but the reader can use the diagram to implicitly fill in the logical gap. Top right: The model autoformalizes the problem into a formal theorem (proposition 1’), which is evaluated by checking its logical equivalence with the ground truth (proposition 1), leveraging domain knowledge and a symbolic automated reasoning engine based on SMT (satisfiability modulo theories) solvers. Bottom right: A proof autoformalized by the model. Like Euclid’s proofs, it does not need to handle diagrammatic reasoning explicitly. Lean can check the proof to identify a list of diagrammatic reasoning gaps, e.g., “intersects BCD ACE”. Then, it attempts to fill in all gaps automatically using the symbolic reasoning engine based on SMT solvers."
+    },
+    {
+      "text": "LeanEuclid: Formalizing Proofs and Diagrams. We construct LeanEuclid, a benchmark for testing machine learning on autoformalizing Euclidean geometry. As in Fig 1 (Left), each example in LeanEuclid has an informal theorem, proof, and diagram in $\\mathrm { I A T } _ { \\mathrm { E } } \\mathrm { X }$ , as well as a formal theorem and proof in Lean. Data examples in LeanEuclid are manually formalized into Lean from Euclid’s Elements (Heiberg, 2007) and the UniGeo dataset (Chen et al., 2022)."
+    },
+    {
+      "text": "LeanEuclid serves as a benchmark for autoformalizing not only theorems but also proofs. Geometric proofs are challenging to formalize faithfully. Humans (ancient or modern, including Euclid himself) use diagrams to license proof steps without making every detail explicit. Fig. 1 shows an example of diagrammatic reasoning from Euclid’s Elements."
+    },
+    {
+      "text": "Euclid uses the intersection of two circles $( C )$ without proving its existence. Most readers would not find the proof problematic, as the two circles intersect in the diagram. Such implicit diagrammatic reasoning is ubiquitous in informal geometric proofs but needs to be handled explicitly in formal proofs (Beeson et al., 2019). Therefore, a naive attempt to autoformalize the proofs would be difficult, as it requires the model to fill in many diagrammatic reasoning gaps, with nothing to reference in the informal texts."
+    },
+    {
+      "text": "To mitigate diagrammatic gaps, LeanEuclid adopts a formal system named E (Avigad et al., 2009), introduced by philosophers for modeling diagrammatic reasoning in Euclid’s Elements. It teases out a set of diagrammatic rules so that diagrammatic reasoning can be modeled as logical deductions. We implement E in Lean and provide proof automation to fill in diagrammatic reasoning gaps, using the same symbolic reasoning engine developed for equivalence checking. Our system enables formalizing all 48 theorems and proofs from Elements (Book I), following Euclid’s original proofs as closely as possible, with diagrammatic reasoning carried out implicitly and automatically (see Fig. 1). The data is included in LeanEuclid, making autoformalizing Euclid’s proofs feasible. The language model now only needs to autoformalize the explicit textual proof steps, leaving the “obvious” implicit reasoning to the symbolic engine."
+    },
+    {
+      "text": "LLMs for Autoformalization. Using LeanEuclid, we experimentally investigate the capability of GPT-4 (OpenAI, 2023) and GPT-4V (with vision) on autoformalizing theorems and proofs in Euclidean geometry. With 5-shot prompting, GPT-4 can autoformalize only $1 8 . 9 \\%$ of the theorems correctly, demonstrating the difficulty of LeanEuclid. GPT-4V performs slightly better $( 2 1 . 0 \\% )$ , showing the potential benefit of multimodal models. Furthermore, GPT-4V can autoformalize $2 3 . 1 \\%$ of LeanEuclid proofs correctly, generating the entire proof without searching the space of individual steps. Finally, our study shows that imperfect autoformalized proofs can often be manually repaired into correct proofs through a few simple modifications."
+    },
+    {
+      "text": "Contributions. We make three main contributions: First, we introduce an SMT-based symbolic engine for automatically evaluating the semantics of theorem statements in Euclidean geometry. Second, we demonstrate the feasibility of autoformalizing only explicit geometric proof steps, relying on the symbolic engine for implicit diagrammatic reasoning. Third, our experiments reveal the capability and limitations of state-of-the-art LLMs on autoformalizing Euclidean geometry. Overall, our approach demonstrates Euclidean geometry as a promising target for autoformalization. It may facilitate autoformalization research to move from human inspection to automatic evaluation. Such a transition is essential for accelerating the development of machine learning methods on this task and ultimately easing the human effort required by formalization."
+    },
+    {
+      "text": "# 2. Related Work"
+    },
+    {
+      "text": "Neural Theorem Proving and Autoformalization. Machine learning and LLMs can prove theorems using proof assistants (Polu & Sutskever, 2020; Yang & Deng, 2019; Yang et al., 2023; First et al., 2023; Lample et al., 2022; Han et al., 2022). In theorem proving, everything is formal: The model generates a formal proof given a formal theorem. In contrast, we focus on autoformalization, which aims to translate informal math into formal theorems and proofs. Li et al. (2024) provides a comprehensive survey on deep learning for theorem proving and autoformalization."
+    },
+    {
+      "text": "Machine learning for autoformalization is strained by the lack of informal-formal pairs for training. Manually annotating such a dataset would be prohibitively expensive. Researchers have explored two approaches to overcome data scarcity. First, we can generate synthetic training data either procedurally (Wang et al., 2018; Cunningham et al., 2023) or using LLMs (Chen et al., 2023; Jiang et al., 2023b). Second, we can leverage the few-shot capability of LLMs such as GPT-4 (OpenAI, 2023). We only need to annotate a few examples for in-context demonstration and a relatively small testing set (Wu et al., 2022; Agrawal et al., 2022;"
+    },
+    {
+      "text": "Jiang et al., 2023a; Azerbayev et al., 2023). LeanEuclid follows the latter approach and is intended as a benchmark for testing only."
+    },
+    {
+      "text": "Autoformalized theorems are difficult to evaluate, so all existing works have resorted to human evaluation. In addition, they have used proxy metrics such as compilation rates (Jiang et al., 2023b; Azerbayev et al., 2023) and the BLEU score (Wu et al., 2022; Azerbayev et al., 2023), none of which is sufficiently accurate. In contrast, we are the first to evaluate the semantics of autoformalized statements reliably and automatically."
+    },
+    {
+      "text": "Formalizing Euclidean Geometry. To our knowledge, no machine learning method has attempted to autoformalize Euclidean geometry. Tarski’s (Schwabhauser et al. ¨ , 2013) and Hilbert’s axioms (Hilbert, 2013) are two classical axiomatic systems that put Euclidean geometry on a rigorous foundation. Beeson et al. (2019) uses a variant of Tarski’s system to manually formalize Euclid’s Elements (Book I) in the Coq proof assistant (Barras et al., 1997). HernandezEspiet (2023) is an ongoing work formalizing the book in Lean. However, they require formal proofs to explicitly handle all gaps left by diagrammatic reasoning. As a result, formal proofs in their systems are much more verbose than Euclid’s proofs (examples in Appendix C), making their systems unsuitable for studying autoformalization."
+    },
+    {
+      "text": "Proofs in Euclidean geometry have gaps due to diagrammatic reasoning. However, for more than two millennia, they have seldom troubled Elements’ readers around the world. Philosophers have posited many theories aiming at a systematic understanding of diagrammatic reasoning (Miller, 2001; Mumma, 2010). In particular, we build upon the formal system E (Avigad et al., 2009) and are the first to turn this framework into a practical system that includes an automated procedure for diagrammatic reasoning."
+    },
+    {
+      "text": "Geometric Problem Solving. Automatic geometry problem solvers have been studied extensively (Nevins, 1975; Zhang et al., 1995). Wu’s method (Wu, 2008) and Grobner ¨ bases method (Buchberger, 2005) transform geometric problems into algebraic equations. AlphaGeometry (Trinh et al., 2023) is a concurrent work that successfully solves many IMO geometry problems. Similar to us, it is a hybrid system using neural networks for difficult proof steps (e.g., constructing new geometric objects) and a symbolic engine for deducing simple facts. However, our method focuses on autoformalizing human-written theorems/proofs instead of finding new proofs. AlphaGeometry consumes problems and produces solutions in structured representations, without handling informal mathematical language. Furthermore, they represent theorems and proofs in a domain-specific language tailored for Euclidean geometry, whereas we use Lean: a general-purpose proof assistant. Lean provides a highly trusted foundation for the soundness of our system,1 and it opens up opportunities to interoperate with other branches of mathematics formalized in Lean’s mathematical library (The mathlib Community, 2020)."
+    },
+    {
+      "text": "Euclidean geometry has also served as benchmarks in machine learning and NLP for multimodal understanding of geometric problems and diagrams (Lu et al., 2021; Chen et al., 2021a; Gao et al., 2023; Peng et al., 2023; Kazemi et al., 2023; Liang et al., 2023). These methods produce informal solutions given informal problem statements, whereas we formalize both problems and solutions. UniGeo (Chen et al., 2022) is a dataset consisting of 9,543 informal theorems and proofs. We formalize 125 random examples from UniGeo and include them in LeanEuclid, which shows the generality of our formalization beyond Euclid’s Elements."
+    },
+    {
+      "text": "# 3. Formalizing Euclidean Geometry in Lean"
+    },
+    {
+      "text": "To construct the LeanEuclid benchmark, we implement a variant of system E (Avigad et al., 2009) in Lean and use it to formalize Euclidean geometry problems. LeanEuclid has two key features: First, it supports implicit diagrammatic reasoning, which is critical to faithfully formalizing geometric proofs. Second, it can check the logical equivalence between theorems, which is essential for automatically evaluating the autoformalized theorems."
+    },
+    {
+      "text": "# 3.1. The Lean Proof Assistant"
+    },
+    {
+      "text": "Proof assistants, a.k.a. interactive theorem provers, are languages and IDEs for humans to write formal proofs that can be checked by computers (Leroy et al., 2016; Hales et al., 2017). Widely used proof assistants include Coq, Isabelle, and Lean. They are similar from a machine learning perspective. Fig. 1 (Middle) shows examples of theorems and proofs in Lean. Each theorem has a name and a theorem statement. A proof consists of multiple steps, and each step is called a “tactic”. For example, “use c” and “euclid apply circle from points b a as ACE” are tactics."
+    },
+    {
+      "text": "Given a theorem and its proof, Lean can check the proof and output an error message if it is incorrect. Lean can also check if the theorem is well-formed. The percentage of well-formed theorems autoformalized by the model is widely used as a proxy metric in prior works (Jiang et al., 2023b; Azerbayev et al., 2023). However, well-formedness does not guarantee correctness, since a predicted theorem statement can be well-formed but have a different meaning from the ground truth."
+    },
+    {
+      "text": "# 3.2. The Formal System E"
+    },
+    {
+      "text": "E is a formal system for modeling theorems and proofs in Euclidean geometry inspired by Euclid’s Elements. It defines basic geometric objects (e.g., points and lines) and relations between them (e.g., a point being on a line). It also prescribes how to formally state and prove theorems. E is a conceptual framework that can be implemented within any proof assistant. We explain our Lean implementation using proposition 1 in Fig. 1 as a running example. For a complete specification of E, please refer to Appendix A and E’s paper (Avigad et al., 2009)."
+    },
+    {
+      "text": "Geometric Objects, Relations, and Theorems. E has six types of objects: points, lines, segments, circles, angles, and triangles. They can form various relations, e.g., “onLine a AB” means the point a is on the line AB. Some relations are defined as syntactic sugar of more basic relations, e.g., “distinctPointsOnLine a b AB” is the conjunction of “onLine a AB”, “onLine b AB”, and “ $\\mathsf { \\Pi } _ { \\hat { \\mathsf { d } } }$ $\\neq ~ \\mathrm { b } ^ { \\prime \\prime }$ . A segment $( \\mathsf { a -- b } )$ is specified by its two endpoints a and b, and it has a length $| \\ ( { \\mathsf { a } } - - { \\mathsf { b } } ) \\ | \\ \\in \\mathbb { R } .$ . Using these concepts, it is straightforward to understand the theorem statement of proposition 1:"
+    },
+    {
+      "text": "theorem proposition_1 : $\\forall$ (a b : Point) (AB Line), distinctPointsOnLine a b AB $\\begin{array} { c c c c c } { {  \\exists \\mathrm { ~ \\underline { ~ } c ~ : ~ } \\mathrm { P o i n t } , \\mathrm { ~ | ~ \\Gamma ( c -- a ) ~ | ~ \\Gamma ~ = ~ | ~ \\Gamma ( a -- b ) ~ | ~ } \\land } } & { { } } & { { } } \\\\ { { \\mid \\mathrm { ~ ( c -- b ) ~ | ~ \\Gamma ~ = ~ | ~ \\Gamma ( a -- b ) ~ | ~ } } } & { { } } & { { } } & { { } } \\end{array}$"
+    },
+    {
+      "text": "Like above, most theorems in Euclidean geometry take the form of given existing objects satisfying certain properties, constructing new objects satisfying certain properties. Below is the general form of theorems in E:"
+    },
+    {
+      "text": "$$\n\\begin{array} { c } { { \\forall ( \\overrightarrow { P } : P o i n t ) ( \\overrightarrow { L } : L i n e ) ( \\overrightarrow { C } : C i r c l e ) , \\displaystyle \\bigwedge _ { i = 1 } ^ { m } a _ { i }  } } \\\\ { { \\exists ( \\overrightarrow { P ^ { \\prime } } : P o i n t ) ( \\overrightarrow { L ^ { \\prime } } : L i n e ) ( \\overrightarrow { C ^ { \\prime } } : C i r c l e ) , \\displaystyle \\bigwedge _ { j = 1 } ^ { n } a _ { j } ^ { \\prime } } } \\end{array}\n$$"
+    },
+    {
+      "text": "That is, given points $\\vec { \\cal P }$ , lines $\\vec { \\cal L }$ , and circles $\\vec { C }$ satisfying $\\textstyle \\bigwedge _ { i = 1 } ^ { m } a _ { i }$ , one can construct points $\\scriptstyle { \\overrightarrow { P ^ { \\prime } } }$ , lines $\\overrightarrow { L ^ { \\prime } }$ , and circles $\\overrightarrow { C ^ { \\prime } }$ satisfying $\\textstyle \\bigwedge _ { j = 1 } ^ { n } a _ { j } ^ { \\prime }$ . Each clause $a _ { i }$ is called a “precondition”. Logically, it is a disjunction of literals with variables from $\\vec { P } , \\mathbf { \\breve { Z } }$ , and $\\vec { C }$ . Each $a _ { j } ^ { \\prime }$ is called a “postcondition”, which is a disjunction of literals with variables from $\\vec { P } , \\vec { L }$ , −→C , −→P ′, −→L′ , and −→C ′. Variable sets can be empty. For example, in proposition 1, we have $\\vec { C } = \\vec { L ^ { \\prime } } = \\vec { C ^ { \\prime } } = \\emptyset$ ."
+    },
+    {
+      "text": "Axioms. Axioms take the same form as theorems, but they are built into the system and do not need to be proved. Appendix A contains the complete list of axioms in our instantiation of the formal system E. They fall into two categories: construction rules and non-construction rules.2 Construction rules construct new objects, i.e., at least one of $\\vec { P ^ { \\prime } } , \\vec { L ^ { \\prime } }$ , and $\\vec { C ^ { \\prime } }$ must be non-empty. For example, circle from points constructs a circle $\\alpha$ given a point a as its center and another point $\\mathrm { b }$ on it:"
+    },
+    {
+      "text": "axiom circle_from_points : $\\forall$ (a b : Point), $\\texttt { a } \\neq \\texttt { b }  \\exists$ α : Circle, (isCenter a α) ∧ (onCircle b α)"
+    },
+    {
+      "text": "Given two intersecting circles $\\alpha$ and $\\beta$ intersection circles constructs their intersection:"
+    },
+    {
+      "text": "axiom intersection_circles : ∀ (α β : Circle), intersectsCircle α β → ∃ c : Point, (onCircle c α) ∧ (onCircle c β)"
+    },
+    {
+      "text": "Non-construction rules deduce properties of existing objects without creating new objects. For examples:"
+    },
+    {
+      "text": "axiom center_inside_circle : $\\forall$ (a : Point) ( $\\alpha$ : Circle), isCenter a $\\alpha $ insideCircle a $\\alpha$"
+    },
+    {
+      "text": "axiom intersection_circle_circle_2: $\\forall$ (a b : Point) (α $\\beta$ : Circle), (onCircle a $\\alpha$ ) $\\wedge$ (insideCircle b $\\alpha$ ) $\\wedge$ (insideCircle a $\\beta$ ) ∧ (onCircle b $\\beta ) \\quad $ intersectsCircle α β"
+    },
+    {
+      "text": "The distinction between construction and non-construction rules is important for automated reasoning in Sec. 3.3."
+    },
+    {
+      "text": "Proofs. We implement the formal system E in Lean. Therefore, a proof can be made of arbitrary tactics as long as the entire proof can be checked by Lean. Nevertheless, we provide several customized tactics that can cover most steps used by Euclid (complete list in Appendix A). The most important tactic we provide is euclid apply, which applies a rule (either an axiom or an existing theorem) in the forward direction. Taking intersection circles as an example, when using this rule, one should explicitly specify two circles, say, BCD and ACE:"
+    },
+    {
+      "text": "<table><tr><td>intersection_circles BCD ACE :</td></tr><tr><td>intersectsCircle BCD ACE →  c : Point,</td></tr><tr><td></td></tr><tr><td>(onCircle c BCD) &gt; (onCircle c ACE)</td></tr></table>"
+    },
+    {
+      "text": "“euclid apply intersection circles BCD ACE as c” instructs Lean to check if the precondition “intersectsCircle BCD ACE” is a known fact. If so, it introduces a new point c and two new facts, “onCircle c BCD” and “onCircle c ACE”. If not, it triggers diagrammatic reasoning, trying to prove “intersectsCircle BCD ACE” using a symbolic automated reasoning engine (Sec. 3.3). If successful, it proceeds as normal. Otherwise, the tactic fails. Fig. 2 shows three proof steps using euclid apply with different rules. The last step triggers diagrammatic reasoning."
+    },
+    {
+      "text": "![](images/995a6a8106a556fab343833d457d4ed1199d8b8ea33f0c19b550b459db286374.jpg)  \nFigure 2. Three steps in the proof in Fig. 1. Left: Geometric objects and facts. Right: Rules applied to construct new objects and deduce new facts. Each rule has inbound arrows from its preconditions and outbound arrows to its postconditions. Dashed lines: When applying a rule with missing preconditions, we try to fill the gap using a symbolic reasoning engine based on SMT solvers. These implicit steps performed by the symbolic engine can only use non-construction rules, whereas explicit steps performed by humans (or machine learning models) can use any rules."
+    }
+  ],
+  "url": ""
+}

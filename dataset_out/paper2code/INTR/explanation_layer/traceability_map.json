@@ -1,0 +1,302 @@
+{
+  "code_to_paper": {
+    "dataset_loader.py:SimpleDataset": [
+      "The paper sections are not provided in the question. Please provide the paper sections to proceed."
+    ],
+    "dataset_loader.py:DatasetLoader": [
+      "Materials and Methods",
+      "Results and Discussion"
+    ],
+    "dataset_loader.py:__init__": [
+      "Methodology",
+      "Data Collection",
+      "Data Preprocessing"
+    ],
+    "evaluation.py:Evaluation": [
+      "Without specific section names",
+      "it's hard to accurately identify the most relevant sections. However",
+      "based on the code component description",
+      "potential relevant sections could be \"Model Evaluation\"",
+      "\"Results and Discussion\"",
+      "\"Methodology\". Please provide the actual section names for a more accurate mapping."
+    ],
+    "evaluation.py:__init__": [
+      "The paper sections are not provided in the question. Please provide the paper sections to proceed."
+    ],
+    "main.py:count": [
+      "The provided information is insufficient to determine the most relevant paper sections for the code component. Please provide more details about the code component or the paper sections."
+    ],
+    "main.py:main": [
+      "The provided information is insufficient to determine the most relevant paper sections for the code component. Please provide more details about the function in the main.py file."
+    ],
+    "model.py:CrossAttentionLayer": [
+      "Without specific section names",
+      "it's hard to accurately identify the most relevant sections. However",
+      "based on the code description",
+      "potential relevant sections could be: \"Methodology\"",
+      "\"Model Architecture\"",
+      "\"Decoder Design\". Please provide the actual section names for a more accurate mapping."
+    ],
+    "model.py:DecoderLayer": [
+      "The provided information does not include specific paper sections related to the code component. Please provide the relevant paper sections for a proper analysis."
+    ],
+    "model.py:INTRModel": [
+      "The paper sections are not clearly defined in the provided information. Please provide the titles of the paper sections."
+    ],
+    "model.py:__init__": [
+      "Without more specific paper sections",
+      "it's impossible to accurately determine the most relevant sections for the provided code component. However",
+      "sections like \"Methodology\"",
+      "\"Model Implementation\"",
+      "or \"Results and Discussion\" could potentially be relevant."
+    ],
+    "trainer.py:Trainer": [
+      "Methodology",
+      "Model Implementation",
+      "Experiment and Results"
+    ],
+    "trainer.py:__init__": [
+      "Methodology",
+      "Experiment Setup",
+      "Model Configuration and Training"
+    ]
+  },
+  "paper_to_code": {
+    "The paper sections are not provided in the question. Please provide the paper sections to proceed.": [
+      {
+        "component": "dataset_loader.py:SimpleDataset",
+        "description": "Custom dataset to load images and labels specified in a split file.\n    Expects lines with 'image_path label' or similar format.",
+        "file": "dataset_loader.py"
+      },
+      {
+        "component": "evaluation.py:__init__",
+        "description": "Initializes the evaluator with model, data loader, configuration, and device.\n        Args:\n            model (INTRModel): The trained model for evaluation.\n            data_loader (DataLoader): DataLoader for validation/test data.\n            config (dict): Configuration parameters.\n            device (str): 'cuda' or 'cpu'.",
+        "file": "evaluation.py"
+      }
+    ],
+    "Materials and Methods": [
+      {
+        "component": "dataset_loader.py:DatasetLoader",
+        "description": "Handles dataset loading, splitting, transformations, and DataLoader creation.",
+        "file": "dataset_loader.py"
+      }
+    ],
+    "Results and Discussion": [
+      {
+        "component": "dataset_loader.py:DatasetLoader",
+        "description": "Handles dataset loading, splitting, transformations, and DataLoader creation.",
+        "file": "dataset_loader.py"
+      }
+    ],
+    "Methodology": [
+      {
+        "component": "dataset_loader.py:__init__",
+        "description": "Handles dataset loading, splitting, transformations, and DataLoader creation.",
+        "file": "dataset_loader.py"
+      },
+      {
+        "component": "trainer.py:Trainer",
+        "description": "Implements the training loop for the INTR model, handling data flow, optimization,\n    loss computation, learning rate scheduling, and optional interpretability map extraction.",
+        "file": "trainer.py"
+      },
+      {
+        "component": "trainer.py:__init__",
+        "description": "Initializes the Trainer with necessary components and configuration.\n        Args:\n            model (INTRModel): The model to train.\n            data_loader (dict): Dictionary with 'train' and optionally 'val' DataLoaders.\n            optimizer (torch.optim.Optimizer): Optimizer for training.\n            loss_fn (callable): Loss function (e.g., CrossEntropyLoss).\n            scheduler (Optional): Learning rate scheduler.\n            config (dict): Configuration parameters from YAML.",
+        "file": "trainer.py"
+      }
+    ],
+    "Data Collection": [
+      {
+        "component": "dataset_loader.py:__init__",
+        "description": "Handles dataset loading, splitting, transformations, and DataLoader creation.",
+        "file": "dataset_loader.py"
+      }
+    ],
+    "Data Preprocessing": [
+      {
+        "component": "dataset_loader.py:__init__",
+        "description": "Handles dataset loading, splitting, transformations, and DataLoader creation.",
+        "file": "dataset_loader.py"
+      }
+    ],
+    "Without specific section names": [
+      {
+        "component": "evaluation.py:Evaluation",
+        "description": "Handles evaluation of the trained INTR model, including accuracy, attention map visualization,\n    and optional faithfulness metrics for interpretability.",
+        "file": "evaluation.py"
+      },
+      {
+        "component": "model.py:CrossAttentionLayer",
+        "description": "Single multi-head cross-attention layer as used in the decoder.\n    It attends class queries to image features.",
+        "file": "model.py"
+      }
+    ],
+    "it's hard to accurately identify the most relevant sections. However": [
+      {
+        "component": "evaluation.py:Evaluation",
+        "description": "Handles evaluation of the trained INTR model, including accuracy, attention map visualization,\n    and optional faithfulness metrics for interpretability.",
+        "file": "evaluation.py"
+      },
+      {
+        "component": "model.py:CrossAttentionLayer",
+        "description": "Single multi-head cross-attention layer as used in the decoder.\n    It attends class queries to image features.",
+        "file": "model.py"
+      }
+    ],
+    "based on the code component description": [
+      {
+        "component": "evaluation.py:Evaluation",
+        "description": "Handles evaluation of the trained INTR model, including accuracy, attention map visualization,\n    and optional faithfulness metrics for interpretability.",
+        "file": "evaluation.py"
+      }
+    ],
+    "potential relevant sections could be \"Model Evaluation\"": [
+      {
+        "component": "evaluation.py:Evaluation",
+        "description": "Handles evaluation of the trained INTR model, including accuracy, attention map visualization,\n    and optional faithfulness metrics for interpretability.",
+        "file": "evaluation.py"
+      }
+    ],
+    "\"Results and Discussion\"": [
+      {
+        "component": "evaluation.py:Evaluation",
+        "description": "Handles evaluation of the trained INTR model, including accuracy, attention map visualization,\n    and optional faithfulness metrics for interpretability.",
+        "file": "evaluation.py"
+      }
+    ],
+    "\"Methodology\". Please provide the actual section names for a more accurate mapping.": [
+      {
+        "component": "evaluation.py:Evaluation",
+        "description": "Handles evaluation of the trained INTR model, including accuracy, attention map visualization,\n    and optional faithfulness metrics for interpretability.",
+        "file": "evaluation.py"
+      }
+    ],
+    "The provided information is insufficient to determine the most relevant paper sections for the code component. Please provide more details about the code component or the paper sections.": [
+      {
+        "component": "main.py:count",
+        "description": "",
+        "file": "main.py"
+      }
+    ],
+    "The provided information is insufficient to determine the most relevant paper sections for the code component. Please provide more details about the function in the main.py file.": [
+      {
+        "component": "main.py:main",
+        "description": "",
+        "file": "main.py"
+      }
+    ],
+    "based on the code description": [
+      {
+        "component": "model.py:CrossAttentionLayer",
+        "description": "Single multi-head cross-attention layer as used in the decoder.\n    It attends class queries to image features.",
+        "file": "model.py"
+      }
+    ],
+    "potential relevant sections could be: \"Methodology\"": [
+      {
+        "component": "model.py:CrossAttentionLayer",
+        "description": "Single multi-head cross-attention layer as used in the decoder.\n    It attends class queries to image features.",
+        "file": "model.py"
+      }
+    ],
+    "\"Model Architecture\"": [
+      {
+        "component": "model.py:CrossAttentionLayer",
+        "description": "Single multi-head cross-attention layer as used in the decoder.\n    It attends class queries to image features.",
+        "file": "model.py"
+      }
+    ],
+    "\"Decoder Design\". Please provide the actual section names for a more accurate mapping.": [
+      {
+        "component": "model.py:CrossAttentionLayer",
+        "description": "Single multi-head cross-attention layer as used in the decoder.\n    It attends class queries to image features.",
+        "file": "model.py"
+      }
+    ],
+    "The provided information does not include specific paper sections related to the code component. Please provide the relevant paper sections for a proper analysis.": [
+      {
+        "component": "model.py:DecoderLayer",
+        "description": "One decoder layer consisting of self-attention and cross-attention.",
+        "file": "model.py"
+      }
+    ],
+    "The paper sections are not clearly defined in the provided information. Please provide the titles of the paper sections.": [
+      {
+        "component": "model.py:INTRModel",
+        "description": "The main INTR model class implementing the described architecture.",
+        "file": "model.py"
+      }
+    ],
+    "Without more specific paper sections": [
+      {
+        "component": "model.py:__init__",
+        "description": "Args:\n            class_queries: [B, C, D]\n            memory: [B, N, D]\n        Returns:\n            attended: [B, C, D]\n            attention_weights: [B, C, heads, N] - for interpretability",
+        "file": "model.py"
+      }
+    ],
+    "it's impossible to accurately determine the most relevant sections for the provided code component. However": [
+      {
+        "component": "model.py:__init__",
+        "description": "Args:\n            class_queries: [B, C, D]\n            memory: [B, N, D]\n        Returns:\n            attended: [B, C, D]\n            attention_weights: [B, C, heads, N] - for interpretability",
+        "file": "model.py"
+      }
+    ],
+    "sections like \"Methodology\"": [
+      {
+        "component": "model.py:__init__",
+        "description": "Args:\n            class_queries: [B, C, D]\n            memory: [B, N, D]\n        Returns:\n            attended: [B, C, D]\n            attention_weights: [B, C, heads, N] - for interpretability",
+        "file": "model.py"
+      }
+    ],
+    "\"Model Implementation\"": [
+      {
+        "component": "model.py:__init__",
+        "description": "Args:\n            class_queries: [B, C, D]\n            memory: [B, N, D]\n        Returns:\n            attended: [B, C, D]\n            attention_weights: [B, C, heads, N] - for interpretability",
+        "file": "model.py"
+      }
+    ],
+    "or \"Results and Discussion\" could potentially be relevant.": [
+      {
+        "component": "model.py:__init__",
+        "description": "Args:\n            class_queries: [B, C, D]\n            memory: [B, N, D]\n        Returns:\n            attended: [B, C, D]\n            attention_weights: [B, C, heads, N] - for interpretability",
+        "file": "model.py"
+      }
+    ],
+    "Model Implementation": [
+      {
+        "component": "trainer.py:Trainer",
+        "description": "Implements the training loop for the INTR model, handling data flow, optimization,\n    loss computation, learning rate scheduling, and optional interpretability map extraction.",
+        "file": "trainer.py"
+      }
+    ],
+    "Experiment and Results": [
+      {
+        "component": "trainer.py:Trainer",
+        "description": "Implements the training loop for the INTR model, handling data flow, optimization,\n    loss computation, learning rate scheduling, and optional interpretability map extraction.",
+        "file": "trainer.py"
+      }
+    ],
+    "Experiment Setup": [
+      {
+        "component": "trainer.py:__init__",
+        "description": "Initializes the Trainer with necessary components and configuration.\n        Args:\n            model (INTRModel): The model to train.\n            data_loader (dict): Dictionary with 'train' and optionally 'val' DataLoaders.\n            optimizer (torch.optim.Optimizer): Optimizer for training.\n            loss_fn (callable): Loss function (e.g., CrossEntropyLoss).\n            scheduler (Optional): Learning rate scheduler.\n            config (dict): Configuration parameters from YAML.",
+        "file": "trainer.py"
+      }
+    ],
+    "Model Configuration and Training": [
+      {
+        "component": "trainer.py:__init__",
+        "description": "Initializes the Trainer with necessary components and configuration.\n        Args:\n            model (INTRModel): The model to train.\n            data_loader (dict): Dictionary with 'train' and optionally 'val' DataLoaders.\n            optimizer (torch.optim.Optimizer): Optimizer for training.\n            loss_fn (callable): Loss function (e.g., CrossEntropyLoss).\n            scheduler (Optional): Learning rate scheduler.\n            config (dict): Configuration parameters from YAML.",
+        "file": "trainer.py"
+      }
+    ]
+  },
+  "paper_sections": [
+    {
+      "section": "Abstract",
+      "text": "Dipanjyoti Paul1 Arpita Chowdhury1 Xinqi Xiong1 Feng-Ju Chang2 David Carlyn1 Samuel Stevens1 Kaiya L. Provost1 Anuj Karpatne3 Bryan Carstens1 Daniel Rubenstein4 Charles Stewart5 Tanya Berger-Wolf1 Yu $\\mathbf { \\dot { S } u } ^ { 1 }$ Wei-Lun Chao1",
+      "ontology": "abstract"
+    }
+  ],
+  "coverage_score": 29.0
+}

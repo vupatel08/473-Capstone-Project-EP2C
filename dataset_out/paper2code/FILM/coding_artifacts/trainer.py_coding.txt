@@ -1,0 +1,133 @@
+```python
+## trainer.py
+
+import torch
+import torch.nn as nn
+import torch.optim as optim
+from torch.utils.data import DataLoader
+from transformers import get_linear_schedule_with_warmup
+from utils import (
+    load_dataset_from_json,
+)
+import yaml
+import os
+import math
+from tqdm import tqdm
+from model import LongContextModel
+from evaluation import evaluate_retrieval_and_scaling
+
+# Load configuration
+with open('config.yaml', 'r') as f:
+    CONFIG = yaml.safe_load(f)
+
+# Hyperparameters & settings from config
+learning_rate = float(CONFIG['training'].get('learning_rate', 1e-6))
+batch_size = int(CONFIG['training'].get('batch_size', 128))
+epochs = int(CONFIG['training'].get('epochs', 1))
+total_steps = int(CONFIG['training'].get('steps_per_epoch', 14000))
+warmup_ratio = float(CONFIG['training'].get('warmup_steps', 0.03))
+warmup_steps = int(warmup_ratio * total_steps)
+
+model_name = CONFIG['model'].get('name', 'mistral-7b-instruct-v0.2')
+rope_base_value = float(CONFIG['model'].get('rope_base', 1e6))
+use_sliding_window = CONFIG['evaluation'].get('use_sliding_window', True)
+sliding_window_size = int(CONFIG['evaluation'].get('sliding_window_size', 4096))
+max_position_embeddings = CONFIG['model'].get('max_position_embeddings', 0)  # if applicable
+device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+
+# Instantiate model
+model = LongContextModel(
+    model_name=model_name,
+    rope_base=rope_base_value,
+    extend_positional=(max_position_embeddings > 0),
+    max_position_embeddings=max_position_embeddings
+)
+model.model.train()
+
+# Prepare dataset
+dataset_path = 'full_dataset.json'
+dataset_list = load_dataset_from_json(dataset_path)
+train_dataset = dataset_list  # Assuming dataset has been prepared already
+
+# DataLoader
+train_dataloader = DataLoader(
+    train_dataset,
+    batch_size=batch_size,
+    shuffle=True,
+    collate_fn=utils.collate_fn  # Assumed imported or define in utils
+)
+
+# Optimizer
+optimizer = optim.AdamW(model.model.parameters(), lr=learning_rate)
+
+# Scheduler with cosine decay and warmup
+scheduler = get_linear_schedule_with_warmup(
+    optimizer,
+    num_warmup_steps=warmup_steps,
+    num_training_steps=total_steps
+)
+
+# Total training steps
+current_step = 0
+best_eval_loss = float('inf')
+
+print("Starting training for {} steps...".format(total_steps))
+for epoch in range(epochs):
+    epoch_iterator = tqdm(train_dataloader, desc=f"Epoch {epoch+1}")
+    for batch in epoch_iterator:
+        # batch: dict with 'input_ids', 'attention_mask', 'labels'
+        input_ids = batch['input_ids'].to(device)
+        attention_mask = batch['attention_mask'].to(device)
+        labels = batch['labels'].to(device)
+
+        # Forward pass
+        outputs = model.model(input_ids=input_ids, attention_mask=attention_mask, labels=labels)
+        loss = outputs.loss
+
+        # Backward
+        loss.backward()
+        # Optional: Gradient clipping
+        torch.nn.utils.clip_grad_norm_(model.model.parameters(), max_norm=1.0)
+
+        # Optimizer step
+        optimizer.step()
+        scheduler.step()
+        optimizer.zero_grad()
+
+        current_step += 1
+
+        # Logging
+        if current_step % 100 == 0:
+            print(f"Step {current_step}/{total_steps} - Loss: {loss.item():.4f} - LR: {scheduler.get_last_lr()[0]:.8f}")
+
+        # Checkpointing
+        if current_step % 5000 == 0:
+            save_path = f"checkpoint_step_{current_step}"
+            os.makedirs(save_path, exist_ok=True)
+            model.save_model(save_path)
+            print(f"Model checkpoint saved at {save_path}")
+
+        # Evaluation during training
+        if current_step % 1000 == 0:
+            model.eval()
+            eval_metrics = evaluate_retrieval_and_scaling(model, dataset_path, device=device)
+            print(f"Evaluation at step {current_step}: {eval_metrics}")
+            model.train()
+
+        # Break after total steps
+        if current_step >= total_steps:
+            break
+    # End of epoch check
+    if current_step >= total_steps:
+        break
+
+# Save final model
+model.save_model('final_model')
+print("Training completed and model saved.")
+
+# Optional: Final evaluation on validation set (long-context probing and real tasks)
+# Can be called here or after training ends
+model.eval()
+final_metrics = evaluate_retrieval_and_scaling(model, dataset_path, device=device)
+print("Final evaluation metrics:", final_metrics)
+```

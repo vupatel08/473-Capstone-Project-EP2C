@@ -1,0 +1,158 @@
+{
+  "title": "STRUCTURING REPRESENTATION GEOMETRY WITH ROTATIONALLY EQUIVARIANT CONTRASTIVE LEARNING",
+  "abstract": "Sharut Gupta\\* MIT CSAIL sharut@mit.edu",
+  "authors": [],
+  "body_text": [
+    {
+      "text": "# STRUCTURING REPRESENTATION GEOMETRY WITH ROTATIONALLY EQUIVARIANT CONTRASTIVE LEARNING"
+    },
+    {
+      "text": "Sharut Gupta\\* MIT CSAIL sharut@mit.edu"
+    },
+    {
+      "text": "Joshua Robinson\\* MIT CSAIL joshrob@mit.edu"
+    },
+    {
+      "text": "Derek Lim   \nMIT CSAIL   \ndereklim@mit.edu"
+    },
+    {
+      "text": "Soledad Villar Johns Hopkins University svillar3@jhu.edu"
+    },
+    {
+      "text": "Stefanie jegelka MIT CSAIL stefje@mit.edu"
+    },
+    {
+      "text": "# ABSTRACT"
+    },
+    {
+      "text": "Self-supervised learning converts raw perceptual data such as images to a compact space where simple Euclidean distances measure meaningful variations in data. In this paper, we extend this formulation by adding additional geometric structure to the embedding space by enforcing transformations of input space to correspond to simple (i.e., linear) transformations of embedding space. Specifically, in the contrastive learning setting, we introduce an equivariance objective and theoretically prove that its minima forces augmentations on input space to correspond to rotations on the spherical embedding space. We show that merely combining our equivariant loss with a non-collapse term results in non-trivial representations, without requiring invariance to data augmentations. Optimal performance is achieved by also encouraging approximate invariance, where input augmentations correspond to small rotations. Our method, CARE: Contrastive Augmentationinduced Rotational Equivariance, leads to improved performance on downstream tasks, and ensures sensitivity in embedding space to important variations in data (e.g., color) that standard contrastive methods do not achieve. Code is available at https://github.com/Sharut/CARE."
+    },
+    {
+      "text": "# 1 INTRODUCTION"
+    },
+    {
+      "text": "It is only partially understood what structure neural network representation spaces should possess in order to enable intelligent behavior to emerge efficiently (Ma et al., 2022). One known key ingredient is to learn low-dimensional spaces in which simple Euclidean distances effectively measure the similarity between data, as demonstrated by powerful self-supervised methods for web-scale learning (Chen et al., 2020; Schneider et al., 2021; Radford et al., 2021). However, many use cases require the use of richer structural relationships that similarities between data cannot capture. One example that has enjoyed considerable success is the encoding of relations between objects $X$ is a parent of Y, A is a treatment for $B$ ) as simple transformations of embeddings (e.g., translations), which has driven learning with knowledge graphs (Bordes et al., 2013; Sun et al., 2019; Yasunaga et al., 2022). But similar capabilities have been notably absent from existing self-supervised learning recipes."
+    },
+    {
+      "text": "Recent contrastive self-supervised learning approaches have explored ways to close this gap by ensuring representation spaces are sensitive to certain transformations of input data, such as variations in color (Dangovski et al., 2022; Devillers & Lefort, 2023; Garrido et al., 2023; Bhardwaj et al., 2023) that earlier contrastive methods lacked. Encouraging sensitivity is especially important in contrastive learning, as it is known to learn shortcuts that forget features that are not needed to solve the pretraining task (Robinson et al., 2021). This line of work formalizes sensitivity in terms of equivariance: transformations of input data correspond to predictable transformations in representation space. Equivariance requires specifying a family of transformations $a \\in { \\mathcal { A } }$ in the input space, a corresponding transformation $T _ { a }$ in representation space, and training $f$ so that $f ( a ( x ) ) \\approx T _ { a } f ( x )$ . Prior works have considered a learnable feed-forward network for $T _ { a }$ , (Devillers & Lefort, 2023; Garrido et al., 2023). However, we find that this approach suffers from geometric pathologies, such as inconsistency under compositions: $T _ { a _ { 2 } \\circ a _ { 1 } } f ( \\bar { x } ) \\not = T _ { a _ { 2 } } T _ { a _ { 1 } } f ( x )$ . Furthermore, encoding the relation between the embeddings of $x$ and $a ( x )$ in a non-linear way conflicts with the aim of learning a representation space where linear transformations relate different instances."
+    },
+    {
+      "text": "![](images/46b78311420cab3d2606cdcb1c1d348be2f8b57dcb9ddec6408976b3884c1f74.jpg)  \nFigure 1: CARE is an equivariant contrastive learning approach that trains augmentations (cropping, blurring, etc.) of input data to correspond to orthogonal transformations of embedding space."
+    },
+    {
+      "text": "To address these concerns we propose CARE, an equivariant contrastive learning framework that learns to translate augmentations in the input space (such as cropping, blurring, and jittering) into simple linear transformations in feature space. Here, we use the sphere as our feature space (the standard contrastive learning space) and hence consider the isometries of the sphere: rotations and reflections, i.e., orthogonal transformations. As orthogonal transformations are less expressive (by design), our learning problem is more constrained, meaning that prior approaches for learning non-linear transforms cannot be used (see Section 3). Instead, CARE trains $f$ to preserve angles, i.e., $f ( \\boldsymbol { a } ( \\boldsymbol { x } ) ) ^ { \\top } f ( \\boldsymbol { a } ( \\boldsymbol { x } ^ { \\prime } ) ) \\approx f ( \\boldsymbol { x } ) ^ { \\top } f ( \\boldsymbol { x } ^ { \\prime } )$ , a property that must hold if $f$ is orthogonally equivariant. We show that achieving low error on this seemingly weaker property also implies approximate equivariance and enjoys consistency under compositions. Critically, we can easily integrate CARE into contrastive learning workflows since both operate by comparing pairs of data."
+    },
+    {
+      "text": "The key contributions of this work include:"
+    },
+    {
+      "text": "• Introducing CARE, a novel equivariant contrastive learning framework that trains transformations (cropping, jittering, blurring, etc.) in input space to approximately correspond to local orthogonal transformations in representation space.   \n• Theoretically proving and empirically demonstrating that CARE places an orthogonally equivariant structure on the embedding space.   \n• Showing that CARE increases sensitivity to features (e.g., color) compared to invariancebased contrastive methods, and also improves performance on image recognition tasks."
+    },
+    {
+      "text": "# 2 RETHINKING HOW AUGMENTATIONS ARE USED IN SELF-SUPERVISED LEARNING"
+    },
+    {
+      "text": "Given access only to samples from a marginal distribution $p ( x )$ on some input space $\\mathcal { X }$ such as images, the goal of representation learning is commonly to train a feature extracting model $f : \\mathcal { X } \\to \\mathbb { S } ^ { \\breve { d } - 1 }$ mapping to the unit sphere $\\mathbb { S } ^ { d - 1 } \\mathbf { \\bar { \\Phi } } = \\{ z \\in \\mathbb { R } ^ { d } : \\| z \\| _ { 2 } = 1 \\}$ . A common strategy to automatically generate supervision from the data is to additionally introduce a space of augmentations $\\mathcal { A }$ , containing maps $a : \\mathcal { X } \\to \\mathcal { X }$ which slightly perturb inputs $\\bar { x }$ (blurring, cropping, jittering, etc.). Siamese selfsupervised methods learn representation spaces that reflect the relationship between the embeddings of $x \\ = \\ a ( \\bar { x } )$ and $x ^ { + } = a ^ { + } ( \\bar { x } )$ , commonly by training $f$ to be invariant or equivariant to the augmentations in the input space (Chen & He, 2021)."
+    },
+    {
+      "text": "Invariance to augmentation. One approach is to train $f$ to embed $x$ and $x ^ { + }$ nearby—i.e., so that $f ( x ) = f ( x ^ { + } )$ is invariant to augmentations. The InfoNCE loss (van den Oord et al., 2018; Gutmann & Hyvärinen, 2010) used in contrastive learning achieves precisely this:"
+    },
+    {
+      "text": "$$\n\\begin{array} { r } { \\mathcal { L } _ { \\mathrm { { I n f o N C E } } } ( f ) = \\mathbb { E } _ { x , x ^ { + } , \\{ x _ { i } ^ { - } \\} _ { i = 1 } ^ { N } } \\bigg [ - \\log \\frac { e ^ { f ( x ) ^ { \\top } f ( x ^ { + } ) / \\tau } } { e ^ { f ( x ) ^ { \\top } f ( x ^ { + } ) / \\tau } + \\sum _ { i = 1 } ^ { N } e ^ { f ( x ) ^ { \\top } f ( x _ { i } ^ { - } ) / \\tau } } \\bigg ] , } \\end{array}\n$$"
+    },
+    {
+      "text": "where $\\tau > 0$ is a temperature hyperparameter, and $x _ { i } ^ { - } \\sim p$ are negative samples from the marginal distribution on $\\mathcal { X }$ . As noted by Wang $\\&$ Isola (2020), the contrastive training mechanism balances invariance to augmentations with a competing objective: uniformly distributing embeddings over the sphere, which rules out trivial solutions such as constant functions."
+    },
+    {
+      "text": "Whilst contrastive learning has produced considerable advances in large-scale learning (Radford et al., 2021), several lines of work have begun to probe the fundamental role of invariance in contrastive learning. Two key conclusions of recent investigations include: 1) invariance limits the expressive power of features learned by $f$ , as it removes information about features or transformations that may be relevant in fine-grained tasks (Lee et al., 2021; Xie et al., 2022), and 2) contrastive learning actually benefits from not having exact invariance. For instance, a critical role of the projection head is to expand the feature space so that $f$ is not fully invariant (Jing et al., 2022), suggesting that it is preferable for the embeddings of $x$ and $x ^ { + }$ to be close, but not identical."
+    },
+    {
+      "text": "Equivariance to augmentation. To address the limitations of invariance, recent work has additionally proposed to control equivariance (i.e., sensitivity) of $f$ to data transformations (Dangovski et al., 2022; Devillers & Lefort, 2023; Garrido et al., 2023). Prior works can broadly be viewed as training a set of features $f$ (sometimes alongside the usual invariant features) so that $f ( a ( x ) ) \\approx T _ { a } f ( { \\bar { x ) } }$ for samples $x \\sim p$ from the data distribution where $T _ { a }$ is some transformation of the embedding space. A common choice is to take $T _ { a } f ( x ) = \\mathrm { M L P } ( f ( x ) , a )$ , a learnable feed-forward network, and optimize a loss $\\| \\mathbf { M L P } ( f ( x ) , a ) - f ( a ( x ) ) \\| _ { 2 }$ . Whilst a learnable MLP ensures that information about $a$ is encoded into the embedding of $a ( x )$ , it permits complex non-linear relations between embeddings and hence does not necessarily encode relations in a linearly separable way. Furthermore, it does not enjoy the beneficial properties of equivariance in the formal group-theoretic sense, such as consistency under compositions in general: $T _ { a _ { 2 } \\circ a _ { 1 } } f ( x ) \\neq T _ { a _ { 2 } } T _ { a _ { 1 } } f ( x )$ ."
+    },
+    {
+      "text": "Instead, this work introduces CARE, an equivariant contrastive learning approach respecting two key design principles:"
+    },
+    {
+      "text": "Principle 1. The map $T _ { a }$ satisfying $f ( a ( x ) ) = T _ { a } f ( x )$ should be linear."
+    },
+    {
+      "text": "Principle 2. Equivariance should be learned from pairs of data, as in invariant contrastive learning."
+    },
+    {
+      "text": "The first principle asks that $f$ converts complex perturbations $a$ of input data into much simpler (i.e., linear) transformations in embedding space. Specifically, we constrain the complexity of $T _ { a }$ by considering isometries of the sphere, $\\bar { O } ( \\dot { d } ) = \\{ \\hat { Q } \\in \\mathbb { R } ^ { d \\times d } : Q Q ^ { T } = Q ^ { T } Q = I \\}$ , containing all rotations and reflections. Throughout this paper we define $f ( a ( x ) ) = T _ { a } f ( x )$ for ${ \\hat { T } } _ { a } \\in O ( d )$ to be orthogonal equivariance. This approach draws heavily from ideas in linear representation theory (Curtis & Reiner, 1966; Serre et al., 1977), which studies how to convert abstract group structures into matrix spaces equipped with standard matrix multiplication as the group operation."
+    },
+    {
+      "text": "The second principle stipulates how we want to learn orthogonal equivariance. Naively following previous non-linear approaches is challenging as our learning problem is more constrained, requiring learning a mapping $a \\mapsto R _ { a }$ to orthogonal matrices. Furthermore, for a single $( a , x )$ pair, the orthogonal matrix $R _ { a }$ such that $f ( a ( x ) ) { \\overset { \\vartriangle } { = } } R _ { a } f ( x )$ is not unique, making it hard to directly learn $R _ { a }$ . We sidestep these challenges by, instead of explicitly learning $R _ { a }$ , training $f$ so that an augmentation $a$ applied to two different inputs $x , x ^ { + }$ produces the same change in embedding space."
+    },
+    {
+      "text": "Our method, CARE, encodes data augmentations (cropping, blurring, jittering, etc.) as $O ( d )$ transformations of embeddings using an equivariance-promoting objective function. CARE can be viewed as an instance of symmetry regularization, a term introduced by Shakerinava et al. (2022)."
+    },
+    {
+      "text": "# 3 CARE: CONTRASTIVE AUGMENTATION-INDUCED ROTATIONAL EQUIVARIANCE"
+    },
+    {
+      "text": "This section introduces a simple and practical approach for training a model $f : \\mathcal { X } \\to \\mathbb { S } ^ { d - 1 }$ so that $f$ is orthogonally equivariant: i.e., a data augmentation $a \\sim A$ (cropping, blurring, jittering, etc.)"
+    },
+    {
+      "text": "applied to any input $x \\in \\mathcal { X }$ causes the embedding $f ( x )$ to be transformed by the same $R _ { a } \\in O ( d )$ for all $x \\in \\mathcal { X } \\colon f ( a ( x ) ) = R _ { a } f ( x )$ ."
+    },
+    {
+      "text": "To achieve this, we consider the following loss:"
+    },
+    {
+      "text": "$$\n\\begin{array} { r } { \\mathcal { L } _ { \\mathrm { e q u i } } ( f ) = \\mathbb { E } _ { a \\sim \\mathcal { A } } \\mathbb { E } _ { x , x ^ { \\prime } \\sim \\mathcal { X } } \\left[ f ( a ( x ^ { \\prime } ) ) ^ { \\top } f ( a ( x ) ) - f ( x ) ^ { \\top } f ( x ^ { \\prime } ) \\right] ^ { 2 } } \\end{array}\n$$"
+    },
+    {
+      "text": "$$\n\\mathcal { L } _ { \\mathrm { e q u i } } ( f ) = \\mathbb { E } _ { a \\sim \\mathcal { A } } \\mathbb { E } _ { x , x ^ { \\prime } \\sim \\mathcal { X } } \\left[ f ( a ( x ^ { \\prime } ) ) ^ { \\top } f ( a ( x ) ) - f ( a ^ { \\prime } ( x ) ) ^ { \\top } f ( a ^ { \\prime } ( x ^ { \\prime } ) ) \\right] ^ { 2 }\n$$"
+    },
+    {
+      "text": "Since inner products describe angles on the sphere, this objective enforces the angles between the embeddings of independent samples $x$ and $x ^ { \\prime }$ to be the same as those between their transformed counterparts $a ( x )$ and $a ( x ^ { \\prime } )$ . This is necessarily true if $f$ is orthogonally equivariant or, more generally, $R _ { a } \\in O ( d )$ exists. But the converse—that $\\mathcal { L } _ { \\mathrm { { e q u i } } } = 0$ implies orthogonal equivariance— is non-obvious. In Section 3.1 we theoretically analyze $\\mathcal { L } _ { \\mathrm { e q u i } }$ , demonstrating that it does indeed enforce mapping input augmentations to orthogonal transformations of embeddings. In practice, we replace the $\\mathsf { \\bar { f } } ( x ) ^ { \\top } f ( x ^ { \\prime } )$ term with $f ( a ^ { \\prime } ( x ) ) ^ { \\top } f ( a ^ { \\prime } ( x ^ { \\prime } ) )$ for a freshly sampled $a ^ { \\prime } \\sim \\mathcal { A }$ , noting that minimizing this variant also minimizes ${ \\mathcal { L } } _ { \\mathrm { e q u i } }$ , if we assume $a ^ { \\prime }$ can be the identity function with non-zero probability. A trivial but undesirable solution that minimizes ${ \\mathcal { L } } _ { \\mathrm { e q u i } }$ is to collapse the embeddings of all points to be the same (see Figure 10). One natural approach to avoiding trivial solutions is to combine the equivariance loss with a non-collapse term such as the uniformity $\\mathcal { L } _ { \\mathrm { u n i f } } ( f ) = \\log \\mathbb { E } _ { x , x ^ { \\prime } \\sim \\mathcal { X } } \\exp \\left( f ( x ) ^ { \\top } f ( x ^ { \\prime } ) \\right)$ (Wang & Isola, 2020) whose optima $f$ distribute points uniformly over the sphere:"
+    },
+    {
+      "text": "$$\n\\mathcal { L } ( f ) = \\mathcal { L } _ { \\mathrm { e q u i } } ( f ) + \\mathcal { L } _ { \\mathrm { u n i f } } ( f ) .\n$$"
+    },
+    {
+      "text": "This is directly comparable to the InfoNCE loss, which can similarly be decomposed into two terms:"
+    },
+    {
+      "text": "$$\n{ \\mathcal { L } } _ { \\mathrm { I n f o N C E } } ( f ) = { \\mathcal { L } } _ { \\mathrm { i n v } } ( f ) + { \\mathcal { L } } _ { \\mathrm { u n i f } } ( f )\n$$"
+    },
+    {
+      "text": "where $\\begin{array} { r } { \\mathcal { L } _ { \\mathrm { i n v } } ( f ) ~ = ~ \\mathbb { E } _ { a , a ^ { \\prime } \\sim A } \\| f ( a ( x ) ) - f ( a ^ { \\prime } ( x ) ) \\| } \\end{array}$ is minimized when $f$ is invariant to $\\mathcal { A }$ —i.e., $f ( a ( x ) ) = f ( x )$ . Figure 10 in the Appendix shows that training using ${ \\mathcal { L } } _ { \\mathrm { e q u i } } + { \\mathcal { L } } _ { \\mathrm { u n i f } }$ yields nontrivial representations. However, the performance is below that of invariance-based contrastive learning approaches. We hypothesize that this is because data augmentations—which make small perceptual changes to data—should correspond to small perturbations of embeddings, which ${ \\mathcal L } _ { \\mathrm { e q u i } }$ does not enforce."
+    },
+    {
+      "text": "To rule out this possibility, we introduce CARE: Contrastive Augmentation-induced Rotational Equivariance. CARE additionally enforces the orthogonal transformations in embedding space to be localized by reintroducing an invariance loss term ${ \\mathcal { L } } _ { \\mathrm { i n v } }$ to encourage $f$ to be approximately invariant. Doing so breaks the indifference of ${ \\mathcal L } _ { \\mathrm { e q u i } }$ between large and small rotations, biasing towards small. Specifically, we propose the following objective that combines our equivariant loss with InfoNCE:"
+    },
+    {
+      "text": "$$\n{ \\mathcal { L } } _ { \\mathrm { C a R E } } ( f ) = { \\mathcal { L } } _ { \\mathrm { i n v } } ( f ) + { \\mathcal { L } } _ { \\mathrm { u n i f } } ( f ) + \\lambda { \\mathcal { L } } _ { \\mathrm { e q u i } } ( f )\n$$"
+    },
+    {
+      "text": "where $\\lambda$ weights the equivariant loss. We note that many variations of this approach are possible. For instance, the equivariant loss and InfoNCE loss could use different augmentations, resulting in invariance to specific transformations while maintaining rotational equivariance to others, similar to Dangovski et al. (2022). The InfoNCE loss can also be replaced by other Siamese self-supervised losses. We leave further exploration of these possibilities to future work. In all, CARE consists of three components: (i) a term to induce orthogonal equivariance; (ii) a non-collapse term; and (iii) an invariance term to enforce localized transformations on the embedding space."
+    },
+    {
+      "text": "# 3.1 THEORETICAL PROPERTIES OF ORTHOGONALLY EQUIVARIANT LOSS"
+    },
+    {
+      "text": "In this section, we establish that matching angles via ${ \\mathcal { L } } _ { \\mathrm { e q u i } }$ leads to a seemingly stronger property. Specifically, $\\mathcal { L } _ { \\mathrm { e q u i } } = 0$ implies the existence of an orthogonal matrix $R _ { a } \\in O ( d )$ for any augmentation $a$ , such that $f ( \\dot { a } ( x ) ) = R _ { a } f ( x )$ holds for all $x$ . The converse also holds and is easy to see. Indeed, suppose such an $R _ { a } \\in O ( d )$ exists. Then, $f ( a ( x ^ { \\prime } ) ) ^ { \\top } f ( a ( x ) ) = f ( x ^ { \\prime } ) ^ { \\top } R _ { a } ^ { \\top } R _ { a } f ( x \\dot { = } f ( x ) ^ { \\top } f ( x ^ { \\prime } )$ , which implies $\\mathcal { L } _ { \\mathrm { e q u i } } ( f ) = 0$ . We formulate the first direction as a proposition."
+    },
+    {
+      "text": "Proposition 1. Suppose $\\mathcal { L } _ { e q u i } ( f ) = 0$ . Then for almost every $a \\in { \\mathcal { A } }$ , there is an orthogonal matrix $R _ { a } \\ { \\bar { \\in } } \\ O ( d )$ such that $f ( a ( x ) ) = R _ { a } f ( x )$ for almost all $x \\in \\mathcal { X }$ ."
+    },
+    {
+      "text": "Figure 1 illustrates this result. Crucially $R _ { a }$ is independent of $x$ , without which the Proposition 1 would be trivial. That is, a single orthogonal transformation $R _ { a }$ captures the impact of applying $a$ across the entire input space $\\mathcal { X }$ . Consequently, exact minimization of ${ \\mathcal L } _ { \\mathrm { e q u i } }$ loss converts “unstructured” augmentations in input space to have a structured geometric interpretation as rotations in the embedding space. In Appendix B.1, we extend this result to the case where the loss is low but not exactly minimized, in which case we have a guarantee of approximate equivariance."
+    },
+    {
+      "text": "This result can be expressed as the existence of a mapping $\\rho : { \\mathcal { A } }  O ( d )$ that encodes the space of augmentations within $O ( d )$ . This raises a natural question: how much of the structure of $\\mathcal { A }$ does this encoding preserve? For instance, assuming $\\mathcal { A }$ is a semi-group (i.e., closed under compositions $a ^ { \\prime } \\circ a \\in { \\mathcal { A } } )$ ), does this transformation respect compositions: $f ( a ^ { \\prime } ( a ( x ) ) = R _ { a ^ { \\prime } } R _ { a } f ( x ) ?$ This property does not hold for non-linear actions (Devillers & Lefort, 2023), but does for orthogonal equivariance: Corollary 1. If $\\mathcal { L } _ { e q u i } ( f ) = 0$ and $\\{ f ( x ) : x \\in \\mathcal { X } \\}$ spans $\\mathbb { R } ^ { d }$ , then $\\rho : { \\mathcal { A } }  O ( d )$ given by $\\rho ( a ) = R _ { a }$ satisfies $\\rho ( a ^ { \\prime } \\circ a ) = \\rho ( a ^ { \\prime } ) \\rho ( a )$ for almost all $a , a ^ { \\prime }$ . That is, $\\rho$ defines a group action on $\\mathbb { S } ^ { d - 1 }$ up to $a$ set of measure zero."
+    },
+    {
+      "text": "Formally, this result states that if $\\mathcal { A }$ is a semi-group, then $\\rho \\quad : \\quad { \\mathcal { A } } \\quad \\to \\quad O ( d )$ defines a group homomorphism (or linear representation of $\\mathcal { A }$ in the sense of representation theory (Curtis & Reiner, 1966; Serre et al., 1977), a branch of mathematics that studies the encoding of abstract groups as spaces of linear maps)."
+    },
+    {
+      "text": "To exactly attain $\\mathcal { L } _ { \\mathrm { e q u i } } ( f ) = 0$ , the space of augmentations $\\mathcal { A }$ needs to have a certain structure, but this becomes less restrictive if $d$ is large. Assuming for simplicity that $\\mathcal { A }$ is a group, the first isomorphism theorem for groups states that $\\bar { \\rho ( \\mathcal { A } ) } \\simeq \\mathcal { A } / \\ker ( \\rho )$ . For instance, if $\\ker ( \\rho )$ is trivial, the equivariant loss can be exactly zero when the group of augmentations is a subgroup of the orthogonal group. Examples include orthogonal transformations or rotations that fix a subspace—i.e., $O ( d ^ { \\prime } )$ or $S O ( d ^ { \\prime } )$ with $d ^ { \\prime } \\leq d$ —or subgroups of the permutation group on $d$ elements. Furthermore, the Peter-Weyl theorem implies that any compact Lie group can be realized as a closed subgroup of $O ( d )$ for some $d$ (Peter & Weyl, 1927). As with Proposition 1, we also extend this result to the case of low loss that is not exactly zero, where we show that compositionality is approximately preserved."
+    },
+    {
+      "text": "![](images/6f6a6ff7e63818047a8752181224a3a54620d3b4234a01c13b111dbff994fffb.jpg)  \nFigure 2: When $\\mathcal { L } _ { \\mathrm { { e q u i } } } = 0$ , compositions of augmentations correspond to compositions of rotations."
+    }
+  ],
+  "url": ""
+}

@@ -1,0 +1,406 @@
+{
+  "code_to_paper": {
+    "dataset_loader.py:DatasetLoader": [
+      "The code component does not provide enough information to link it to specific paper sections. However",
+      "based on the description",
+      "potential relevant sections could be \"Methodology\"",
+      "\"Data Collection\"",
+      "or \"Experiment Setup\". Please provide the actual paper sections for a more accurate analysis."
+    ],
+    "dataset_loader.py:SpikeDatasetWrapper": [
+      "The provided paper sections do not seem to contain any relevant information related to the code component. Please provide more paper sections."
+    ],
+    "dataset_loader.py:DVSGestureDataset": [
+      "The provided information does not include any paper section names/titles. Please provide the correct details."
+    ],
+    "dataset_loader.py:DVS_CIFAR10Dataset": [
+      "The provided paper sections do not seem to match the code component. Please provide relevant paper sections such as \"Methodology\"",
+      "\"Data Preprocessing\"",
+      "\"Experimental Setup\" etc."
+    ],
+    "dataset_loader.py:__init__": [
+      "The paper sections are not provided in the question. Please provide the paper sections to proceed."
+    ],
+    "evaluation.py:Evaluation": [
+      "The provided paper sections do not seem to be relevant to the code component. The code component is about an Evaluation class that handles model testing and other related tasks",
+      "but the provided paper section is just a list of authors",
+      "which is not relevant to the code component. Please provide the correct paper sections."
+    ],
+    "evaluation.py:__init__": [
+      "The provided paper sections do not seem to contain any relevant information related to the code component. Please provide the actual sections of the paper such as \"Introduction\"",
+      "\"Methodology\"",
+      "\"Results\"",
+      "\"Discussion\"",
+      "etc."
+    ],
+    "main.py:main": [
+      "The provided information is insufficient to determine the most relevant paper sections for the code component. Please provide more details about the function in the main.py file and its purpose."
+    ],
+    "model.py:CLIFLayer": [
+      "The provided paper sections do not seem to contain any relevant information related to the code component. Please provide the correct paper sections."
+    ],
+    "model.py:BasicConvBlock": [
+      "The provided paper sections do not seem to contain any relevant information related to the code component. Please provide more relevant paper sections."
+    ],
+    "model.py:ResidualBlock": [
+      "The provided paper sections do not seem to contain any relevant information related to the code component. Please provide the correct paper sections."
+    ],
+    "model.py:SpikingResNet": [
+      "Without more specific section titles",
+      "it's impossible to accurately link the code component to the paper sections. However",
+      "typically",
+      "sections like \"Methodology\"",
+      "\"Implementation Details\"",
+      "\"Experimental Setup\"",
+      "or \"Model Architecture\" would be most relevant for a code component describing a specific model architecture."
+    ],
+    "model.py:__init__": [
+      "The provided information does not include any paper sections relevant to the code component. Please provide the correct paper sections."
+    ],
+    "neuron.py:CLIFFunction": [
+      "The provided information does not include any paper sections related to the code component. Please provide the relevant paper sections."
+    ],
+    "neuron.py:CLIFNeuron": [
+      "The provided information does not include any paper sections relevant to the code component. Please provide the correct paper sections."
+    ],
+    "neuron.py:surrogate_gradient": [
+      "The provided information is not sufficient to identify the relevant paper sections for the code component. Please provide more details or paper sections."
+    ],
+    "trainer.py:Trainer": [
+      "The paper sections are not clearly defined in the provided information. However",
+      "based on the code component",
+      "relevant sections could be \"Methodology\"",
+      "\"Implementation Details\"",
+      "or \"Experimental Setup\". Please provide the actual section names for a more accurate analysis."
+    ],
+    "trainer.py:__init__": [
+      "The paper sections are not clearly defined in the provided information. However",
+      "based on the code component",
+      "relevant sections could be \"Methodology\"",
+      "\"Implementation Details\"",
+      "or \"Experimental Setup\". Please provide the actual section names/titles for a more accurate analysis."
+    ],
+    "utils.py:is": [
+      "The provided information does not include any paper sections related to the code component. Please provide relevant paper sections."
+    ],
+    "utils.py:replace_layers": [
+      "The provided information does not include any paper sections related to the code component. Please provide relevant paper sections."
+    ]
+  },
+  "paper_to_code": {
+    "The code component does not provide enough information to link it to specific paper sections. However": [
+      {
+        "component": "dataset_loader.py:DatasetLoader",
+        "description": "Initialize the DatasetLoader with configuration parameters.\n\n        Args:\n            config (dict): Configuration dictionary, expecting keys:\n                - dataset: dict with dataset info (name, path, batch_size, etc.)\n                - training: dict with training params",
+        "file": "dataset_loader.py"
+      }
+    ],
+    "based on the description": [
+      {
+        "component": "dataset_loader.py:DatasetLoader",
+        "description": "Initialize the DatasetLoader with configuration parameters.\n\n        Args:\n            config (dict): Configuration dictionary, expecting keys:\n                - dataset: dict with dataset info (name, path, batch_size, etc.)\n                - training: dict with training params",
+        "file": "dataset_loader.py"
+      }
+    ],
+    "potential relevant sections could be \"Methodology\"": [
+      {
+        "component": "dataset_loader.py:DatasetLoader",
+        "description": "Initialize the DatasetLoader with configuration parameters.\n\n        Args:\n            config (dict): Configuration dictionary, expecting keys:\n                - dataset: dict with dataset info (name, path, batch_size, etc.)\n                - training: dict with training params",
+        "file": "dataset_loader.py"
+      }
+    ],
+    "\"Data Collection\"": [
+      {
+        "component": "dataset_loader.py:DatasetLoader",
+        "description": "Initialize the DatasetLoader with configuration parameters.\n\n        Args:\n            config (dict): Configuration dictionary, expecting keys:\n                - dataset: dict with dataset info (name, path, batch_size, etc.)\n                - training: dict with training params",
+        "file": "dataset_loader.py"
+      }
+    ],
+    "or \"Experiment Setup\". Please provide the actual paper sections for a more accurate analysis.": [
+      {
+        "component": "dataset_loader.py:DatasetLoader",
+        "description": "Initialize the DatasetLoader with configuration parameters.\n\n        Args:\n            config (dict): Configuration dictionary, expecting keys:\n                - dataset: dict with dataset info (name, path, batch_size, etc.)\n                - training: dict with training params",
+        "file": "dataset_loader.py"
+      }
+    ],
+    "The provided paper sections do not seem to contain any relevant information related to the code component. Please provide more paper sections.": [
+      {
+        "component": "dataset_loader.py:SpikeDatasetWrapper",
+        "description": "Wraps a dataset to return spike-encoded sequences.\n\n        Args:\n            dataset (Dataset): Original dataset (images or data)\n            encoding_scheme (str): Algorithm for encoding ('direct_spike_encoding')\n            num_timesteps (int): Number of time steps T",
+        "file": "dataset_loader.py"
+      }
+    ],
+    "The provided information does not include any paper section names/titles. Please provide the correct details.": [
+      {
+        "component": "dataset_loader.py:DVSGestureDataset",
+        "description": "Load DVS-Gesture event data and convert to frame sequences.",
+        "file": "dataset_loader.py"
+      }
+    ],
+    "The provided paper sections do not seem to match the code component. Please provide relevant paper sections such as \"Methodology\"": [
+      {
+        "component": "dataset_loader.py:DVS_CIFAR10Dataset",
+        "description": "Load DVS-CIFAR10 event data and convert to frame sequences.",
+        "file": "dataset_loader.py"
+      }
+    ],
+    "\"Data Preprocessing\"": [
+      {
+        "component": "dataset_loader.py:DVS_CIFAR10Dataset",
+        "description": "Load DVS-CIFAR10 event data and convert to frame sequences.",
+        "file": "dataset_loader.py"
+      }
+    ],
+    "\"Experimental Setup\" etc.": [
+      {
+        "component": "dataset_loader.py:DVS_CIFAR10Dataset",
+        "description": "Load DVS-CIFAR10 event data and convert to frame sequences.",
+        "file": "dataset_loader.py"
+      }
+    ],
+    "The paper sections are not provided in the question. Please provide the paper sections to proceed.": [
+      {
+        "component": "dataset_loader.py:__init__",
+        "description": "Initialize the DatasetLoader with configuration parameters.\n\n        Args:\n            config (dict): Configuration dictionary, expecting keys:\n                - dataset: dict with dataset info (name, path, batch_size, etc.)\n                - training: dict with training params",
+        "file": "dataset_loader.py"
+      }
+    ],
+    "The provided paper sections do not seem to be relevant to the code component. The code component is about an Evaluation class that handles model testing and other related tasks": [
+      {
+        "component": "evaluation.py:Evaluation",
+        "description": "The Evaluation class handles model testing, accuracy calculation, autocorrelation analysis,\n    energy estimation, and optional model conversion for inference, according to the provided\n    configuration.",
+        "file": "evaluation.py"
+      }
+    ],
+    "but the provided paper section is just a list of authors": [
+      {
+        "component": "evaluation.py:Evaluation",
+        "description": "The Evaluation class handles model testing, accuracy calculation, autocorrelation analysis,\n    energy estimation, and optional model conversion for inference, according to the provided\n    configuration.",
+        "file": "evaluation.py"
+      }
+    ],
+    "which is not relevant to the code component. Please provide the correct paper sections.": [
+      {
+        "component": "evaluation.py:Evaluation",
+        "description": "The Evaluation class handles model testing, accuracy calculation, autocorrelation analysis,\n    energy estimation, and optional model conversion for inference, according to the provided\n    configuration.",
+        "file": "evaluation.py"
+      }
+    ],
+    "The provided paper sections do not seem to contain any relevant information related to the code component. Please provide the actual sections of the paper such as \"Introduction\"": [
+      {
+        "component": "evaluation.py:__init__",
+        "description": "Initialize evaluation with model, dataloader, and configuration.\n        Args:\n            model (torch.nn.Module): trained model (CLIF or LIF)\n            test_loader (DataLoader): data loader for test data\n            config (dict): evaluation configuration (convert, energy, metrics)",
+        "file": "evaluation.py"
+      }
+    ],
+    "\"Methodology\"": [
+      {
+        "component": "evaluation.py:__init__",
+        "description": "Initialize evaluation with model, dataloader, and configuration.\n        Args:\n            model (torch.nn.Module): trained model (CLIF or LIF)\n            test_loader (DataLoader): data loader for test data\n            config (dict): evaluation configuration (convert, energy, metrics)",
+        "file": "evaluation.py"
+      }
+    ],
+    "\"Results\"": [
+      {
+        "component": "evaluation.py:__init__",
+        "description": "Initialize evaluation with model, dataloader, and configuration.\n        Args:\n            model (torch.nn.Module): trained model (CLIF or LIF)\n            test_loader (DataLoader): data loader for test data\n            config (dict): evaluation configuration (convert, energy, metrics)",
+        "file": "evaluation.py"
+      }
+    ],
+    "\"Discussion\"": [
+      {
+        "component": "evaluation.py:__init__",
+        "description": "Initialize evaluation with model, dataloader, and configuration.\n        Args:\n            model (torch.nn.Module): trained model (CLIF or LIF)\n            test_loader (DataLoader): data loader for test data\n            config (dict): evaluation configuration (convert, energy, metrics)",
+        "file": "evaluation.py"
+      }
+    ],
+    "etc.": [
+      {
+        "component": "evaluation.py:__init__",
+        "description": "Initialize evaluation with model, dataloader, and configuration.\n        Args:\n            model (torch.nn.Module): trained model (CLIF or LIF)\n            test_loader (DataLoader): data loader for test data\n            config (dict): evaluation configuration (convert, energy, metrics)",
+        "file": "evaluation.py"
+      }
+    ],
+    "The provided information is insufficient to determine the most relevant paper sections for the code component. Please provide more details about the function in the main.py file and its purpose.": [
+      {
+        "component": "main.py:main",
+        "description": "",
+        "file": "main.py"
+      }
+    ],
+    "The provided paper sections do not seem to contain any relevant information related to the code component. Please provide the correct paper sections.": [
+      {
+        "component": "model.py:CLIFLayer",
+        "description": "A wrapper for a single CLIF neuron layer (for convolutional or linear layers).\n    Maintains internal states u (membrane potential) and m (complementary potential).",
+        "file": "model.py"
+      },
+      {
+        "component": "model.py:ResidualBlock",
+        "description": "Basic residual block with two conv layers and CLIF activation, residual connection.",
+        "file": "model.py"
+      }
+    ],
+    "The provided paper sections do not seem to contain any relevant information related to the code component. Please provide more relevant paper sections.": [
+      {
+        "component": "model.py:BasicConvBlock",
+        "description": "Basic convolutional block with conv + BatchNorm + CLIF neuron activation.",
+        "file": "model.py"
+      }
+    ],
+    "Without more specific section titles": [
+      {
+        "component": "model.py:SpikingResNet",
+        "description": "ResNet-18-like architecture with CLIF neurons.",
+        "file": "model.py"
+      }
+    ],
+    "it's impossible to accurately link the code component to the paper sections. However": [
+      {
+        "component": "model.py:SpikingResNet",
+        "description": "ResNet-18-like architecture with CLIF neurons.",
+        "file": "model.py"
+      }
+    ],
+    "typically": [
+      {
+        "component": "model.py:SpikingResNet",
+        "description": "ResNet-18-like architecture with CLIF neurons.",
+        "file": "model.py"
+      }
+    ],
+    "sections like \"Methodology\"": [
+      {
+        "component": "model.py:SpikingResNet",
+        "description": "ResNet-18-like architecture with CLIF neurons.",
+        "file": "model.py"
+      }
+    ],
+    "\"Implementation Details\"": [
+      {
+        "component": "model.py:SpikingResNet",
+        "description": "ResNet-18-like architecture with CLIF neurons.",
+        "file": "model.py"
+      },
+      {
+        "component": "trainer.py:Trainer",
+        "description": "Initialize with configuration parameters from YAML.\n        Args:\n            config (dict): parsed YAML config for dataset, training, model, neuron, etc.",
+        "file": "trainer.py"
+      },
+      {
+        "component": "trainer.py:__init__",
+        "description": "Initialize with configuration parameters from YAML.\n        Args:\n            config (dict): parsed YAML config for dataset, training, model, neuron, etc.",
+        "file": "trainer.py"
+      }
+    ],
+    "\"Experimental Setup\"": [
+      {
+        "component": "model.py:SpikingResNet",
+        "description": "ResNet-18-like architecture with CLIF neurons.",
+        "file": "model.py"
+      }
+    ],
+    "or \"Model Architecture\" would be most relevant for a code component describing a specific model architecture.": [
+      {
+        "component": "model.py:SpikingResNet",
+        "description": "ResNet-18-like architecture with CLIF neurons.",
+        "file": "model.py"
+      }
+    ],
+    "The provided information does not include any paper sections relevant to the code component. Please provide the correct paper sections.": [
+      {
+        "component": "model.py:__init__",
+        "description": "Args:\n            size (tuple): shape of the input (batch_size, channels, H, W) for conv, or (batch_size, features) for fc\n            V_th (float): threshold voltage\n            tau (float): membrane time constant",
+        "file": "model.py"
+      },
+      {
+        "component": "neuron.py:CLIFNeuron",
+        "description": "Reset internal state variables for a new sequence/batch.",
+        "file": "neuron.py"
+      }
+    ],
+    "The provided information does not include any paper sections related to the code component. Please provide the relevant paper sections.": [
+      {
+        "component": "neuron.py:CLIFFunction",
+        "description": "Forward pass for CLIF neuron at a single timestep.\n        Args:\n            u_prev: previous membrane potential (tensor)\n            m_prev: previous complementary potential (tensor)\n            input_current: synaptic input at current timestep (tensor)\n            V_th: threshold value (scalar)\n            tau: membrane time constant (scalar)\n            reset_bias_base: optional bias (scalar or tensor)\n        Returns:\n            s: spike output tensor (binary 0/1)",
+        "file": "neuron.py"
+      }
+    ],
+    "The provided information is not sufficient to identify the relevant paper sections for the code component. Please provide more details or paper sections.": [
+      {
+        "component": "neuron.py:surrogate_gradient",
+        "description": "Rectangle surrogate derivative: H'(u) ~ 1/alpha if |u - V_th| < alpha/2, else 0",
+        "file": "neuron.py"
+      }
+    ],
+    "The paper sections are not clearly defined in the provided information. However": [
+      {
+        "component": "trainer.py:Trainer",
+        "description": "Initialize with configuration parameters from YAML.\n        Args:\n            config (dict): parsed YAML config for dataset, training, model, neuron, etc.",
+        "file": "trainer.py"
+      },
+      {
+        "component": "trainer.py:__init__",
+        "description": "Initialize with configuration parameters from YAML.\n        Args:\n            config (dict): parsed YAML config for dataset, training, model, neuron, etc.",
+        "file": "trainer.py"
+      }
+    ],
+    "based on the code component": [
+      {
+        "component": "trainer.py:Trainer",
+        "description": "Initialize with configuration parameters from YAML.\n        Args:\n            config (dict): parsed YAML config for dataset, training, model, neuron, etc.",
+        "file": "trainer.py"
+      },
+      {
+        "component": "trainer.py:__init__",
+        "description": "Initialize with configuration parameters from YAML.\n        Args:\n            config (dict): parsed YAML config for dataset, training, model, neuron, etc.",
+        "file": "trainer.py"
+      }
+    ],
+    "relevant sections could be \"Methodology\"": [
+      {
+        "component": "trainer.py:Trainer",
+        "description": "Initialize with configuration parameters from YAML.\n        Args:\n            config (dict): parsed YAML config for dataset, training, model, neuron, etc.",
+        "file": "trainer.py"
+      },
+      {
+        "component": "trainer.py:__init__",
+        "description": "Initialize with configuration parameters from YAML.\n        Args:\n            config (dict): parsed YAML config for dataset, training, model, neuron, etc.",
+        "file": "trainer.py"
+      }
+    ],
+    "or \"Experimental Setup\". Please provide the actual section names for a more accurate analysis.": [
+      {
+        "component": "trainer.py:Trainer",
+        "description": "Initialize with configuration parameters from YAML.\n        Args:\n            config (dict): parsed YAML config for dataset, training, model, neuron, etc.",
+        "file": "trainer.py"
+      }
+    ],
+    "or \"Experimental Setup\". Please provide the actual section names/titles for a more accurate analysis.": [
+      {
+        "component": "trainer.py:__init__",
+        "description": "Initialize with configuration parameters from YAML.\n        Args:\n            config (dict): parsed YAML config for dataset, training, model, neuron, etc.",
+        "file": "trainer.py"
+      }
+    ],
+    "The provided information does not include any paper sections related to the code component. Please provide relevant paper sections.": [
+      {
+        "component": "utils.py:is",
+        "description": "Simple LIF neuron layer for conversion, no adaptive potential.",
+        "file": "utils.py"
+      },
+      {
+        "component": "utils.py:replace_layers",
+        "description": "Simple LIF neuron layer for conversion, no adaptive potential.",
+        "file": "utils.py"
+      }
+    ]
+  },
+  "paper_sections": [
+    {
+      "section": "Abstract",
+      "text": "Yulong Huang \\* 1 Xiaopeng Lin \\* 1 Hongwei Ren 1 Haotian $\\mathbf { F u } ^ { 1 }$ Yue Zhou 1 Zunchang Liu 1 Biao Pan 2 Bojun Cheng 1",
+      "ontology": "abstract"
+    }
+  ],
+  "coverage_score": 38.0
+}

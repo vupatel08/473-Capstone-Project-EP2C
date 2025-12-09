@@ -1,0 +1,400 @@
+{
+  "code_to_paper": {
+    "app.py:main": [
+      "The provided information is insufficient to determine the most relevant paper sections for the code component. Please provide more details about the function in the file app.py."
+    ],
+    "dataset_loader.py:DatasetLoader": [
+      "The paper sections are not provided in the question. Please provide the paper sections to proceed."
+    ],
+    "dataset_loader.py:__init__": [
+      "The provided information is not sufficient to identify the relevant paper sections for the given code component. Please provide the paper sections."
+    ],
+    "discrimination_module.py:DiscriminationModule": [
+      "The paper sections are not provided in the question. Please provide the paper sections to proceed."
+    ],
+    "discrimination_module.py:__init__": [
+      "Without the actual paper sections",
+      "it's impossible to provide the exact titles. However",
+      "based on the code component",
+      "the most relevant sections would likely be something like \"Methodology\"",
+      "\"Data Preprocessing\"",
+      "and \"Graph Generation\". Please provide the actual paper sections for a more accurate answer."
+    ],
+    "eigenbasis_matcher.py:EigenbasisMatcher": [
+      "The provided information does not include any paper section names/titles. Please provide the correct details to proceed."
+    ],
+    "eigenbasis_matcher.py:_basis_loss": [
+      "The provided information does not include any paper sections related to the code component. Please provide relevant paper sections."
+    ],
+    "evaluate.py:Evaluator": [
+      "The code component does not provide enough information to link it to specific paper sections. Please provide more details."
+    ],
+    "evaluate.py:__init__": [
+      "The code component does not provide enough information to link it to specific paper sections."
+    ],
+    "evaluate.py:main": [
+      "The provided information is insufficient to determine the most relevant paper sections for the code component. Please provide more details about the function in the file \"evaluate.py\" and its purpose."
+    ],
+    "model.py:GNNModel": [
+      "The provided paper sections are not sufficient to link with the given code component. Please provide more detailed sections of the paper."
+    ],
+    "model.py:__init__": [
+      "Methodology",
+      "Model Architecture",
+      "Experiment and Results"
+    ],
+    "spectral_decomposition.py:SpectralDecomposition": [
+      "The paper sections are not provided in the question. Please provide the paper sections to proceed."
+    ],
+    "spectral_decomposition.py:__init__": [
+      "Without specific section names",
+      "it's hard to provide an accurate answer. However",
+      "based on the code component",
+      "the most relevant sections could be \"Methodology\"",
+      "\"Algorithm Implementation\"",
+      "\"Spectral Decomposition\" or \"Data Preprocessing\"."
+    ],
+    "synthetic_graph_generator.py:SyntheticGraphGenerator": [
+      "The provided information does not include specific paper section names/titles. Please provide the names/titles of the paper sections to proceed."
+    ],
+    "synthetic_graph_generator.py:construct_spectrum_matrices": [
+      "Without specific section names",
+      "it's impossible to accurately link the code component to the paper sections. However",
+      "typically",
+      "sections like \"Methodology\"",
+      "\"Data Generation\"",
+      "\"Experiment Setup\" or \"Implementation Details\" could be relevant for a code component like this."
+    ],
+    "train.py:Trainer": [
+      "Methodology",
+      "Experiment Setup",
+      "Model Implementation"
+    ],
+    "train.py:__init__": [
+      "Methodology",
+      "Experiment Setup",
+      "Model Implementation"
+    ],
+    "train.py:main": [
+      "The information provided is insufficient to determine the most relevant paper sections for the code component. Please provide more details about the function in the file 'train.py' and its purpose."
+    ],
+    "utils.py:plot_spectrum_comparison": [
+      "Without specific section names",
+      "it's hard to provide an accurate answer. However",
+      "based on the code description",
+      "the most relevant sections could be \"Methodology\"",
+      "\"Results and Discussion\"",
+      "and \"Graph Analysis\"."
+    ]
+  },
+  "paper_to_code": {
+    "The provided information is insufficient to determine the most relevant paper sections for the code component. Please provide more details about the function in the file app.py.": [
+      {
+        "component": "app.py:main",
+        "description": "",
+        "file": "app.py"
+      }
+    ],
+    "The paper sections are not provided in the question. Please provide the paper sections to proceed.": [
+      {
+        "component": "dataset_loader.py:DatasetLoader",
+        "description": "Responsible for downloading, loading, preprocessing datasets, and spectral decomposition.",
+        "file": "dataset_loader.py"
+      },
+      {
+        "component": "discrimination_module.py:DiscriminationModule",
+        "description": "Purpose:\n        This module computes class-level representations\n        of real and synthetic graphs and calculates a discrimination\n        loss based on cosine similarity to promote class-wise feature alignment.\n    Dependencies:\n        Uses torch for tensor operations and cosine similarity.",
+        "file": "discrimination_module.py"
+      },
+      {
+        "component": "spectral_decomposition.py:SpectralDecomposition",
+        "description": "Computes spectral decomposition (eigenvalues and eigenvectors) of the normalized graph Laplacian.\n    Supports large sparse graphs via scipy's eigsh solver.",
+        "file": "spectral_decomposition.py"
+      }
+    ],
+    "The provided information is not sufficient to identify the relevant paper sections for the given code component. Please provide the paper sections.": [
+      {
+        "component": "dataset_loader.py:__init__",
+        "description": "Initialize DatasetLoader with dataset URLs and spectral eigenvector count.\n\n        Args:\n            dataset_paths (dict): Dictionary with dataset URLs, keys like 'citeseer_url', etc.\n            K (int): Number of eigenvectors to compute for eigenbasis matching.",
+        "file": "dataset_loader.py"
+      }
+    ],
+    "Without the actual paper sections": [
+      {
+        "component": "discrimination_module.py:__init__",
+        "description": "Initializes the module with node labels and features for real and synthetic graphs.\n\n        Args:\n            real_labels (torch.Tensor): shape (N,), class labels for real graph nodes.\n            real_features (torch.Tensor): shape (N, d), node features for real graph.\n            synthetic_labels (torch.Tensor): shape (N',), class labels for synthetic graph nodes.\n            synthetic_features (torch.Tensor): shape (N', d), node features for synthetic graph.",
+        "file": "discrimination_module.py"
+      }
+    ],
+    "it's impossible to provide the exact titles. However": [
+      {
+        "component": "discrimination_module.py:__init__",
+        "description": "Initializes the module with node labels and features for real and synthetic graphs.\n\n        Args:\n            real_labels (torch.Tensor): shape (N,), class labels for real graph nodes.\n            real_features (torch.Tensor): shape (N, d), node features for real graph.\n            synthetic_labels (torch.Tensor): shape (N',), class labels for synthetic graph nodes.\n            synthetic_features (torch.Tensor): shape (N', d), node features for synthetic graph.",
+        "file": "discrimination_module.py"
+      }
+    ],
+    "based on the code component": [
+      {
+        "component": "discrimination_module.py:__init__",
+        "description": "Initializes the module with node labels and features for real and synthetic graphs.\n\n        Args:\n            real_labels (torch.Tensor): shape (N,), class labels for real graph nodes.\n            real_features (torch.Tensor): shape (N, d), node features for real graph.\n            synthetic_labels (torch.Tensor): shape (N',), class labels for synthetic graph nodes.\n            synthetic_features (torch.Tensor): shape (N', d), node features for synthetic graph.",
+        "file": "discrimination_module.py"
+      },
+      {
+        "component": "spectral_decomposition.py:__init__",
+        "description": "Initializes the spectral decomposition with adjacency matrix and number of eigenvectors.\n\n        Args:\n            adj_matrix (torch.Tensor): adjacency matrix of shape (N, N), assumed undirected and unweighted.\n            K (int): number of eigenvalues/eigenvectors to compute.\n                     If K >= N, computes the full spectrum.",
+        "file": "spectral_decomposition.py"
+      }
+    ],
+    "the most relevant sections would likely be something like \"Methodology\"": [
+      {
+        "component": "discrimination_module.py:__init__",
+        "description": "Initializes the module with node labels and features for real and synthetic graphs.\n\n        Args:\n            real_labels (torch.Tensor): shape (N,), class labels for real graph nodes.\n            real_features (torch.Tensor): shape (N, d), node features for real graph.\n            synthetic_labels (torch.Tensor): shape (N',), class labels for synthetic graph nodes.\n            synthetic_features (torch.Tensor): shape (N', d), node features for synthetic graph.",
+        "file": "discrimination_module.py"
+      }
+    ],
+    "\"Data Preprocessing\"": [
+      {
+        "component": "discrimination_module.py:__init__",
+        "description": "Initializes the module with node labels and features for real and synthetic graphs.\n\n        Args:\n            real_labels (torch.Tensor): shape (N,), class labels for real graph nodes.\n            real_features (torch.Tensor): shape (N, d), node features for real graph.\n            synthetic_labels (torch.Tensor): shape (N',), class labels for synthetic graph nodes.\n            synthetic_features (torch.Tensor): shape (N', d), node features for synthetic graph.",
+        "file": "discrimination_module.py"
+      }
+    ],
+    "and \"Graph Generation\". Please provide the actual paper sections for a more accurate answer.": [
+      {
+        "component": "discrimination_module.py:__init__",
+        "description": "Initializes the module with node labels and features for real and synthetic graphs.\n\n        Args:\n            real_labels (torch.Tensor): shape (N,), class labels for real graph nodes.\n            real_features (torch.Tensor): shape (N, d), node features for real graph.\n            synthetic_labels (torch.Tensor): shape (N',), class labels for synthetic graph nodes.\n            synthetic_features (torch.Tensor): shape (N', d), node features for synthetic graph.",
+        "file": "discrimination_module.py"
+      }
+    ],
+    "The provided information does not include any paper section names/titles. Please provide the correct details to proceed.": [
+      {
+        "component": "eigenbasis_matcher.py:EigenbasisMatcher",
+        "description": "Aligns the synthetic eigenbasis U' with the real eigenbasis U via gradient descent\n    while enforcing orthogonality constraints. The goal is to minimize the basis \n    discrepancy loss \\(\\mathcal{L}_e\\) and keep U' orthogonal (\\(\\mathcal{L}_o\\)).",
+        "file": "eigenbasis_matcher.py"
+      }
+    ],
+    "The provided information does not include any paper sections related to the code component. Please provide relevant paper sections.": [
+      {
+        "component": "eigenbasis_matcher.py:_basis_loss",
+        "description": "Computes \\(\\mathcal{L}_e = \\sum_k || u_k u_k^T - u_k' u_k'^T ||_F^2\\)\n        by summing over all basis vectors.",
+        "file": "eigenbasis_matcher.py"
+      }
+    ],
+    "The code component does not provide enough information to link it to specific paper sections. Please provide more details.": [
+      {
+        "component": "evaluate.py:Evaluator",
+        "description": "Initialize the Evaluator by loading configuration, model, and data.\n        Args:\n            config_path (str): Path to the configuration YAML file.",
+        "file": "evaluate.py"
+      }
+    ],
+    "The code component does not provide enough information to link it to specific paper sections.": [
+      {
+        "component": "evaluate.py:__init__",
+        "description": "Initialize the Evaluator by loading configuration, model, and data.\n        Args:\n            config_path (str): Path to the configuration YAML file.",
+        "file": "evaluate.py"
+      }
+    ],
+    "The provided information is insufficient to determine the most relevant paper sections for the code component. Please provide more details about the function in the file \"evaluate.py\" and its purpose.": [
+      {
+        "component": "evaluate.py:main",
+        "description": "",
+        "file": "evaluate.py"
+      }
+    ],
+    "The provided paper sections are not sufficient to link with the given code component. Please provide more detailed sections of the paper.": [
+      {
+        "component": "model.py:GNNModel",
+        "description": "Initializes a GNN model based on specified architecture type and parameters.\n\n        Args:\n            architecture_type (str): 'GCN', 'SGC', 'PPNP', 'ChebyNet', 'BernNet', 'GPR-GNN'\n            params (dict): architecture-specific hyperparameters:\n                - 'hidden_units' (int)\n                - 'layers' (int), default 2\n                - 'poly_order' (int), for spectral models",
+        "file": "model.py"
+      }
+    ],
+    "Methodology": [
+      {
+        "component": "model.py:__init__",
+        "description": "Initializes a GNN model based on specified architecture type and parameters.\n\n        Args:\n            architecture_type (str): 'GCN', 'SGC', 'PPNP', 'ChebyNet', 'BernNet', 'GPR-GNN'\n            params (dict): architecture-specific hyperparameters:\n                - 'hidden_units' (int)\n                - 'layers' (int), default 2\n                - 'poly_order' (int), for spectral models",
+        "file": "model.py"
+      },
+      {
+        "component": "train.py:Trainer",
+        "description": "Initialize the trainer with model, datasets, and hyperparameters.\n\n        Args:\n            model (GNNModel): The GNN model to train.\n            train_data (Data): Training data object.\n            val_data (Data, optional): Validation data.\n            test_data (Data, optional): Test data.\n            labels_train (torch.Tensor): Ground truth labels for training nodes.\n            labels_val (torch.Tensor, optional): Validation labels.\n            labels_test (torch.Tensor, optional): Test labels.\n            config (dict): Hyperparameters and settings.",
+        "file": "train.py"
+      },
+      {
+        "component": "train.py:__init__",
+        "description": "Initialize the trainer with model, datasets, and hyperparameters.\n\n        Args:\n            model (GNNModel): The GNN model to train.\n            train_data (Data): Training data object.\n            val_data (Data, optional): Validation data.\n            test_data (Data, optional): Test data.\n            labels_train (torch.Tensor): Ground truth labels for training nodes.\n            labels_val (torch.Tensor, optional): Validation labels.\n            labels_test (torch.Tensor, optional): Test labels.\n            config (dict): Hyperparameters and settings.",
+        "file": "train.py"
+      }
+    ],
+    "Model Architecture": [
+      {
+        "component": "model.py:__init__",
+        "description": "Initializes a GNN model based on specified architecture type and parameters.\n\n        Args:\n            architecture_type (str): 'GCN', 'SGC', 'PPNP', 'ChebyNet', 'BernNet', 'GPR-GNN'\n            params (dict): architecture-specific hyperparameters:\n                - 'hidden_units' (int)\n                - 'layers' (int), default 2\n                - 'poly_order' (int), for spectral models",
+        "file": "model.py"
+      }
+    ],
+    "Experiment and Results": [
+      {
+        "component": "model.py:__init__",
+        "description": "Initializes a GNN model based on specified architecture type and parameters.\n\n        Args:\n            architecture_type (str): 'GCN', 'SGC', 'PPNP', 'ChebyNet', 'BernNet', 'GPR-GNN'\n            params (dict): architecture-specific hyperparameters:\n                - 'hidden_units' (int)\n                - 'layers' (int), default 2\n                - 'poly_order' (int), for spectral models",
+        "file": "model.py"
+      }
+    ],
+    "Without specific section names": [
+      {
+        "component": "spectral_decomposition.py:__init__",
+        "description": "Initializes the spectral decomposition with adjacency matrix and number of eigenvectors.\n\n        Args:\n            adj_matrix (torch.Tensor): adjacency matrix of shape (N, N), assumed undirected and unweighted.\n            K (int): number of eigenvalues/eigenvectors to compute.\n                     If K >= N, computes the full spectrum.",
+        "file": "spectral_decomposition.py"
+      },
+      {
+        "component": "synthetic_graph_generator.py:construct_spectrum_matrices",
+        "description": "Build synthetic adjacency and Laplacian matrices from eigenbasis and eigenvalues.\n        Returns:\n            A_prime (torch.Tensor): [N', N']\n            L_prime (torch.Tensor): [N', N']",
+        "file": "synthetic_graph_generator.py"
+      },
+      {
+        "component": "utils.py:plot_spectrum_comparison",
+        "description": "Plot the spectra (eigenvalues) of real and synthetic graphs for comparison.\n    Plot histograms and annotate with spectral metrics like TV.\n\n    Args:\n        real_eigenvalues (torch.Tensor): eigenvalues of real graph\n        synthetic_eigenvalues (torch.Tensor): eigenvalues of synthetic graph\n        metrics (dict): Dictionary of spectral metrics to annotate, e.g., {'TV': value}",
+        "file": "utils.py"
+      }
+    ],
+    "it's hard to provide an accurate answer. However": [
+      {
+        "component": "spectral_decomposition.py:__init__",
+        "description": "Initializes the spectral decomposition with adjacency matrix and number of eigenvectors.\n\n        Args:\n            adj_matrix (torch.Tensor): adjacency matrix of shape (N, N), assumed undirected and unweighted.\n            K (int): number of eigenvalues/eigenvectors to compute.\n                     If K >= N, computes the full spectrum.",
+        "file": "spectral_decomposition.py"
+      },
+      {
+        "component": "utils.py:plot_spectrum_comparison",
+        "description": "Plot the spectra (eigenvalues) of real and synthetic graphs for comparison.\n    Plot histograms and annotate with spectral metrics like TV.\n\n    Args:\n        real_eigenvalues (torch.Tensor): eigenvalues of real graph\n        synthetic_eigenvalues (torch.Tensor): eigenvalues of synthetic graph\n        metrics (dict): Dictionary of spectral metrics to annotate, e.g., {'TV': value}",
+        "file": "utils.py"
+      }
+    ],
+    "the most relevant sections could be \"Methodology\"": [
+      {
+        "component": "spectral_decomposition.py:__init__",
+        "description": "Initializes the spectral decomposition with adjacency matrix and number of eigenvectors.\n\n        Args:\n            adj_matrix (torch.Tensor): adjacency matrix of shape (N, N), assumed undirected and unweighted.\n            K (int): number of eigenvalues/eigenvectors to compute.\n                     If K >= N, computes the full spectrum.",
+        "file": "spectral_decomposition.py"
+      },
+      {
+        "component": "utils.py:plot_spectrum_comparison",
+        "description": "Plot the spectra (eigenvalues) of real and synthetic graphs for comparison.\n    Plot histograms and annotate with spectral metrics like TV.\n\n    Args:\n        real_eigenvalues (torch.Tensor): eigenvalues of real graph\n        synthetic_eigenvalues (torch.Tensor): eigenvalues of synthetic graph\n        metrics (dict): Dictionary of spectral metrics to annotate, e.g., {'TV': value}",
+        "file": "utils.py"
+      }
+    ],
+    "\"Algorithm Implementation\"": [
+      {
+        "component": "spectral_decomposition.py:__init__",
+        "description": "Initializes the spectral decomposition with adjacency matrix and number of eigenvectors.\n\n        Args:\n            adj_matrix (torch.Tensor): adjacency matrix of shape (N, N), assumed undirected and unweighted.\n            K (int): number of eigenvalues/eigenvectors to compute.\n                     If K >= N, computes the full spectrum.",
+        "file": "spectral_decomposition.py"
+      }
+    ],
+    "\"Spectral Decomposition\" or \"Data Preprocessing\".": [
+      {
+        "component": "spectral_decomposition.py:__init__",
+        "description": "Initializes the spectral decomposition with adjacency matrix and number of eigenvectors.\n\n        Args:\n            adj_matrix (torch.Tensor): adjacency matrix of shape (N, N), assumed undirected and unweighted.\n            K (int): number of eigenvalues/eigenvectors to compute.\n                     If K >= N, computes the full spectrum.",
+        "file": "spectral_decomposition.py"
+      }
+    ],
+    "The provided information does not include specific paper section names/titles. Please provide the names/titles of the paper sections to proceed.": [
+      {
+        "component": "synthetic_graph_generator.py:SyntheticGraphGenerator",
+        "description": "Generates a synthetic graph that mimics the spectral properties of a real graph\n    by matching eigenbasis and spectrum, and optimizes node features accordingly.",
+        "file": "synthetic_graph_generator.py"
+      }
+    ],
+    "it's impossible to accurately link the code component to the paper sections. However": [
+      {
+        "component": "synthetic_graph_generator.py:construct_spectrum_matrices",
+        "description": "Build synthetic adjacency and Laplacian matrices from eigenbasis and eigenvalues.\n        Returns:\n            A_prime (torch.Tensor): [N', N']\n            L_prime (torch.Tensor): [N', N']",
+        "file": "synthetic_graph_generator.py"
+      }
+    ],
+    "typically": [
+      {
+        "component": "synthetic_graph_generator.py:construct_spectrum_matrices",
+        "description": "Build synthetic adjacency and Laplacian matrices from eigenbasis and eigenvalues.\n        Returns:\n            A_prime (torch.Tensor): [N', N']\n            L_prime (torch.Tensor): [N', N']",
+        "file": "synthetic_graph_generator.py"
+      }
+    ],
+    "sections like \"Methodology\"": [
+      {
+        "component": "synthetic_graph_generator.py:construct_spectrum_matrices",
+        "description": "Build synthetic adjacency and Laplacian matrices from eigenbasis and eigenvalues.\n        Returns:\n            A_prime (torch.Tensor): [N', N']\n            L_prime (torch.Tensor): [N', N']",
+        "file": "synthetic_graph_generator.py"
+      }
+    ],
+    "\"Data Generation\"": [
+      {
+        "component": "synthetic_graph_generator.py:construct_spectrum_matrices",
+        "description": "Build synthetic adjacency and Laplacian matrices from eigenbasis and eigenvalues.\n        Returns:\n            A_prime (torch.Tensor): [N', N']\n            L_prime (torch.Tensor): [N', N']",
+        "file": "synthetic_graph_generator.py"
+      }
+    ],
+    "\"Experiment Setup\" or \"Implementation Details\" could be relevant for a code component like this.": [
+      {
+        "component": "synthetic_graph_generator.py:construct_spectrum_matrices",
+        "description": "Build synthetic adjacency and Laplacian matrices from eigenbasis and eigenvalues.\n        Returns:\n            A_prime (torch.Tensor): [N', N']\n            L_prime (torch.Tensor): [N', N']",
+        "file": "synthetic_graph_generator.py"
+      }
+    ],
+    "Experiment Setup": [
+      {
+        "component": "train.py:Trainer",
+        "description": "Initialize the trainer with model, datasets, and hyperparameters.\n\n        Args:\n            model (GNNModel): The GNN model to train.\n            train_data (Data): Training data object.\n            val_data (Data, optional): Validation data.\n            test_data (Data, optional): Test data.\n            labels_train (torch.Tensor): Ground truth labels for training nodes.\n            labels_val (torch.Tensor, optional): Validation labels.\n            labels_test (torch.Tensor, optional): Test labels.\n            config (dict): Hyperparameters and settings.",
+        "file": "train.py"
+      },
+      {
+        "component": "train.py:__init__",
+        "description": "Initialize the trainer with model, datasets, and hyperparameters.\n\n        Args:\n            model (GNNModel): The GNN model to train.\n            train_data (Data): Training data object.\n            val_data (Data, optional): Validation data.\n            test_data (Data, optional): Test data.\n            labels_train (torch.Tensor): Ground truth labels for training nodes.\n            labels_val (torch.Tensor, optional): Validation labels.\n            labels_test (torch.Tensor, optional): Test labels.\n            config (dict): Hyperparameters and settings.",
+        "file": "train.py"
+      }
+    ],
+    "Model Implementation": [
+      {
+        "component": "train.py:Trainer",
+        "description": "Initialize the trainer with model, datasets, and hyperparameters.\n\n        Args:\n            model (GNNModel): The GNN model to train.\n            train_data (Data): Training data object.\n            val_data (Data, optional): Validation data.\n            test_data (Data, optional): Test data.\n            labels_train (torch.Tensor): Ground truth labels for training nodes.\n            labels_val (torch.Tensor, optional): Validation labels.\n            labels_test (torch.Tensor, optional): Test labels.\n            config (dict): Hyperparameters and settings.",
+        "file": "train.py"
+      },
+      {
+        "component": "train.py:__init__",
+        "description": "Initialize the trainer with model, datasets, and hyperparameters.\n\n        Args:\n            model (GNNModel): The GNN model to train.\n            train_data (Data): Training data object.\n            val_data (Data, optional): Validation data.\n            test_data (Data, optional): Test data.\n            labels_train (torch.Tensor): Ground truth labels for training nodes.\n            labels_val (torch.Tensor, optional): Validation labels.\n            labels_test (torch.Tensor, optional): Test labels.\n            config (dict): Hyperparameters and settings.",
+        "file": "train.py"
+      }
+    ],
+    "The information provided is insufficient to determine the most relevant paper sections for the code component. Please provide more details about the function in the file 'train.py' and its purpose.": [
+      {
+        "component": "train.py:main",
+        "description": "",
+        "file": "train.py"
+      }
+    ],
+    "based on the code description": [
+      {
+        "component": "utils.py:plot_spectrum_comparison",
+        "description": "Plot the spectra (eigenvalues) of real and synthetic graphs for comparison.\n    Plot histograms and annotate with spectral metrics like TV.\n\n    Args:\n        real_eigenvalues (torch.Tensor): eigenvalues of real graph\n        synthetic_eigenvalues (torch.Tensor): eigenvalues of synthetic graph\n        metrics (dict): Dictionary of spectral metrics to annotate, e.g., {'TV': value}",
+        "file": "utils.py"
+      }
+    ],
+    "\"Results and Discussion\"": [
+      {
+        "component": "utils.py:plot_spectrum_comparison",
+        "description": "Plot the spectra (eigenvalues) of real and synthetic graphs for comparison.\n    Plot histograms and annotate with spectral metrics like TV.\n\n    Args:\n        real_eigenvalues (torch.Tensor): eigenvalues of real graph\n        synthetic_eigenvalues (torch.Tensor): eigenvalues of synthetic graph\n        metrics (dict): Dictionary of spectral metrics to annotate, e.g., {'TV': value}",
+        "file": "utils.py"
+      }
+    ],
+    "and \"Graph Analysis\".": [
+      {
+        "component": "utils.py:plot_spectrum_comparison",
+        "description": "Plot the spectra (eigenvalues) of real and synthetic graphs for comparison.\n    Plot histograms and annotate with spectral metrics like TV.\n\n    Args:\n        real_eigenvalues (torch.Tensor): eigenvalues of real graph\n        synthetic_eigenvalues (torch.Tensor): eigenvalues of synthetic graph\n        metrics (dict): Dictionary of spectral metrics to annotate, e.g., {'TV': value}",
+        "file": "utils.py"
+      }
+    ]
+  },
+  "paper_sections": [
+    {
+      "section": "Abstract",
+      "text": "Yang Liu \\* 1 Deyu Bo \\* 1 Chuan Shi 1",
+      "ontology": "abstract"
+    }
+  ],
+  "coverage_score": 35.0
+}

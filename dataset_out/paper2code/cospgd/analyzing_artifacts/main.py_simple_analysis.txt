@@ -1,0 +1,194 @@
+# Logic Analysis for main.py
+
+This document provides a detailed, step-by-step logical breakdown for implementing `main.py`, which orchestrates the execution of experiments to reproduce CosPGD attacks and evaluations as described in the paper. The goal is to ensure fidelity with the experimental design, dataset handling, model inference, attack procedure, evaluation metrics, and configuration parameters, as outlined in the previous plan.
+
+---
+
+## 1. **Imports and Setup**
+
+- **Import Required Modules:**
+  - Load core libraries: `torch`, `torchvision`, `numpy`, `matplotlib`, `os`, `logging`.
+  - Import custom modules:
+    - `DatasetLoader` from `dataset_loader.py`
+    - `Model` from `model.py`
+    - `Attack` from `attack.py`
+    - `Evaluation` from `evaluation.py`
+    - Utility functions from `utils.py` (such as setting seed, plotting, etc.).
+
+- **Set Device & Random Seed:**
+  - Use `torch.device()` based on configuration (`cuda:0`).
+  - Set random seed for reproducibility across PyTorch, numpy, and any other libraries.
+
+- **Configure Logging:**
+  - Set verbosity level (INFO/WARNING).
+  - Log start of experiment, dataset, models, hyperparameters.
+
+---
+
+## 2. **Load Dataset(s) via DatasetLoader**
+
+- **Initialize DatasetLoader instances:**
+  - For **semantic segmentation**:
+    - Pass parameters:
+      - `dataset_name='PascalVOC2012'`
+      - `root_dir=./data/PascalVOC2012`
+      - `split='train'`
+      - `augment=True`
+      - `input_size=512`
+  - For **optical flow**:
+    - Pass parameters:
+      - `dataset_name='KITTI2015'`
+      - `root_dir=./data/KITTI2015`
+      - `split='validation'`
+  - For **image restoration**:
+    - Pass parameters:
+      - `dataset_name='GoPro'`
+      - `root_dir=./data/GoPro`
+      - `split='train'`
+      - `input_size=1280x720`
+
+- **Load datasets:**
+  - Call dataset loader `.load_dataset()` method to get iterable datasets/dataloaders.
+  - For batch processing, create DataLoader objects with the specified `batch_size` (from config).
+
+- **Dataset splitting:**
+  - Confirm train/validation/test splits are used as per experiment setup.
+  - Implement any augmentation if specified.
+
+---
+
+## 3. **Load & Initialize Models via Model.py**
+
+- **Instantiate models as per configuration:**
+  - For **DeepLabV3**, **PSNet**:
+    - Use model name, e.g., `'deeplabv3'` or `'psnet'`.
+    - Load specified checkpoint path.
+  - For **UNet** and **NAFN**:
+    - Use their specific setup (e.g., encoder `'ConvNeXt-tiny'`).
+- **Load weights:**
+  - Call `load_weights()` method.
+  - Ensure model is loaded to GPU as per device setting.
+- **Set mode:**
+  - Switch models to evaluation mode with `.eval()`.
+- **Optional:**
+  - Wrap models with `torch.nn.DataParallel` if multi-GPU (not specified here, single GPU assumed).
+
+---
+
+## 4. **Set Up Attack Parameters from Config**
+
+- Parse `attack_parameters:` section:
+  - `epsilon` (float, e.g., `8/255`)
+  - `step_size` (float, e.g., `2/255`)
+  - `attack_iters` list (e.g., `[3, 5, 10, 20, 40, 100]`)
+  - `targeted` (boolean)
+  - `target_label` (nullable; used if targeted attack enabled)
+
+- Instantiate attack object:
+  - Pass models, device, and attack hyperparameters.
+  - For each attack run, specify:
+    - Number of iterations (per each run).
+    - Targeted or untargeted mode.
+    - Whether to attack in \(\ell_\infty\) or \(\ell_2\) norm (assumed from context).
+    
+---
+
+## 5. **Run Attacks Over Dataset Images**
+
+- **Iterate over dataset:**
+  - For each sample:
+    - Extract input image tensor `x` and label `y`.
+      - Ensure correct normalization (values in [0,1]).
+      - For segmentation: labels as class indices or one-hot (per code in dataset loader).
+      - For optical flow/regression: flow field tensor.
+    - **Initialize adversarial input:**
+      - Call attack's `attack()` method with inputs:
+        - `x`, `y`
+        - `targeted=attack_params['targeted']`
+        - `target_label=attack_params['target_label']` (if targeted)
+      - Inside `attack()`, handle:
+        - Initial perturbation addition within \(\epsilon\) bound.
+        - Number of iterations as per the current value in `attack_iters`.
+        - Attack mode (targeted/non-targeted).
+        - Uses `Attack` class's `attack()` method, which internally:
+          - Performs iterative CosPGD updates with the scaled loss.
+          - Clips perturbed input within \(\epsilon\)-ball.
+    - Collect adversarial example.
+    
+- **Optional:**
+  - Store adversarial examples, model predictions, and metrics at each iteration for later analysis.
+
+---
+
+## 6. **Evaluate Adversarial Examples Using Evaluation.py**
+
+- For each adversarial sample:
+  - Run the **model inference**:
+    - `model.predict(x_adv)` to get predictions.
+    - For segmentation: class logits or probabilities (to evaluate IoU, accuracy).
+    - For optical flow: flow vectors to evaluate EPE.
+    - For restoration: reconstructed images for PSNR/SSIM.
+  - Use the `Evaluation` class:
+    - Initialize with model, dataset, and inference mode.
+    - Call metric functions:
+      - **Semantic segmentation:** compute IoU, pixel accuracy.
+      - **Optical flow:** compute endpoint error (EPE).
+      - **Image restoration:** compute PSNR and SSIM.
+  - Save metrics per sample.
+  - Aggregate metrics over dataset for overall assessment.
+
+- Store evaluation results in dictionaries/logs.
+
+---
+
+## 7. **Save Results & Generate Plots**
+
+- **Store all results:**
+  - Save metrics per attack iteration and dataset.
+  - Save adversarial images, predictions, and relevant visualizations (e.g., attacked segmentation masks, flow maps).
+
+- **Generate plots:**
+  - Plot attack effectiveness vs. number of iterations, similar to Figures 2, 3, 14-21.
+  - Plot metric decay (e.g., IoU, EPE) over attack steps.
+  - Plot qualitative example comparisons after attacks.
+
+- **Save plots and metrics:**
+  - Use `matplotlib` for plotting.
+  - Save as images or figures with descriptive filenames.
+
+---
+
+## 8. **Optional: Attack & Evaluation Variations**
+
+- Repeat for:
+  - **Targeted vs. Untargeted** attacks.
+  - Different \(\ell_\infty\) / \(\ell_2\) bounds.
+  - Multiple initializations (random noise).
+  - Transfer attacks (using different models as attack and evaluate).
+
+---
+
+## 9. **Final Remarks & Cleanup**
+
+- **Ensure all paths** for saving data and results are created.
+- **Clear cache** if needed for memory management.
+- **Log summary:**
+  - Final metrics achieved.
+  - Attack success rates.
+  - Comparative effectiveness.
+
+---
+
+## 10. **Summary**
+
+The main.py orchestrates the overall workflow:
+1. Load datasets & models based on configs.
+2. For each dataset sample:
+   - Generate adversarial inputs via CosPGD with specified iterations.
+   - Evaluate the model predictions on adversarial inputs.
+   - Record metrics and visualizations.
+3. Aggregate and save all results.
+4. Plot the evolution of metrics over attack steps.
+5. Support multiple configurations for hyperparameters and experimental setups as per paper.
+
+This structured logic ensures the code implementation remains consistent with the paper's methodology, experimental design, and reproducibility goals.

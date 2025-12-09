@@ -1,0 +1,568 @@
+{
+  "code_to_paper": {
+    "dataset_loader.py:DatasetLoader": [
+      "Dataset Description",
+      "Methodology",
+      "Experiment Setup"
+    ],
+    "dataset_loader.py:__init__": [
+      "Dataset Description",
+      "Methodology",
+      "Experiment Setup"
+    ],
+    "evaluation.py:Evaluation": [
+      "The provided paper sections are not sufficient to link with the code component. Please provide more relevant paper sections."
+    ],
+    "evaluation.py:__init__": [
+      "The provided paper sections do not seem to contain any relevant information related to the code component. Please provide more relevant paper sections."
+    ],
+    "gpr_model.py:GPRFactorModel": [
+      "The provided paper sections are not sufficient to link with the given code component. Please provide more detailed sections of the paper."
+    ],
+    "gpr_model.py:__init__": [
+      "Without the actual content of the paper sections",
+      "it's impossible to accurately determine which sections are most relevant to the provided code component. However",
+      "based on the description of the code",
+      "sections like \"Methodology\"",
+      "\"Model Initialization\"",
+      "\"GPR Factor Model\"",
+      "or \"Hyperparameters\" could potentially be relevant."
+    ],
+    "inference.py:InferenceEngine": [
+      "The provided paper sections are not sufficient to link with the given code component. Please provide more detailed sections such as \"Methodology\"",
+      "\"Implementation Details\"",
+      "\"Results\"",
+      "etc."
+    ],
+    "inference.py:__init__": [
+      "The provided paper sections are not sufficient to link with the given code component. Please provide more detailed sections such as \"Methodology\"",
+      "\"Implementation Details\"",
+      "\"Results\"",
+      "etc."
+    ],
+    "main.py:main": [
+      "The provided information is insufficient to determine the most relevant paper sections for the code component. Please provide more details about the function in the file main.py and the sections of the paper."
+    ],
+    "spectral_to_LTI.py:SpectralToLTID": [
+      "The provided paper sections are not sufficient to link with the code component. Please provide more detailed sections related to the code component."
+    ],
+    "spectral_to_LTI.py:__init__": [
+      "Without the actual content of the paper sections",
+      "it's impossible to accurately determine which sections are most relevant to the provided code component. However",
+      "based on the code's purpose and description",
+      "it's likely that sections discussing \"Kernel Methods\"",
+      "\"Hyperparameters\"",
+      "or \"Method Implementation\" would be most relevant. Please provide the content of the paper sections for a more accurate analysis."
+    ],
+    "utils.py:cholesky_decomposition": [
+      "The provided paper sections do not seem to contain any relevant information related to the code component. Please provide the correct paper sections."
+    ],
+    "utils.py:matrix_inverse": [
+      "The provided paper sections are not sufficient to link with the given code component. Please provide more relevant paper sections."
+    ],
+    "utils.py:solve_linear_system": [
+      "The provided paper sections do not seem to contain any relevant information related to the code component. Please provide more relevant paper sections."
+    ],
+    "utils.py:matrix_exponential": [
+      "The provided paper sections are not sufficient to link with the given code component. Please provide more relevant paper sections."
+    ],
+    "utils.py:solve_lyapunov": [
+      "The provided information does not include any paper sections related to the code component. Please provide relevant paper sections."
+    ],
+    "utils.py:generate_state_space_matrices": [
+      "Without the actual paper sections",
+      "it's impossible to provide accurate section names. However",
+      "based on the code description",
+      "the most relevant sections could be something like \"Methodology\"",
+      "\"Implementation Details\"",
+      "\"Kernel Selection and Hyperparameters\". Please provide the actual paper sections for a more accurate answer."
+    ],
+    "utils.py:construct_matern32_state_space": [
+      "The provided paper sections are not enough to identify the most relevant ones for the given code component. Please provide more detailed sections of the paper."
+    ],
+    "utils.py:construct_periodic_state_space": [
+      "The provided paper sections are not sufficient to link with the given code component. Please provide more relevant paper sections."
+    ],
+    "utils.py:clip_positive_definite": [
+      "The provided paper sections are not sufficient to link with the given code component. Please provide more relevant paper sections."
+    ],
+    "utils.py:compute_expectation_gaussian": [
+      "The provided paper sections are not enough to identify the most relevant sections for the given code component. Please provide more detailed sections of the paper."
+    ],
+    "utils.py:expectation_tau": [
+      "Without the full list of paper sections",
+      "it's impossible to accurately determine the most relevant sections for the provided code component. However",
+      "based on the code description",
+      "sections like \"Methodology\"",
+      "\"Data Analysis\"",
+      "\"Results and Discussion\"",
+      "or \"Algorithm Implementation\" could potentially be relevant."
+    ],
+    "utils.py:expectation_gamma": [
+      "The provided information does not include any paper sections related to the code component. Please provide relevant paper sections."
+    ],
+    "utils.py:expectation_gaussian_from_params": [
+      "The provided information does not include any paper sections related to the code component. Please provide relevant paper sections."
+    ],
+    "utils.py:expectation_mixed_gaussian": [
+      "The provided paper sections do not seem to contain any relevant information related to the code component. Please provide more relevant paper sections."
+    ],
+    "utils.py:expectation_CRPS": [
+      "The provided paper sections are not sufficient to link with the given code component. Please provide more relevant paper sections."
+    ],
+    "utils.py:compute_log_likelihood_gaussian": [
+      "The provided paper sections are not sufficient to link with the given code component. Please provide more relevant paper sections such as \"Methodology\"",
+      "\"Data Analysis\"",
+      "\"Results\"",
+      "etc."
+    ],
+    "utils.py:sample_gaussian": [
+      "The provided information does not include any paper sections related to the code component. Please provide relevant paper sections."
+    ],
+    "utils.py:expectation_of_gaussian": [
+      "The provided paper sections are not sufficient to link with the given code component. Please provide more relevant paper sections."
+    ],
+    "utils.py:expectation_of_gamma": [
+      "The provided information does not include any paper sections related to the code component. Please provide relevant paper sections."
+    ],
+    "utils.py:precision_gamma_to_shape_rate": [
+      "The provided information does not include any paper sections. Please provide the relevant paper sections to proceed."
+    ],
+    "utils.py:clip_matrix": [
+      "The provided paper sections do not seem to contain any relevant information related to the code component. Please provide more relevant paper sections."
+    ],
+    "utils.py:safe_logarithm": [
+      "The provided paper sections are not sufficient to link with the given code component. Please provide more relevant paper sections."
+    ]
+  },
+  "paper_to_code": {
+    "Dataset Description": [
+      {
+        "component": "dataset_loader.py:DatasetLoader",
+        "description": "Initialize the DatasetLoader with dataset paths and masking ratios.\n        Args:\n            dataset_paths (dict): Dictionary with dataset name as key and file path as value.\n                Example: {'traffic': 'path/to/traffic.csv', 'solar': 'path/to/solar.csv', ...}\n            mask_ratios (list): List of float ratios (e.g., [0.5, 0.7]) for observed data masking.\n            seed (int): Random seed for reproducibility.",
+        "file": "dataset_loader.py"
+      },
+      {
+        "component": "dataset_loader.py:__init__",
+        "description": "Initialize the DatasetLoader with dataset paths and masking ratios.\n        Args:\n            dataset_paths (dict): Dictionary with dataset name as key and file path as value.\n                Example: {'traffic': 'path/to/traffic.csv', 'solar': 'path/to/solar.csv', ...}\n            mask_ratios (list): List of float ratios (e.g., [0.5, 0.7]) for observed data masking.\n            seed (int): Random seed for reproducibility.",
+        "file": "dataset_loader.py"
+      }
+    ],
+    "Methodology": [
+      {
+        "component": "dataset_loader.py:DatasetLoader",
+        "description": "Initialize the DatasetLoader with dataset paths and masking ratios.\n        Args:\n            dataset_paths (dict): Dictionary with dataset name as key and file path as value.\n                Example: {'traffic': 'path/to/traffic.csv', 'solar': 'path/to/solar.csv', ...}\n            mask_ratios (list): List of float ratios (e.g., [0.5, 0.7]) for observed data masking.\n            seed (int): Random seed for reproducibility.",
+        "file": "dataset_loader.py"
+      },
+      {
+        "component": "dataset_loader.py:__init__",
+        "description": "Initialize the DatasetLoader with dataset paths and masking ratios.\n        Args:\n            dataset_paths (dict): Dictionary with dataset name as key and file path as value.\n                Example: {'traffic': 'path/to/traffic.csv', 'solar': 'path/to/solar.csv', ...}\n            mask_ratios (list): List of float ratios (e.g., [0.5, 0.7]) for observed data masking.\n            seed (int): Random seed for reproducibility.",
+        "file": "dataset_loader.py"
+      }
+    ],
+    "Experiment Setup": [
+      {
+        "component": "dataset_loader.py:DatasetLoader",
+        "description": "Initialize the DatasetLoader with dataset paths and masking ratios.\n        Args:\n            dataset_paths (dict): Dictionary with dataset name as key and file path as value.\n                Example: {'traffic': 'path/to/traffic.csv', 'solar': 'path/to/solar.csv', ...}\n            mask_ratios (list): List of float ratios (e.g., [0.5, 0.7]) for observed data masking.\n            seed (int): Random seed for reproducibility.",
+        "file": "dataset_loader.py"
+      },
+      {
+        "component": "dataset_loader.py:__init__",
+        "description": "Initialize the DatasetLoader with dataset paths and masking ratios.\n        Args:\n            dataset_paths (dict): Dictionary with dataset name as key and file path as value.\n                Example: {'traffic': 'path/to/traffic.csv', 'solar': 'path/to/solar.csv', ...}\n            mask_ratios (list): List of float ratios (e.g., [0.5, 0.7]) for observed data masking.\n            seed (int): Random seed for reproducibility.",
+        "file": "dataset_loader.py"
+      }
+    ],
+    "The provided paper sections are not sufficient to link with the code component. Please provide more relevant paper sections.": [
+      {
+        "component": "evaluation.py:Evaluation",
+        "description": "Class to evaluate the imputation performance with metrics:\n    MAE, RMSE, CRPS, NLLK.\n    Supports handling deterministic point estimates and probabilistic posterior samples.",
+        "file": "evaluation.py"
+      }
+    ],
+    "The provided paper sections do not seem to contain any relevant information related to the code component. Please provide more relevant paper sections.": [
+      {
+        "component": "evaluation.py:__init__",
+        "description": "Initialize the evaluator.\n        Args:\n            metrics (list): list of metric names to compute.",
+        "file": "evaluation.py"
+      },
+      {
+        "component": "utils.py:solve_linear_system",
+        "description": "Solve linear system Ax = B in a numerically stable way.\n    Args:\n        A (np.ndarray): Square matrix.\n        B (np.ndarray): Right-hand side.\n    Returns:\n        x (np.ndarray): Solution vector.",
+        "file": "utils.py"
+      },
+      {
+        "component": "utils.py:expectation_mixed_gaussian",
+        "description": "Compute the mean and covariance of a mixture of Gaussians.\n    Args:\n        mu_list: list of mean vectors (ndarray)\n        cov_list: list of covariance matrices (ndarray)\n    Returns:\n        mixture_mean: mean vector\n        mixture_covariance: covariance matrix",
+        "file": "utils.py"
+      },
+      {
+        "component": "utils.py:clip_matrix",
+        "description": "Correct A to be positive definite if necessary.",
+        "file": "utils.py"
+      }
+    ],
+    "The provided paper sections are not sufficient to link with the given code component. Please provide more detailed sections of the paper.": [
+      {
+        "component": "gpr_model.py:GPRFactorModel",
+        "description": "Gaussian Process-based temporal factor model with state-space representation\n    for online multivariate time series imputation as in BayOTIDE.\n    Manages kernel to SDE conversion, state initialization, online update,\n    prediction, and smoothing of factor states.",
+        "file": "gpr_model.py"
+      }
+    ],
+    "Without the actual content of the paper sections": [
+      {
+        "component": "gpr_model.py:__init__",
+        "description": "Initialize the GPR Factor Model with weights U, number of factors, and hyperparameters.\n        Args:\n            U (np.ndarray): weight matrix of shape (D, D_r + D_s)\n            D_r (int): Number of trend (long-term) factors\n            D_s (int): Number of seasonal (periodic) factors\n            kernel_params (dict): dict containing parameters for trend and seasonal kernels\n                e.g.,\n                {\n                    'matern32': {'length_scale': float, 'variance': float},\n                    'periodic': {'length_scale': float, 'period': float, 'variance': float}\n                }",
+        "file": "gpr_model.py"
+      },
+      {
+        "component": "spectral_to_LTI.py:__init__",
+        "description": "Initialize with kernel type and hyperparameters.\n\n        Args:\n            kernel_type (str): 'matern32' or 'periodic'\n            hyperparameters (dict): Kernel hyperparameters\n                For 'matern32': {'length_scale': float (>0), 'variance': float (>0)}\n                For 'periodic': {'length_scale': float (>0), 'period': float (>0), 'variance': float (>0)}",
+        "file": "spectral_to_LTI.py"
+      }
+    ],
+    "it's impossible to accurately determine which sections are most relevant to the provided code component. However": [
+      {
+        "component": "gpr_model.py:__init__",
+        "description": "Initialize the GPR Factor Model with weights U, number of factors, and hyperparameters.\n        Args:\n            U (np.ndarray): weight matrix of shape (D, D_r + D_s)\n            D_r (int): Number of trend (long-term) factors\n            D_s (int): Number of seasonal (periodic) factors\n            kernel_params (dict): dict containing parameters for trend and seasonal kernels\n                e.g.,\n                {\n                    'matern32': {'length_scale': float, 'variance': float},\n                    'periodic': {'length_scale': float, 'period': float, 'variance': float}\n                }",
+        "file": "gpr_model.py"
+      },
+      {
+        "component": "spectral_to_LTI.py:__init__",
+        "description": "Initialize with kernel type and hyperparameters.\n\n        Args:\n            kernel_type (str): 'matern32' or 'periodic'\n            hyperparameters (dict): Kernel hyperparameters\n                For 'matern32': {'length_scale': float (>0), 'variance': float (>0)}\n                For 'periodic': {'length_scale': float (>0), 'period': float (>0), 'variance': float (>0)}",
+        "file": "spectral_to_LTI.py"
+      }
+    ],
+    "based on the description of the code": [
+      {
+        "component": "gpr_model.py:__init__",
+        "description": "Initialize the GPR Factor Model with weights U, number of factors, and hyperparameters.\n        Args:\n            U (np.ndarray): weight matrix of shape (D, D_r + D_s)\n            D_r (int): Number of trend (long-term) factors\n            D_s (int): Number of seasonal (periodic) factors\n            kernel_params (dict): dict containing parameters for trend and seasonal kernels\n                e.g.,\n                {\n                    'matern32': {'length_scale': float, 'variance': float},\n                    'periodic': {'length_scale': float, 'period': float, 'variance': float}\n                }",
+        "file": "gpr_model.py"
+      }
+    ],
+    "sections like \"Methodology\"": [
+      {
+        "component": "gpr_model.py:__init__",
+        "description": "Initialize the GPR Factor Model with weights U, number of factors, and hyperparameters.\n        Args:\n            U (np.ndarray): weight matrix of shape (D, D_r + D_s)\n            D_r (int): Number of trend (long-term) factors\n            D_s (int): Number of seasonal (periodic) factors\n            kernel_params (dict): dict containing parameters for trend and seasonal kernels\n                e.g.,\n                {\n                    'matern32': {'length_scale': float, 'variance': float},\n                    'periodic': {'length_scale': float, 'period': float, 'variance': float}\n                }",
+        "file": "gpr_model.py"
+      },
+      {
+        "component": "utils.py:expectation_tau",
+        "description": "Compute the expectation of the noise precision tau under its current Gamma posterior.\n    Args:\n        U_mean (np.ndarray): shape (D, total_dim)\n        U_cov (np.ndarray): shape (D, total_dim, total_dim)\n        residuals (np.ndarray): optional, shape (D,) residuals for current data\n    Returns:\n        E_tau (float): Expectation of tau",
+        "file": "utils.py"
+      }
+    ],
+    "\"Model Initialization\"": [
+      {
+        "component": "gpr_model.py:__init__",
+        "description": "Initialize the GPR Factor Model with weights U, number of factors, and hyperparameters.\n        Args:\n            U (np.ndarray): weight matrix of shape (D, D_r + D_s)\n            D_r (int): Number of trend (long-term) factors\n            D_s (int): Number of seasonal (periodic) factors\n            kernel_params (dict): dict containing parameters for trend and seasonal kernels\n                e.g.,\n                {\n                    'matern32': {'length_scale': float, 'variance': float},\n                    'periodic': {'length_scale': float, 'period': float, 'variance': float}\n                }",
+        "file": "gpr_model.py"
+      }
+    ],
+    "\"GPR Factor Model\"": [
+      {
+        "component": "gpr_model.py:__init__",
+        "description": "Initialize the GPR Factor Model with weights U, number of factors, and hyperparameters.\n        Args:\n            U (np.ndarray): weight matrix of shape (D, D_r + D_s)\n            D_r (int): Number of trend (long-term) factors\n            D_s (int): Number of seasonal (periodic) factors\n            kernel_params (dict): dict containing parameters for trend and seasonal kernels\n                e.g.,\n                {\n                    'matern32': {'length_scale': float, 'variance': float},\n                    'periodic': {'length_scale': float, 'period': float, 'variance': float}\n                }",
+        "file": "gpr_model.py"
+      }
+    ],
+    "or \"Hyperparameters\" could potentially be relevant.": [
+      {
+        "component": "gpr_model.py:__init__",
+        "description": "Initialize the GPR Factor Model with weights U, number of factors, and hyperparameters.\n        Args:\n            U (np.ndarray): weight matrix of shape (D, D_r + D_s)\n            D_r (int): Number of trend (long-term) factors\n            D_s (int): Number of seasonal (periodic) factors\n            kernel_params (dict): dict containing parameters for trend and seasonal kernels\n                e.g.,\n                {\n                    'matern32': {'length_scale': float, 'variance': float},\n                    'periodic': {'length_scale': float, 'period': float, 'variance': float}\n                }",
+        "file": "gpr_model.py"
+      }
+    ],
+    "The provided paper sections are not sufficient to link with the given code component. Please provide more detailed sections such as \"Methodology\"": [
+      {
+        "component": "inference.py:InferenceEngine",
+        "description": "Initialize the online inference engine for BayOTIDE.\n        Args:\n            model (GPRFactorModel): pre-constructed model with state-space matrices.\n            data_dict (dict): contains 'timestamps', 'Y', 'mask' for current batch.\n            config (dict): optional, containing damping, inner iterations, etc.",
+        "file": "inference.py"
+      },
+      {
+        "component": "inference.py:__init__",
+        "description": "Initialize the online inference engine for BayOTIDE.\n        Args:\n            model (GPRFactorModel): pre-constructed model with state-space matrices.\n            data_dict (dict): contains 'timestamps', 'Y', 'mask' for current batch.\n            config (dict): optional, containing damping, inner iterations, etc.",
+        "file": "inference.py"
+      }
+    ],
+    "\"Implementation Details\"": [
+      {
+        "component": "inference.py:InferenceEngine",
+        "description": "Initialize the online inference engine for BayOTIDE.\n        Args:\n            model (GPRFactorModel): pre-constructed model with state-space matrices.\n            data_dict (dict): contains 'timestamps', 'Y', 'mask' for current batch.\n            config (dict): optional, containing damping, inner iterations, etc.",
+        "file": "inference.py"
+      },
+      {
+        "component": "inference.py:__init__",
+        "description": "Initialize the online inference engine for BayOTIDE.\n        Args:\n            model (GPRFactorModel): pre-constructed model with state-space matrices.\n            data_dict (dict): contains 'timestamps', 'Y', 'mask' for current batch.\n            config (dict): optional, containing damping, inner iterations, etc.",
+        "file": "inference.py"
+      },
+      {
+        "component": "utils.py:generate_state_space_matrices",
+        "description": "Generate the state-space matrices (F, L, Q) based on kernel type and hyperparameters.\n    Args:\n        kernel_type (str): 'matern32' or 'periodic'\n        hyperparameters (dict): For 'matern32': {'length_scale', 'variance'}\n                                     for 'periodic': {'length_scale', 'period', 'variance'}\n    Returns:\n        F (np.ndarray): State matrix.\n        L (np.ndarray): Input matrix.\n        Q (np.ndarray): Process noise covariance.",
+        "file": "utils.py"
+      }
+    ],
+    "\"Results\"": [
+      {
+        "component": "inference.py:InferenceEngine",
+        "description": "Initialize the online inference engine for BayOTIDE.\n        Args:\n            model (GPRFactorModel): pre-constructed model with state-space matrices.\n            data_dict (dict): contains 'timestamps', 'Y', 'mask' for current batch.\n            config (dict): optional, containing damping, inner iterations, etc.",
+        "file": "inference.py"
+      },
+      {
+        "component": "inference.py:__init__",
+        "description": "Initialize the online inference engine for BayOTIDE.\n        Args:\n            model (GPRFactorModel): pre-constructed model with state-space matrices.\n            data_dict (dict): contains 'timestamps', 'Y', 'mask' for current batch.\n            config (dict): optional, containing damping, inner iterations, etc.",
+        "file": "inference.py"
+      },
+      {
+        "component": "utils.py:compute_log_likelihood_gaussian",
+        "description": "Compute the log-likelihood of y under Gaussian predictions.\n    Args:\n        y (np.ndarray): observed data.\n        mu (np.ndarray): predicted means.\n        sigma2 (np.ndarray): predicted variances.\n    Returns:\n        log_lik (float): log-likelihood value.",
+        "file": "utils.py"
+      }
+    ],
+    "etc.": [
+      {
+        "component": "inference.py:InferenceEngine",
+        "description": "Initialize the online inference engine for BayOTIDE.\n        Args:\n            model (GPRFactorModel): pre-constructed model with state-space matrices.\n            data_dict (dict): contains 'timestamps', 'Y', 'mask' for current batch.\n            config (dict): optional, containing damping, inner iterations, etc.",
+        "file": "inference.py"
+      },
+      {
+        "component": "inference.py:__init__",
+        "description": "Initialize the online inference engine for BayOTIDE.\n        Args:\n            model (GPRFactorModel): pre-constructed model with state-space matrices.\n            data_dict (dict): contains 'timestamps', 'Y', 'mask' for current batch.\n            config (dict): optional, containing damping, inner iterations, etc.",
+        "file": "inference.py"
+      },
+      {
+        "component": "utils.py:compute_log_likelihood_gaussian",
+        "description": "Compute the log-likelihood of y under Gaussian predictions.\n    Args:\n        y (np.ndarray): observed data.\n        mu (np.ndarray): predicted means.\n        sigma2 (np.ndarray): predicted variances.\n    Returns:\n        log_lik (float): log-likelihood value.",
+        "file": "utils.py"
+      }
+    ],
+    "The provided information is insufficient to determine the most relevant paper sections for the code component. Please provide more details about the function in the file main.py and the sections of the paper.": [
+      {
+        "component": "main.py:main",
+        "description": "",
+        "file": "main.py"
+      }
+    ],
+    "The provided paper sections are not sufficient to link with the code component. Please provide more detailed sections related to the code component.": [
+      {
+        "component": "spectral_to_LTI.py:SpectralToLTID",
+        "description": "Convert specified stationary Gaussian process kernels (Mat\u00e9rn 3/2 and periodic)\n    into equivalent state-space (LTI SDE) matrices (F, L, Q).",
+        "file": "spectral_to_LTI.py"
+      }
+    ],
+    "based on the code's purpose and description": [
+      {
+        "component": "spectral_to_LTI.py:__init__",
+        "description": "Initialize with kernel type and hyperparameters.\n\n        Args:\n            kernel_type (str): 'matern32' or 'periodic'\n            hyperparameters (dict): Kernel hyperparameters\n                For 'matern32': {'length_scale': float (>0), 'variance': float (>0)}\n                For 'periodic': {'length_scale': float (>0), 'period': float (>0), 'variance': float (>0)}",
+        "file": "spectral_to_LTI.py"
+      }
+    ],
+    "it's likely that sections discussing \"Kernel Methods\"": [
+      {
+        "component": "spectral_to_LTI.py:__init__",
+        "description": "Initialize with kernel type and hyperparameters.\n\n        Args:\n            kernel_type (str): 'matern32' or 'periodic'\n            hyperparameters (dict): Kernel hyperparameters\n                For 'matern32': {'length_scale': float (>0), 'variance': float (>0)}\n                For 'periodic': {'length_scale': float (>0), 'period': float (>0), 'variance': float (>0)}",
+        "file": "spectral_to_LTI.py"
+      }
+    ],
+    "\"Hyperparameters\"": [
+      {
+        "component": "spectral_to_LTI.py:__init__",
+        "description": "Initialize with kernel type and hyperparameters.\n\n        Args:\n            kernel_type (str): 'matern32' or 'periodic'\n            hyperparameters (dict): Kernel hyperparameters\n                For 'matern32': {'length_scale': float (>0), 'variance': float (>0)}\n                For 'periodic': {'length_scale': float (>0), 'period': float (>0), 'variance': float (>0)}",
+        "file": "spectral_to_LTI.py"
+      }
+    ],
+    "or \"Method Implementation\" would be most relevant. Please provide the content of the paper sections for a more accurate analysis.": [
+      {
+        "component": "spectral_to_LTI.py:__init__",
+        "description": "Initialize with kernel type and hyperparameters.\n\n        Args:\n            kernel_type (str): 'matern32' or 'periodic'\n            hyperparameters (dict): Kernel hyperparameters\n                For 'matern32': {'length_scale': float (>0), 'variance': float (>0)}\n                For 'periodic': {'length_scale': float (>0), 'period': float (>0), 'variance': float (>0)}",
+        "file": "spectral_to_LTI.py"
+      }
+    ],
+    "The provided paper sections do not seem to contain any relevant information related to the code component. Please provide the correct paper sections.": [
+      {
+        "component": "utils.py:cholesky_decomposition",
+        "description": "Perform Cholesky decomposition with numerical stability.\n    Args:\n        A (np.ndarray): Must be symmetric and positive-definite.\n    Returns:\n        L (np.ndarray): Lower-triangular matrix such that A = L @ L.T",
+        "file": "utils.py"
+      }
+    ],
+    "The provided paper sections are not sufficient to link with the given code component. Please provide more relevant paper sections.": [
+      {
+        "component": "utils.py:matrix_inverse",
+        "description": "Compute matrix inverse with fallback for singular matrices.\n    Args:\n        A (np.ndarray): Square matrix.\n    Returns:\n        A_inv (np.ndarray): Inverse of A.",
+        "file": "utils.py"
+      },
+      {
+        "component": "utils.py:matrix_exponential",
+        "description": "Compute matrix exponential A = expm(F * delta).\n    Args:\n        F (np.ndarray): State matrix.\n        delta (float): time step.\n    Returns:\n        A (np.ndarray): State transition matrix.",
+        "file": "utils.py"
+      },
+      {
+        "component": "utils.py:construct_periodic_state_space",
+        "description": "Construct state-space matrices for periodic kernel as a sum over harmonics.",
+        "file": "utils.py"
+      },
+      {
+        "component": "utils.py:clip_positive_definite",
+        "description": "Ensure a matrix A is positive definite by adding jitter if necessary.",
+        "file": "utils.py"
+      },
+      {
+        "component": "utils.py:expectation_CRPS",
+        "description": "Compute the Continuous Ranked Probability Score (CRPS) for a Gaussian.\n    Args:\n        obs (float): observed value\n        mu (float): predictive mean\n        sigma (float): predictive standard deviation\n    Returns:\n        crps (float)",
+        "file": "utils.py"
+      },
+      {
+        "component": "utils.py:expectation_of_gaussian",
+        "description": "Return expectation of Gaussian distribution.",
+        "file": "utils.py"
+      },
+      {
+        "component": "utils.py:safe_logarithm",
+        "description": "Compute log with safeguards against log(0).",
+        "file": "utils.py"
+      }
+    ],
+    "The provided information does not include any paper sections related to the code component. Please provide relevant paper sections.": [
+      {
+        "component": "utils.py:solve_lyapunov",
+        "description": "Solve continuous Lyapunov equation: F P + P F^T + Q = 0\n    Args:\n        F (np.ndarray): State matrix.\n        Q (np.ndarray): Process noise covariance.\n    Returns:\n        P (np.ndarray): Steady-state covariance matrix.",
+        "file": "utils.py"
+      },
+      {
+        "component": "utils.py:expectation_gamma",
+        "description": "Compute expectation and variance for Gamma distribution.",
+        "file": "utils.py"
+      },
+      {
+        "component": "utils.py:expectation_gaussian_from_params",
+        "description": "Compute expectation of Gaussian with mean mu and variance sigma2.",
+        "file": "utils.py"
+      },
+      {
+        "component": "utils.py:sample_gaussian",
+        "description": "Generate samples from Gaussian distribution.",
+        "file": "utils.py"
+      },
+      {
+        "component": "utils.py:expectation_of_gamma",
+        "description": "Expectation of Gamma distribution.",
+        "file": "utils.py"
+      }
+    ],
+    "Without the actual paper sections": [
+      {
+        "component": "utils.py:generate_state_space_matrices",
+        "description": "Generate the state-space matrices (F, L, Q) based on kernel type and hyperparameters.\n    Args:\n        kernel_type (str): 'matern32' or 'periodic'\n        hyperparameters (dict): For 'matern32': {'length_scale', 'variance'}\n                                     for 'periodic': {'length_scale', 'period', 'variance'}\n    Returns:\n        F (np.ndarray): State matrix.\n        L (np.ndarray): Input matrix.\n        Q (np.ndarray): Process noise covariance.",
+        "file": "utils.py"
+      }
+    ],
+    "it's impossible to provide accurate section names. However": [
+      {
+        "component": "utils.py:generate_state_space_matrices",
+        "description": "Generate the state-space matrices (F, L, Q) based on kernel type and hyperparameters.\n    Args:\n        kernel_type (str): 'matern32' or 'periodic'\n        hyperparameters (dict): For 'matern32': {'length_scale', 'variance'}\n                                     for 'periodic': {'length_scale', 'period', 'variance'}\n    Returns:\n        F (np.ndarray): State matrix.\n        L (np.ndarray): Input matrix.\n        Q (np.ndarray): Process noise covariance.",
+        "file": "utils.py"
+      }
+    ],
+    "based on the code description": [
+      {
+        "component": "utils.py:generate_state_space_matrices",
+        "description": "Generate the state-space matrices (F, L, Q) based on kernel type and hyperparameters.\n    Args:\n        kernel_type (str): 'matern32' or 'periodic'\n        hyperparameters (dict): For 'matern32': {'length_scale', 'variance'}\n                                     for 'periodic': {'length_scale', 'period', 'variance'}\n    Returns:\n        F (np.ndarray): State matrix.\n        L (np.ndarray): Input matrix.\n        Q (np.ndarray): Process noise covariance.",
+        "file": "utils.py"
+      },
+      {
+        "component": "utils.py:expectation_tau",
+        "description": "Compute the expectation of the noise precision tau under its current Gamma posterior.\n    Args:\n        U_mean (np.ndarray): shape (D, total_dim)\n        U_cov (np.ndarray): shape (D, total_dim, total_dim)\n        residuals (np.ndarray): optional, shape (D,) residuals for current data\n    Returns:\n        E_tau (float): Expectation of tau",
+        "file": "utils.py"
+      }
+    ],
+    "the most relevant sections could be something like \"Methodology\"": [
+      {
+        "component": "utils.py:generate_state_space_matrices",
+        "description": "Generate the state-space matrices (F, L, Q) based on kernel type and hyperparameters.\n    Args:\n        kernel_type (str): 'matern32' or 'periodic'\n        hyperparameters (dict): For 'matern32': {'length_scale', 'variance'}\n                                     for 'periodic': {'length_scale', 'period', 'variance'}\n    Returns:\n        F (np.ndarray): State matrix.\n        L (np.ndarray): Input matrix.\n        Q (np.ndarray): Process noise covariance.",
+        "file": "utils.py"
+      }
+    ],
+    "\"Kernel Selection and Hyperparameters\". Please provide the actual paper sections for a more accurate answer.": [
+      {
+        "component": "utils.py:generate_state_space_matrices",
+        "description": "Generate the state-space matrices (F, L, Q) based on kernel type and hyperparameters.\n    Args:\n        kernel_type (str): 'matern32' or 'periodic'\n        hyperparameters (dict): For 'matern32': {'length_scale', 'variance'}\n                                     for 'periodic': {'length_scale', 'period', 'variance'}\n    Returns:\n        F (np.ndarray): State matrix.\n        L (np.ndarray): Input matrix.\n        Q (np.ndarray): Process noise covariance.",
+        "file": "utils.py"
+      }
+    ],
+    "The provided paper sections are not enough to identify the most relevant ones for the given code component. Please provide more detailed sections of the paper.": [
+      {
+        "component": "utils.py:construct_matern32_state_space",
+        "description": "Construct state-space (F, L, Q) for Mat\u00e9rn 3/2 kernel.",
+        "file": "utils.py"
+      }
+    ],
+    "The provided paper sections are not enough to identify the most relevant sections for the given code component. Please provide more detailed sections of the paper.": [
+      {
+        "component": "utils.py:compute_expectation_gaussian",
+        "description": "Return expectation and variance of Gaussian distribution given mean and variance.",
+        "file": "utils.py"
+      }
+    ],
+    "Without the full list of paper sections": [
+      {
+        "component": "utils.py:expectation_tau",
+        "description": "Compute the expectation of the noise precision tau under its current Gamma posterior.\n    Args:\n        U_mean (np.ndarray): shape (D, total_dim)\n        U_cov (np.ndarray): shape (D, total_dim, total_dim)\n        residuals (np.ndarray): optional, shape (D,) residuals for current data\n    Returns:\n        E_tau (float): Expectation of tau",
+        "file": "utils.py"
+      }
+    ],
+    "it's impossible to accurately determine the most relevant sections for the provided code component. However": [
+      {
+        "component": "utils.py:expectation_tau",
+        "description": "Compute the expectation of the noise precision tau under its current Gamma posterior.\n    Args:\n        U_mean (np.ndarray): shape (D, total_dim)\n        U_cov (np.ndarray): shape (D, total_dim, total_dim)\n        residuals (np.ndarray): optional, shape (D,) residuals for current data\n    Returns:\n        E_tau (float): Expectation of tau",
+        "file": "utils.py"
+      }
+    ],
+    "\"Data Analysis\"": [
+      {
+        "component": "utils.py:expectation_tau",
+        "description": "Compute the expectation of the noise precision tau under its current Gamma posterior.\n    Args:\n        U_mean (np.ndarray): shape (D, total_dim)\n        U_cov (np.ndarray): shape (D, total_dim, total_dim)\n        residuals (np.ndarray): optional, shape (D,) residuals for current data\n    Returns:\n        E_tau (float): Expectation of tau",
+        "file": "utils.py"
+      },
+      {
+        "component": "utils.py:compute_log_likelihood_gaussian",
+        "description": "Compute the log-likelihood of y under Gaussian predictions.\n    Args:\n        y (np.ndarray): observed data.\n        mu (np.ndarray): predicted means.\n        sigma2 (np.ndarray): predicted variances.\n    Returns:\n        log_lik (float): log-likelihood value.",
+        "file": "utils.py"
+      }
+    ],
+    "\"Results and Discussion\"": [
+      {
+        "component": "utils.py:expectation_tau",
+        "description": "Compute the expectation of the noise precision tau under its current Gamma posterior.\n    Args:\n        U_mean (np.ndarray): shape (D, total_dim)\n        U_cov (np.ndarray): shape (D, total_dim, total_dim)\n        residuals (np.ndarray): optional, shape (D,) residuals for current data\n    Returns:\n        E_tau (float): Expectation of tau",
+        "file": "utils.py"
+      }
+    ],
+    "or \"Algorithm Implementation\" could potentially be relevant.": [
+      {
+        "component": "utils.py:expectation_tau",
+        "description": "Compute the expectation of the noise precision tau under its current Gamma posterior.\n    Args:\n        U_mean (np.ndarray): shape (D, total_dim)\n        U_cov (np.ndarray): shape (D, total_dim, total_dim)\n        residuals (np.ndarray): optional, shape (D,) residuals for current data\n    Returns:\n        E_tau (float): Expectation of tau",
+        "file": "utils.py"
+      }
+    ],
+    "The provided paper sections are not sufficient to link with the given code component. Please provide more relevant paper sections such as \"Methodology\"": [
+      {
+        "component": "utils.py:compute_log_likelihood_gaussian",
+        "description": "Compute the log-likelihood of y under Gaussian predictions.\n    Args:\n        y (np.ndarray): observed data.\n        mu (np.ndarray): predicted means.\n        sigma2 (np.ndarray): predicted variances.\n    Returns:\n        log_lik (float): log-likelihood value.",
+        "file": "utils.py"
+      }
+    ],
+    "The provided information does not include any paper sections. Please provide the relevant paper sections to proceed.": [
+      {
+        "component": "utils.py:precision_gamma_to_shape_rate",
+        "description": "Convert between alpha, beta of Gamma to shape and rate if needed.",
+        "file": "utils.py"
+      }
+    ]
+  },
+  "paper_sections": [
+    {
+      "section": "Abstract",
+      "text": "Shikai Fang 1 \u2020 Qingsong Wen 2 \u2021 Yingtao Luo 3 \u2020 Shandian Zhe 1 Liang Sun 2",
+      "ontology": "abstract"
+    }
+  ],
+  "coverage_score": 40.0
+}

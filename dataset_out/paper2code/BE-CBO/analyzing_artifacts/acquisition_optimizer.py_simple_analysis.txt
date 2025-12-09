@@ -1,0 +1,133 @@
+# Logic Analysis for acquisition_optimizer.py
+
+This module is designed to perform constrained maximization of acquisition functions—specifically, EI (Expected Improvement) or alternatives such as UCB—while respecting dynamic boundary bounds derived from the classifier’s uncertainty estimates. The core functionality involves optimizing an acquisition function with constraints that couple model predictions (probability of feasibility) and boundary limits, ensuring sampling focuses on promising regions near the estimated boundary.
+
+Below is a detailed, structured breakdown of the core logic, inputs, processes, constraints, and outputs necessary for implementing this module, all aligned with the overarching BE-CBO framework, the design specifications, and the provided configuration.
+
+---
+
+## 1. Purpose and Scope
+- **Main task:** Maximize a specified acquisition function \( q(x) \) over the design space \( \mathcal{X} \), subject to constraints involving the classifier’s predicted probability \( C(x) \) and boundary bounds \( l(x) \).
+- **Constraints:**  
+  - Probabilistic feasibility constraint: \( C(x) \geq l(x) = 0.5 - \sigma_E(x) \)  
+  - Variable bounds: bounds on \( x \) as per problem setup  
+- **Optimization methods:**  
+  - Global methods like differential evolution (commonly) or local methods such as SLSQP or L-BFGS-B for refinement, both capable of handling nonlinear constraints.
+
+## 2. Inputs
+
+### Required Inputs:
+- **acq_func:** Callable function that computes the acquisition value \( q(x) \), given \( x \).  
+- **C_func:** Callable function to evaluate the feasibility probability \( C(x) \), given \( x \) and the classifier.  
+- **bounds:** Dict or structure containing per-variable minimum and maximum bounds, e.g., `'x_min'`, `'x_max'` or a list of tuples `(lower_bound, upper_bound)` for each variable, aligned with the problem dimension. (Derived from the JSON design, config.yaml, or problem bounds)  
+- **boundary_bounds:** Instance of BoundaryBounds class which provides methods:
+  - `compute_lower_bound(proba_uncertainty)` — compute a dynamic lower bound \( l(x) \) based on classifier uncertainty \(\sigma_E(x)\).
+- **classifier:** Constraint classifier object (Neural Ensembling) capable of returning \( C(x) \) and the uncertainty \( \sigma_E(x) \).
+
+### Optional Inputs:
+- **initial_points:** Optional starting points for local search or to define the initial population for global algorithms, if applicable.
+
+## 3. Outputs
+- **best_x:** The sample point \( x^* \in \mathcal{X} \) that maximizes the constrained acquisition.  
+- **optimization_details:** Data about the optimization process—e.g., optimal value \( q(x^*) \), the constraint satisfaction, convergence info, number of evaluations, etc.
+
+## 4. Process and Logic
+
+### Step 1: Preparation
+- **Define constraint functions:**
+  - **Feasibility constraint:**  
+    \[
+    g_1(x) = C(x) - l(x) \geq 0
+    \]
+    where \( l(x) = 0.5 - \sigma_E(x) \), with \( \sigma_E(x) \) provided by the classifier's uncertainty.  
+  - **Variable bounds:** directly from `bounds` (list/tuple of bounds per variable).  
+- **Set optimization options:**  
+  - Method details, e.g., `method='SLSQP'` or `'L-BFGS-B'`  
+  - Tolerance levels, maximum iterations, population size if DE.
+
+### Step 2: Constraint Handling
+- **Define nonlinear constraint functions for optimizer:**
+  - For `scipy.optimize.minimize` (or `differential_evolution`):  
+    - Constraints should be provided in a form compatible with scipy:
+      - For `SLSQP`: list of dicts, each with `'type':'ineq'`, `'fun': constraint_function`  
+      - For `differential_evolution`: `constraints=` parameter accepting similar definitions (if supported).
+      
+- **Constraint function \( g_1(x) \):**  
+  Returns \( C(x) - l(x) \). Note that \( C(x) \) uses the classifier, and \( l(x) \) depends on classifier uncertainty via `boundary_bounds.compute_lower_bound()`.
+
+### Step 3: Optimization Strategy
+- **Choose optimization method:**
+  - **Global search (recommended):** use `scipy.optimize.differential_evolution` because it handles nonlinear, bounded, and constrained optimization globally, beneficial for complex acquisition landscapes.  
+  - **Local refinement:** optionally, perform multiple local optimizations (multi-start) initialized at promising points, or refine using `SLSQP`.
+  
+- **Initialization:**
+  - Generate multiple starting points within bounds, possibly using Latin Hypercube sampling or uniform sampling.
+
+- **Optimization loop:**
+  - For each starting point:
+    - Run the optimizer (DE or SLSQP) to maximize `-acq_func(x)` subject to constraints, since scipy’s minimize minimizes functions by default.
+    - Keep track of the best feasible candidate and record the best acquisition value.
+    
+- **Iterate:**
+  - Optionally, perform multiple runs with multiple initial points; select the overall best.
+
+### Step 4: Boundary Constraints Implementation
+- Implement the constraint \( g_1(x) \geq 0 \):
+  - At each candidate \( x \), compute:
+    - \( C(x) \): via classifier.predict_proba(x),
+    - \( \sigma_E(x) \): via classifier.predict_uncertainty(x),
+    - \( l(x) = boundary_bounds.compute_lower_bound(\sigma_E(x)) \).
+  
+  - Return \( g_1(x) = C(x) - l(x) \).
+
+- These functions are used by the optimizer to restrict the feasible search region near the boundary where the uncertainty suggests proximity to the actual boundary.
+
+### Step 5: Boundary Handling
+- During optimization, the constraints ensure the sample remains on or close to the boundary:
+  - Using the dynamic lower bound \( l(x) \), the optimizer samples points with the classifier’s uncertainty guiding exploration.
+- The explicit dynamic boundary ensures exploration of uncertain boundary regions, balancing exploitation and boundary discovery.
+
+### Step 6: Post-Processing
+- After convergence:
+  - Identify the candidate \( x^* \) with the highest \( q(x) \) that satisfies the constraints.
+  - Return \( x^* \) and optional details (e.g., acquisition value, feasibility status).
+
+## 5. Additional Requirements and Considerations
+
+### Numerical Details:
+- **Constraint tolerances:** specify small tolerances for feasibility.
+- **Maximum iterations and function evaluations:** adjustable via function options.
+- **Parallelization:** can run multiple initializations in parallel for efficiency.
+
+### Robustness:
+- Employ multiple random seeds for initial points.
+- Monitor constraint satisfaction after each optimization run.
+- Handle potential numerical issues or infeasible initial points by reinitializing.
+
+### Compatibility:
+- Ensure the API of `acq_func`, `C_func`, and `boundary_bounds` matches usage patterns.
+- Encapsulate the boundary constraint logic in a dedicated function used for the optimizer.
+
+---
+
+## 6. Summary of Key Functions
+
+- **`constrained_acquisition_maximize()`**:  
+  - **Inputs:** acquisition, classifier, bounds, boundary bounds.  
+  - **Outputs:** best \( x^* \), and optional metadata.  
+  - **Flow:**
+    - Generate initial points.
+    - For each initial point, run optimization with constraints.
+    - Track and select the best feasible point.
+    - Return the global best.
+
+- **`constraint_function(x)`**: returns \( C(x) - l(x) \), computed dynamically via classifier and boundary_bounds.
+
+- **`optimization_method()`**: supports DE, SLSQP, or BFGS, selected per configuration.
+
+---
+
+## 7. Final Note
+The module provides a flexible and robust way to perform constrained acquisition function maximization, emphasizing the explicit boundary constraint to guide exploration toward the boundary region where the global minimum is likely located, consistent with the insights and experimental design of BE-CBO.
+
+This detailed logic forms the basis for implementing accurate, efficient, and boundary-aware constrained optimization within the broader Bayesian Optimization pipeline.

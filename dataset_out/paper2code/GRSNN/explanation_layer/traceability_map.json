@@ -1,0 +1,320 @@
+{
+  "code_to_paper": {
+    "dataset_loader.py:DatasetLoader": [
+      "The provided paper sections are not sufficient to link with the given code component. Please provide more relevant paper sections such as \"Methodology\"",
+      "\"Data Preparation\"",
+      "\"Experiment Setup\"",
+      "etc."
+    ],
+    "dataset_loader.py:__init__": [
+      "The provided paper sections are not sufficient to link with the given code component. Please provide more detailed sections such as 'Methodology'",
+      "'Data Collection'",
+      "'Experiment Setup'",
+      "etc."
+    ],
+    "evaluation.py:Evaluator": [
+      "The provided paper sections are not sufficient to link with the given code component. Please provide the actual sections of the paper such as \"Introduction\"",
+      "\"Methodology\"",
+      "\"Results\"",
+      "\"Discussion\"",
+      "etc."
+    ],
+    "evaluation.py:__init__": [
+      "The provided information does not include any paper sections. Please provide the relevant paper sections to proceed."
+    ],
+    "main.py:main": [
+      "The provided information is insufficient to determine the most relevant paper sections for the code component. Please provide more details about the function in the main.py file and the sections in the paper."
+    ],
+    "model.py:SpikingNeuronLayer": [
+      "The provided paper sections are not sufficient to link with the given code component. Please provide more relevant paper sections."
+    ],
+    "model.py:GatedDelay": [
+      "The provided information does not include any paper section names/titles. Please provide the correct paper sections to proceed."
+    ],
+    "model.py:SpikingGraphReasoningModel": [
+      "The provided paper sections are not sufficient to link with the given code component. Please provide more detailed sections of the paper."
+    ],
+    "model.py:__init__": [
+      "The provided paper sections are not sufficient to link with the given code component. Please provide more relevant paper sections such as \"Methodology\"",
+      "\"Implementation Details\"",
+      "\"Model Architecture\"",
+      "etc."
+    ],
+    "trainer.py:Trainer": [
+      "Without specific section names",
+      "it's impossible to accurately link the code component to the paper sections. However",
+      "typically",
+      "sections like \"Methodology\"",
+      "\"Model Implementation\"",
+      "\"Experiment and Results\" could be relevant for a code component related to model training and evaluation. Please provide the actual section names for a precise answer."
+    ],
+    "trainer.py:__init__": [
+      "The paper sections are not provided in the question. Please provide the paper sections to proceed."
+    ],
+    "utils.py:DelayQuantize": [
+      "Without more specific section names",
+      "it's impossible to accurately link the code component to the paper sections. Please provide more detailed section names or titles."
+    ],
+    "utils.py:backward": [
+      "The provided information does not include any paper sections. Please provide the relevant paper sections to proceed."
+    ],
+    "utils.py:plot_paths_importance": [
+      "The provided paper sections are not sufficient to link with the given code component. Please provide more detailed sections of the paper."
+    ],
+    "utils.py:spike_train_to_path_importance": [
+      "The provided paper sections are not sufficient to link with the given code component. Please provide more relevant paper sections such as \"Methodology\"",
+      "\"Implementation Details\"",
+      "\"Results\"",
+      "etc."
+    ]
+  },
+  "paper_to_code": {
+    "The provided paper sections are not sufficient to link with the given code component. Please provide more relevant paper sections such as \"Methodology\"": [
+      {
+        "component": "dataset_loader.py:DatasetLoader",
+        "description": "Responsible for loading datasets, parsing triplets, and creating training/validation/test splits.\n    Supports knowledge graphs with triplets and citation datasets with adjacency matrices, based on type.",
+        "file": "dataset_loader.py"
+      },
+      {
+        "component": "model.py:__init__",
+        "description": "Initialize neurons with parameters.",
+        "file": "model.py"
+      },
+      {
+        "component": "utils.py:spike_train_to_path_importance",
+        "description": "Compute path importance scores based on spike timing and assigned importance weights.\n    Args:\n        spike_trains (list): list of spike train tensors per path.\n        path_weights (list): list of importance scores for each path.\n    Returns:\n        list: importance scores per path.",
+        "file": "utils.py"
+      }
+    ],
+    "\"Data Preparation\"": [
+      {
+        "component": "dataset_loader.py:DatasetLoader",
+        "description": "Responsible for loading datasets, parsing triplets, and creating training/validation/test splits.\n    Supports knowledge graphs with triplets and citation datasets with adjacency matrices, based on type.",
+        "file": "dataset_loader.py"
+      }
+    ],
+    "\"Experiment Setup\"": [
+      {
+        "component": "dataset_loader.py:DatasetLoader",
+        "description": "Responsible for loading datasets, parsing triplets, and creating training/validation/test splits.\n    Supports knowledge graphs with triplets and citation datasets with adjacency matrices, based on type.",
+        "file": "dataset_loader.py"
+      }
+    ],
+    "etc.": [
+      {
+        "component": "dataset_loader.py:DatasetLoader",
+        "description": "Responsible for loading datasets, parsing triplets, and creating training/validation/test splits.\n    Supports knowledge graphs with triplets and citation datasets with adjacency matrices, based on type.",
+        "file": "dataset_loader.py"
+      },
+      {
+        "component": "dataset_loader.py:__init__",
+        "description": "Initialize the DatasetLoader.\n\n        Args:\n            dataset_path (str): Path to dataset directory or files.\n            dataset_type (str): 'knowledge_graph' or 'citation'.\n            batch_size (int): Number of samples per batch.\n            negative_samples (int): Number of negative samples per positive triplet.\n            seed (int): Random seed for reproducibility.",
+        "file": "dataset_loader.py"
+      },
+      {
+        "component": "evaluation.py:Evaluator",
+        "description": "Evaluates a trained GRSNN model on given triplets, decoding spike trains, and computing metrics.\n    Supports interpretability analyses via edge importance gradients and path visualization.",
+        "file": "evaluation.py"
+      },
+      {
+        "component": "model.py:__init__",
+        "description": "Initialize neurons with parameters.",
+        "file": "model.py"
+      },
+      {
+        "component": "utils.py:spike_train_to_path_importance",
+        "description": "Compute path importance scores based on spike timing and assigned importance weights.\n    Args:\n        spike_trains (list): list of spike train tensors per path.\n        path_weights (list): list of importance scores for each path.\n    Returns:\n        list: importance scores per path.",
+        "file": "utils.py"
+      }
+    ],
+    "The provided paper sections are not sufficient to link with the given code component. Please provide more detailed sections such as 'Methodology'": [
+      {
+        "component": "dataset_loader.py:__init__",
+        "description": "Initialize the DatasetLoader.\n\n        Args:\n            dataset_path (str): Path to dataset directory or files.\n            dataset_type (str): 'knowledge_graph' or 'citation'.\n            batch_size (int): Number of samples per batch.\n            negative_samples (int): Number of negative samples per positive triplet.\n            seed (int): Random seed for reproducibility.",
+        "file": "dataset_loader.py"
+      }
+    ],
+    "'Data Collection'": [
+      {
+        "component": "dataset_loader.py:__init__",
+        "description": "Initialize the DatasetLoader.\n\n        Args:\n            dataset_path (str): Path to dataset directory or files.\n            dataset_type (str): 'knowledge_graph' or 'citation'.\n            batch_size (int): Number of samples per batch.\n            negative_samples (int): Number of negative samples per positive triplet.\n            seed (int): Random seed for reproducibility.",
+        "file": "dataset_loader.py"
+      }
+    ],
+    "'Experiment Setup'": [
+      {
+        "component": "dataset_loader.py:__init__",
+        "description": "Initialize the DatasetLoader.\n\n        Args:\n            dataset_path (str): Path to dataset directory or files.\n            dataset_type (str): 'knowledge_graph' or 'citation'.\n            batch_size (int): Number of samples per batch.\n            negative_samples (int): Number of negative samples per positive triplet.\n            seed (int): Random seed for reproducibility.",
+        "file": "dataset_loader.py"
+      }
+    ],
+    "The provided paper sections are not sufficient to link with the given code component. Please provide the actual sections of the paper such as \"Introduction\"": [
+      {
+        "component": "evaluation.py:Evaluator",
+        "description": "Evaluates a trained GRSNN model on given triplets, decoding spike trains, and computing metrics.\n    Supports interpretability analyses via edge importance gradients and path visualization.",
+        "file": "evaluation.py"
+      }
+    ],
+    "\"Methodology\"": [
+      {
+        "component": "evaluation.py:Evaluator",
+        "description": "Evaluates a trained GRSNN model on given triplets, decoding spike trains, and computing metrics.\n    Supports interpretability analyses via edge importance gradients and path visualization.",
+        "file": "evaluation.py"
+      }
+    ],
+    "\"Results\"": [
+      {
+        "component": "evaluation.py:Evaluator",
+        "description": "Evaluates a trained GRSNN model on given triplets, decoding spike trains, and computing metrics.\n    Supports interpretability analyses via edge importance gradients and path visualization.",
+        "file": "evaluation.py"
+      },
+      {
+        "component": "utils.py:spike_train_to_path_importance",
+        "description": "Compute path importance scores based on spike timing and assigned importance weights.\n    Args:\n        spike_trains (list): list of spike train tensors per path.\n        path_weights (list): list of importance scores for each path.\n    Returns:\n        list: importance scores per path.",
+        "file": "utils.py"
+      }
+    ],
+    "\"Discussion\"": [
+      {
+        "component": "evaluation.py:Evaluator",
+        "description": "Evaluates a trained GRSNN model on given triplets, decoding spike trains, and computing metrics.\n    Supports interpretability analyses via edge importance gradients and path visualization.",
+        "file": "evaluation.py"
+      }
+    ],
+    "The provided information does not include any paper sections. Please provide the relevant paper sections to proceed.": [
+      {
+        "component": "evaluation.py:__init__",
+        "description": "Initializes the evaluator.\n        Args:\n            model (nn.Module): Trained GRSNN model with decoding methods.\n            entity_embeddings (nn.Embedding): Embedding layer for entities.\n            relation_embeddings (nn.Embedding): Embedding layer for relations.\n            data_loader: Dataset loader with dataset splits and adjacency info.\n            config (dict): Evaluation configuration (metrics, max decode steps, seed, etc).\n            device (torch.device): Computation device.",
+        "file": "evaluation.py"
+      },
+      {
+        "component": "utils.py:backward",
+        "description": "Straight-through estimator: pass the gradient as is through the sigmoid scale.",
+        "file": "utils.py"
+      }
+    ],
+    "The provided information is insufficient to determine the most relevant paper sections for the code component. Please provide more details about the function in the main.py file and the sections in the paper.": [
+      {
+        "component": "main.py:main",
+        "description": "",
+        "file": "main.py"
+      }
+    ],
+    "The provided paper sections are not sufficient to link with the given code component. Please provide more relevant paper sections.": [
+      {
+        "component": "model.py:SpikingNeuronLayer",
+        "description": "Implements a layer of neurons with leaky integrate-and-fire dynamics, capable of supporting surrogate gradients.",
+        "file": "model.py"
+      }
+    ],
+    "The provided information does not include any paper section names/titles. Please provide the correct paper sections to proceed.": [
+      {
+        "component": "model.py:GatedDelay",
+        "description": "Learnable delay parameter, stored as raw parameter.\n    Provides function to compute integer delay from sigmoid-scaled values.",
+        "file": "model.py"
+      }
+    ],
+    "The provided paper sections are not sufficient to link with the given code component. Please provide more detailed sections of the paper.": [
+      {
+        "component": "model.py:SpikingGraphReasoningModel",
+        "description": "Core model for graph reasoning using spiking neurons with learnable delays.",
+        "file": "model.py"
+      },
+      {
+        "component": "utils.py:plot_paths_importance",
+        "description": "Visualize the importance of reasoning paths based on edge importance scores.\n    Args:\n        edges (list or array): Sequence of edges in a path.\n        edge_importances (Tensor): Importance scores per edge.\n        paths (list): List of paths (each path is a list of edges).",
+        "file": "utils.py"
+      }
+    ],
+    "\"Implementation Details\"": [
+      {
+        "component": "model.py:__init__",
+        "description": "Initialize neurons with parameters.",
+        "file": "model.py"
+      },
+      {
+        "component": "utils.py:spike_train_to_path_importance",
+        "description": "Compute path importance scores based on spike timing and assigned importance weights.\n    Args:\n        spike_trains (list): list of spike train tensors per path.\n        path_weights (list): list of importance scores for each path.\n    Returns:\n        list: importance scores per path.",
+        "file": "utils.py"
+      }
+    ],
+    "\"Model Architecture\"": [
+      {
+        "component": "model.py:__init__",
+        "description": "Initialize neurons with parameters.",
+        "file": "model.py"
+      }
+    ],
+    "Without specific section names": [
+      {
+        "component": "trainer.py:Trainer",
+        "description": "Manages training and evaluation of the GRSNN model for graph reasoning tasks.",
+        "file": "trainer.py"
+      }
+    ],
+    "it's impossible to accurately link the code component to the paper sections. However": [
+      {
+        "component": "trainer.py:Trainer",
+        "description": "Manages training and evaluation of the GRSNN model for graph reasoning tasks.",
+        "file": "trainer.py"
+      }
+    ],
+    "typically": [
+      {
+        "component": "trainer.py:Trainer",
+        "description": "Manages training and evaluation of the GRSNN model for graph reasoning tasks.",
+        "file": "trainer.py"
+      }
+    ],
+    "sections like \"Methodology\"": [
+      {
+        "component": "trainer.py:Trainer",
+        "description": "Manages training and evaluation of the GRSNN model for graph reasoning tasks.",
+        "file": "trainer.py"
+      }
+    ],
+    "\"Model Implementation\"": [
+      {
+        "component": "trainer.py:Trainer",
+        "description": "Manages training and evaluation of the GRSNN model for graph reasoning tasks.",
+        "file": "trainer.py"
+      }
+    ],
+    "\"Experiment and Results\" could be relevant for a code component related to model training and evaluation. Please provide the actual section names for a precise answer.": [
+      {
+        "component": "trainer.py:Trainer",
+        "description": "Manages training and evaluation of the GRSNN model for graph reasoning tasks.",
+        "file": "trainer.py"
+      }
+    ],
+    "The paper sections are not provided in the question. Please provide the paper sections to proceed.": [
+      {
+        "component": "trainer.py:__init__",
+        "description": "Initialize the trainer with configuration, datasets, model, optimizer, and evaluation metrics.",
+        "file": "trainer.py"
+      }
+    ],
+    "Without more specific section names": [
+      {
+        "component": "utils.py:DelayQuantize",
+        "description": "Quantizes real-valued delays into integer discrete delays, with straight-through estimator.",
+        "file": "utils.py"
+      }
+    ],
+    "it's impossible to accurately link the code component to the paper sections. Please provide more detailed section names or titles.": [
+      {
+        "component": "utils.py:DelayQuantize",
+        "description": "Quantizes real-valued delays into integer discrete delays, with straight-through estimator.",
+        "file": "utils.py"
+      }
+    ]
+  },
+  "paper_sections": [
+    {
+      "section": "Abstract",
+      "text": "Mingqing Xiao 1 Yixin Zhu 2 Di He 1 2 Zhouchen Lin 1 2 3",
+      "ontology": "abstract"
+    }
+  ],
+  "coverage_score": 27.0
+}

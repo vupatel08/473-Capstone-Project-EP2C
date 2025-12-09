@@ -1,0 +1,228 @@
+# trainer.py
+
+import torch
+import torch.nn as nn
+import torch.optim as optim
+from torch.utils.data import DataLoader
+import math
+from typing import Optional
+from transformers import get_scheduler
+from tqdm import tqdm
+from dataset_loader import Dataset, ComparisonPair
+from model import PreferenceModel
+
+class Trainer:
+    def __init__(
+        self,
+        model: PreferenceModel,
+        dataset: Dataset,
+        config: dict,
+        device: Optional[torch.device] = None
+    ):
+        """
+        Initialize the Trainer with model, dataset, and configuration parameters.
+        """
+        self.device = device if device else torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+        self.model = model.to(self.device)
+
+        # Dataset and DataLoader
+        self.dataset = dataset
+        # We'll create a DataLoader with a batch of comparison pairs
+        self.batch_size = config.get('batch_size', 2)
+        self.epochs = config.get('epochs', 2)
+        self.lambda_reg = config.get('lambda_reg', 0.0001)
+        self.regularization_type = config.get('regularization_type', 'l2')
+        self.use_regularization = config.get('use_regularization', True)
+        self.learning_rate = config.get('learning_rate', 3e-6)
+        self.min_learning_rate = config.get('min_learning_rate', 3e-7)
+        self.total_steps = None  # Will be calculated
+        self.optimizer_name = config.get('optimizer', 'AdamW')
+        self.lr_scheduler_type = config.get('scheduler', 'cosine')
+        self._setup_dataloader()
+
+        # Initialize optimizer
+        if self.optimizer_name == 'AdamW':
+            self.optimizer = optim.AdamW(self.model.parameters(), lr=self.learning_rate, weight_decay=0.0001)
+        else:
+            raise RuntimeError(f"Unsupported optimizer: {self.optimizer_name}")
+
+        # Calculate total training steps
+        dataset_size = len(self.dataset.pairs)
+        steps_per_epoch = math.ceil(dataset_size / self.batch_size)
+        self.total_steps = steps_per_epoch * self.epochs
+
+        # Setup scheduler
+        self.lr_scheduler = get_scheduler(
+            name=self.lr_scheduler_type,
+            optimizer=self.optimizer,
+            num_warmup_steps=0,
+            num_training_steps=self.total_steps
+        )
+
+        # Save path for checkpoints
+        self.checkpoint_path = 'checkpoint'
+        self.best_metric = None
+        self.best_model_state = None
+
+    def _setup_dataloader(self):
+        """
+        Create a PyTorch DataLoader for batch processing.
+        """
+        # For simplicity, create a list of data point tuples for batching
+        # Since dataset.pairs is a list of ComparisonPair, wrap accordingly
+        # We'll directly convert pairs into a DataLoader with collate_fn
+        self.data_loader = DataLoader(
+            self.dataset.pairs,
+            batch_size=self.batch_size,
+            shuffle=True,
+            collate_fn=self._collate_fn
+        )
+
+    def _collate_fn(self, batch):
+        """
+        Collate function to process list of ComparisonPair into tensors.
+        """
+        # Batch is a list of ComparisonPair objects
+        a_list = [pair.prompt_response_a for pair in batch]
+        b_list = [pair.response_b for pair in batch]
+        preference_labels = torch.tensor([pair.preference for pair in batch], dtype=torch.float32).to(self.device)
+        # For easy processing, store in dict
+        batch_dict = {
+            'a_strs': a_list,
+            'b_strs': b_list,
+            'preference_labels': preference_labels
+        }
+        return batch_dict
+
+    def train(self):
+        """
+        Run the training loop over epochs, steps, compute losses, update model.
+        """
+        for epoch in range(1, self.epochs + 1):
+            epoch_loss = 0.0
+            progress_bar = tqdm(self.data_loader, desc=f"Epoch {epoch}/{self.epochs}")
+            for batch in progress_bar:
+                # Tokenize inputs
+                a_inputs = self._tokenize_batch(batch['a_strs'])
+                b_inputs = self._tokenize_batch(batch['b_strs'])
+
+                # Forward pass for both alternatives
+                self.model.train()
+                self.optimizer.zero_grad()
+
+                out_a = self.model(**a_inputs)
+                out_b = self.model(**b_inputs)
+
+                # Compute preference loss
+                loss_pref = self._compute_preference_loss(out_a, out_b, batch['preference_labels'])
+
+                # Optional: add regularization
+                loss_reg = torch.tensor(0.0, device=self.device)
+                if self.use_regularization:
+                    loss_reg = self._compute_regularization(out_a, out_b)
+
+                total_loss = loss_pref + self.lambda_reg * loss_reg
+
+                total_loss.backward()
+                self.optimizer.step()
+                self.lr_scheduler.step()
+
+                epoch_loss += total_loss.item()
+                progress_bar.set_postfix(loss=total_loss.item(), lr=self.optimizer.param_groups[0]['lr'])
+
+            # Save checkpoint at epoch end
+            if epoch == self.epochs or epoch % 1 == 0:
+                self._save_checkpoint(epoch)
+
+            # Optionally, evaluate metrics on validation set here if available
+
+    def _tokenize_batch(self, texts):
+        """
+        Tokenize list of strings into model inputs.
+        Assumes model has a tokenizer.
+        """
+        # Access model's tokenizer (assumed stored)
+        tokenizer = self.model.tokenizer
+        encoded = tokenizer(
+            texts,
+            padding=True,
+            truncation=True,
+            max_length=512,
+            return_tensors='pt'
+        )
+        # Move to device
+        encoded = {k: v.to(self.device) for k, v in encoded.items()}
+        return encoded
+
+    def _compute_preference_loss(self, out_a, out_b, preference_labels):
+        """
+        Compute the pairwise preference logistic loss.
+        """
+        if self.model.head_type == 'scalar':
+            # Extract utility scores
+            u_a = out_a['utility']
+            u_b = out_b['utility']
+            diff = u_a - u_b
+        elif self.model.head_type == 'mean_var':
+            # Use mean
+            u_a = out_a['mean']
+            u_b = out_b['mean']
+            diff = u_a - u_b
+        elif self.model.head_type == 'categorical':
+            # Use expected utility: sum over probs * utility bins
+            probs_a = out_a['probs']
+            probs_b = out_b['probs']
+            # For estimation, approximate expected utility
+            u_bins = torch.linspace(0, 1, self.model.num_outputs, device=self.device)
+            util_a = (probs_a * u_bins).sum(dim=-1)
+            util_b = (probs_b * u_bins).sum(dim=-1)
+            diff = util_a - util_b
+        else:
+            raise ValueError(f"Invalid head_type: {self.model.head_type}")
+
+        # Logistic sigmoid
+        pred_probs = torch.sigmoid(diff)
+        # Binary cross-entropy loss
+        loss = nn.BCELoss()(pred_probs, preference_labels)
+        return loss
+
+    def _compute_regularization(self, out_a, out_b):
+        """
+        Compute regularization penalty on model outputs.
+        For simplicity, apply to scalar/utilities or logits.
+        """
+        reg_loss = torch.tensor(0.0, device=self.device)
+        if self.model.head_type == 'scalar':
+            # L2 on utility outputs
+            # Assume model.head weights and biases as regularization
+            for param in self.model.parameters():
+                if param.ndim > 1:
+                    reg_loss += torch.norm(param, p=2)
+        elif self.model.head_type == 'mean_var':
+            # L2 on network weights
+            for param in self.model.parameters():
+                if param.ndim > 1:
+                    reg_loss += torch.norm(param, p=2)
+        elif self.model.head_type == 'categorical':
+            # L2 on logits
+            for param in self.model.parameters():
+                if param.ndim > 1:
+                    reg_loss += torch.norm(param, p=2)
+        return reg_loss
+
+    def _save_checkpoint(self, epoch):
+        """
+        Save model checkpoint.
+        """
+        save_path = f"{self.checkpoint_path}_epoch{epoch}"
+        self.model.transformer.save_pretrained(save_path)
+        # Save additional configs if necessary
+        # Could save optimizer state, scheduler state, hyperparameters etc.
+        print(f"Saved checkpoint at {save_path}")
+
+    def _load_checkpoint(self, load_path):
+        """
+        Load model checkpoint.
+        """
+        self.model.transformer = self.model.transformer.from_pretrained(load_path).to(self.device)
+

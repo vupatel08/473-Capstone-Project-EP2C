@@ -1,0 +1,48 @@
+preference_model:
+  # Use listwise loss with 'exp' as scoring function for stability and performance
+  score_function: exp
+  # Number of segments sampled from RLT per training step
+  sample_size: 10
+  # Number of segments in list for listwise loss
+  list_size: 16
+  # Regularization coefficient for model training
+  regularization: 0.0003
+  # Learning rate for the reward neural network
+  learning_rate: 0.001
+  # Batch size for training reward model
+  batch_size: 512
+  # Total training epochs for reward model
+  epochs: 300
+  # Neural network architecture details
+  hidden_layers: [128, 128, 128]
+  activation: relu
+  final_activation: tanh
+  # Loss type: 'listwise' (preferred) or 'pairwise'
+  loss_type: listwise
+  # Scoring function options: 'exp' or 'linear'
+  score_function_type: exp
+
+offline_rl:
+  # Number of offline training epochs
+  epochs: 300
+  # Algorithm hyperparameters (e.g., learning rate, discount factor) – defaults to typical settings
+  learning_rate: 0.001
+  discount_factor: 0.99
+
+environment:
+  # Environment choice: 'gym' or 'metaworld'
+  type: metaworld
+  # Environment-specific parameters (if needed)
+  env_name: 'reach-v2'
+
+preference_feedback:
+  # Number of preference feedbacks collected per experiment
+  feedback_count: 500  # can also set as 200, 1000 for ablation
+  # Feedback noise level: 0 (no noise), or higher percentages for robustness tests
+  noise_level: 0
+
+experiment:
+  # Number of random seeds for robustness
+  seeds: 6
+  # Evaluation and validation hooks
+  validation_interval: 50 epochs

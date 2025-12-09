@@ -1,0 +1,174 @@
+import os
+import sys
+import yaml
+import torch
+import numpy as np
+from tqdm import tqdm
+from dataset_loader import DatasetLoader
+from conditioning import ConditioningEncoder
+from text_prompt import TextPromptEmbedder
+from diffusion_utils import ddim_sample, convert_latent_to_rgb
+from model import ControlVideoModel
+from video_utils import save_frames_as_video
+from evaluation import EvaluationMetrics
+
+def main():
+    # 1. Load configuration
+    config_path = "config.yaml"
+    with open(config_path, 'r') as f:
+        config = yaml.safe_load(f)
+    
+    # 2. Setup device
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    print(f"Using device: {device}")
+
+    # 3. Prepare dataset
+    dataset_path = config.get('dataset_path', './dataset')
+    annotations = config.get('annotations', {})  # Dict: filename -> prompt
+    dataset_loader = DatasetLoader(
+        dataset_path=dataset_path,
+        annotations=annotations,
+        control_types=config['conditioning'].get('control_type', ['edges', 'depth', 'pose']),
+        resize_size=512,
+        use_cache=True
+    )
+    dataset = dataset_loader.load_dataset()  # List of dicts: frames, maps, caption, prompt
+    
+    # 4. Initialize encoders & prompt embedding
+    prompt_strs = [sample['prompt'] for sample in dataset]
+    prompt_embedder = TextPromptEmbedder()
+    prompt_embeddings = [prompt_embedder.embed(p) for p in prompt_strs]
+    
+    condition_encoders = {}
+    for cond_type in config['conditioning'].get('control_type', []):
+        condition_encoders[cond_type] = ConditioningEncoder(cond_type, device=device)
+    
+    # 5. Load diffusion and control models
+    model_path = config['model'].get('model_path', None)
+    controlnet_weights_path = config['conditioning'].get('controlnet_weights_path', None)
+    diffusion_model = ControlVideoModel(
+        model_path=model_path,
+        controlnet_weights_path=controlnet_weights_path,
+        inflation_scale=config['model'].get('inflation_scale', 0.3),
+        num_heads=config['model'].get('num_heads', 8),
+        device=device
+    )
+    diffusion_model.inflate_for_video()  # Inflate UNet to handle temporal dimension
+    
+    # 6. Denoising schedule parameters
+    T = config['training'].get('denoising_steps', 50)
+    smoothing_steps = config['training'].get('smoothing_steps', 2)
+    smoothing_timesteps = config['training'].get('smoothing_timesteps', [48,49])  # e.g., last steps
+    high_res = config['model'].get('high_res_size', 512)
+    low_res = config['training'].get('low_res_size', 256)
+    total_frames = config['training'].get('total_frames', 125)
+    hierarchical_segments = config['model'].get('hierarchical_segments', 4)
+    use_full_cross_attention = config['model'].get('use_full_cross_attention', True)
+    
+    # 7. Loop over dataset samples
+    for idx, sample in enumerate(tqdm(dataset, desc="Generating Videos")):
+        prompt_emb = prompt_embeddings[idx]
+        # Prepare conditioning maps
+        cond_maps = sample.get('conditioning_maps', {})
+        # Choose control type (e.g., first type in list)
+        control_type = config['conditioning'].get('control_type', ['edges', 'depth', 'pose'])[0]
+        control_map = cond_maps.get(control_type, None)
+        prompt_str = sample.get('prompt', '')
+        
+        # 8. Initialize latent variable z_T (Gaussian noise)
+        batch_size = 1
+        c_dim = diffusion_model.unet_2d.config.block_out_channels[0]
+        H, W = high_res, high_res
+        N = total_frames
+        # Latent shape: (batch, channels, height, width, depth)
+        z_t = torch.randn(batch_size, c_dim, H, W, N, device=device)
+
+        # 9. Denoising loop
+        for t_idx in range(T):
+            t = T - t_idx  # current timestep
+            current_timestep = t
+            t_tensor = torch.tensor([t], device=device)
+
+            # --- Cross-frame attention handled inside model ---
+            # --- Denoising step ---
+            epsilon, z0_pred = ddim_sample(
+                z_t, t, prompt_emb,
+                control_map, diffusion_model,
+                control_apply_fn=None,  # handled internally
+                t_schedule=list(range(T, 0, -1)),
+                device=device
+            )
+
+            # --- Interleaved-frame smoother step ---
+            if t in smoothing_timesteps:
+                # Prepare sequence of z for smoothing
+                # Extract sequence of frames
+                z_sequence = [z_t[..., i] for i in range(N)]  # list of (1,C,H,W)
+                smoothed_z_sequence = smooth_z_sequence(
+                    z_sequence, t, control_map, prompt_emb, diffusion_model, device
+                )
+                # Stack back into z_t
+                z_t = torch.stack(smoothed_z_sequence, dim=4)
+            else:
+                z_t = epsilon  # Next latent
+
+        # --- Convert final latent to RGB frames ---
+        frames = []
+        for i in range(N):
+            z_frame = z_t[..., i]
+            rgb = convert_latent_to_rgb(z_frame, diffusion_model.latent_decoder, device)
+            frames.append(rgb)
+
+        # 10. Save the generated video
+        save_frames_as_video(frames, f"output_{idx}.mp4", fps=30.0)
+
+        # 11. Evaluation
+        # Load real features if available, here we suppose external features are unavailable
+        evaluator = EvaluationMetrics(config)
+        eval_results = evaluator.evaluate_video(frames, prompt_str)
+        print(f"Sample {idx} evaluation: {eval_results}")
+
+def smooth_z_sequence(z_sequence, t, control_map, prompt_emb, diffusion_model, device):
+    """
+    Apply the interleaved-frame smoothing (Alg. 1).
+    Args:
+        z_sequence: list of latent tensors for each frame (length N)
+        t: current timestep
+        control_map: conditioning tensor for control
+        prompt_emb: prompt embedding tensor
+        diffusion_model: instance with unet_3d and get_alpha method
+        device: torch.device
+    Returns:
+        smoothed_z_sequence: list of latent tensors after smoothing
+    """
+    N = len(z_sequence)
+    smoothed = list(z_sequence)
+
+    # Prepare RGB frames for interpolation
+    rgb_list = [convert_latent_to_rgb(zf, diffusion_model.latent_decoder, device) for zf in smoothed]
+    # For each middle frame in overlapping 3-frame clips, interpolate
+    for i in range(1, N-1):
+        rgb_prev = rgb_list[i-1]
+        rgb_next = rgb_list[i+1]
+        interp_rgb = 0.5 * rgb_prev + 0.5 * rgb_next  # simple average
+        interp_tensor = torch.from_numpy(interp_rgb).permute(2,0,1).unsqueeze(0).float().to(device)/255.0 * 2 -1
+        # Re-encode to latent
+        z_interp = diffusion_model.latent_decoder(interp_tensor)
+        smoothed[i] = z_interp.squeeze(0)
+
+    # After interpolation, update z_{t-1} for each frame
+    alpha = diffusion_model.get_alpha(torch.tensor([t], device=device))
+    sqrt_alpha = torch.sqrt(alpha)
+    sqrt_one_minus = torch.sqrt(1 - alpha)
+    new_z = []
+    for zf in smoothed:
+        # Prediction of epsilon residual
+        epsilon_pred, _ = ddim_sample(zf, t, prompt_emb,
+                                      control_map, diffusion_model,
+                                      control_apply_fn=None, t_schedule=None, device=device)
+        z_next = sqrt_alpha * zf + sqrt_one_minus * epsilon_pred.squeeze(0)
+        new_z.append(z_next)
+    return new_z
+
+if __name__ == "__main__":
+    main()

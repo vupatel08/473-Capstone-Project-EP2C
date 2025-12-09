@@ -1,0 +1,23 @@
+# requirements.txt
+
+# Core deep learning framework and utilities
+torch==1.13.1                   # PyTorch core library
+torchvision==0.14.1             # Data handling, image transforms
+accelerate==0.20.3               # Multi-GPU and distributed training utilities
+numpy==1.21.0                    # Numerical operations
+scipy                           # Scientific computing utilities
+matplotlib==3.5.1                # Visualization tools
+tqdm==4.64.0                     # Progress bar for training & inference
+
+# Image processing and dataset handling
+Pillow==9.2.0                    # Image loading, resizing, augmentation
+
+# Pretrained models and diffusion pipelines
+transformers==4.29.2             # Pretrained models (e.g., CLIP, ViT)
+diffusers==0.14.0                # Diffusion model implementation and sampling
+
+# Additional utilities (if needed; optional)
+dlib                            # For advanced image processing tasks (e.g., face detection)
+
+# Optional for evaluation/metrics (if external scripts require)
+tensorboard                     # Logging training/evaluation metrics

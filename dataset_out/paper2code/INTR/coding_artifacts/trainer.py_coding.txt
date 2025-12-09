@@ -1,0 +1,188 @@
+```python
+# trainer.py
+import os
+import torch
+import numpy as np
+import random
+from typing import Dict, Any, Optional
+from utils import set_seed, save_attention_map, normalize_attention, plot_attention_overlay
+
+class Trainer:
+    """
+    Implements the training loop for the INTR model, handling data flow, optimization,
+    loss computation, learning rate scheduling, and optional interpretability map extraction.
+    """
+    def __init__(
+        self,
+        model: 'INTRModel',
+        data_loader: Dict[str, torch.utils.data.DataLoader],
+        optimizer: torch.optim.Optimizer,
+        loss_fn: torch.nn.Module,
+        scheduler: Optional[torch.optim.lr_scheduler._LRScheduler],
+        config: Dict[str, Any]
+    ):
+        """
+        Initializes the Trainer with necessary components and configuration.
+        Args:
+            model (INTRModel): The model to train.
+            data_loader (dict): Dictionary with 'train' and optionally 'val' DataLoaders.
+            optimizer (torch.optim.Optimizer): Optimizer for training.
+            loss_fn (callable): Loss function (e.g., CrossEntropyLoss).
+            scheduler (Optional): Learning rate scheduler.
+            config (dict): Configuration parameters from YAML.
+        """
+        self.model = model
+        self.train_loader = data_loader.get('train')
+        self.val_loader = data_loader.get('val', None)
+        self.optimizer = optimizer
+        self.loss_fn = loss_fn
+        self.scheduler = scheduler
+        self.device = torch.device(config.get('device', 'cuda' if torch.cuda.is_available() else 'cpu'))
+        self.save_dir = config.get('save_dir', 'outputs')
+        os.makedirs(self.save_dir, exist_ok=True)
+        self.epochs = config.get('epochs', 50)
+        self.seed = config.get('seed', 42)
+        self._set_seed(self.seed)
+        self.use_fully_finetune_backbone = config.get('use_fully_finetune_backbone', False)
+        self.save_attention_maps = config.get('interpretability', {}).get('save_attention_maps', True)
+        self.visualization_overlay = config.get('interpretability', {}).get('visualization_overlay', True)
+        self.log_interval = config.get('log_interval', 10)  # how often to log
+        self.best_val_acc = 0.0
+        self.global_step = 0
+
+        # Set model to device
+        self.model.to(self.device)
+        if not self.use_fully_finetune_backbone:
+            # Freeze backbone parameters if not finetuning
+            for param in self.model.extract_features.parameters():
+                param.requires_grad = False
+
+    def _set_seed(self, seed: int) -> None:
+        """
+        Sets seed for numpy, torch, and python random for reproducibility.
+        """
+        set_seed(seed)
+
+    def train(self):
+        """
+        Main training loop over epochs.
+        """
+        for epoch in range(1, self.epochs + 1):
+            print(f"\nEpoch [{epoch}/{self.epochs}]")
+            train_loss, train_acc = self._train_epoch(epoch)
+            print(f"Training Loss: {train_loss:.4f}, Accuracy: {train_acc:.4f}")
+
+            # Step scheduler if used
+            if self.scheduler is not None:
+                self.scheduler.step()
+
+            # Save checkpoint after each epoch
+            checkpoint_path = os.path.join(self.save_dir, f"checkpoint_epoch_{epoch}.pth")
+            torch.save(self.model.state_dict(), checkpoint_path)
+            print(f"Saved checkpoint: {checkpoint_path}")
+
+            # Evaluate on validation if available
+            if self.val_loader is not None:
+                val_loss, val_acc = self._validate()
+                print(f"Validation Loss: {val_loss:.4f}, Accuracy: {val_acc:.4f}")
+                if val_acc > self.best_val_acc:
+                    self.best_val_acc = val_acc
+                    best_path = os.path.join(self.save_dir, "best_model.pth")
+                    torch.save(self.model.state_dict(), best_path)
+                    print(f"New best model saved at {best_path}")
+
+    def _train_epoch(self, epoch: int):
+        """
+        Performs one epoch of training.
+        Returns:
+            average_loss (float), accuracy (float)
+        """
+        self.model.train()
+        total_loss = 0.0
+        total_correct = 0
+        total_samples = 0
+
+        for batch_idx, (images, labels) in enumerate(self.train_loader):
+            images = images.to(self.device)
+            labels = labels.to(self.device)
+
+            # Forward pass: get logits and attention maps for interpretability
+            logits, preds, attn_maps = self.model(images, return_attention=True)
+
+            loss = self.loss_fn(logits, labels)
+
+            self.optimizer.zero_grad()
+            loss.backward()
+            self.optimizer.step()
+
+            total_loss += loss.item() * images.size(0)
+            total_samples += images.size(0)
+            total_correct += (preds == labels).sum().item()
+
+            # Logging
+            if (batch_idx + 1) % self.log_interval == 0:
+                batch_loss = loss.item()
+                batch_acc = (preds == labels).float().mean().item()
+                print(f"Batch [{batch_idx+1}/{len(self.train_loader)}]: Loss={batch_loss:.4f}, Acc={batch_acc:.4f}")
+
+            # Save attention maps for interpretability if enabled
+            if self.save_attention_maps and attn_maps is not None:
+                # Save each attribute map, overlay with input image
+                # For simplicity, save only the last batch
+                for i in range(images.size(0)):
+                    img = images[i]
+                    # Undo normalization for visualization
+                    img_vis = self._denormalize_image(img)
+                    for c_idx in range(attn_maps.shape[1]):  # class C
+                        attn_map = attn_maps[i, c_idx]  # shape: [heads, N]
+                        # Combine attention heads (e.g., avg)
+                        attn_map_mean = attn_map.mean(dim=0)  # [N]
+                        # Save overlay
+                        save_path = os.path.join(self.save_dir, f"attn_epoch{epoch}_batch{batch_idx+1}_img{i}_class{c_idx}.png")
+                        save_attention_map(attn_map_mean, img_vis, save_path)
+                        # Optional: overlay visualization
+                        if self.visualization_overlay:
+                            overlay_path = save_path.replace('.png', '_overlay.png')
+                            plot_attention_overlay([attn_map_mean], img_vis, headers=None, save_path=overlay_path)
+
+        avg_loss = total_loss / total_samples
+        accuracy = total_correct / total_samples
+        return avg_loss, accuracy
+
+    def _validate(self):
+        """
+        Performs validation pass without gradient updates.
+        Returns:
+            average_loss, accuracy
+        """
+        self.model.eval()
+        total_loss = 0.0
+        total_correct = 0
+        total_samples = 0
+
+        with torch.no_grad():
+            for images, labels in self.val_loader:
+                images = images.to(self.device)
+                labels = labels.to(self.device)
+                logits, preds, attn_maps = self.model(images, return_attention=True)
+                loss = self.loss_fn(logits, labels)
+                total_loss += loss.item() * images.size(0)
+                total_samples += images.size(0)
+                total_correct += (preds == labels).sum().item()
+
+        avg_loss = total_loss / total_samples
+        accuracy = total_correct / total_samples
+        return avg_loss, accuracy
+
+    def _denormalize_image(self, image_tensor: torch.Tensor):
+        """
+        Convert normalized image tensor back to [0,255] PIL Image for visualization.
+        """
+        mean = np.array([0.485, 0.456, 0.406])
+        std = np.array([0.229, 0.224, 0.225])
+        img = image_tensor.cpu().permute(1, 2, 0).numpy()  # C, H, W to H, W, C
+        img = std * img + mean
+        img = np.clip(img * 255.0, 0, 255).astype(np.uint8)
+        return Image.fromarray(img)
+
+```

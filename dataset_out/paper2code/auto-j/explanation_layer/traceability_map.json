@@ -1,0 +1,242 @@
+{
+  "code_to_paper": {
+    "annotation.py:GPTAPI": [
+      "The provided information does not include specific paper sections or their titles. Please provide the titles of the paper sections to proceed with the analysis."
+    ],
+    "annotation.py:AnnotationGenerator": [
+      "Without more specific section titles",
+      "it's hard to accurately determine the most relevant sections. However",
+      "based on the code component's description",
+      "potential relevant sections could be: \"Methodology\"",
+      "\"Data Annotation\"",
+      "\"Implementation Details\"."
+    ],
+    "annotation.py:__init__": [
+      "The provided paper sections do not contain any specific titles or content that can be directly linked to the described code component. Please provide the actual sections of the paper for a proper analysis."
+    ],
+    "dataset_loader.py:class": [
+      "The provided information is not sufficient to determine the most relevant paper sections for the code component. Please provide more details about the code component and the paper sections."
+    ],
+    "dataset_loader.py:Dataset": [
+      "The provided information is not sufficient to determine the most relevant paper sections for the code component. Please provide more details about the code component and the paper sections."
+    ],
+    "dataset_loader.py:DatasetLoader": [
+      "Methodology",
+      "Dataset",
+      "Implementation Details"
+    ],
+    "dataset_loader.py:__init__": [
+      "Methodology",
+      "Dataset Description",
+      "Implementation Details"
+    ],
+    "evaluation.py:Evaluation": [
+      "The provided paper sections are not sufficient to link with the given code component. Please provide more detailed sections of the paper."
+    ],
+    "evaluation.py:__init__": [
+      "Methodology",
+      "Results",
+      "Discussion"
+    ],
+    "main.py:main": [
+      "The provided information is insufficient to determine the most relevant paper sections for the code component. Please provide more details about the function in the main.py file."
+    ],
+    "model.py:AutoJudgeModel": [
+      "The provided paper sections are not properly formatted or named",
+      "making it impossible to accurately determine which sections are most relevant to the provided code component. Please provide the correct section names/titles."
+    ],
+    "model.py:__init__": [
+      "The paper sections are not provided in the question. Please provide the paper sections to proceed."
+    ],
+    "trainer.py:Trainer": [
+      "The provided paper sections do not contain any relevant information related to the code component. Please provide more detailed sections of the paper."
+    ],
+    "trainer.py:__init__": [
+      "The provided paper sections do not contain any relevant information related to the code component. Please provide more paper sections."
+    ]
+  },
+  "paper_to_code": {
+    "The provided information does not include specific paper sections or their titles. Please provide the titles of the paper sections to proceed with the analysis.": [
+      {
+        "component": "annotation.py:GPTAPI",
+        "description": "Handles interactions with GPT-4 API with retry & error handling.",
+        "file": "annotation.py"
+      }
+    ],
+    "Without more specific section titles": [
+      {
+        "component": "annotation.py:AnnotationGenerator",
+        "description": "Handles annotation generation for samples via GPT-4 API.\n    Supports batch processing and filtering heuristics.",
+        "file": "annotation.py"
+      }
+    ],
+    "it's hard to accurately determine the most relevant sections. However": [
+      {
+        "component": "annotation.py:AnnotationGenerator",
+        "description": "Handles annotation generation for samples via GPT-4 API.\n    Supports batch processing and filtering heuristics.",
+        "file": "annotation.py"
+      }
+    ],
+    "based on the code component's description": [
+      {
+        "component": "annotation.py:AnnotationGenerator",
+        "description": "Handles annotation generation for samples via GPT-4 API.\n    Supports batch processing and filtering heuristics.",
+        "file": "annotation.py"
+      }
+    ],
+    "potential relevant sections could be: \"Methodology\"": [
+      {
+        "component": "annotation.py:AnnotationGenerator",
+        "description": "Handles annotation generation for samples via GPT-4 API.\n    Supports batch processing and filtering heuristics.",
+        "file": "annotation.py"
+      }
+    ],
+    "\"Data Annotation\"": [
+      {
+        "component": "annotation.py:AnnotationGenerator",
+        "description": "Handles annotation generation for samples via GPT-4 API.\n    Supports batch processing and filtering heuristics.",
+        "file": "annotation.py"
+      }
+    ],
+    "\"Implementation Details\".": [
+      {
+        "component": "annotation.py:AnnotationGenerator",
+        "description": "Handles annotation generation for samples via GPT-4 API.\n    Supports batch processing and filtering heuristics.",
+        "file": "annotation.py"
+      }
+    ],
+    "The provided paper sections do not contain any specific titles or content that can be directly linked to the described code component. Please provide the actual sections of the paper for a proper analysis.": [
+      {
+        "component": "annotation.py:__init__",
+        "description": "Creates the sequence of system/user messages to prompt GPT-4 for pairwise comparison.\n        Multiple samples are batched in a single call.",
+        "file": "annotation.py"
+      }
+    ],
+    "The provided information is not sufficient to determine the most relevant paper sections for the code component. Please provide more details about the code component and the paper sections.": [
+      {
+        "component": "dataset_loader.py:class",
+        "description": "",
+        "file": "dataset_loader.py"
+      },
+      {
+        "component": "dataset_loader.py:Dataset",
+        "description": "",
+        "file": "dataset_loader.py"
+      }
+    ],
+    "Methodology": [
+      {
+        "component": "dataset_loader.py:DatasetLoader",
+        "description": "Initialize DatasetLoader with configuration parameters.",
+        "file": "dataset_loader.py"
+      },
+      {
+        "component": "dataset_loader.py:__init__",
+        "description": "Initialize DatasetLoader with configuration parameters.",
+        "file": "dataset_loader.py"
+      },
+      {
+        "component": "evaluation.py:__init__",
+        "description": "Evaluate the model on pairwise response comparisons.",
+        "file": "evaluation.py"
+      }
+    ],
+    "Dataset": [
+      {
+        "component": "dataset_loader.py:DatasetLoader",
+        "description": "Initialize DatasetLoader with configuration parameters.",
+        "file": "dataset_loader.py"
+      }
+    ],
+    "Implementation Details": [
+      {
+        "component": "dataset_loader.py:DatasetLoader",
+        "description": "Initialize DatasetLoader with configuration parameters.",
+        "file": "dataset_loader.py"
+      },
+      {
+        "component": "dataset_loader.py:__init__",
+        "description": "Initialize DatasetLoader with configuration parameters.",
+        "file": "dataset_loader.py"
+      }
+    ],
+    "Dataset Description": [
+      {
+        "component": "dataset_loader.py:__init__",
+        "description": "Initialize DatasetLoader with configuration parameters.",
+        "file": "dataset_loader.py"
+      }
+    ],
+    "The provided paper sections are not sufficient to link with the given code component. Please provide more detailed sections of the paper.": [
+      {
+        "component": "evaluation.py:Evaluation",
+        "description": "Evaluate the model on pairwise response comparisons.",
+        "file": "evaluation.py"
+      }
+    ],
+    "Results": [
+      {
+        "component": "evaluation.py:__init__",
+        "description": "Evaluate the model on pairwise response comparisons.",
+        "file": "evaluation.py"
+      }
+    ],
+    "Discussion": [
+      {
+        "component": "evaluation.py:__init__",
+        "description": "Evaluate the model on pairwise response comparisons.",
+        "file": "evaluation.py"
+      }
+    ],
+    "The provided information is insufficient to determine the most relevant paper sections for the code component. Please provide more details about the function in the main.py file.": [
+      {
+        "component": "main.py:main",
+        "description": "",
+        "file": "main.py"
+      }
+    ],
+    "The provided paper sections are not properly formatted or named": [
+      {
+        "component": "model.py:AutoJudgeModel",
+        "description": "Encapsulates the 13B LLaMA-based language model with API for inference,\n    training, checkpointing, and evaluation, as per configuration.",
+        "file": "model.py"
+      }
+    ],
+    "making it impossible to accurately determine which sections are most relevant to the provided code component. Please provide the correct section names/titles.": [
+      {
+        "component": "model.py:AutoJudgeModel",
+        "description": "Encapsulates the 13B LLaMA-based language model with API for inference,\n    training, checkpointing, and evaluation, as per configuration.",
+        "file": "model.py"
+      }
+    ],
+    "The paper sections are not provided in the question. Please provide the paper sections to proceed.": [
+      {
+        "component": "model.py:__init__",
+        "description": "Initialize the AutoJudgeModel with params from config.\n        Loads pre-trained model, tokenizer, optimizer, and sets up DeepSpeed if enabled.",
+        "file": "model.py"
+      }
+    ],
+    "The provided paper sections do not contain any relevant information related to the code component. Please provide more detailed sections of the paper.": [
+      {
+        "component": "trainer.py:Trainer",
+        "description": "Initialize Trainer with model, datasets, and hyperparameters.",
+        "file": "trainer.py"
+      }
+    ],
+    "The provided paper sections do not contain any relevant information related to the code component. Please provide more paper sections.": [
+      {
+        "component": "trainer.py:__init__",
+        "description": "Initialize Trainer with model, datasets, and hyperparameters.",
+        "file": "trainer.py"
+      }
+    ]
+  },
+  "paper_sections": [
+    {
+      "section": "Abstract",
+      "text": "Junlong $\\mathbf { L i } ^ { 1 , 6 }$ Shichao $\\mathbf { S u n } ^ { 3 , 6 }$ Weizhe Yuan4 Run-Ze Fan5,6 Hai Zhao1   \nPengfei $\\mathbf { L i u } ^ { 1 , 2 , 6 * }$   \n1Shanghai Jiao Tong University 2Shanghai Artificial Intelligence Laboratory   \n3Hong Kong Polytechnic University 4New York University 5Chinese Academy of Sciences   \n6Generative AI Research Lab (GAIR)",
+      "ontology": "abstract"
+    }
+  ],
+  "coverage_score": 22.0
+}

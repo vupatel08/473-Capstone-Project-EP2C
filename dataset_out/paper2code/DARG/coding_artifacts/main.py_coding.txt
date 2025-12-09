@@ -1,0 +1,180 @@
+```python
+# main.py
+
+import os
+import sys
+import time
+import logging
+import random
+from typing import List, Dict, Any
+from pathlib import Path
+
+# Import external modules
+import yaml
+import numpy as np
+
+# Import custom modules
+from utils import load_config, get_prompt, save_to_json, load_from_json
+from dataset_loader import DatasetLoader, DataPoint
+from reasoning_graph import ReasoningGraph
+from graph_perturber import perturb_graph
+from data_generator import DataGenerator
+from label_verifier import LabelVerifier
+from model_evaluator import ModelEvaluator
+
+# Configure logging
+logging.basicConfig(level=logging.INFO, format='[%(asctime)s] %(levelname)s: %(message)s')
+logger = logging.getLogger(__name__)
+
+def main():
+    # Load configuration
+    config = load_config('config.yaml')
+    
+    # Load prompt templates
+    prompts_dir = 'prompts'  # predefined prompts directory
+    regen_prompt_template = get_prompt('reasoning_graph_generation', prompts_dir)
+    verification_prompt_template = get_prompt('label_verification', prompts_dir)
+    # Additional prompts (graph to text, others) can be loaded similarly if needed
+    
+    # Get model configuration
+    model_name = config['model'].get('name', 'gpt-4-turbo')
+    api_key = config['model'].get('api_key', '')
+    temperature = float(config['model'].get('temperature', 0.1))
+    max_tokens = int(config['model'].get('max_tokens', 1024))
+    
+    # Set seed for reproducibility
+    seed = 42
+    random.seed(seed)
+    np.random.seed(seed)
+    
+    # Initialize modules
+    # Data Generator for graph to text regeneration
+    data_gen = DataGenerator(api_key=api_key)
+    data_gen.prompt_template = regen_prompt_template
+    data_gen.temperature = temperature
+    data_gen.max_tokens = max_tokens
+    
+    # Label verifier
+    label_verifier = LabelVerifier(api_key=api_key)
+    
+    # Define datasets to process
+    datasets_info = [
+        ('GSM8K', config['datasets'].get('GSM8K', {}).get('path', '')),
+        ('BBQ', config['datasets'].get('BBQ', {}).get('path', '')),
+        ('BBH_Dyck', config['datasets'].get('BBH_Dyck', {}).get('path', ''))
+    ]
+    
+    # Load model evaluation configuration
+    model_list = [
+        'gpt-4-turbo',
+        'gpt-3.5-turbo',
+        'llama-8b',
+        'llama-70b',
+        'mixtral-8x7b',
+        'mixtral-8x22b',
+        'wizardlm-8x22b',
+        'deepseekmath-7b',
+        'gemini-1.5-pro',
+        'claude-3-opus'
+        # Add other models as needed
+    ]
+    # For each model, define API keys if needed, else assume local inference
+    
+    # Initialize ModelEvaluator
+    model_eval = ModelEvaluator(
+        model_names=model_list,
+        model_api_keys={},  # Fill with actual API keys if using APIs
+        prompt_template="",  # Not directly used here; modules handle prompts internally or via args
+        config_path='config.yaml'
+    )
+    
+    # Define complexity levels
+    complexity_levels = config.get('experiment', {}).get('complexity_levels', [0,1,2,4,8])
+    
+    # For each dataset
+    for dataset_name, dataset_path in datasets_info:
+        if not dataset_path:
+            logger.warning(f"Dataset path for {dataset_name} not specified. Skipping.")
+            continue
+        logger.info(f"Processing dataset: {dataset_name} from {dataset_path}")
+        # Load dataset
+        dataset_loader = DatasetLoader(dataset_path)
+        raw_data_points = dataset_loader.load_data()
+        logger.info(f"Loaded {len(raw_data_points)} data points for {dataset_name}")
+        
+        # Prepare storage for all data points and their perturbed versions
+        all_data_points = []
+        
+        # Process each data point
+        for idx, datapoint in enumerate(raw_data_points):
+            # Initialize reasoning graph from data point
+            reasoning_graph = ReasoningGraph()
+            reasoning_graph.extract_from_text(datapoint.reasoning_text, dataset_type=dataset_name.lower())
+            # Save original data point info
+            all_data_points.append(datapoint)
+            # For each complexity level, generate perturbed data
+            for level in complexity_levels:
+                # Determine perturbation parameters based on level
+                # For simplicity, assume linear scaling
+                depth_delta = int(level * config.get('experiment', {}).get('complex_dim', {}).get('graph_depth_delta', 1))
+                width_delta = int(level * config.get('experiment', {}).get('complex_dim', {}).get('graph_width_delta', 1))
+                numerical_scale = float(level * config.get('experiment', {}).get('complex_dim', {}).get('numerical_scale', 1.0))
+                
+                # Perturb graph
+                perturbed_graph = perturb_graph(
+                    reasoning_graph,
+                    depth_delta=depth_delta,
+                    width_delta=width_delta,
+                    numerical_scale=numerical_scale
+                )
+                
+                # Generate data from perturbed graph
+                generated_text = data_gen.generate_text(perturbed_graph)
+                if not generated_text:
+                    logger.warning(f"Generation failed at idx {idx} for level {level}")
+                    continue  # skip this perturbation
+                
+                # Parse generated text into DataPoint
+                generated_datapoint = data_gen.parse_response(generated_text)
+                if not generated_datapoint:
+                    logger.warning(f"Parsing generated text failed at idx {idx} for level {level}")
+                    continue
+                
+                # Verify correctness using label verifier
+                verification_passed = False
+                for attempt in range(3):
+                    if label_verifier.verify_label(generated_text):
+                        verification_passed = True
+                        break
+                if not verification_passed:
+                    logger.info(f"Verification failed after retries for idx {idx} at level {level}")
+                    continue  # skip if not verified
+                # Assign metadata
+                # Save the perturbation info into data point attributes
+                generated_datapoint.metadata = {
+                    'dataset': dataset_name,
+                    'original_idx': idx,
+                    'complexity_level': level,
+                    'perturbed_graph': perturbed_graph.to_json()
+                }
+                all_data_points.append(generated_datapoint)
+        
+        # Save all generated and original data (with metadata)
+        output_dir = Path('darg_generated') / dataset_name
+        output_dir.mkdir(parents=True, exist_ok=True)
+        save_path = output_dir / f'{dataset_name}_full_data.json'
+        json_data = [utils.serialize_datapoint(dp) for dp in all_data_points]
+        save_to_json(json_data, str(save_path))
+        logger.info(f"Saved combined data for {dataset_name} to {save_path}")
+        
+        # Evaluate with models on this dataset
+        # For each model, evaluate performance
+        evaluation_results = model_eval.evaluate(all_data_points)
+        # Save evaluation results
+        eval_path = output_dir / f'{dataset_name}_evaluation.json'
+        save_to_json(evaluation_results, str(eval_path))
+        logger.info(f"Evaluation results saved for {dataset_name}")
+
+if __name__ == "__main__":
+    main()
+```

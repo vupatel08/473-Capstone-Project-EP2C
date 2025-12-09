@@ -1,0 +1,107 @@
+# Logic Analysis for `tuner.py`  
+*Purpose:*  
+Implement the `HyperparameterTuner` class to perform systematic hyperparameter search (grid or Bayesian) over specified parameter spaces for AutoVP, leveraging early stopping, and selecting the best configuration based on evaluation metrics.
+
+---
+
+## 1. **Inputs and Initializations**  
+- **Configuration Parameters:**  
+  - Define search space for hyperparameters: `prompt_size_options`, `input_scale_options`, `model_choices`, `label_mapping_strategies`  
+  - Total `max_trials` or iterations (e.g., grid search over the cartesian product or Bayesian approach).  
+- **Evaluation Metric:**  
+  - Use validation/test accuracy as the primary metric to compare configurations.  
+- **Resources:**  
+  - Use Ray Tune (or equivalent) for distributed hyperparameter tuning, early stopping, trial management.  
+- **Initial State:**  
+  - Keep track of best configuration and best validation accuracy achieved.
+
+---
+
+## 2. **Hyperparameter Search Space Definition**  
+- Construct a composite search space as the cartesian product of all options, or define an explicit search space dict suitable for Ray Tune.  
+- For each hyperparameter:  
+  - `prompt_size`: integers such as [16, 48]  
+  - `input_scale`: continuous or discrete list, e.g., [0.5, 1.0, 1.5]  
+  - `model_choice`: categorical in ['resnet18', 'resnext101-ig', 'swin-t', 'clip']  
+  - `label_mapping_strategy`: categorical in ['FreqMap', 'IterMap', 'SemanticMap', 'FullyMap']
+
+---
+
+## 3. **Trial Function (Objective Function Implementation)**  
+- For each trial:  
+  - **Sample hyperparameter values**: from the defined search space.  
+  - **Configure the model and prompts** based on these values.  
+  - **Initialize model & prompts**: load pre-trained backbone consistent with selection (`model_choice`), initialize prompts as per `prompt_init_type`.  
+  - **Dataset Preparation**:  
+    - Load dataset specified in configuration.  
+    - Resize images according to sampled `input_scale` and `prompt_size`.  
+  - **Set up Prompt Module**: create prompts (pixel or frequency domain).  
+  - **Set up Label Mapper**: instantiate chosen mapping strategy (FreqMap, IterMap, etc.).  
+  - **Train**:  
+    - Run initial prompt tuning for `tuning_epochs` (e.g., 2-5).  
+    - Use a validation set or test set for evaluation at the end of tuning.  
+  - **Validation & Early Stopping**:  
+    - During tuning, monitor validation accuracy after each epoch.  
+    - If validation accuracy hasn't improved over `early_stop_patience` epochs, terminate early.  
+  - **Result Recording**:  
+    - Save the validation accuracy, final hyperparameters, model state if needed, and logs.
+
+---
+
+## 4. **Early Stopping & Iterative Trials**  
+- Use Ray Tune's `ASHAScheduler` or similar to implement early stopping:  
+  - Assign each trial a `score_attr` for validation accuracy.  
+  - Retain top `n` trials (e.g., top 2).  
+  - Stop bad-performing trials early to save compute.
+
+---
+
+## 5. **Hyperparameter Optimization Strategy**  
+- **Grid Search**:  
+  - Iterate over all combinations systematically; feasible if search space is small.  
+- **Bayesian/Population-Based Search**:  
+  - Use Ray Tune's advanced schedulers (`BayesOptSearch`, `HyperOpt`) for larger space; less likely needed if the paper specifies grid search.  
+- **Sampling & Parallelization**:  
+  - Launch multiple trials in parallel for efficiency.  
+  - Use worker pools if needed.
+
+---
+
+## 6. **Result Aggregation & Best Config Retrieval**  
+- After the search completes, extract the hyperparameters with the highest validation/test accuracy.  
+- Record the best configuration details (prompt size, scale, model, mapping, etc.).
+
+---
+
+## 7. **Final Training with Best Hyperparameters**  
+- Load dataset and model again.  
+- Configure prompts and label mapping strategy with the best hyperparameters.  
+- Perform full training on the dataset (not just tuning epochs) for accuracy convergence (~50 epochs).  
+- Save or return the fully trained model state if needed.
+
+---
+
+## 8. **Logging & Reporting**  
+- Log results of all trials: hyperparameters, validation metrics, early stop info.  
+- Generate a summary report of best configuration and corresponding metrics.
+
+---
+
+## 9. **Edge Cases & Special Considerations**  
+- Handle invalid combinations (e.g., semantic map without class labels).  
+- Account for resource constraints (limit trials).  
+- Make sure to seed the randomness for reproducibility when sampling hyperparameters.  
+- Confirm the modules `main.py` will invoke the `run()` method, which internally calls the tuning process.
+
+---
+
+## 10. **Summary of Critical Steps in `tuner.py`**  
+**a. Setup search space and scheduler**  
+**b. Define trial function** (model setup, dataset loading, prompt & mapping initialization, training, validation)  
+**c. Launch search process** (e.g., Ray Tune `tune.run()`) with defined trial function, scheduler, and stopping criteria  
+**d. Collect best configuration and metrics**  
+**e. Return or save the best hyperparameters for subsequent full training**
+
+---
+
+This detailed logic analysis guides precise implementation of the `HyperparameterTuner` class, ensuring an efficient and robust exploration of the AutoVP hyperparameter space aligned with the experimental framework described in the paper.

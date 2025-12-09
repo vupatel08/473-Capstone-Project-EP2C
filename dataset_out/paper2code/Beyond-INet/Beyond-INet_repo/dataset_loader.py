@@ -1,0 +1,247 @@
+## dataset_loader.py
+import os
+from typing import Optional, Tuple, List, Dict, Union
+import torch
+from torch.utils.data import Dataset, DataLoader
+from torchvision import datasets, transforms
+from PIL import Image
+
+# Optional: Import for custom datasets if needed (e.g., ImageNet-R, cue-conflict, synthetic)
+# For demonstration, assume datasets are stored locally in specific directories.
+
+class ImageNetValidationDataset(Dataset):
+    def __init__(self, root_dir: str, transform: Optional[torch.nn.Module] = None):
+        """
+        Loads ImageNet validation images from a directory structured as:
+        root_dir/
+            class_1/
+                img1.jpg
+                ...
+            class_2/
+                ...
+        """
+        self.root_dir = root_dir
+        self.transform = transform
+        self.samples = []
+        self.class_to_idx = {}
+        self._load_samples()
+
+    def _load_samples(self):
+        # Map class names to indices
+        classes = sorted(entry.name for entry in os.scandir(self.root_dir) if entry.is_dir())
+        self.class_to_idx = {cls_name: idx for idx, cls_name in enumerate(classes)}
+        # Gather all image paths and labels
+        for cls_name in classes:
+            class_dir = os.path.join(self.root_dir, cls_name)
+            for img in os.listdir(class_dir):
+                if img.endswith('.jpg') or img.endswith('.png'):
+                    self.samples.append((os.path.join(class_dir, img), self.class_to_idx[cls_name]))
+
+    def __len__(self):
+        return len(self.samples)
+
+    def __getitem__(self, index):
+        img_path, label = self.samples[index]
+        image = Image.open(img_path).convert('RGB')
+        if self.transform:
+            image = self.transform(image)
+        return image, label
+
+class ImageNetRDataset(Dataset):
+    def __init__(self, root_dir: str, transform: Optional[torch.nn.Module] = None):
+        """
+        Loads ImageNet-R images from a directory.
+        Expected directory structure similar to ImageNet validation set.
+        """
+        self.root_dir = root_dir
+        self.transform = transform
+        self.samples = []
+        self._load_samples()
+
+    def _load_samples(self):
+        for root, _, files in os.walk(self.root_dir):
+            for file in files:
+                if file.endswith('.jpg') or file.endswith('.png'):
+                    label = self._extract_label_from_path(root, file)
+                    self.samples.append((os.path.join(root, file), label))
+
+    def _extract_label_from_path(self, root: str, filename: str) -> int:
+        # Placeholder: Implement label extraction based on directory name or filename
+        # For simplicity, assume folder name corresponds to class; assign dummy labels
+        # Replace as needed with actual label mapping
+        return 0  # Dummy label, since labels are often not annotated
+
+    def __len__(self):
+        return len(self.samples)
+
+    def __getitem__(self, index):
+        img_path, label = self.samples[index]
+        image = Image.open(img_path).convert('RGB')
+        if self.transform:
+            image = self.transform(image)
+        return image, label
+
+class SyntheticDataset(Dataset):
+    def __init__(self, images_dir: str, labels_dict: Dict[str, int], transform: Optional[torch.nn.Module] = None):
+        """
+        Loads synthetic images generated with varying factors.
+        - images_dir: path to the directory containing images.
+        - labels_dict: mapping from filename to label based on factors.
+        """
+        self.images_dir = images_dir
+        self.transform = transform
+        self.samples = []
+        self._load_samples(labels_dict)
+
+    def _load_samples(self, labels_dict):
+        for filename, label in labels_dict.items():
+            img_path = os.path.join(self.images_dir, filename)
+            self.samples.append((img_path, label))
+
+    def __len__(self):
+        return len(self.samples)
+
+    def __getitem__(self, index):
+        img_path, label = self.samples[index]
+        image = Image.open(img_path).convert('RGB')
+        if self.transform:
+            image = self.transform(image)
+        return image, label
+
+class CueConflictDataset(Dataset):
+    def __init__(self, images_dir: str, labels: List[int], transform: Optional[torch.nn.Module] = None):
+        """
+        Loads cue-conflict images for shape/texture bias evaluation.
+        - images_dir: directory with images.
+        - labels: list of labels for images indicating conflict type.
+        """
+        self.images_dir = images_dir
+        self.transform = transform
+        self.samples = []
+        for idx, filename in enumerate(os.listdir(images_dir)):
+            if filename.endswith('.jpg') or filename.endswith('.png'):
+                self.samples.append((os.path.join(images_dir, filename), labels[idx]))
+
+    def __len__(self):
+        return len(self.samples)
+
+    def __getitem__(self, index):
+        img_path, label = self.samples[index]
+        image = Image.open(img_path).convert('RGB')
+        if self.transform:
+            image = self.transform(image)
+        return image, label
+
+class DatasetLoader:
+    def __init__(self, config: dict):
+        """
+        Initializes dataset loader based on configuration.
+        Assumes paths are relative or absolute as specified.
+        """
+        self.config = config
+        self.dataset_cache = {}
+
+        # Set dataset base directory paths based on dataset name
+        self.base_dir = {
+            'ImageNet-1K': '/path/to/imagenet/val',  # replace with actual path
+            'ImageNet-R': '/path/to/imagenet_r',    # replace with actual path
+            'PUG-ImageNet': '/path/to/pug_imagenet', # replace with actual synthetic dataset path
+            'CueConflict': '/path/to/cue_conflict'   # replace with actual cue-conflict images path
+        }
+
+        # Load dataset once if needed
+        self._dataset_cache = {}
+
+    def load_data(self, split: str = 'validation', dataset_name: Optional[str] = None) -> DataLoader:
+        """
+        Loads dataset according to name and split.
+        """
+        dataset_name = dataset_name or self.config['name']
+        dataset_name = dataset_name.strip()
+
+        if hasattr(self, f'_{dataset_name}_loader'):
+            # Call specific loader if implemented
+            load_fn = getattr(self, f'_{dataset_name}_loader')
+            return load_fn()
+
+        # Else, fallback to common methods
+        if dataset_name == 'ImageNet-1K':
+            return self._load_imagenet_validation()
+        elif dataset_name == 'ImageNet-R':
+            return self._load_imagenet_r()
+        elif dataset_name == 'PUG-ImageNet':
+            return self._load_pug_imagenet()
+        elif dataset_name == 'CueConflict':
+            return self._load_cue_conflict()
+        else:
+            raise ValueError(f"Unknown dataset: {dataset_name}")
+
+    def _get_transform(self, for_eval: bool = True, custom_res: Optional[int] = None, **kwargs):
+        """
+        Defines image transformations based on evaluation or invariance tests.
+        """
+        image_size = self.config.get('image_size', 224)
+        resize_size = custom_res if custom_res else image_size
+
+        transform_list = [
+            transforms.Resize(resize_size),
+        ]
+
+        if for_eval:
+            transform_list += [
+                transforms.CenterCrop(image_size),
+                transforms.ToTensor(),
+                transforms.Normalize(mean=[0.485, 0.456, 0.406],
+                                     std=[0.229, 0.224, 0.225])
+            ]
+        else:
+            # For training or specific augmentation, customize as needed
+            transform_list += [
+                transforms.RandomResizedCrop(image_size),
+                transforms.RandomHorizontalFlip(),
+                transforms.ToTensor(),
+                transforms.Normalize(mean=[0.485, 0.456, 0.406],
+                                     std=[0.229, 0.224, 0.225])
+            ]
+        return transforms.Compose(transform_list)
+
+    def _load_imagenet_validation(self) -> DataLoader:
+        dataset_dir = self.base_dir['ImageNet-1K']
+        transform = self._get_transform(for_eval=True)
+        dataset = ImageNetValidationDataset(root_dir=dataset_dir, transform=transform)
+        dataloader = DataLoader(dataset, batch_size=self.config['batch_size'], shuffle=False,
+                                num_workers=4, pin_memory=True)
+        return dataloader
+
+    def _load_imagenet_r(self) -> DataLoader:
+        dataset_dir = self.base_dir['ImageNet-R']
+        transform = self._get_transform(for_eval=True)
+        dataset = ImageNetRDataset(root_dir=dataset_dir, transform=transform)
+        dataloader = DataLoader(dataset, batch_size=self.config['batch_size'], shuffle=False,
+                                num_workers=4, pin_memory=True)
+        return dataloader
+
+    def _load_pug_imagenet(self) -> DataLoader:
+        # Placeholder: Load synthetic dataset images and labels
+        # Assume images are in a directory; labels dict provided or inferred
+        images_dir = self.base_dir['PUG-ImageNet']
+        # Here, you'd load the labels mapping from a file or define programmatically
+        labels_dict = {}  # Replace with actual label mapping
+        transform = self._get_transform(for_eval=True)
+        dataset = SyntheticDataset(images_dir, labels_dict, transform)
+        dataloader = DataLoader(dataset, batch_size=self.config['batch_size'], shuffle=False,
+                                num_workers=4, pin_memory=True)
+        return dataloader
+
+    def _load_cue_conflict(self) -> DataLoader:
+        # Placeholder: Load cue-conflict images with specific labels
+        images_dir = self.base_dir['CueConflict']
+        labels = []  # Generate or load labels matching images
+        # For example, label 0 for shape-bias images, 1 for texture-bias images
+        # Or as per dataset annotation
+        labels = [0] * len(os.listdir(images_dir))  # Dummy placeholder
+        transform = self._get_transform(for_eval=True)
+        dataset = CueConflictDataset(images_dir, labels, transform)
+        dataloader = DataLoader(dataset, batch_size=self.config['batch_size'], shuffle=False,
+                                num_workers=4, pin_memory=True)
+        return dataloader

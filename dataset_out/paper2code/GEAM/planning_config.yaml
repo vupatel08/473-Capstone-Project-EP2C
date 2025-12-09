@@ -1,0 +1,58 @@
+training:
+  learning_rate: 0.001
+  batch_size: 32
+  epochs: 10
+  gamma: 0.99  # Discount factor for RL
+  ib_beta: 1e-5  # IB regularization coefficient
+  message_passes: 3  # Number of message passing steps in GNN
+  fc_layers: 2  # Number of layers in MLPs
+  max_vocabulary_size: 1000
+  initial_vocabulary_size: 300
+  vocab_update_size_per_cycle: 50
+  molecule_max_size: 40  # Maximum size of molecules in the RL environment
+  num_reproduction: 3  # Offspring per GA cycle
+  mutation_rate: 0.1  # Mutation probability in GA
+  num_molecules_sample: 3000  # Number of molecules generated for evaluation
+  rl_learning_rate: 1e-4
+  rl_buffer_size: 10000
+  rl_batch_size: 64
+  rl_training_epochs: 10
+
+dataset:
+  dataset_path: "data/ZINC250k.smi"
+  train_split_ratio: 0.8
+  val_split_ratio: 0.1
+  test_split_ratio: 0.1
+
+properties:
+  docking_score_range: [-20, 0]
+  normalization:
+    docking_score: [-20, 0]
+    sa: [0, 9]
+    qed: [0, 1]
+    combined: [0, 1]  # For multiplying and evaluation
+
+evaluation:
+  top_k_fraction: 0.05
+  num_generated_molecules: 3000
+  similarity_threshold: 0.4
+  max_similarity: 0.4
+  # Docking software: QuickVina2 (exhaustiveness=1)
+docking:
+  tool: "QuickVina2"
+  exhaustiveness: 1
+  docking_range: [-20, 0]
+
+hyperparameters:
+  ib_noise_mu: 0
+  ib_noise_sigma: 1
+  ib_loss_coeff: 1e-5
+  molecule_size_limit: 40
+  vocab_size_fixed: 300
+  vocab_size_max: 1000
+  vocab_update_per_cycle: 50
+
+special_notes:
+  # Filter out molecules invalid after RDKit sanitization.
+  # Use RDKit for QED, SA, diversity, and similarity scores.
+  # Use GNN and GCN: torch_geometric with 3 message passes.

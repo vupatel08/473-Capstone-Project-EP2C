@@ -1,0 +1,114 @@
+{
+  "utils.py": [
+    {
+      "Functionality": "Normalization Utilities",
+      "Description": "Provide functions to normalize and denormalize variate series, ensuring that each variate is normalized independently to Gaussian distribution as per the paper's approach.",
+      "Key Points": [
+        "Implement normalize_variates(series: np.ndarray) -> np.ndarray:",
+        "Input: series of shape (T, N) (time steps x variates).",
+        "Process: For each variate (column), compute mean and std; normalize to zero mean and unit variance.",
+        "Output: normalized series of same shape.",
+        "Store: Mean and std for each variate for potential denormalization."
+      ],
+      "Implementation notes": [
+        "Store normalization parameters (means and stds) in a dictionary or a class attribute for later denormalization.",
+        "Ensure numerical stability by adding epsilon in denominator."
+      ],
+      "Function": "def normalize_variates(series: np.ndarray) -> np.ndarray:"
+    },
+    {
+      "Functionality": "Denormalization Function",
+      "Description": "Revert normalized variate series back to original scale using stored mean and std.",
+      "Key Points": [
+        "Input: normalized_series, means, stds.",
+        "Process: original_series = normalized_series * stds + means.",
+        "Ensure broadcasting matches shape (T, N)."
+      ],
+      "Implementation notes": [
+        "Requires stored mean and std per variate, possibly passed as parameters or stored globally."
+      ],
+      "Function": "def denormalize_variates(normalized_series: np.ndarray, means: np.ndarray, stds: np.ndarray) -> np.ndarray:"
+    },
+    {
+      "Functionality": "Plot Series and Forecasts",
+      "Description": "Visualize input series, forecasted series, and predicted outputs for qualitative assessment.",
+      "Key Points": [
+        "Input: raw series, forecasted series, prediction horizon, optional title.",
+        "Plot time on x-axis, series values on y-axis.",
+        "Different colors for input and forecasted series.",
+        "Optionally save plots to file or display interactively."
+      ],
+      "Implementation notes": [
+        "Use matplotlib.pyplot for plotting.",
+        "Ensure clear legends, titles, labels.",
+        "Handle multiple variates: plot as multiple lines or subplots."
+      ],
+      "Function": "def plot_series(series: np.ndarray, forecast: np.ndarray, title: str = '', save_path: str = None) -> None:"
+    },
+    {
+      "Functionality": "Plot Attention Maps",
+      "Description": "Visualize the attention score matrices (correlation maps) from the multi-head self-attention modules to interpret multivariate correlations.",
+      "Key Points": [
+        "Input: attention matrix (N x N), where N is the number of variates.",
+        "Plot as heatmap with labels: variate names or indices.",
+        "Optional: overlay or animate over layers or heads for detailed analysis."
+      ],
+      "Implementation notes": [
+        "Use seaborn or matplotlib's imshow with colorbar.",
+        "Add axis labels, title, color scale.",
+        "Handle large matrices carefully to maintain readability."
+      ],
+      "Function": "def plot_attention_matrix(matrix: np.ndarray, title: str = '', save_path: str = None) -> None:"
+    },
+    {
+      "Functionality": "Model Saving and Loading",
+      "Description": "Facilitate saving trained models and loading checkpoints for inference or further training.",
+      "Key Points": [
+        "Save: Save model state_dict() with filename, possibly include optimizer state and hyperparameters.",
+        "Load: Load checkpoint, restore model parameters."
+      ],
+      "Implementation notes": [
+        "Use torch.save() and torch.load().",
+        "Maintain consistent filename conventions, e.g., 'model_epoch_{epoch}.pth'."
+      ],
+      "Function": [
+        "def save_model(model: torch.nn.Module, save_path: str) -> None:",
+        "def load_model(model: torch.nn.Module, load_path: str) -> torch.nn.Module:"
+      ]
+    },
+    {
+      "Functionality": "Configuration Handling",
+      "Description": "Set up and parse the configuration settings, primarily from the provided 'config.yaml' file, ensuring parameters are accessible for other modules.",
+      "Key Points": [
+        "Use yaml.safe_load() to load configuration.",
+        "Provide functions to retrieve hyperparameters, dataset paths, etc.",
+        "Set default values if missing, or raise errors for critical missing parameters."
+      ],
+      "Implementation notes": [
+        "Define a function load_config(config_path: str) -> dict.",
+        "Cache loaded configs for efficiency.",
+        "Validate key parameters (e.g., data paths, model dims)."
+      ],
+      "Function": "def load_config(config_path: str) -> dict:"
+    },
+    {
+      "Functionality": "Miscellaneous Utilities",
+      "Description": "Include helper functions such as computing metrics (MSE, MAE), statistical summaries, and basic tensor operations that support visualization and evaluation.",
+      "Key Points": [
+        "Implement compute_metrics(predictions: np.ndarray, targets: np.ndarray) -> dict:",
+        "Return metrics like MSE, MAE.",
+        "Design flexible to add other metrics if needed."
+      ],
+      "Implementation notes": [
+        "Use numpy functions for calculations.",
+        "Ensure shape compatibility."
+      ],
+      "Function": "def compute_metrics(preds: np.ndarray, targets: np.ndarray) -> dict:"
+    }
+  ],
+  "Additional notes": [
+    "All functions should include input validation and error handling to ensure robustness.",
+    "Maintain consistent data formats (numpy arrays, torch tensors) to facilitate seamless data flow between components.",
+    "Document assumptions regarding data shapes and normalization procedures to enable correct use."
+  ]
+}

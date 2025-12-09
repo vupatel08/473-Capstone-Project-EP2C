@@ -1,0 +1,28 @@
+# Requirements.txt for Reproduction of "Drug Discovery with Dynamic Goal-aware Fragments (GEAM)"
+
+# Core Libraries for Deep Learning, Graph Processing, and Molecular Data
+torch>=1.9
+torch_geometric
+rdkit-pypi
+
+# Reinforcement Learning Framework
+ray[rllib]
+
+# Numerical and Scientific Computing
+numpy
+scipy
+
+# External Software and Tools
+# - Docking Software: QuickVina2 (external executable), to be invoked via subprocess or wrapper API
+# - Molecule Chemistry Utilities: RDKit (already included via rdkit-pypi)
+
+# Usage Notes:
+# - Ensure that QuickVina2 is installed and accessible via system PATH or configured path for docking evaluations
+# - All datasets (ZINC250k) should be preprocessed into SMILES and graph formats compatible with dataset_loader.py
+# - The code will depend on the above packages for GNN encoding, RL training, molecule manipulation, and property calculations
+
+# Additional Recommendations:
+# - For reproducibility, consider fixing the CUDA/cuDNN version if GPU acceleration is used
+# - Verify that all external dependencies (e.g., QuickVina2, RDKit) are properly installed and configured
+
+# End of requirements.txt

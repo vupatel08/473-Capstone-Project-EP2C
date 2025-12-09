@@ -1,0 +1,310 @@
+## dataset_generator.py
+
+import os
+import json
+import random
+import time
+from typing import List, Dict, Tuple, Optional
+import openai
+import numpy as np
+from tqdm import tqdm
+import re
+
+from utils import (
+    generate_prompt,
+    assemble_context,
+    tokenize_and_process,
+    save_dataset,
+    load_dataset,
+    format_prompt_template,
+    normalize_text,
+    calculate_context_length,
+)
+import yaml
+
+# Load configuration
+with open('config.yaml', 'r') as f:
+    CONFIG = yaml.safe_load(f)
+
+# Configuration parameters
+TOTAL_DATA_SIZE = int(CONFIG['training'].get('dataset_size', 1100000))
+BATCH_SIZE = int(CONFIG['training'].get('batch_size', 128))
+TOTAL_STEPS = int(CONFIG['training'].get('steps_per_epoch', 14000))
+LONG_CONTEXT_MIN = int(CONFIG['long_context'].get('min_length', 4000))
+LONG_CONTEXT_MAX = int(CONFIG['long_context'].get('max_length', 32000))
+LENGTH_DIST = CONFIG['long_context'].get('length_distribution', [4000, 8000, 16000, 32000])
+MODEL_NAME = CONFIG['model'].get('name', 'mistral-7b-instruct-v0.2')
+ROPE_BASE_DEFAULT = float(CONFIG['model'].get('rope_base', 1e6))
+USE_SLIDING_WINDOW = CONFIG['evaluation'].get('use_sliding_window', True)
+SLIDING_WINDOW_SIZE = int(CONFIG['evaluation'].get('sliding_window_size', 4096))
+API_TEMPERATURE = CONFIG['generation'].get('temperature', 0.7)
+API_TOP_P = CONFIG['generation'].get('top_p', 0.95)
+
+# OpenAI API key
+API_KEY = os.getenv('OPENAI_API_KEY', None)
+if API_KEY is None:
+    raise ValueError("Please set OPENAI_API_KEY environment variable.")
+
+# Helper: Set seed for reproducibility
+SEED = 42
+random.seed(SEED)
+np.random.seed(SEED)
+
+# Load tokenizer (assuming tokenization is consistent across utils.py and model)
+from transformers import AutoTokenizer
+tokenizer = AutoTokenizer.from_pretrained(MODEL_NAME, use_fast=True)
+if tokenizer.pad_token is None:
+    tokenizer.pad_token = tokenizer.eos_token
+
+# --- Data source: Assume we have a large corpus of raw texts (strings).
+# For simplicity, here we define a placeholder function to get raw texts.
+# In practice, you should replace `get_raw_texts()` with your actual corpus loader.
+
+def get_raw_texts() -> List[str]:
+    """
+    Placeholder: Load your large corpus here.
+    For example, read texts from files, datasets, or preprocessed data.
+    """
+    # For demonstration, returning a small list
+    return [
+        ("This is a sample document about climate change. It discusses impacts and mitigation strategies." * 50),
+        ("Detailed scientific findings on quantum computing. Includes algorithms and hardware details." * 40),
+        # ... load actual large corpus in practical usage
+    ]
+
+# Optional: filter texts to avoid overlaps with evaluation sets
+def filter_texts(texts: List[str], eval_overlap_set: set, min_overlap_grams=10) -> List[str]:
+    """
+    Filter texts to avoid overlap with evaluation datasets.
+    """
+    filtered_texts = []
+    for txt in texts:
+        # crude overlap check: count overlapping 10-grams
+        grams = set(re.findall(r'\b\w+\b', txt))
+        overlap = grams.intersection(eval_overlap_set)
+        if len(overlap) < min_overlap_grams:
+            filtered_texts.append(txt)
+    return filtered_texts
+
+# --- Main class for dataset generation
+class DatasetGenerator:
+    def __init__(self,
+                 raw_texts: List[str],
+                 max_examples: int = TOTAL_DATA_SIZE,
+                 batch_size: int = BATCH_SIZE,
+                 context_lengths: List[int] = LENGTH_DIST,
+                 min_len: int = LONG_CONTEXT_MIN,
+                 max_len: int = LONG_CONTEXT_MAX,
+                 api_temperature: float = API_TEMPERATURE,
+                 top_p: float = API_TOP_P,
+                 use_sliding_window: bool = USE_SLIDING_WINDOW,
+                 sliding_window_size: int = SLIDING_WINDOW_SIZE,
+                 model_name: str = MODEL_NAME,
+                 rope_base: float = ROPE_BASE_DEFAULT,
+                 instruction_templates: Dict[str, str] = None,
+                 multi_hop_ratio: float = 0.7,  # ratio of multi-hop QA samples
+                 fine_grained_ratio: float = 0.3  # ratio of fine-grained
+                ):
+        self.raw_texts = raw_texts
+        self.max_examples = max_examples
+        self.batch_size = batch_size
+        self.context_lengths = context_lengths
+        self.min_len = min_len
+        self.max_len = max_len
+        self.api_temperature = api_temperature
+        self.top_p = top_p
+        self.use_sliding_window = use_sliding_window
+        self.sliding_window_size = sliding_window_size
+        self.model_name = model_name
+        self.rope_base = rope_base
+        # instruction templates for prompt generation
+        self.instruction_templates = instruction_templates or {
+            'fine_grained': "Given a short segment of text, generate a highly specific question and its answer based solely on that segment: {segment}",
+            'multi_hop': "Given multiple segments, produce a question that requires integrating and reasoning across these segments: {segments}. Provide the answer as well.",
+        }
+        # ratios for QA types
+        self.multi_hop_ratio = multi_hop_ratio
+        self.fine_grained_ratio = fine_grained_ratio
+
+        # Placeholder for evaluation set overlap filtering
+        self.eval_overlap_set = set()  # Should be populated with overlapping n-grams in practice
+
+    def get_random_raw_text(self) -> str:
+        return random.choice(self.raw_texts)
+
+    def sample_length(self) -> int:
+        return random.choice(self.context_lengths)
+
+    def get_segments_from_text(self, text: str) -> List[str]:
+        """
+        Segment a raw text into 128-token chunks, using Algorithm 1.
+        """
+        tokens = tokenizer.tokenize(text)
+        segments = []
+        i = 0
+        while i < len(tokens):
+            chunk = tokens[i: i + 128]
+            seg_text = tokenizer.convert_tokens_to_string(chunk)
+            segments.append(seg_text)
+            i += 128  # step size
+        return segments
+
+    def build_long_context(self, segments: List[str], target_token_count: int) -> str:
+        """
+        Assemble a long context from randomly shuffled segments to match target length.
+        """
+        # Shuffle segments
+        segs = segments.copy()
+        random.shuffle(segs)
+        context_tokens = []
+        for seg in segs:
+            token_ids = tokenizer.encode(seg, add_special_tokens=False)
+            if len(context_tokens) + len(token_ids) > target_token_count:
+                break
+            context_tokens.extend(token_ids)
+        # Convert back to string
+        context_text = tokenizer.decode(context_tokens, clean_up_tokenization_spaces=True)
+        return context_text
+
+    def generate_qa_for_segment(self, segment: str, instruction_type: str='fine_grained') -> Tuple[str, str]:
+        """
+        Generate QA pair from a single segment using GPT-4 API.
+        """
+        prompt = generate_prompt(
+            self.instruction_templates[instruction_type],
+            segment,
+            instruction_type
+        )
+        # Call GPT-4 API
+        response = self.call_gpt_api(prompt)
+        question, answer = self.parse_qa_response(response)
+        return question, answer
+
+    def generate_qa_for_segments(self, segments: List[str]) -> Tuple[str, str]:
+        """
+        Generate QA that requires multiple segments (multi-hop).
+        """
+        segments_str = " | ".join(segments)
+        prompt = generate_prompt(
+            self.instruction_templates['multi_hop'],
+            segments_str,
+            'multi_hop'
+        )
+        response = self.call_gpt_api(prompt)
+        question, answer = self.parse_qa_response(response)
+        return question, answer
+
+    def call_gpt_api(self, prompt: str) -> str:
+        """
+        Send prompt to GPT-4 API with retries and rate limiting handling.
+        """
+        max_retries = 3
+        for attempt in range(max_retries):
+            try:
+                response = openai.ChatCompletion.create(
+                    model='gpt-4',
+                    messages=[
+                        {"role": "system", "content": "You are an assistant generating QA pairs for training."},
+                        {"role": "user", "content": prompt}
+                    ],
+                    temperature=self.api_temperature,
+                    top_p=self.top_p,
+                    max_tokens=512,
+                    api_key=API_KEY
+                )
+                return response.choices[0].message['content']
+            except Exception as e:
+                print(f"API call error: {e}")
+                time.sleep(2 ** attempt)  # exponential backoff
+        raise RuntimeError("GPT API call failed after retries.")
+
+    def parse_qa_response(self, response_text: str) -> Tuple[str, str]:
+        """
+        Parse the GPT response to extract question and answer.
+        Expect format: Q: ... \nA: ...
+        """
+        q_match = re.search(r'Q[:\s]*(.+)', response_text, re.IGNORECASE)
+        a_match = re.search(r'A[:\s]*(.+)', response_text, re.IGNORECASE)
+        question = q_match.group(1).strip() if q_match else "Question"
+        answer = a_match.group(1).strip() if a_match else "Answer"
+        return question, answer
+
+    def generate_example(self, example_idx: int) -> Dict:
+        """
+        Generate a single dataset example: long context + QA pair.
+        """
+        # Sample raw text
+        text = self.get_random_raw_text()
+
+        # Segment the raw text
+        segments = self.get_segments_from_text(text)
+        total_tokens = calculate_context_length(tokenizer.encode(text))
+        # Determine target length for long context
+        target_length = self.sample_length()
+
+        # Assemble long context
+        long_context = assemble_context(segments, target_length)
+
+        # Decide QA type: fine-grained or multi-hop based on ratio
+        if random.random() < self.fine_grained_ratio:
+            qa_type = 'fine_grained'
+        else:
+            qa_type = 'multi_hop'
+
+        # Generate QA pair
+        if qa_type == 'fine_grained':
+            # Pick one segment to base question
+            selected_seg = random.choice(segments)
+            question, answer = self.generate_qa_for_segment(selected_seg, 'fine_grained')
+        else:
+            # For multi-hop, select 2-3 segments
+            num_segments_for_q = random.randint(2, min(4, len(segments)))
+            selected_segments = random.sample(segments, num_segments_for_q)
+            question, answer = self.generate_qa_for_segments(selected_segments)
+
+        # Build the sample dict
+        sample = {
+            'context': long_context,
+            'question': question,
+            'answer': answer,
+            'context_length': calculate_context_length(tokenizer.encode(long_context)),
+            'qa_type': qa_type,
+            'segments_used': selected_seg if qa_type=='fine_grained' else selected_segments
+        }
+        return sample
+
+    def generate_dataset(self) -> List[Dict]:
+        """
+        Generate the entire dataset up to max_examples samples.
+        """
+        dataset = []
+        print("Starting dataset generation...")
+        for i in tqdm(range(self.max_examples)):
+            try:
+                example = self.generate_example(i)
+                dataset.append(example)
+                # Optional: periodic saving per batch
+                if (i+1) % 10000 == 0:
+                    save_dataset(dataset, f'dataset_part_{i+1}.json')
+            except Exception as e:
+                print(f"Error generating example {i}: {e}")
+                continue
+        print("Finished dataset generation.")
+        return dataset
+
+# --- Main execution
+def main():
+    print("Loading raw texts...")
+    raw_texts = get_raw_texts()
+
+    print("Initializing dataset generator...")
+    generator = DatasetGenerator(raw_texts=raw_texts)
+
+    dataset = generator.generate_dataset()
+
+    print("Saving full dataset to 'full_dataset.json'...")
+    save_dataset(dataset, 'full_dataset.json')
+    print("Dataset saved successfully.")
+
+if __name__ == '__main__':
+    main()

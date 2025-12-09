@@ -1,0 +1,61 @@
+{
+  "file_name": "pcst_solver.py",
+  "purpose": "Implement a near-linear time Prize-Collecting Steiner Tree (PCST) solver that, given node prizes, edge prizes, and a uniform edge cost, identifies an optimal connected subgraph maximizing total prize minus edge costs. The result is returned as a NetworkX graph representing the relevant subgraph for retrieval and explanation in the G-Retriever framework.",
+  "Key functional requirements": [
+    "Input parameters:",
+    "  - node_prizes: np.ndarray of shape (N,) representing prizes for each node in the graph.",
+    "  - edge_prizes: np.ndarray of shape (M,) representing prizes for each edge.",
+    "  - edge_cost: float representing uniform cost assigned to each edge.",
+    "Output:",
+    "  - A networkx.Graph object containing a connected subgraph adhering to PCST criteria."
+  ],
+  "Assumptions": [
+    "The input graph (nodes and edges) can be reconstructed or is implicitly represented via node_prizes and edge_prizes.",
+    "The number of nodes and edges are compatible with the provided prize arrays.",
+    "The algorithm is designed for efficiency, thus approximate solutions are acceptable; exact NP-hard solutions are infeasible at the scale (~near-linear time requirement).",
+    "The prizes and costs are non-negative; handling negative prizes (via virtual nodes) is incorporated to avoid negative edge costs.",
+    "The graph structure is sparse enough to allow near-linear time algorithms."
+  ],
+  "Implementation details / Approach": [
+    "1. Graph Reconstruction:",
+    "   - (Optional) If the graph structure isn't provided explicitly, assume the virtual graph can be reconstructed or is accessible; if not, the process is conceptualized as operating over abstract prizes and costs.",
+    "   - For the purpose of this function, the internal graph structure for the PCST is an abstract or preconstructed graph with nodes and edges linked via indices.",
+    "2. Prize Assignment and Virtual Nodes:",
+    "   - Use node_prizes directly for top-k nodes (based on rank or similarity).",
+    "   - Use edge_prizes similarly for top-k edges.",
+    "   - For edges where the edge prize exceeds the edge cost, model negative edge costs via virtual nodes:"
+    + "   - Create a virtual node per such edge, connecting it to both endpoints, and assign a prize equal to (edge prize - edge cost) to the virtual node.",
+    "   - Connect the virtual node with zero-cost edges to original endpoints.",
+    "3. Solving PCST:",
+    "   - Use a near-linear time approximation algorithm as per [9].",
+    "   - The algorithm should aim to maximize sum of node and edge prizes minus total edge costs, possibly adopting a primal-dual or greedy heuristic suitable for large graphs.",
+    "4. Return:",
+    "   - Output the resulting connected subgraph as a networkx.Graph object, containing nodes and edges selected by the PCST solution.",
+    "   - Remove any virtual nodes and associated edges from the output to keep the subgraph structurally relevant.",
+    "   - Ensure that the subgraph is connected and comprises the nodes and edges with the highest cumulative prize, subject to the cost constraints."
+  ],
+  "Step-by-step logic": [
+    "A. Initialize a graph structure, possibly a NetworkX graph, with nodes and edges corresponding to the global graph or to a virtualized version where necessary.",
+    "B. Assign initial node prizes directly from node_prizes array.",
+    "C. Assign edge prizes directly from edge_prizes array.",
+    "D. For each edge where prize > edge_cost, replace the edge with a virtual node:",
+    "   - Create a new node (virtual node) with prize = (edge prize - edge cost).",
+    "   - Connect this node to the original endpoints with zero-cost edges.",
+    "E. Run the PCST approximation algorithm over this augmented graph:",
+    "   - The algorithm selects a subset of nodes and edges that maximize total prize minus total edge costs.",
+    "   - The solution should enforce connectivity and maximize prize collection.",
+    "F. Extract the subgraph from the solution:",
+    "   - Remove virtual nodes and their incident edges.",
+    "   - Ensure only original nodes and edges remain in the output.",
+    "G. Output the subgraph as a networkx.Graph object.",
+    "H. Guarantee that the subgraph is connected, validated via connectivity checks.",
+    "I. Return the subgraph or handle cases where no nodes/edges are selected (empty graph)."
+  ],
+  "Notes": [
+    "This implementation relies on a suitable approximation algorithm detailed in [9], which is known for near-linear complexity and good practical performance.",
+    "Handling of virtual nodes ensures that the possibility of negative edge costs is incorporated without violating algorithm constraints.",
+    "The function should be designed modularly, allowing optional parameters (e.g., parameters for the approximation algorithm).",
+    "Efficiency tips: Use sparse graph representations, avoid unnecessary copying, and leverage optimized libraries such as NetworkX and numpy."
+  ],
+  "Summary": "The core purpose of 'solve_pcst' is to mediate between the prizes (node and edge rewards that reflect relevance) and costs (edge penalty, including the virtual node mechanism to handle edge prize > cost scenarios), and to identify a subgraph that best balances relevance and compactness for downstream retrieval tasks. The approximate PCST algorithm must be scalable, fast, and capable of producing solutions consistent with the formulation, enabling effective subgraph retrieval in the large-scale and complex graph environment described."
+}

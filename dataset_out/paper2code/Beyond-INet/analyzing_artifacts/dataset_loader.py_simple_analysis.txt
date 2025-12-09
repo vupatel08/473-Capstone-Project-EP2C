@@ -1,0 +1,138 @@
+**Logic Analysis for dataset_loader.py**
+
+---
+
+### Overview:
+The purpose of `dataset_loader.py` is to define the `DatasetLoader` class, which manages loading various datasets—such as ImageNet-1K, ImageNet-R, synthetic datasets like PUG-ImageNet, and cue-conflict images—applying appropriate transformations, and providing PyTorch DataLoader objects for evaluation or analysis purposes.
+
+---
+
+### Core Responsibilities:
+- Initialize with configuration parameters.
+- Load datasets according to specified names and subsets.
+- Apply dataset-specific data transformations (resize, crop, augmentation).
+- Prepare DataLoader objects with given batch sizes, shuffling policies, etc.
+- Support special datasets/testing conditions for invariance, bias, mistake analysis, etc.
+- Handle synthetic and out-of-distribution datasets distinct from standard ImageNet.
+
+---
+
+### Step-by-step Details:
+
+---
+
+#### 1. Initialization
+
+- Accept a configuration object or dictionary, which specifies:
+  - Dataset name and parameters.
+  - Image size, transformations, and dataset paths.
+- Set dataset directory paths based on the dataset name (assuming datasets stored locally or via torchvision/datasets).
+
+#### 2. Dataset Loading
+
+- **Standard datasets (e.g., ImageNet):**
+  - If the dataset is ImageNet-1K:
+    - Use torchvision's `ImageFolder` or a dedicated ImageNet loader.
+    - Apply standard transformations (resize to `image_size`, center crop, normalization).
+    - Split into validation set (since validation_split is true).
+  - Load validation images for performance evaluation.
+- **Other datasets:**
+  - **ImageNet-R** (out-of-distribution dataset):
+    - Load custom dataset, possibly from a specified directory or archive.
+    - Use similar transforms as validation for consistency.
+  - **Synthetic datasets (PUG-ImageNet):**
+    - Load images generated with factors of variation.
+    - Likely stored as a folder structure or a structured dataset format.
+    - Support batching and apply same preprocessing as evaluation images.
+  - **Cue-conflict images:**
+    - Load images specifically prepared with conflicting shape and texture cues.
+    - Provide labels indicating shape/texture bias evaluation.
+    - These images may be stored separately or generated on-the-fly (if generation code provided elsewhere).
+
+#### 3. Transformations
+
+- Define transforms dynamically based on the use case:
+  - **Evaluation:**
+    - Resize to the dataset's `image_size`.
+    - Center crop.
+    - Convert to tensor.
+    - Normalize mean/std.
+  - **Invariance testing (scale, shift, resolution):**
+    - Additional or different transforms will be applied during the evaluation phase, possibly within data generator functions.
+- Handle dataset-specific transforms, e.g.:
+  - For shape/texture bias: apply cue-conflict image trees.
+  - For synthetic datasets: apply factors like pose, texture, size variations as per dataset generation methods.
+
+#### 4. DataLoader Preparation
+
+- Wrap datasets with `torch.utils.data.DataLoader`:
+  - Use specified batch size (`evaluation.batch_size`).
+  - Set `shuffle=False` for validation datasets.
+  - Set `num_workers` appropriately (say 4 or 8).
+  - Enable pin_memory for GPU speedups.
+
+#### 5. Dataset Interface
+
+- Return DataLoader objects for:
+  - Standard validation set.
+  - Synthetic datasets.
+  - Cue-conflict images.
+  - Variations (for invariance tests).
+
+---
+
+### Dataset Modules/Classes:
+
+- Consider defining multiple internal Dataset classes or functions:
+  - `ImageNetValidationDataset`
+  - `ImageNetRDataset`
+  - `SyntheticDataset` (PUG-ImageNet)
+  - `CueConflictDataset`
+  - Each supports:
+    - Initialization with image list and labels.
+    - Transformation application.
+
+---
+
+### Dataset Paths & Data Sources:
+
+- Assume dataset paths are configured via environment variables or predefined constants.
+- For datasets like ImageNet, rely on torchvision datasets or custom loading if datasets are not prepackaged.
+- For synthetic and cue-conflict images, specify local directories or load from structured data files.
+
+---
+
+### Handling Specific Dataset Configurations:
+- For synthetic data:
+  - Load images corresponding to each factor (pose, size, texture, etc.)
+  - Provide mechanism to evaluate performance across these factors.
+- For cue-conflict images:
+  - Load images designed with conflicting cues, possibly in a dedicated directory.
+  - Assign labels for shape-based vs texture-based classification.
+
+---
+
+### Error Handling & Data Validation:
+- Check existence and validity of dataset paths.
+- Validate number of images loaded matches expectations.
+- Ensure transformations do not alter labels or data integrity.
+
+---
+
+### Summary:
+
+**Inputs:**
+- Configuration dictionary (dataset name, image size, dataset paths, etc.)
+
+**Outputs:**
+- One or more `DataLoader` objects for evaluation or analysis, dynamically configured for each dataset type.
+
+**Key Points:**
+- Support multiple dataset types with minimal code duplication.
+- Efficient batch processing.
+- Dataset-specific transformations for accurate property analysis.
+- Modular design to facilitate adding new datasets or testing conditions.
+
+---
+
+This detailed logic analysis ensures a comprehensive, flexible implementation aligned with the experimental needs described in the paper.

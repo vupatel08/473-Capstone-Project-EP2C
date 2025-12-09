@@ -1,0 +1,3163 @@
+[
+    {
+        "type": "text",
+        "text": "InfLLM: Training-Free Long-Context Extrapolation for LLMs with an Efficient Context Memory ",
+        "text_level": 1,
+        "bbox": [
+            181,
+            122,
+            818,
+            172
+        ],
+        "page_idx": 0
+    },
+    {
+        "type": "text",
+        "text": "Chaojun Xiao1∗, Pengle Zhang1∗, $\\mathbf { X } \\mathbf { u } \\ \\mathbf { H a n } ^ { 2 , 1 , 3 \\dagger }$ †, Guangxuan Xiao4, Yankai $\\mathbf { L i n } ^ { 5 }$ , Zhengyan Zhang1, Zhiyuan $\\mathbf { L i u } ^ { 1 \\dagger }$ , Maosong Sun1† 1NLP Group, DCST, IAI, BNRIST, Tsinghua University 2Quan Cheng Laboratory 3Shanghai Artificial Intelligence Laboratory 4Massachusetts Institution of Technology 5Renmin University of China xiaocj20@mails.tsinghua.edu.cn, {hanxu2022,liuzy}@tsinghua.edu.cn ",
+        "bbox": [
+            222,
+            224,
+            777,
+            314
+        ],
+        "page_idx": 0
+    },
+    {
+        "type": "text",
+        "text": "Abstract ",
+        "text_level": 1,
+        "bbox": [
+            462,
+            348,
+            535,
+            364
+        ],
+        "page_idx": 0
+    },
+    {
+        "type": "text",
+        "text": "Large language models (LLMs) have emerged as a cornerstone in real-world applications with lengthy streaming inputs (e.g., LLM-driven agents). However, existing LLMs, pre-trained on sequences with a restricted maximum length, cannot process longer sequences due to the out-of-domain and distraction issues. Common solutions often involve continual pre-training on longer sequences, which will introduce expensive computational overhead and uncontrollable change in model capabilities. In this paper, we unveil the intrinsic capacity of LLMs for understanding extremely long sequences without any fine-tuning. To this end, we introduce a training-free memory-based method, InfLLM. Specifically, InfLLM stores distant contexts into additional memory units and employs an efficient mechanism to lookup token-relevant units for attention computation. Thereby, InfLLM allows LLMs to efficiently process long sequences with a limited context window and well capture long-distance dependencies. Without any training, InfLLM enables LLMs that are pre-trained on sequences consisting of a few thousand tokens to achieve comparable performance with competitive baselines that continually train these LLMs on long sequences. Even when the sequence length is scaled to 1, 024K, InfLLM still effectively captures long-distance dependencies. Our code can be found at https://github.com/thunlp/InfLLM. ",
+        "bbox": [
+            233,
+            381,
+            766,
+            628
+        ],
+        "page_idx": 0
+    },
+    {
+        "type": "text",
+        "text": "1 Introduction ",
+        "text_level": 1,
+        "bbox": [
+            174,
+            656,
+            312,
+            674
+        ],
+        "page_idx": 0
+    },
+    {
+        "type": "text",
+        "text": "Recently, large language models (LLMs) have achieved profound accomplishments in various tasks (Brown et al., 2020; Bommasani et al., 2021; Han et al., 2021; Touvron et al., 2023; Meta, 2024). Their ability to follow complex instructions shed light on the realization of artificial general intelligence (OpenAI, 2023; Ouyang et al., 2022). With the blooming of LLM-driven applications, such as agent construction (Park et al., 2023; Qian et al., 2023; Wang et al., 2024a) and embodied robotics (Driess et al., 2023; Liang et al., 2023), enhancing the capability of LLMs to process streaming long sequences become increasingly crucial. For instance, LLM-driven agents are required to process information continuously received from external environments based on all their historical memories, necessitating a robust capability for handling long streaming sequences. ",
+        "bbox": [
+            174,
+            688,
+            825,
+            813
+        ],
+        "page_idx": 0
+    },
+    {
+        "type": "text",
+        "text": "Due to limitations caused by unseen lengthy inputs (Han et al., 2023) and distracting noisy contexts (Liu et al., 2023; Tworkowski et al., 2023), most LLMs, pre-trained on sequences consisting of only a few thousand tokens, cannot process longer sequences (Press et al., 2022; Zhao et al., 2023). ",
+        "bbox": [
+            176,
+            819,
+            826,
+            861
+        ],
+        "page_idx": 0
+    },
+    {
+        "type": "text",
+        "text": "Common solutions usually involve continually training LLMs on longer sequences but further result in substantial costs and require large-scale high-quality long-sequence datasets (Xiong et al., 2023; Li et al., 2023). And the continual training process on longer sequences may weaken the performance of LLMs on short contexts (Ding et al., 2024). In view of this, improving the length generalizability of LLMs without further training receives extensive attention, trying to make LLMs trained on short sequences directly applicable to long sequences. ",
+        "bbox": [
+            173,
+            90,
+            825,
+            174
+        ],
+        "page_idx": 1
+    },
+    {
+        "type": "text",
+        "text": "In this paper, we propose a training-free memory-based approach, named InfLLM, for streamingly processing extremely long sequences with limited computational costs. Specifically, InfLLM incorporate the sliding window attention (Xiao et al., 2023; Han et al., 2023) with an efficient context memory, where each token only attends to local contexts and relevant contexts from the memory. Considering the sparsity of attention score matrices, processing each token typically requires only a small portion of its contexts (Zhang et al., 2023b), and the remaining irrelevant contexts act as noise, leading to attention distraction issues (Tworkowski et al., 2023). We thus construct an external memory containing distant context information. Only relevant information within the memory is selected for each computation step, and other irrelevant noises are ignored. Owing to this, LLMs can understand whole long sequences using a finite-size window and avoid noisy contexts. ",
+        "bbox": [
+            174,
+            181,
+            825,
+            319
+        ],
+        "page_idx": 1
+    },
+    {
+        "type": "text",
+        "text": "The vast amount of noisy context tokens in long sequences poses significant challenges to effective and efficient memory lookup. To address these challenges, we design a block-level context memory mechanism. Specifically, InfLLM organizes past key-value vectors into blocks, each containing a continuous token sequence. Within each block, the semantically most significant tokens that receive the highest attention scores are selected as the unit representation for subsequent relevance computation in memory lookup. This design offers two primary benefits: (1) Effective Lookup: The coherent semantics of each block can more effectively fulfill the requirements for relevant information retrieval compared to single tokens. The selection of unit representations minimizes the interference of unimportant tokens in relevance computation, enhancing the overall hit rate of memory lookup. (2) Efficient Lookup: The block-level memory unit eliminates the need for per-token relevance computation, significantly reducing computational costs. Moreover, block-level units ensure contiguous memory access, thus minimizing memory loading costs and enhancing computational efficiency. Furthermore, considering the infrequent usage of most units, InfLLM offloads all units on CPU memory and dynamically retains the frequently used units on GPU memory, significantly reducing GPU memory usage. Notably, the block-level memory mechanism in InfLLM does not involve any additional training, and can be directly applied to any LLMs. ",
+        "bbox": [
+            174,
+            325,
+            825,
+            546
+        ],
+        "page_idx": 1
+    },
+    {
+        "type": "text",
+        "text": "To evaluate the effectiveness of InfLLM, we employ Mistral-7B-inst-v0.2 (Jiang et al., 2023) and Llama-3-8B-Instruct (Meta, 2024) as base models, which are pre-trained on the sequences containing no more than 32K and 8K tokens. We use two widely-used benchmarks, $\\infty$ -Bench (Zhang et al., 2023a) and Longbench (Bai et al., 2023), for evaluation. Especially, the average sequence length in $\\infty$ -Bench exceeds 100K tokens, which is challenging for most existing LLMs. Compared to typical methods that continually train LLMs on longer sequences, the experimental results demonstrate that InfLLM enables the LLMs pre-trained on the sequences containing a few thousand tokens to achieve comparable performance without any additional training. Moreover, we examine InfLLM on the sequences containing 1, 024K tokens, and InfLLM can still effectively capture long-distance dependencies, demonstrating the potential of InfLLM in scenarios involving long streaming inputs. ",
+        "bbox": [
+            174,
+            553,
+            825,
+            691
+        ],
+        "page_idx": 1
+    },
+    {
+        "type": "text",
+        "text": "2 Related Work ",
+        "text_level": 1,
+        "bbox": [
+            174,
+            717,
+            320,
+            733
+        ],
+        "page_idx": 1
+    },
+    {
+        "type": "text",
+        "text": "Enabling LLMs to process long sequences has been extensively studied (Dong et al., 2023; Tay et al., 2023; Huang et al., 2023) and can generally be categorized into two main approaches: context length extrapolation and efficient context computation. The former aims to enable LLMs trained on short sequences to process much longer sequences. The latter focuses on enhancing the computational efficiency of attention layers, allowing efficient pre-training LLMs from scratch to process longer sequences. Although the focus of this paper is context length extrapolation, we also detailedly introduce efficient context computation. We also present the relevant works for memory-based models. ",
+        "bbox": [
+            174,
+            752,
+            825,
+            863
+        ],
+        "page_idx": 1
+    },
+    {
+        "type": "text",
+        "text": "Context Length Extrapolation. Due to the high computational and memory requirements, the training of LLMs is often restricted to short sequences. Directly applying LLMs to long sequences will suffer from out-of-domain and distraction challenges caused by lengthy and noisy inputs (Han et al., 2023; Tworkowski et al., 2023). Consequently, context length extrapolation has garnered attention as a method to improve the sequence length for LLMs without incurring additional training. The earliest approaches involve designing new relative positional encoding mechanisms during pre-training (Press et al., 2022; Sun et al., 2023). Subsequent studies mainly focus on the widely-used rotary position embedding (RoPE) (Su et al., 2021), and propose to achieve length extrapolation by downscaling or reusing the original position indices (Chen et al., 2023b; Peng et al., 2023; Chen et al., 2023a; Jin et al., 2024; An et al., 2024). These works can alleviate the out-of-domain issue from the unseen length, but can not alleviate the distraction challenge of noisy contexts. To address this, Xiao et al. (2023) and Han et al. (2023) employ the sliding window attention mechanism and directly discard all distant contexts to streamingly read extremely long sequences. However, as these models overlook information from distant tokens, they can not capture the long-distance dependencies for long-text understanding. In this paper, InfLLM utilizes the sliding window attention mechanism, and additionally constructs an efficient context memory to provide LLMs with relevant context information, enabling LLMs to effectively read and understand extremely long sequences. ",
+        "bbox": [
+            176,
+            869,
+            825,
+            911
+        ],
+        "page_idx": 1
+    },
+    {
+        "type": "text",
+        "text": "",
+        "bbox": [
+            174,
+            90,
+            825,
+            285
+        ],
+        "page_idx": 2
+    },
+    {
+        "type": "text",
+        "text": "Efficient Context Computation. The quadratic computational complexity of the attention layers is a primary factor limiting the lengthy sequence-processing capabilities of LLMs. Thus, numerous scholars have endeavored to design efficient attention mechanisms, including the utilization of sparse attention (Zaheer et al., 2020; Beltagy et al., 2020; Child et al., 2019; Ainslie et al., 2020; Zhao et al., 2019), approximating attention computations using kernel functions (Kitaev et al., 2020; Wang et al., 2020; Katharopoulos et al., 2020), and replacing the attention layer with linear-complexity state-space models (Gu et al., 2022; Gu & Dao, 2023). These approaches necessitate a modification in the model architecture, requiring retraining the models. Simultaneously, many researchers enhance the inference efficiency by evicting useless key-value vectors to reduce computation (Zhang et al., 2023b; Li et al., 2024; Ge et al., 2023). These methods can not extrapolate the context window of LLMs without further training due to out-of-domain issues caused by unseen positions. Recently, some researchers begin to explore the intrinsic sparse attention patterns of long-context LLMs and discard the redundant attention computation for acceleration (Jiang et al., 2024). ",
+        "bbox": [
+            173,
+            291,
+            825,
+            470
+        ],
+        "page_idx": 2
+    },
+    {
+        "type": "text",
+        "text": "Memory-based Models. Memory networks have been studied for decades, which are proven effective in providing models with additional knowledge and information storage capabilities (Graves et al., 2014; Weston et al., 2015; Sukhbaatar et al., 2015; Miller et al., 2016). With the success of pretrained models, memory layers have also been gradually applied in the training processes of recurrent transformer layers, enabling models to process long sequences recursively (Dai et al., 2019; Rae et al., 2020; Khandelwal et al., 2020; Wu et al., 2022; Bertsch et al., 2023; Munkhdalai et al., 2024). These works split sequences into segments, encoding each segment individually, and use memory to store context information from preceding segments. While these approaches are similar in concept to InfLLM, they involve modifications to the model architecture and requires further training the whole model. Besides, most existing memory-based methods focus on token-level memory units (Wu et al., 2022; Bertsch et al., 2023), which require a lot of time to build retrieval indexes for large-scale tokens in each input long sequence. Some methods also adopt block-level memory (Mohtashami & Jaggi, 2023; Tworkowski et al., 2023), these methods highlight the process of training effective block representations with long sequence data. In contrast, we aim to explore the inherent characteristics of LLMs, and propose a training-free memory module for long-text understanding. ",
+        "bbox": [
+            174,
+            477,
+            825,
+            685
+        ],
+        "page_idx": 2
+    },
+    {
+        "type": "text",
+        "text": "3 Methodology ",
+        "text_level": 1,
+        "bbox": [
+            174,
+            710,
+            313,
+            728
+        ],
+        "page_idx": 2
+    },
+    {
+        "type": "text",
+        "text": "As shown in Figure 1, InfLLM builds a training-free context memory to efficiently provide highlyrelevant contexts for each token, endowing the sliding window attention mechanism with the ability to capture long-distance dependencies. ",
+        "bbox": [
+            176,
+            747,
+            825,
+            789
+        ],
+        "page_idx": 2
+    },
+    {
+        "type": "text",
+        "text": "3.1 Overall Framework ",
+        "text_level": 1,
+        "bbox": [
+            176,
+            813,
+            349,
+            828
+        ],
+        "page_idx": 2
+    },
+    {
+        "type": "text",
+        "text": "The main restrictions for improving the length generalizability of LLMs come from the out-of-domain and distraction issues caused by the lengthy and noisy contexts. To address these, following previous works (Xiao et al., 2023; Han et al., 2023), we adopt the sliding window attention mechanism, which only considers local tokens for each step. Additionally, we construct an extra context memory module to provide relevant context information to capture long-distance dependencies. ",
+        "bbox": [
+            174,
+            842,
+            823,
+            911
+        ],
+        "page_idx": 2
+    },
+    {
+        "type": "image",
+        "img_path": "images/e2b7865ef953ca33c0b3a3a1b1f1c07f61222e3e46bd6bbc5356da5d8130766a.jpg",
+        "image_caption": [
+            "Figure 1: The illustration of InfLLM. Here, the current tokens refer to tokens that need to be encoded in the current computation step. The past key-value vectors can be divided into the initial tokens, evicted tokens, and local tokens, arranged the furthest to the nearest relative to the current tokens. For each computation step, the context window consists of the initial tokens, relevant memory units, and local tokens. "
+        ],
+        "image_footnote": [],
+        "bbox": [
+            192,
+            92,
+            782,
+            276
+        ],
+        "page_idx": 3
+    },
+    {
+        "type": "text",
+        "text": "Specifically, we denote the long input sequence as $s = \\{ t _ { i } \\} _ { i = 1 } ^ { l }$ . Due to the limited GPU memory, instead of encoding the whole $s$ at once, we encode the input sequence $s$ chunk-by-chunk and generate the output token-by-token. For each computation step, the inputs consist of past key-value vectors $\\mathbf { P } = \\{ ( \\mathbf { k } _ { j } , \\mathbf { v } _ { j } ) \\} _ { j = 1 } ^ { l _ { P } }$ and current tokens $\\mathbf { X } = \\{ \\mathbf { t } _ { i + l _ { P } } \\} _ { i = 1 } ^ { l _ { X } }$ . For encoding steps, $l _ { X }$ equals the chunk size, and for decoding steps, $l _ { X }$ equals one. ",
+        "bbox": [
+            173,
+            371,
+            825,
+            445
+        ],
+        "page_idx": 3
+    },
+    {
+        "type": "text",
+        "text": "According to the distances from current tokens, we can divide $\\mathbf { P }$ into three groups: initial tokens, $\\mathbf { I } = \\mathbf { P } _ { [ 1 : l _ { I } ] }$ , evicted tokens, $\\mathbf { E } = \\mathbf { P } _ { [ l _ { I } + 1 : l _ { P } - l _ { L } ] }$ , and local tokens, $\\mathbf { L } = \\mathbf { P } _ { [ l _ { P } - l _ { L } + 1 : l _ { P } ] }$ , arranged from the furthest to the nearest relative to the current tokens. Here, $l _ { P } , l _ { I }$ , $\\boldsymbol { l } _ { \\dot { \\boldsymbol { L } } }$ refer to the length of past key-value vectors, initial tokens, and the local window size. All evicted tokens, $\\mathbf { E }$ , are stored in the context memory, consisting of multiple memory units. For each step, InfLLM concatenates the initial tokens, relevant memories units from context memory, and local tokens to form the current key-value cache, $\\mathbf { C } = \\operatorname { C o n c a t } ( \\mathbf { I } , f ( \\mathbf { X } , \\mathbf { E } ) , \\mathbf { L } )$ . $f ( \\cdot )$ refers to the lookup operation of context memory. The attention output is calculated as: ",
+        "bbox": [
+            173,
+            452,
+            826,
+            563
+        ],
+        "page_idx": 3
+    },
+    {
+        "type": "equation",
+        "img_path": "images/91652887719b52e5f5f3a0c55633a2e0592259261c3a161de635af327f0a36f8.jpg",
+        "text": "$$\n\\mathbf { O } = \\mathrm { A t t n } \\left[ \\mathbf { Q } \\mathbf { X } , \\mathrm { C o n c a t } ( \\mathbf { C } _ { k } , \\mathbf { K } \\mathbf { X } ) , \\mathrm { C o n c a t } ( \\mathbf { C } _ { v } , \\mathbf { V } \\mathbf { X } ) \\right] .\n$$",
+        "text_format": "latex",
+        "bbox": [
+            316,
+            569,
+            679,
+            587
+        ],
+        "page_idx": 3
+    },
+    {
+        "type": "text",
+        "text": "Here, $\\mathbf { Q } , \\mathbf { K }$ , and $\\mathbf { V }$ are parameters in attention layers, $\\mathbf { C } _ { k }$ and $\\mathbf { C } _ { v }$ refer to the key and value vectors in $\\mathbf { C }$ . If $f ( \\cdot )$ always returns empty sets, InfLLM is degenerated into LM-Infinite (Han et al., 2023) and Streaming-LLM (Xiao et al., 2023), which directly discards distant contexts. ",
+        "bbox": [
+            174,
+            592,
+            825,
+            635
+        ],
+        "page_idx": 3
+    },
+    {
+        "type": "text",
+        "text": "3.2 Context Memory ",
+        "text_level": 1,
+        "bbox": [
+            174,
+            651,
+            331,
+            666
+        ],
+        "page_idx": 3
+    },
+    {
+        "type": "text",
+        "text": "Previous findings indicate that the attention score matrices of LLMs are sparse, and we can generate the same outputs with only a small portion of key-value vectors preserved (Zhang et al., 2023b). Inspired by this, we design a context memory to efficiently look up relevant contexts from large-scale evicted tokens and ignore irrelevant ones to save computational costs. The most intuitive way is to construct a memory consisting of token-level memory units for every past key-value vectors, and every attention head separately, which would result in massive memory units, unacceptable computation, and non-contiguous memory access costs. Thus, considering the local semantic coherence of long sequences, we split the past key-value vectors into blocks, each serving as a memory unit, and conduct memory lookup at the block level to reduce the costs while preserving the performance. ",
+        "bbox": [
+            174,
+            676,
+            825,
+            801
+        ],
+        "page_idx": 3
+    },
+    {
+        "type": "text",
+        "text": "In this subsection, we will introduce the details of the block-level memory units. Then we present the method to assign positional embeddings for selected relevant memory units and cache management for the context memory. ",
+        "bbox": [
+            174,
+            808,
+            825,
+            849
+        ],
+        "page_idx": 3
+    },
+    {
+        "type": "text",
+        "text": "Block-Level Memory Units. Block-level memory units can save computation costs compared to token-level ones. It also poses new challenges for unit representations, which are supposed to contain the semantics of the entire unit for effective relevance score computation and be memory-efficient for context length scalability. Traditional methods usually involve training an additional encoder to project a given unit into a low-dimension vector. Inspired by the token redundancy in hidden states (Goyal et al., 2020; Dai et al., 2020), we select several representative tokens from the entail blocks as the unit representation. For the $m$ -th token, we define the representative score as: ",
+        "bbox": [
+            174,
+            856,
+            823,
+            911
+        ],
+        "page_idx": 3
+    },
+    {
+        "type": "text",
+        "text": "",
+        "bbox": [
+            173,
+            90,
+            825,
+            133
+        ],
+        "page_idx": 4
+    },
+    {
+        "type": "equation",
+        "img_path": "images/d6c65f8d30ca4f75315ea12f58298e80a259c21d2a9a8c85f7507d9a994aa6e4.jpg",
+        "text": "$$\nr _ { m } = \\frac { 1 } { l _ { L } } \\sum _ { j = 1 } ^ { l _ { L } } \\mathbf { q } _ { m + j } \\cdot \\mathbf { k } _ { m } ,\n$$",
+        "text_format": "latex",
+        "bbox": [
+            413,
+            140,
+            583,
+            185
+        ],
+        "page_idx": 4
+    },
+    {
+        "type": "text",
+        "text": "where $\\mathbf { q } _ { m + j }$ is the query vector for $( m + j )$ -th token and $\\mathbf { k } _ { m }$ is the key vector $m$ -th token. Intuitively, $r _ { m }$ represents the significance of the $m$ -th token in its corresponding local window, indicating the extent of its influence on other tokens within the local window. The computation of representative scores requires no additional parameters. ",
+        "bbox": [
+            174,
+            193,
+            825,
+            250
+        ],
+        "page_idx": 4
+    },
+    {
+        "type": "text",
+        "text": "Formally, given the evicted tokens, $\\mathbf { E }$ , we split it into several memory units, each containing $l _ { b s }$ tokens. For each unit, the $r _ { k }$ tokens with the highest representative scores are selected as representative tokens. Generally, $r _ { k }$ is a small positive integer. Let us denote a memory unit as $\\mathbf { B } = \\{ ( \\bar { \\mathbf { k } } _ { j } ^ { B } , \\mathbf { v } _ { j } ^ { B } ) \\} _ { j = 1 } ^ { l _ { b s } }$ , and the representative tokens of this unit as $R ( \\mathbf { B } ) = \\{ ( \\mathbf { k } _ { b _ { j } } ^ { B } , \\mathbf { v } _ { b _ { j } } ^ { B } ) \\} _ { j = 1 } ^ { r _ { k } }$ . ",
+        "bbox": [
+            174,
+            255,
+            826,
+            319
+        ],
+        "page_idx": 4
+    },
+    {
+        "type": "text",
+        "text": "For the memory lookup phrase, only $k _ { m }$ units with the highest relevance scores are loaded for the current attention computation. We calculate the relevance score between $\\mathbf { B }$ and current tokens $\\mathbf { X }$ as: ",
+        "bbox": [
+            174,
+            324,
+            825,
+            353
+        ],
+        "page_idx": 4
+    },
+    {
+        "type": "equation",
+        "img_path": "images/9face30fd0626ac7c9b8251b5fdc9cc759482cea25fa941e3e175ddf732622d8.jpg",
+        "text": "$$\n\\sin ( \\mathbf { X } , \\mathbf { B } ) = \\sum _ { i = 1 } ^ { l _ { X } } \\sum _ { j = 1 } ^ { r _ { k } } \\mathbf { q } _ { i + l _ { P } } \\cdot \\mathbf { k } _ { b _ { j } } ^ { B } .\n$$",
+        "text_format": "latex",
+        "bbox": [
+            385,
+            361,
+            611,
+            406
+        ],
+        "page_idx": 4
+    },
+    {
+        "type": "text",
+        "text": "Notably, the representative tokens selection is a training-free method to obtain the unit representations. Here, we can also train an additional encoder to generate more expressive unit representations, which we leave for future work. ",
+        "bbox": [
+            173,
+            412,
+            825,
+            454
+        ],
+        "page_idx": 4
+    },
+    {
+        "type": "text",
+        "text": "Positional Encoding. Existing LLM training usually employs a finite number of positional encodings, which encounter out-of-domain distribution challenges when directly applied to longer sequence processing (Han et al., 2023). Besides, in InfLLM, the current key-value cache is composed of some discontinuous text blocks, and directly assigning continuous positional encodings to them would also lead to mismatch issues and confuse the model. Therefore, inspired by previous works (Raffel et al., 2020; Su, 2023), we assign all tokens beyond the local window size with the same positional encodings. Specifically, the distance between tokens in context memory units and current tokens is set as $l _ { L }$ . ",
+        "bbox": [
+            173,
+            460,
+            825,
+            571
+        ],
+        "page_idx": 4
+    },
+    {
+        "type": "text",
+        "text": "Cache Management. To enable LLMs to process extremely long sequence streams while capturing the semantic relevance contained in the long contexts, we need to retain all memory units and look up them at each computation step. Considering the infrequent usage of most units, we employ an offloading mechanism, storing most memory units in CPU memory and only preserving the representative tokens and memory units needed in current steps in GPU memory. Additionally, given the semantic coherence of long sequences, where adjacent tokens often require similar memory units, we allocate a cache space in GPU memory, managed using a least recently used strategy. This approach allows for efficient encoding of extremely long sequences using limited GPU memory. From the observation, our offloading mechanism enables InfLLM to process sequences consisting of 100K tokens with only 26G VRAM. Besides, the miss rate of our GPU cache is quite low, which means the offloading mechanism does not introduce significant time overhead in memory loading while saving GPU memory usage. The details can be found in the Appendix. ",
+        "bbox": [
+            173,
+            577,
+            825,
+            744
+        ],
+        "page_idx": 4
+    },
+    {
+        "type": "text",
+        "text": "Furthermore, for extremely long sequences, the representative tokens of each unit can also be offloaded to the CPU memory, constructing an efficient $\\mathbf { k }$ -nearest-neighbor index, and thereby further reducing computational complexity. ",
+        "bbox": [
+            174,
+            751,
+            825,
+            792
+        ],
+        "page_idx": 4
+    },
+    {
+        "type": "text",
+        "text": "4 Experiments ",
+        "text_level": 1,
+        "bbox": [
+            174,
+            811,
+            312,
+            829
+        ],
+        "page_idx": 4
+    },
+    {
+        "type": "text",
+        "text": "4.1 Settings ",
+        "text_level": 1,
+        "bbox": [
+            174,
+            843,
+            267,
+            858
+        ],
+        "page_idx": 4
+    },
+    {
+        "type": "text",
+        "text": "Datasets. We adopt representative tasks in a widely-used long document benchmark, $\\infty$ - Bench (Zhang et al., 2023a) for evaluation. We adopt the English datasets for evaluation as the base models are mainly pre-trained on English corpus. The datasets in $\\infty$ -Bench cover diverse tasks including question answering, summarization, context retrieval, and mathematic computing. The average length for $\\infty$ -Bench is 145.1K. The $9 5 \\%$ quantile for sequence lengths is 214K, which is far beyond the maximum length of the base models. Detailed statistics and task descriptions of these datasets are listed in the Appendix. Besides, we also conduct an evaluation on LongBench (Bai et al., 2023). The results for LongBench can be found in the Appendix. ",
+        "bbox": [
+            176,
+            869,
+            825,
+            911
+        ],
+        "page_idx": 4
+    },
+    {
+        "type": "table",
+        "img_path": "images/0c2e587f46b926fabae593f4fc0a6a5285c61c10a28597c23990606a237f558c.jpg",
+        "table_caption": [
+            "Table 1: The results of InfLLM and baseline models on $\\infty$ -Bench. The $9 5 \\%$ quantile for text lengths in $\\infty$ -Bench is 214K. The context window size for sliding window models refers to the local window size, and for InfLLM refers to “local window size $^ +$ selected memory size”. "
+        ],
+        "table_footnote": [],
+        "table_body": "<table><tr><td></td><td>Window</td><td>Streaming</td><td>R.PK</td><td>R.Num</td><td>R.KV</td><td>Choice</td><td>QA</td><td>Sum</td><td>Math.F</td><td>Avg.</td></tr><tr><td colspan=\"9\">Mistral-based Models (7B)</td><td></td></tr><tr><td>Mistral</td><td>32K</td><td></td><td>28.8</td><td>28.8</td><td>14.8</td><td>44.5</td><td>12.9</td><td>25.9</td><td>20.6</td><td>25.2</td></tr><tr><td>NTK</td><td>128K</td><td></td><td>100.0</td><td>86.8</td><td>19.2</td><td>40.2</td><td>16.9</td><td>20.3</td><td>26.9</td><td>44.3</td></tr><tr><td>SelfExtend</td><td>128K</td><td></td><td>100.0</td><td>100.0</td><td>15.6</td><td>42.8</td><td>17.3</td><td>18.8</td><td>19.1</td><td>44.8</td></tr><tr><td>Infinite</td><td>32K</td><td>×××&gt;</td><td>28.8</td><td>28.8</td><td>0.4</td><td>42.8</td><td>11.4</td><td>22.5</td><td>16.3</td><td>21.6</td></tr><tr><td>Streaming</td><td>32K</td><td>✓</td><td>28.8</td><td>28.5</td><td>0.2</td><td>42.4</td><td>11.5</td><td>22.1</td><td>16.9</td><td>21.5</td></tr><tr><td>H20</td><td>32K</td><td>✓</td><td>8.6</td><td>4.8</td><td>2.6</td><td>48.0</td><td>15.6</td><td>24.4</td><td>26.9</td><td>18.7</td></tr><tr><td>InfLLM</td><td>16K</td><td>✓</td><td>100.0</td><td>96.1</td><td>96.8</td><td>43.7</td><td>15.7</td><td>25.8</td><td>25.7</td><td>57.7</td></tr><tr><td colspan=\"9\">Llama-3-based Models (8B)</td><td></td></tr><tr><td>Llama-3</td><td>8K</td><td></td><td>8.5</td><td>7.8</td><td>6.2</td><td>44.1</td><td>15.5</td><td>24.7</td><td>21.7</td><td>18.4</td></tr><tr><td>NTK</td><td>128K</td><td>×</td><td>0.0</td><td>0.0</td><td>0.0</td><td>0.0</td><td>0.4</td><td>6.4</td><td>2.6</td><td>1.3</td></tr><tr><td>SelfExtend</td><td>128K</td><td>X</td><td>100.0</td><td>100.0</td><td>0.2</td><td>19.7</td><td>8.6</td><td>14.7</td><td>22.6</td><td>38.0</td></tr><tr><td>Infinite</td><td>8K</td><td>✓</td><td>6.8</td><td>7.6</td><td>0.2</td><td>41.5</td><td>14.6</td><td>20.8</td><td>20.6</td><td>16.0</td></tr><tr><td>Streaming</td><td>8K</td><td>✓</td><td>8.5</td><td>8.3</td><td>0.4</td><td>40.6</td><td>14.3</td><td>20.4</td><td>21.4</td><td>16.3</td></tr><tr><td>H2O</td><td>8K</td><td>✓</td><td>2.5</td><td>2.4</td><td>0.0</td><td>0.0</td><td>0.7</td><td>2.8</td><td>6.0</td><td>2.1</td></tr><tr><td>InfLLM</td><td>8K</td><td>✓</td><td>100.0</td><td>99.0</td><td>5.0</td><td>43.7</td><td>19.5</td><td>24.3</td><td>23.7</td><td>45.0</td></tr></table>",
+        "bbox": [
+            178,
+            137,
+            816,
+            402
+        ],
+        "page_idx": 5
+    },
+    {
+        "type": "text",
+        "text": "",
+        "bbox": [
+            174,
+            415,
+            825,
+            484
+        ],
+        "page_idx": 5
+    },
+    {
+        "type": "text",
+        "text": "Baseline Models. To verify the effectiveness of our proposed method, we compare InfLLM with the following competitive baseline models: (1) Original models: we present the performance of the original LLMs without context length extrapolation. (2) Position downscaling and resuing: NTKaware scaled RoPE (NTK) (LocalLLaMA, 2023) designs a nonlinear interpolation method, which basically changes the rotation base of RoPE. SelfExtend reuse the position ids across neighboring tokens, which makes the extended relative positions in the scope of the training context window. (3) Sliding window: these methods apply the sliding window mechanism to discard distant contexts, including LM-Infinite (Infinite) (Han et al., 2023) and StreamingLLM (Stream) (Xiao et al., 2023). Therefore, for each attention computation step, the input length does not exceed the context window. (5) Key-value eviction: KV eviction methods aim to discard useless key-value vectors during long sequence processing and thus are usually used to reduce the computation complexity. We present the results of a widely-used key-value eviction method, H2O (Zhang et al., 2023b). The key-value eviction method cannot generalize to longer sequences due to the unseen position embeddings and is expected to achieve unsatisfactory performance. ",
+        "bbox": [
+            173,
+            489,
+            826,
+            684
+        ],
+        "page_idx": 5
+    },
+    {
+        "type": "text",
+        "text": "Here, InfLLM and the models with the sliding window mechanism can be used to process extremely long streaming inputs. For NTK and SelfExtend, we extend the context window to 128K, which enables LLMs to process most instances in $\\infty$ -Bench. ",
+        "bbox": [
+            176,
+            690,
+            821,
+            732
+        ],
+        "page_idx": 5
+    },
+    {
+        "type": "text",
+        "text": "4.2 Implementation Details ",
+        "text_level": 1,
+        "bbox": [
+            174,
+            752,
+            375,
+            767
+        ],
+        "page_idx": 5
+    },
+    {
+        "type": "text",
+        "text": "In this paper, we aim to enable LLMs trained with limited sequence length to read and understand extremely long sequences without further training. We adopt Mistral-7B-Instruct-v0.2 (Jiang et al., 2023) and Llama-3-8B-Instruct (Meta, 2024) as our base models. The maximum length of Mistral7B-Instruct-v0.2 and Llama-3-8B-Instruct is 32K and 8K, respectively. ",
+        "bbox": [
+            174,
+            779,
+            825,
+            835
+        ],
+        "page_idx": 5
+    },
+    {
+        "type": "text",
+        "text": "For our model, we set the encoding chunk size as 512, and the memory unit size for past key-value vectors, ${ l } _ { b s }$ , as 128. The number of representative tokens, $r _ { k }$ , is set as 4. For both Mistral-based and Llama-3-based InfLLM, we set the local window size as 4K. For Mistral-based InfLLM, we load 96 relevant memory units for each step, and for Llama-3-based InfLLM, we load 32 relevant memory units. The number of initial tokens is set as 128 for LM-Infinite, StreamingLLM, and InfLLM to cover the system prompts and task descriptions. We adopt FlashAttention (Dao, 2023) to accelerate experiments for all baseline models. Please refer to the Appendix for more details. ",
+        "bbox": [
+            174,
+            842,
+            825,
+            911
+        ],
+        "page_idx": 5
+    },
+    {
+        "type": "table",
+        "img_path": "images/0eb65d1d9c41a445d4410b5e995b9817a08994876a0e04295941cd906be53ff9.jpg",
+        "table_caption": [
+            "Table 2: The comparison between InfLLM and models with continual pre-training, Llama-3-8BInstruct-Gradient-1048k (Llama-1M). InfLLM can achieve comparable performance with Llama-1M with less computation consumption and memory usage. "
+        ],
+        "table_footnote": [],
+        "table_body": "<table><tr><td></td><td>Train-Free</td><td>R.PK</td><td>R.Num</td><td>R.KV</td><td>Choice</td><td>QA</td><td>Sum</td><td>Math.F</td><td>VRAM</td><td>Time</td></tr><tr><td>Llama-1M</td><td>✗</td><td>100.0</td><td>99.8</td><td>23.2</td><td>51.5</td><td>13.6</td><td>18.5</td><td>18.3</td><td>76.6G</td><td>40.4s</td></tr><tr><td>InfLLM</td><td></td><td>100.0</td><td>99.0</td><td>5.0</td><td>43.7</td><td>19.5</td><td>24.3</td><td>23.7</td><td>26.3G</td><td>26.7s</td></tr><tr><td>Llama-1M+InfLLM</td><td>X</td><td>100.0</td><td>100.0</td><td>55.8</td><td>39.3</td><td>20.3</td><td>17.1</td><td>31.4</td><td>26.3G</td><td>26.7s</td></tr></table>",
+        "bbox": [
+            173,
+            137,
+            825,
+            213
+        ],
+        "page_idx": 6
+    },
+    {
+        "type": "text",
+        "text": "",
+        "bbox": [
+            176,
+            229,
+            823,
+            257
+        ],
+        "page_idx": 6
+    },
+    {
+        "type": "text",
+        "text": "4.3 Main Results ",
+        "text_level": 1,
+        "bbox": [
+            174,
+            275,
+            303,
+            289
+        ],
+        "page_idx": 6
+    },
+    {
+        "type": "text",
+        "text": "The results for Mistral-based models and Llama-3-based models are reported in Table 1. From the results, we can observe that: (1) Compared to models with the sliding window mechanism, which can also read extremely long sequences, our method demonstrates a significant performance improvement. This indicates that the context memory in InfLLM can accurately supplement LLMs with relevant contextual information, enabling efficient and effective understanding and reasoning on long sequences. (2) The position downscaling and resuing methods, NTK and SelfExtend, tend to compromise model performance while extending the sequence length to 128K. That is because these models cannot address the distraction issue caused by noisy contexts. In contrast, our model can consistently enhance performance for extremely long sequences. We successfully generalize Llama-3 from a 8K length to more than 16 times its length, achieving commendable performance on the $\\infty$ -Bench. (3) The position downscaling and resuing methods can increase the maximum sequence length of LLMs but also raise the computational and memory costs, limiting these methods’ application. In contrast, InfLLM utilizes block-level memory and offloading mechanism, enabling efficient processing of long sequences within limited resources. ",
+        "bbox": [
+            174,
+            300,
+            825,
+            494
+        ],
+        "page_idx": 6
+    },
+    {
+        "type": "text",
+        "text": "4.4 Comparing to Models with Continual Training ",
+        "text_level": 1,
+        "bbox": [
+            174,
+            511,
+            539,
+            526
+        ],
+        "page_idx": 6
+    },
+    {
+        "type": "text",
+        "text": "In this paper, we focus on expanding the context window of LLMs without additional training. In this section, we compare InfLLM with models that undergo continual training on long sequences in terms of both performance and efficiency. Specifically, we select Llama-3-8B-Instruct-Gradient- $1 0 4 8 \\mathrm { k }$ (Llama- $\\mathbf { \\bar { 1 } M } ) ^ { 3 }$ , which have been further fine-tuned on long-text data and chat datasets, extending its context window to 1048K. Besides, we also employ InfLLM on the Llama-1M, where we set the local window as 4K and selected memory size as 4K. We present the results on $\\infty$ -Bench, the GPU memory usage, and time consumption in Table 2. From the results, we can observe that: (1) Compared to models that have undergone continual training on long sequences, InfLLM can achieve comparable or even superior results without any additional training. This suggests that LLMs inherently possess the capability to identify key information in long sequences and to understand and reason effectively. Notably, Llama-1M requires 512 GPUs for continual training, which is unaffordable for many researchers. In contrast, InfLLM does not require any training, which indicates the practicability of InfLLM. (2) In terms of efficiency, InfLLM achieves a $34 \\%$ decrease in time consumption while using only $34 \\%$ of the GPU memory compared to the full-attention models. Moreover, at longer sequence lengths of 256K tokens, the full-attention baseline fails due to out-of-memory errors, while InfLLM can efficiently process sequences up to 1024K tokens on a single GPU. (3) InfLLM can also be directly combined with the model with continual training and achieve comparable or even superior results with only 8K context window. It indicates that InfLLM can also serve as an efficient way to improve the inference speed. ",
+        "bbox": [
+            173,
+            536,
+            825,
+            801
+        ],
+        "page_idx": 6
+    },
+    {
+        "type": "text",
+        "text": "4.5 Comparing to Retrieval-Augmented Generation ",
+        "text_level": 1,
+        "bbox": [
+            174,
+            818,
+            545,
+            832
+        ],
+        "page_idx": 6
+    },
+    {
+        "type": "text",
+        "text": "InfLLM leverages the intrinsic capacity of LLMs to construct a context memory for gathering token-relevant information, a concept similar to retrieval augmented generation (RAG) (Lewis et al., 2020; Nakano et al., 2021). However, compared to using RAG, where historical contexts are treated as a searchable database for long-sequence understanding (Xu et al., 2023), InfLLM has several advantages: (1) Training-Free: RAG requires additional retrieval data to train a retrieval model, whereas InfLLM is training-free and applicable to any LLMs. Besides, RAG also necessitates finetuning LLMs to adapt to the inputs augmented by the retrieved knowledge. (2) Broader Applicability: RAG models are usually limited by the performance of their retrieval components. Besides, existing retrieval models will suffer from out-of-distribution issues, struggling to perform well on tasks outside their training distribution (Lin et al., 2023; Muennighoff et al., 2023). This limitation adversely affects the overall performance of the RAG system. In contrast, InfLLM has no specific requirements for tasks and can be feasibly used for long sequences. ",
+        "bbox": [
+            174,
+            843,
+            825,
+            885
+        ],
+        "page_idx": 6
+    },
+    {
+        "type": "image",
+        "img_path": "images/c0186c062e0307320b006f889bc4f182b0fa456b732352b5a5abd433efac569f.jpg",
+        "image_caption": [
+            "Figure 2: Extra studies about InfLLM. Here, (a), (b), and (c) investigate the impact of the context memory under different numbers of representative tokens, different numbers of selected units, and memory unit sizes, respectively. "
+        ],
+        "image_footnote": [],
+        "bbox": [
+            173,
+            87,
+            825,
+            268
+        ],
+        "page_idx": 7
+    },
+    {
+        "type": "text",
+        "text": "",
+        "bbox": [
+            174,
+            348,
+            825,
+            473
+        ],
+        "page_idx": 7
+    },
+    {
+        "type": "text",
+        "text": "To verify the generalization capabilities of InfLLM, we conduct experiments to comparing RAG and InfLLM on three context retrieval tasks. We utilize E5-mistral-7B-instruct (Wang et al., 2024b) as the retrieval model. The results are shown in Table 3. Our findings demonstrate that even without additional data or training, InfLLM can consistently outperform RAG models, underscoring its superior generalization capabilities. The dependency on an external retrieval model makes RAG less flexible in handling diverse tasks. ",
+        "bbox": [
+            174,
+            479,
+            583,
+            604
+        ],
+        "page_idx": 7
+    },
+    {
+        "type": "table",
+        "img_path": "images/ebcaf0f5d580ddcd64818dfff3f94c770d93c80778ac68de979025016b4519a9.jpg",
+        "table_caption": [
+            "Table 3: The comparison between InfLLM and RAG. "
+        ],
+        "table_footnote": [],
+        "table_body": "<table><tr><td>Task</td><td>R.PK</td><td>R.Num</td><td>R.KV</td></tr><tr><td>RAG-E5</td><td>89.2</td><td>65.4</td><td>13.2</td></tr><tr><td>InfLLM</td><td>100.0</td><td>96.1</td><td>96.8</td></tr></table>",
+        "bbox": [
+            596,
+            532,
+            818,
+            588
+        ],
+        "page_idx": 7
+    },
+    {
+        "type": "text",
+        "text": "4.6 The Impact of Memory Settings ",
+        "text_level": 1,
+        "bbox": [
+            174,
+            622,
+            434,
+            637
+        ],
+        "page_idx": 7
+    },
+    {
+        "type": "text",
+        "text": "InfLLM relies on the context memory to look up relevant information. We further explore the impact of core components in the context memory, specifically the representative tokens and memory units. The results are shown in Figure 2. ",
+        "bbox": [
+            174,
+            648,
+            826,
+            690
+        ],
+        "page_idx": 7
+    },
+    {
+        "type": "text",
+        "text": "Different Number of Representative Tokens. InfLLM splits key-value vectors into memory units and selects several representative tokens from the unit to serve as the unit representations. Consequently, the ability of these representative tokens to semantically represent the entire unit directly impacts the model’s performance. We conduct experiments with the number of representative tokens as $\\{ 1 , 2 , 4 , 8 \\}$ . The results are shown in Figure 2a. It is observed that as the number of representative tokens increases, there is a trend of improvement in the model performance, which indicates that more representative tokens tend to better represent the semantic content of the memory units. However, it is noted that when the number of representative tokens reaches 8, there is a slight performance decrease. This decline can be attributed to the inclusion of semantically irrelevant tokens as unit representations. More efficient and powerful unit representations will further enhance model performance for future work. ",
+        "bbox": [
+            174,
+            696,
+            825,
+            849
+        ],
+        "page_idx": 7
+    },
+    {
+        "type": "text",
+        "text": "Different Number of Selected Units. The selected units are utilized to provide relevant context to LLMs. We conduct experiments with the number of units set as $\\{ 2 , 4 , 8 , 1 6 , 3 2 , 6 4 , 9 6 , 1 2 8 \\}$ . From Figire 2b, we can observe that as the number of selected units increases from 1 to 32, the model performance significantly improves, which is attributed to that more units imply a greater recall rate of relevant content. Larger unit quantity also leads to an increase in the required memory scheduling time and the computational time for attention. Therefore, further enhancing lookup accuracy remains a crucial direction for improving the efficiency of InfLLM. ",
+        "bbox": [
+            174,
+            856,
+            823,
+            911
+        ],
+        "page_idx": 7
+    },
+    {
+        "type": "text",
+        "text": "",
+        "bbox": [
+            174,
+            92,
+            823,
+            133
+        ],
+        "page_idx": 8
+    },
+    {
+        "type": "text",
+        "text": "Different Memory Unit Size. Each memory unit is supposed to be a coherent semantic unit. Excessively large unit sizes can hinder precise lookup, while a small size will increase the computational overhead of memory lookup. We evaluate InfLLM with the unit size as $\\{ 3 2 , 6 4 , 1 2 8 , 2 5 6 \\}$ and keep the total context length as 12K. The results are shown in Figure 2c. It can be observed that the optimal unit size varies for different tasks due to the varying characteristics of input sequences. For example, in Retrieve.KV, a key-value pair constitutes a semantic unit, while in Math.Find, a single number represents a semantic unit. Employing heuristic rules to segment context can easily lead to suboptimal performance. Therefore, exploring how to dynamically segment context is an important direction for future research. ",
+        "bbox": [
+            173,
+            138,
+            825,
+            263
+        ],
+        "page_idx": 8
+    },
+    {
+        "type": "text",
+        "text": "4.7 Ablation Study ",
+        "text_level": 1,
+        "bbox": [
+            174,
+            281,
+            316,
+            296
+        ],
+        "page_idx": 8
+    },
+    {
+        "type": "text",
+        "text": "To further verify the effectiveness of dynamic memory lookup and unit representations, we conduct ablation studies in this section. The results are shown in Table 4. ",
+        "bbox": [
+            174,
+            308,
+            823,
+            337
+        ],
+        "page_idx": 8
+    },
+    {
+        "type": "text",
+        "text": "Context Memory Lookup. InfLLM adopts dynamic context memory lookup for both input encoding and output decoding steps for comprehensive long-text understanding. We present the results of InfLLM with only lookup in output decoding (Decoding-Only) and without any memory lookup (w/o Lookup). It can be observed that a significant decline in model performance is associated with a reduction in the number of memory lookup iterations. This indicates that distant contextual information is crucial for both the long-input encoding and answer-generation phases. The model requires the integration of longdistance context to generate a coherent context memory for input understanding. LLM is supposed to collect useful information from massive past context information to generate the correct answers. ",
+        "bbox": [
+            174,
+            343,
+            516,
+            481
+        ],
+        "page_idx": 8
+    },
+    {
+        "type": "table",
+        "img_path": "images/2089ef75b66d7ce941387e43ae7b30ef1e5f32473436033e409eb587d182cd3b.jpg",
+        "table_caption": [
+            "Table 4: The results for ablation study. "
+        ],
+        "table_footnote": [],
+        "table_body": "<table><tr><td>Task</td><td>R.KV</td><td>Math.F</td><td>QA</td></tr><tr><td>InfLLM</td><td>96.8</td><td>25.7</td><td>15.7</td></tr><tr><td>Decoding-Only</td><td>85.2</td><td>26.3</td><td>12.0</td></tr><tr><td>w/o Lookup</td><td>0.4</td><td>16.3</td><td>11.4</td></tr><tr><td>Mean Repr</td><td>84.6</td><td>25.1</td><td>14.9</td></tr></table>",
+        "bbox": [
+            529,
+            382,
+            821,
+            468
+        ],
+        "page_idx": 8
+    },
+    {
+        "type": "text",
+        "text": "",
+        "bbox": [
+            176,
+            481,
+            823,
+            522
+        ],
+        "page_idx": 8
+    },
+    {
+        "type": "text",
+        "text": "Unit Representation. We design a block-level memory for efficient context information lookup. We select several representative tokens as the unit representations for relevance computation. We present the results of InfLLM with another training-free representation method (Mean Repr), which computes the representation by averaging the key vectors in a memory unit. From the results, we can observe that InfLLM with average representations can also present competitive performance. It indicates that the original attention vectors in LLMs are effective for relevance score computation, and exploring more efficient unit representations is an important future direction. ",
+        "bbox": [
+            173,
+            529,
+            826,
+            626
+        ],
+        "page_idx": 8
+    },
+    {
+        "type": "text",
+        "text": "4.8 Scaling to 1,024K Context ",
+        "text_level": 1,
+        "bbox": [
+            174,
+            643,
+            393,
+            659
+        ],
+        "page_idx": 8
+    },
+    {
+        "type": "text",
+        "text": "To assess the effectiveness of InfLLM on extremely long sequences, in this subsection, we scale the sequence length to 1024K to evaluate the capacity of InfLLM to capture contextual relevance in long sequences. Specifically, we adopt the Retrieve.PassKey task in $\\infty$ -Bench for evaluation. This task prompts LLMs to find a 5-digit sequence among lengthy and noisy contexts, which requires LLMs to locate relevant information among long sequences effectively. We automatically generate inputs with {32, 64, 128, 256, 512, 768, $1 0 2 4 \\}$ thousand tokens and for each length, we generate 50 instances for evaluation. We adopt Mistral as the base model. ",
+        "bbox": [
+            174,
+            670,
+            517,
+            849
+        ],
+        "page_idx": 8
+    },
+    {
+        "type": "text",
+        "text": "The results are shown in Figure 3. From the results, we can observe that InfLLM can accurately locate the key information from length noises and achieve $100 \\%$ accuracy even when the context length scales to 1024 thousand tokens. However, LM-Infinite can only attend to the tokens within the local window, which leads to a rapid decline in its performance as the sequence length increases. It proves that InfLLM can accurately capture the long-distance dependencies for effective long-sequence reasoning. ",
+        "bbox": [
+            174,
+            856,
+            517,
+            883
+        ],
+        "page_idx": 8
+    },
+    {
+        "type": "image",
+        "img_path": "images/5c7d663940082032dacf0df98034030ddcdd74f97cfe3843cd08a9f0a68d97e5.jpg",
+        "image_caption": [
+            "Figure 3: The results on sequences with different lengths. "
+        ],
+        "image_footnote": [],
+        "bbox": [
+            531,
+            686,
+            823,
+            837
+        ],
+        "page_idx": 8
+    },
+    {
+        "type": "text",
+        "text": "",
+        "bbox": [
+            173,
+            883,
+            826,
+            911
+        ],
+        "page_idx": 8
+    },
+    {
+        "type": "text",
+        "text": "",
+        "bbox": [
+            173,
+            92,
+            825,
+            119
+        ],
+        "page_idx": 9
+    },
+    {
+        "type": "text",
+        "text": "5 Conclusion ",
+        "text_level": 1,
+        "bbox": [
+            174,
+            138,
+            299,
+            155
+        ],
+        "page_idx": 9
+    },
+    {
+        "type": "text",
+        "text": "In this paper, we propose a training-free method to improve the length generalizability of LLMs. Based on the sliding window attention mechanism, we construct an additional context memory module, which can help LLMs select relevant information from massive contexts to capture longdistance dependencies. The experiments on two widely-used long-text benchmarks show that InfLLM can effectively improve the ability of LLMs, which are trained on sequences with a few thousand tokens, to process extremely long sequences. In the future, we will explore efficient training of the context memory module to further enhance the model performance. Besides, combining the key-value cache compression methods with InfLLM can further reduce the computational and memory costs. We hope InfLLM can boost the development of streaming applications of LLMs. ",
+        "bbox": [
+            174,
+            169,
+            826,
+            294
+        ],
+        "page_idx": 9
+    },
+    {
+        "type": "text",
+        "text": "Acknowledgement ",
+        "text_level": 1,
+        "bbox": [
+            176,
+            313,
+            330,
+            330
+        ],
+        "page_idx": 9
+    },
+    {
+        "type": "text",
+        "text": "This work is supported by the National Key R&D Program of China (No.2022ZD0160501), Quan Cheng Laboratory (Grant No. QCLZD202301) and Institute Guo Qiang at Tsinghua University. Pengle Zhang is supported by Tsinghua University Initiative Scientific Research Program (Student Academic Research Advancement Program). ",
+        "bbox": [
+            174,
+            343,
+            825,
+            400
+        ],
+        "page_idx": 9
+    },
+    {
+        "type": "text",
+        "text": "References ",
+        "text_level": 1,
+        "bbox": [
+            174,
+            419,
+            266,
+            435
+        ],
+        "page_idx": 9
+    },
+    {
+        "type": "text",
+        "text": "Joshua Ainslie, Santiago Ontañón, Chris Alberti, Vaclav Cvicek, Zachary Fisher, Philip Pham, Anirudh Ravula, Sumit Sanghai, Qifan Wang, and Li Yang. ETC: encoding long and structured inputs in transformers. In Proceedings of EMNLP, pp. 268–284, 2020.   \nChenxin An, Fei Huang, Jun Zhang, Shansan Gong, Xipeng Qiu, Chang Zhou, and Lingpeng Kong. Training-free long-context scaling of large language models. CoRR, abs/2402.17463, 2024. doi: 10.48550/ARXIV.2402.17463.   \nYushi Bai, Xin Lv, Jiajie Zhang, Hongchang Lyu, Jiankai Tang, Zhidian Huang, Zhengxiao Du, Xiao Liu, Aohan Zeng, Lei Hou, Yuxiao Dong, Jie Tang, and Juanzi Li. Longbench: A bilingual, multitask benchmark for long context understanding. CoRR, abs/2308.14508, 2023.   \nIz Beltagy, Matthew E. Peters, and Arman Cohan. Longformer: The long-document transformer. CoRR, abs/2004.05150, 2020.   \nAmanda Bertsch, Uri Alon, Graham Neubig, and Matthew R. Gormley. Unlimiformer: Long-range transformers with unlimited length input. CoRR, abs/2305.01625, 2023.   \nRishi Bommasani, Drew A. Hudson, Ehsan Adeli, Russ Altman, Simran Arora, Sydney von Arx, Michael S. Bernstein, Jeannette Bohg, Antoine Bosselut, Emma Brunskill, Erik Brynjolfsson, Shyamal Buch, Dallas Card, Rodrigo Castellon, Niladri S. Chatterji, Annie S. Chen, Kathleen Creel, Jared Quincy Davis, Dorottya Demszky, Chris Donahue, Moussa Doumbouya, Esin Durmus, Stefano Ermon, John Etchemendy, Kawin Ethayarajh, Li Fei-Fei, Chelsea Finn, Trevor Gale, Lauren Gillespie, Karan Goel, Noah D. Goodman, Shelby Grossman, Neel Guha, Tatsunori Hashimoto, Peter Henderson, John Hewitt, Daniel E. Ho, Jenny Hong, Kyle Hsu, Jing Huang, Thomas Icard, Saahil Jain, Dan Jurafsky, Pratyusha Kalluri, Siddharth Karamcheti, Geoff Keeling, Fereshte Khani, Omar Khattab, Pang Wei Koh, Mark S. Krass, Ranjay Krishna, Rohith Kuditipudi, and et al. On the opportunities and risks of foundation models. CoRR, abs/2108.07258, 2021.   \nTom B. Brown, Benjamin Mann, Nick Ryder, Melanie Subbiah, Jared Kaplan, Prafulla Dhariwal, Arvind Neelakantan, Pranav Shyam, Girish Sastry, Amanda Askell, Sandhini Agarwal, Ariel Herbert-Voss, Gretchen Krueger, Tom Henighan, Rewon Child, Aditya Ramesh, Daniel M. Ziegler, Jeffrey Wu, Clemens Winter, Christopher Hesse, Mark Chen, Eric Sigler, Mateusz Litwin, Scott Gray, Benjamin Chess, Jack Clark, Christopher Berner, Sam McCandlish, Alec Radford, Ilya Sutskever, and Dario Amodei. Language models are few-shot learners. In Proceedings of NeurIPS, 2020. ",
+        "bbox": [
+            171,
+            443,
+            828,
+            915
+        ],
+        "page_idx": 9
+    },
+    {
+        "type": "text",
+        "text": "Guanzheng Chen, Xin Li, Zaiqiao Meng, Shangsong Liang, and Lidong Bing. CLEX: continuous length extrapolation for large language models. CoRR, abs/2310.16450, 2023a. doi: 10.48550/ ARXIV.2310.16450. ",
+        "bbox": [
+            174,
+            90,
+            823,
+            132
+        ],
+        "page_idx": 10
+    },
+    {
+        "type": "text",
+        "text": "Shouyuan Chen, Sherman Wong, Liangjian Chen, and Yuandong Tian. Extending context window of large language models via positional interpolation. CoRR, abs/2306.15595, 2023b. ",
+        "bbox": [
+            171,
+            141,
+            823,
+            170
+        ],
+        "page_idx": 10
+    },
+    {
+        "type": "text",
+        "text": "Wei-Lin Chiang, Zhuohan Li, Zi Lin, Ying Sheng, Zhanghao Wu, Hao Zhang, Lianmin Zheng, Siyuan Zhuang, Yonghao Zhuang, Joseph E. Gonzalez, Ion Stoica, and Eric P. Xing. Vicuna: An open-source chatbot impressing GPT-4 with $90 \\%$ ChatGPT quality, March 2023. ",
+        "bbox": [
+            176,
+            178,
+            821,
+            222
+        ],
+        "page_idx": 10
+    },
+    {
+        "type": "text",
+        "text": "Rewon Child, Scott Gray, Alec Radford, and Ilya Sutskever. Generating long sequences with sparse transformers. CoRR, abs/1904.10509, 2019. ",
+        "bbox": [
+            169,
+            229,
+            825,
+            258
+        ],
+        "page_idx": 10
+    },
+    {
+        "type": "text",
+        "text": "Zihang Dai, Zhilin Yang, Yiming Yang, Jaime G. Carbonell, Quoc Viet Le, and Ruslan Salakhutdinov. Transformer-xl: Attentive language models beyond a fixed-length context. In Proceedings of ACL, pp. 2978–2988. Association for Computational Linguistics, 2019. ",
+        "bbox": [
+            174,
+            265,
+            825,
+            309
+        ],
+        "page_idx": 10
+    },
+    {
+        "type": "text",
+        "text": "Zihang Dai, Guokun Lai, Yiming Yang, and Quoc Le. Funnel-transformer: Filtering out sequential redundancy for efficient language processing. In Proceedings of NeurIPS, 2020. ",
+        "bbox": [
+            171,
+            316,
+            823,
+            345
+        ],
+        "page_idx": 10
+    },
+    {
+        "type": "text",
+        "text": "Tri Dao. Flashattention-2: Faster attention with better parallelism and work partitioning. CoRR, abs/2307.08691, 2023. ",
+        "bbox": [
+            171,
+            353,
+            825,
+            382
+        ],
+        "page_idx": 10
+    },
+    {
+        "type": "text",
+        "text": "Yiran Ding, Li Lyna Zhang, Chengruidong Zhang, Yuanyuan Xu, Ning Shang, Jiahang Xu, Fan Yang, and Mao Yang. Longrope: Extending LLM context window beyond 2 million tokens. CoRR, abs/2402.13753, 2024. doi: 10.48550/ARXIV.2402.13753. ",
+        "bbox": [
+            174,
+            390,
+            826,
+            433
+        ],
+        "page_idx": 10
+    },
+    {
+        "type": "text",
+        "text": "Zican Dong, Tianyi Tang, Junyi Li, and Wayne Xin Zhao. A survey on long text modeling with transformers. CoRR, abs/2302.14502, 2023. ",
+        "bbox": [
+            169,
+            440,
+            825,
+            469
+        ],
+        "page_idx": 10
+    },
+    {
+        "type": "text",
+        "text": "Danny Driess, Fei Xia, Mehdi S. M. Sajjadi, Corey Lynch, Aakanksha Chowdhery, Brian Ichter, Ayzaan Wahid, Jonathan Tompson, Quan Vuong, Tianhe Yu, Wenlong Huang, Yevgen Chebotar, Pierre Sermanet, Daniel Duckworth, Sergey Levine, Vincent Vanhoucke, Karol Hausman, Marc Toussaint, Klaus Greff, Andy Zeng, Igor Mordatch, and Pete Florence. Palm-e: An embodied multimodal language model. In Proceedings of ICML, volume 202 of Proceedings of Machine Learning Research, pp. 8469–8488. PMLR, 2023. ",
+        "bbox": [
+            173,
+            477,
+            825,
+            561
+        ],
+        "page_idx": 10
+    },
+    {
+        "type": "text",
+        "text": "Suyu Ge, Yunan Zhang, Liyuan Liu, Minjia Zhang, Jiawei Han, and Jianfeng Gao. Model tells you what to discard: Adaptive KV cache compression for llms. CoRR, abs/2310.01801, 2023. doi: 10.48550/ARXIV.2310.01801. ",
+        "bbox": [
+            174,
+            569,
+            821,
+            612
+        ],
+        "page_idx": 10
+    },
+    {
+        "type": "text",
+        "text": "Saurabh Goyal, Anamitra Roy Choudhury, Saurabh Raje, Venkatesan T. Chakaravarthy, Yogish Sabharwal, and Ashish Verma. Power-bert: Accelerating BERT inference via progressive wordvector elimination. In Proceedings of ICML, volume 119, pp. 3690–3699, 2020. ",
+        "bbox": [
+            174,
+            619,
+            821,
+            664
+        ],
+        "page_idx": 10
+    },
+    {
+        "type": "text",
+        "text": "Alex Graves, Greg Wayne, and Ivo Danihelka. Neural turing machines. CoRR, abs/1410.5401, 2014. ",
+        "bbox": [
+            169,
+            671,
+            823,
+            686
+        ],
+        "page_idx": 10
+    },
+    {
+        "type": "text",
+        "text": "Albert Gu and Tri Dao. Mamba: Linear-time sequence modeling with selective state spaces. CoRR, abs/2312.00752, 2023. ",
+        "bbox": [
+            171,
+            694,
+            825,
+            723
+        ],
+        "page_idx": 10
+    },
+    {
+        "type": "text",
+        "text": "Albert Gu, Karan Goel, and Christopher Ré. Efficiently modeling long sequences with structured state spaces. In Proceedings of ICLR. OpenReview.net, 2022. ",
+        "bbox": [
+            173,
+            731,
+            823,
+            760
+        ],
+        "page_idx": 10
+    },
+    {
+        "type": "text",
+        "text": "Chi Han, Qifan Wang, Wenhan Xiong, Yu Chen, Heng Ji, and Sinong Wang. Lm-infinite: Simple on-the-fly length generalization for large language models. CoRR, abs/2308.16137, 2023. ",
+        "bbox": [
+            173,
+            767,
+            823,
+            797
+        ],
+        "page_idx": 10
+    },
+    {
+        "type": "text",
+        "text": "Xu Han, Zhengyan Zhang, Ning Ding, Yuxian Gu, Xiao Liu, Yuqi Huo, Jiezhong Qiu, Yuan Yao, Ao Zhang, Liang Zhang, Wentao Han, Minlie Huang, Qin Jin, Yanyan Lan, Yang Liu, Zhiyuan Liu, Zhiwu Lu, Xipeng Qiu, Ruihua Song, Jie Tang, Ji-Rong Wen, Jinhui Yuan, Wayne Xin Zhao, and Jun Zhu. Pre-trained models: Past, present and future. AI Open, 2:225–250, 2021. ",
+        "bbox": [
+            174,
+            804,
+            825,
+            861
+        ],
+        "page_idx": 10
+    },
+    {
+        "type": "text",
+        "text": "Yunpeng Huang, Jingwei Xu, Zixu Jiang, Junyu Lai, Zenan Li, Yuan Yao, Taolue Chen, Lijuan Yang, Zhou Xin, and Xiaoxing Ma. Advancing transformer architecture in long-context large language models: A comprehensive survey. CoRR, abs/2311.12351, 2023. ",
+        "bbox": [
+            176,
+            869,
+            826,
+            911
+        ],
+        "page_idx": 10
+    },
+    {
+        "type": "text",
+        "text": "Albert Q. Jiang, Alexandre Sablayrolles, Arthur Mensch, Chris Bamford, Devendra Singh Chaplot, Diego de Las Casas, Florian Bressand, Gianna Lengyel, Guillaume Lample, Lucile Saulnier, Lélio Renard Lavaud, Marie-Anne Lachaux, Pierre Stock, Teven Le Scao, Thibaut Lavril, Thomas Wang, Timothée Lacroix, and William El Sayed. Mistral 7b. CoRR, abs/2310.06825, 2023. ",
+        "bbox": [
+            176,
+            90,
+            826,
+            147
+        ],
+        "page_idx": 11
+    },
+    {
+        "type": "text",
+        "text": "Huiqiang Jiang, YUCHENG LI, Chengruidong Zhang, Qianhui Wu, Xufang Luo, Surin Ahn, Zhenhua Han, Amir H Abdi, Dongsheng Li, Chin-Yew Lin, et al. Minference: Accelerating pre-filling for long-context llms via dynamic sparse attention. In Workshop on Efficient Systems for Foundation Models II@ ICML2024, 2024. ",
+        "bbox": [
+            173,
+            157,
+            825,
+            213
+        ],
+        "page_idx": 11
+    },
+    {
+        "type": "text",
+        "text": "Hongye Jin, Xiaotian Han, Jingfeng Yang, Zhimeng Jiang, Zirui Liu, Chia-Yuan Chang, Huiyuan Chen, and Xia Hu. LLM maybe longlm: Self-extend LLM context window without tuning. CoRR, abs/2401.01325, 2024. ",
+        "bbox": [
+            173,
+            223,
+            826,
+            266
+        ],
+        "page_idx": 11
+    },
+    {
+        "type": "text",
+        "text": "Angelos Katharopoulos, Apoorv Vyas, Nikolaos Pappas, and François Fleuret. Transformers are RNNs: Fast autoregressive transformers with linear attention. In Proceedings of ICML, volume 119, pp. 5156–5165. PMLR, 2020. ",
+        "bbox": [
+            174,
+            276,
+            823,
+            319
+        ],
+        "page_idx": 11
+    },
+    {
+        "type": "text",
+        "text": "Urvashi Khandelwal, Omer Levy, Dan Jurafsky, Luke Zettlemoyer, and Mike Lewis. Generalization through memorization: Nearest neighbor language models. In Proceedings of ICLR. OpenReview.net, 2020. ",
+        "bbox": [
+            173,
+            328,
+            825,
+            371
+        ],
+        "page_idx": 11
+    },
+    {
+        "type": "text",
+        "text": "Nikita Kitaev, Lukasz Kaiser, and Anselm Levskaya. Reformer: The efficient transformer. In Proceedings of ICLR. OpenReview.net, 2020. ",
+        "bbox": [
+            173,
+            381,
+            823,
+            410
+        ],
+        "page_idx": 11
+    },
+    {
+        "type": "text",
+        "text": "Woosuk Kwon, Zhuohan Li, Siyuan Zhuang, Ying Sheng, Lianmin Zheng, Cody Hao Yu, Joseph Gonzalez, Hao Zhang, and Ion Stoica. Efficient memory management for large language model serving with pagedattention. In Jason Flinn, Margo I. Seltzer, Peter Druschel, Antoine Kaufmann, and Jonathan Mace (eds.), Proceedings of SOSP, pp. 611–626. ACM, 2023. doi: 10.1145/3600006. 3613165. ",
+        "bbox": [
+            174,
+            420,
+            826,
+            489
+        ],
+        "page_idx": 11
+    },
+    {
+        "type": "text",
+        "text": "Patrick S. H. Lewis, Ethan Perez, Aleksandra Piktus, Fabio Petroni, Vladimir Karpukhin, Naman Goyal, Heinrich Küttler, Mike Lewis, Wen-tau Yih, Tim Rocktäschel, Sebastian Riedel, and Douwe Kiela. Retrieval-augmented generation for knowledge-intensive NLP tasks. In Proceedings of NeurIPS, 2020. ",
+        "bbox": [
+            173,
+            500,
+            826,
+            558
+        ],
+        "page_idx": 11
+    },
+    {
+        "type": "text",
+        "text": "Dacheng Li, Rulin Shao, Anze Xie, Ying Sheng, Lianmin Zheng, Joseph E. Gonzalez, Ion Stoica, Xuezhe Ma, , and Hao Zhang. How long can open-source llms truly promise on context length?, June 2023. ",
+        "bbox": [
+            173,
+            566,
+            825,
+            609
+        ],
+        "page_idx": 11
+    },
+    {
+        "type": "text",
+        "text": "Yuhong Li, Yingbing Huang, Bowen Yang, Bharat Venkitesh, Acyr Locatelli, Hanchen Ye, Tianle Cai, Patrick Lewis, and Deming Chen. Snapkv: Llm knows what you are looking for before generation. arXiv preprint arXiv:2404.14469, 2024. ",
+        "bbox": [
+            174,
+            619,
+            826,
+            661
+        ],
+        "page_idx": 11
+    },
+    {
+        "type": "text",
+        "text": "Jacky Liang, Wenlong Huang, Fei Xia, Peng Xu, Karol Hausman, Brian Ichter, Pete Florence, and Andy Zeng. Code as policies: Language model programs for embodied control. In Proceedings of ICRA, pp. 9493–9500. IEEE, 2023. ",
+        "bbox": [
+            173,
+            672,
+            826,
+            714
+        ],
+        "page_idx": 11
+    },
+    {
+        "type": "text",
+        "text": "Sheng-Chieh Lin, Akari Asai, Minghan Li, Barlas Oguz, Jimmy Lin, Yashar Mehdad, Wentau Yih, and Xilun Chen. How to train your dragon: Diverse augmentation towards generalizable dense retrieval. In Houda Bouamor, Juan Pino, and Kalika Bali (eds.), Findings of ACL: EMNLP, pp. 6385–6400. Association for Computational Linguistics, 2023. doi: 10.18653/V1/2023.FINDINGS-EMNLP.423. ",
+        "bbox": [
+            173,
+            724,
+            826,
+            795
+        ],
+        "page_idx": 11
+    },
+    {
+        "type": "text",
+        "text": "Nelson F. Liu, Kevin Lin, John Hewitt, Ashwin Paranjape, Michele Bevilacqua, Fabio Petroni, and Percy Liang. Lost in the middle: How language models use long contexts. CoRR, abs/2307.03172, 2023. ",
+        "bbox": [
+            174,
+            805,
+            823,
+            847
+        ],
+        "page_idx": 11
+    },
+    {
+        "type": "text",
+        "text": "LocalLLaMA. Ntk-aware scaled rope allows llama models to have extended $( 8 \\mathbf { k } + )$ context size without any fine-tuning and minimal perplexity degradation. 2023. ",
+        "bbox": [
+            174,
+            858,
+            823,
+            887
+        ],
+        "page_idx": 11
+    },
+    {
+        "type": "text",
+        "text": "Meta. Introducing meta llama 3: The most capable openly available llm to date. 2024. ",
+        "bbox": [
+            173,
+            896,
+            740,
+            911
+        ],
+        "page_idx": 11
+    },
+    {
+        "type": "text",
+        "text": "Alexander H. Miller, Adam Fisch, Jesse Dodge, Amir-Hossein Karimi, Antoine Bordes, and Jason Weston. Key-value memory networks for directly reading documents. In Proceedings of EMNLP, pp. 1400–1409. The Association for Computational Linguistics, 2016. ",
+        "bbox": [
+            174,
+            90,
+            825,
+            133
+        ],
+        "page_idx": 12
+    },
+    {
+        "type": "text",
+        "text": "Amirkeivan Mohtashami and Martin Jaggi. Landmark attention: Random-access infinite context length for transformers. In Workshop on Efficient Systems for Foundation Models@ ICML2023, 2023. ",
+        "bbox": [
+            174,
+            142,
+            825,
+            184
+        ],
+        "page_idx": 12
+    },
+    {
+        "type": "text",
+        "text": "Niklas Muennighoff, Nouamane Tazi, Loïc Magne, and Nils Reimers. MTEB: massive text embedding benchmark. In Andreas Vlachos and Isabelle Augenstein (eds.), Proceedings of EACL, pp. 2006– 2029. Association for Computational Linguistics, 2023. doi: 10.18653/V1/2023.EACL-MAIN.148. ",
+        "bbox": [
+            174,
+            194,
+            826,
+            237
+        ],
+        "page_idx": 12
+    },
+    {
+        "type": "text",
+        "text": "Tsendsuren Munkhdalai, Manaal Faruqui, and Siddharth Gopal. Leave no context behind: Efficient infinite context transformers with infini-attention. CoRR, abs/2404.07143, 2024. doi: 10.48550/ ARXIV.2404.07143. ",
+        "bbox": [
+            174,
+            244,
+            826,
+            287
+        ],
+        "page_idx": 12
+    },
+    {
+        "type": "text",
+        "text": "Reiichiro Nakano, Jacob Hilton, Suchir Balaji, Jeff Wu, Long Ouyang, Christina Kim, Christopher Hesse, Shantanu Jain, Vineet Kosaraju, William Saunders, Xu Jiang, Karl Cobbe, Tyna Eloundou, Gretchen Krueger, Kevin Button, Matthew Knight, Benjamin Chess, and John Schulman. Webgpt: Browser-assisted question-answering with human feedback. CoRR, abs/2112.09332, 2021. ",
+        "bbox": [
+            173,
+            296,
+            826,
+            353
+        ],
+        "page_idx": 12
+    },
+    {
+        "type": "text",
+        "text": "OpenAI. GPT-4 technical report. CoRR, abs/2303.08774, 2023. ",
+        "bbox": [
+            173,
+            361,
+            593,
+            377
+        ],
+        "page_idx": 12
+    },
+    {
+        "type": "text",
+        "text": "Long Ouyang, Jeffrey Wu, Xu Jiang, Diogo Almeida, Carroll L. Wainwright, Pamela Mishkin, Chong Zhang, Sandhini Agarwal, Katarina Slama, Alex Ray, John Schulman, Jacob Hilton, Fraser Kelton, Luke Miller, Maddie Simens, Amanda Askell, Peter Welinder, Paul F. Christiano, Jan Leike, and Ryan Lowe. Training language models to follow instructions with human feedback. In Proceedings of NeurIPS, 2022. ",
+        "bbox": [
+            173,
+            386,
+            826,
+            457
+        ],
+        "page_idx": 12
+    },
+    {
+        "type": "text",
+        "text": "Joon Sung Park, Joseph C. O’Brien, Carrie Jun Cai, Meredith Ringel Morris, Percy Liang, and Michael S. Bernstein. Generative agents: Interactive simulacra of human behavior. In Proceedings of UIST, pp. 2:1–2:22. ACM, 2023. ",
+        "bbox": [
+            173,
+            464,
+            823,
+            507
+        ],
+        "page_idx": 12
+    },
+    {
+        "type": "text",
+        "text": "Bowen Peng, Jeffrey Quesnelle, Honglu Fan, and Enrico Shippole. Yarn: Efficient context window extension of large language models. CoRR, abs/2309.00071, 2023. ",
+        "bbox": [
+            169,
+            516,
+            823,
+            545
+        ],
+        "page_idx": 12
+    },
+    {
+        "type": "text",
+        "text": "Ofir Press, Noah A. Smith, and Mike Lewis. Train short, test long: Attention with linear biases enables input length extrapolation. In Proceedings of ICLR. OpenReview.net, 2022. ",
+        "bbox": [
+            171,
+            554,
+            823,
+            583
+        ],
+        "page_idx": 12
+    },
+    {
+        "type": "text",
+        "text": "Chen Qian, Xin Cong, Cheng Yang, Weize Chen, Yusheng Su, Juyuan Xu, Zhiyuan Liu, and Maosong Sun. Communicative agents for software development. CoRR, abs/2307.07924, 2023. ",
+        "bbox": [
+            171,
+            592,
+            823,
+            621
+        ],
+        "page_idx": 12
+    },
+    {
+        "type": "text",
+        "text": "Jack W. Rae, Anna Potapenko, Siddhant M. Jayakumar, Chloe Hillier, and Timothy P. Lillicrap. Compressive transformers for long-range sequence modelling. In Proceedings of ICLR. OpenReview.net, 2020. ",
+        "bbox": [
+            173,
+            628,
+            825,
+            671
+        ],
+        "page_idx": 12
+    },
+    {
+        "type": "text",
+        "text": "Colin Raffel, Noam Shazeer, Adam Roberts, Katherine Lee, Sharan Narang, Michael Matena, Yanqi Zhou, Wei Li, and Peter J. Liu. Exploring the limits of transfer learning with a unified text-to-text transformer. JMLR, 21:140:1–140:67, 2020. ",
+        "bbox": [
+            174,
+            680,
+            825,
+            723
+        ],
+        "page_idx": 12
+    },
+    {
+        "type": "text",
+        "text": "Jianlin Su. Rectified rotary position embeddings, 2023. ",
+        "bbox": [
+            173,
+            732,
+            537,
+            747
+        ],
+        "page_idx": 12
+    },
+    {
+        "type": "text",
+        "text": "Jianlin Su, Yu Lu, Shengfeng Pan, Bo Wen, and Yunfeng Liu. Roformer: Enhanced transformer with rotary position embedding. CoRR, abs/2104.09864, 2021. ",
+        "bbox": [
+            168,
+            756,
+            825,
+            785
+        ],
+        "page_idx": 12
+    },
+    {
+        "type": "text",
+        "text": "Sainbayar Sukhbaatar, Arthur Szlam, Jason Weston, and Rob Fergus. End-to-end memory networks. In Proceedings of NeurIPS, pp. 2440–2448, 2015. ",
+        "bbox": [
+            169,
+            794,
+            825,
+            823
+        ],
+        "page_idx": 12
+    },
+    {
+        "type": "text",
+        "text": "Yutao Sun, Li Dong, Barun Patra, Shuming Ma, Shaohan Huang, Alon Benhaim, Vishrav Chaudhary, Xia Song, and Furu Wei. A length-extrapolatable transformer. In Proceedings of ACL, pp. 14590– 14604. Association for Computational Linguistics, 2023. doi: 10.18653/V1/2023.ACL-LONG.816. ",
+        "bbox": [
+            174,
+            832,
+            825,
+            875
+        ],
+        "page_idx": 12
+    },
+    {
+        "type": "text",
+        "text": "Yi Tay, Mostafa Dehghani, Dara Bahri, and Donald Metzler. Efficient transformers: A survey. ACM Comput. Surv., 55(6):109:1–109:28, 2023. ",
+        "bbox": [
+            178,
+            882,
+            823,
+            911
+        ],
+        "page_idx": 12
+    },
+    {
+        "type": "text",
+        "text": "Hugo Touvron, Thibaut Lavril, Gautier Izacard, Xavier Martinet, Marie-Anne Lachaux, Timothée Lacroix, Baptiste Rozière, Naman Goyal, Eric Hambro, Faisal Azhar, Aurélien Rodriguez, Armand Joulin, Edouard Grave, and Guillaume Lample. Llama: Open and efficient foundation language models. CoRR, abs/2302.13971, 2023. ",
+        "bbox": [
+            173,
+            90,
+            825,
+            147
+        ],
+        "page_idx": 13
+    },
+    {
+        "type": "text",
+        "text": "Szymon Tworkowski, Konrad Staniszewski, Mikolaj Pacek, Yuhuai Wu, Henryk Michalewski, and Piotr Milos. Focused transformer: Contrastive training for context scaling. CoRR, abs/2307.03170, 2023. ",
+        "bbox": [
+            173,
+            156,
+            825,
+            198
+        ],
+        "page_idx": 13
+    },
+    {
+        "type": "text",
+        "text": "Lei Wang, Chen Ma, Xueyang Feng, Zeyu Zhang, Hao Yang, Jingsen Zhang, Zhiyuan Chen, Jiakai Tang, Xu Chen, Yankai Lin, Wayne Xin Zhao, Zhewei Wei, and Jirong Wen. A survey on large language model based autonomous agents. Frontiers Comput. Sci., 18(6):186345, 2024a. doi: 10.1007/S11704-024-40231-1. ",
+        "bbox": [
+            173,
+            207,
+            826,
+            263
+        ],
+        "page_idx": 13
+    },
+    {
+        "type": "text",
+        "text": "Liang Wang, Nan Yang, Xiaolong Huang, Linjun Yang, Rangan Majumder, and Furu Wei. Improving text embeddings with large language models. CoRR, abs/2401.00368, 2024b. doi: 10.48550/ ARXIV.2401.00368. ",
+        "bbox": [
+            173,
+            272,
+            826,
+            315
+        ],
+        "page_idx": 13
+    },
+    {
+        "type": "text",
+        "text": "Sinong Wang, Belinda Z. Li, Madian Khabsa, Han Fang, and Hao Ma. Linformer: Self-attention with linear complexity. CoRR, abs/2006.04768, 2020. ",
+        "bbox": [
+            173,
+            324,
+            823,
+            353
+        ],
+        "page_idx": 13
+    },
+    {
+        "type": "text",
+        "text": "Jason Weston, Sumit Chopra, and Antoine Bordes. Memory networks. In Proceedings of ICLR, 2015. ",
+        "bbox": [
+            171,
+            361,
+            825,
+            377
+        ],
+        "page_idx": 13
+    },
+    {
+        "type": "text",
+        "text": "Yuhuai Wu, Markus Norman Rabe, DeLesley Hutchins, and Christian Szegedy. Memorizing transformers. In Proceedings of ICLR. OpenReview.net, 2022. ",
+        "bbox": [
+            174,
+            385,
+            825,
+            415
+        ],
+        "page_idx": 13
+    },
+    {
+        "type": "text",
+        "text": "Guangxuan Xiao, Yuandong Tian, Beidi Chen, Song Han, and Mike Lewis. Efficient streaming language models with attention sinks. CoRR, abs/2309.17453, 2023. ",
+        "bbox": [
+            173,
+            422,
+            825,
+            452
+        ],
+        "page_idx": 13
+    },
+    {
+        "type": "text",
+        "text": "Wenhan Xiong, Jingyu Liu, Igor Molybog, Hejia Zhang, Prajjwal Bhargava, Rui Hou, Louis Martin, Rashi Rungta, Karthik Abinav Sankararaman, Barlas Oguz, Madian Khabsa, Han Fang, Yashar Mehdad, Sharan Narang, Kshitiz Malik, Angela Fan, Shruti Bhosale, Sergey Edunov, Mike Lewis, Sinong Wang, and Hao Ma. Effective long-context scaling of foundation models. CoRR, abs/2309.16039, 2023. ",
+        "bbox": [
+            173,
+            460,
+            826,
+            531
+        ],
+        "page_idx": 13
+    },
+    {
+        "type": "text",
+        "text": "Peng Xu, Wei Ping, Xianchao Wu, Lawrence McAfee, Chen Zhu, Zihan Liu, Sandeep Subramanian, Evelina Bakhturina, Mohammad Shoeybi, and Bryan Catanzaro. Retrieval meets long context large language models. CoRR, abs/2310.03025, 2023. ",
+        "bbox": [
+            173,
+            539,
+            823,
+            583
+        ],
+        "page_idx": 13
+    },
+    {
+        "type": "text",
+        "text": "Alex Young, Bei Chen, Chao Li, Chengen Huang, Ge Zhang, Guanwei Zhang, Heng Li, Jiangcheng Zhu, Jianqun Chen, Jing Chang, et al. Yi: Open foundation models by 01. ai. arXiv preprint arXiv:2403.04652, 2024. ",
+        "bbox": [
+            173,
+            590,
+            823,
+            633
+        ],
+        "page_idx": 13
+    },
+    {
+        "type": "text",
+        "text": "Manzil Zaheer, Guru Guruganesh, Kumar Avinava Dubey, Joshua Ainslie, Chris Alberti, Santiago Ontañón, Philip Pham, Anirudh Ravula, Qifan Wang, Li Yang, and Amr Ahmed. Big bird: Transformers for longer sequences. In Proceedings of NeurIPS, 2020. ",
+        "bbox": [
+            176,
+            642,
+            825,
+            685
+        ],
+        "page_idx": 13
+    },
+    {
+        "type": "text",
+        "text": "Xinrong Zhang, Yingfa Chen, Shengding Hu, Qihao Wu, Junhao Chen, Zihang Xu, Zhenning Dai, Xu Han, Shuo Wang, Zhiyuan Liu, and Maosong Sun. Infinitebench: 128k long-context benchmark for language models, 2023a. ",
+        "bbox": [
+            174,
+            693,
+            826,
+            736
+        ],
+        "page_idx": 13
+    },
+    {
+        "type": "text",
+        "text": "Zhenyu Zhang, Ying Sheng, Tianyi Zhou, Tianlong Chen, Lianmin Zheng, Ruisi Cai, Zhao Song, Yuandong Tian, Christopher Ré, Clark W. Barrett, Zhangyang Wang, and Beidi Chen. $\\mathrm { H } _ { 2 ^ { 0 } }$ : Heavyhitter oracle for efficient generative inference of large language models. CoRR, abs/2306.14048, 2023b. ",
+        "bbox": [
+            173,
+            744,
+            826,
+            801
+        ],
+        "page_idx": 13
+    },
+    {
+        "type": "text",
+        "text": "Guangxiang Zhao, Junyang Lin, Zhiyuan Zhang, Xuancheng Ren, Qi Su, and Xu Sun. Explicit sparse transformer: Concentrated attention through explicit selection. CoRR, abs/1912.11637, 2019. ",
+        "bbox": [
+            174,
+            810,
+            823,
+            839
+        ],
+        "page_idx": 13
+    },
+    {
+        "type": "text",
+        "text": "Liang Zhao, Xiaocheng Feng, Xiachong Feng, Bing Qin, and Ting Liu. Length extrapolation of transformers: A survey from the perspective of position encoding. CoRR, abs/2312.17044, 2023. ",
+        "bbox": [
+            176,
+            848,
+            825,
+            877
+        ],
+        "page_idx": 13
+    },
+    {
+        "type": "text",
+        "text": "Broader Impact ",
+        "text_level": 1,
+        "bbox": [
+            174,
+            89,
+            310,
+            107
+        ],
+        "page_idx": 14
+    },
+    {
+        "type": "text",
+        "text": "This paper presents work whose goal is to advance the field of long sequence processing for large language models. There are many potential societal consequences of our work, none of which we feel must be specifically highlighted here. ",
+        "bbox": [
+            176,
+            121,
+            825,
+            162
+        ],
+        "page_idx": 14
+    },
+    {
+        "type": "text",
+        "text": "Limitations ",
+        "text_level": 1,
+        "bbox": [
+            174,
+            183,
+            272,
+            199
+        ],
+        "page_idx": 14
+    },
+    {
+        "type": "text",
+        "text": "In this paper, we propose InfLLM, a method for extending the context window of LLMs without additional training. We verify the effectiveness of our model using a widely-used long-text evaluation benchmark $\\infty$ -Bench. However, our method still has the following limitations: (1) We store a large amount of past key-value (KV) cache in the CPU memory, which increases CPU memory usage. In the future, we can reduce CPU memory requirements by integrating techniques like KV cache quantization. (2) While InfLLM reduces the computational overhead for processing long texts in LLMs, there is still room for speed-up. In the future, we can further enhance the inference speed of InfLLM by integrating it with inference frameworks like llama. $\\mathrm { c p p ^ { 4 } }$ and vllm (Kwon et al., 2023). ",
+        "bbox": [
+            173,
+            214,
+            826,
+            325
+        ],
+        "page_idx": 14
+    },
+    {
+        "type": "text",
+        "text": "A Cache Management Strategy ",
+        "text_level": 1,
+        "bbox": [
+            178,
+            344,
+            450,
+            362
+        ],
+        "page_idx": 14
+    },
+    {
+        "type": "text",
+        "text": "Due to the massive amount of memory units for extremely long sequences, we adopt an offloading mechanism to save GPU memory costs. Considering the infrequent usage of memory units, we offload most memory units to CPU memory and only preserve the frequently used memory units and current needed memory units in the GPU memory. To this end, we maintain a cache in GPU memory to effectively utilize GPU memory and reduce the communication between CPU and GPU. The size for our GPU cache is fixed, and therefore we design a least recently used (LRU) strategy for cache management. In this section, we will introduce the management strategy in detail. ",
+        "bbox": [
+            174,
+            377,
+            549,
+            542
+        ],
+        "page_idx": 14
+    },
+    {
+        "type": "text",
+        "text": "Loading Memory Units For each computation step, we first compute the relevance scores for each memory unit to determine which units should be used. Then, for each needed memory unit, we first search it in our cache. If there is no hit, then we proceed with the transfer from CPU memory to GPU memory. ",
+        "bbox": [
+            173,
+            549,
+            549,
+            577
+        ],
+        "page_idx": 14
+    },
+    {
+        "type": "image",
+        "img_path": "images/62f3a2c71336c7fb4c579e90a9c3fd71485a1cc562217e796a182af2ee131dac.jpg",
+        "image_caption": [
+            "Figure 4: Missing rates of different cache management strategies. "
+        ],
+        "image_footnote": [],
+        "bbox": [
+            563,
+            395,
+            821,
+            526
+        ],
+        "page_idx": 14
+    },
+    {
+        "type": "text",
+        "text": "",
+        "bbox": [
+            174,
+            578,
+            823,
+            604
+        ],
+        "page_idx": 14
+    },
+    {
+        "type": "text",
+        "text": "Offloading Memory Units After the attention computation, we need to offload redundant memory units to keep the GPU cache fixed. To this end, we apply an LRU strategy. Specifically, for each memory unit loaded into our GPU cache, we assign a frequency score $s _ { b }$ for it, which will be used to determine whether this unit should be maintained in the GPU cache or offloaded to CPU memory to save GPU memory costs. The frequency scores are updated after the attention computation. Specifically, we update the score as follows: ",
+        "bbox": [
+            174,
+            611,
+            825,
+            694
+        ],
+        "page_idx": 14
+    },
+    {
+        "type": "equation",
+        "img_path": "images/def615af5fdc113155d71796c2fe6e1dfe2a79ad1a2de0ed03ba32750fe24ac1.jpg",
+        "text": "$$\ns _ { b } = s _ { b } \\cdot d + \\sum _ { j = 1 } ^ { l _ { X } } \\sum _ { i = 1 } ^ { l _ { b s } } \\mathrm { a t t e n t i o n \\_ s c o r e } ( \\mathbf { q } _ { j + l _ { P } } , \\mathbf { k } _ { i } ) ,\n$$",
+        "text_format": "latex",
+        "bbox": [
+            334,
+            702,
+            661,
+            747
+        ],
+        "page_idx": 14
+    },
+    {
+        "type": "text",
+        "text": "where $l _ { u }$ represents the number of current tokens involved in this lookup, attention_score $( \\mathbf { q } , \\mathbf { k } )$ denotes the attention score between $\\mathbf { Q }$ with respect to $\\mathbf { k }$ (ranging from 0 to 1) obtained after performing the attention computation. $d$ is a hyper-parameter, representing the decay coefficient, used to incorporate the influence of previous lookups. After each attention computation, we sort all the memory units in our GPU cache according to their frequency scores $s _ { b }$ , and offload the units with the lowest scores back to the CPU memory. ",
+        "bbox": [
+            174,
+            753,
+            825,
+            838
+        ],
+        "page_idx": 14
+    },
+    {
+        "type": "text",
+        "text": "To verify the effectiveness of our cache management strategy, we evaluate the cache missing rate of different cache management strategies on a sample of data from the GovReport dataset. Specifically, we compare our LRU strategy with (1) Random: randomly selecting units from the GPU cache to offload. (2) First-in-first-out (FIFO): offload the unit that is first loaded in the GPU cache. The results are illustrated in Figure 4. It is observable that the LRU strategy we employed exhibits a lower missing rate, which ensures that the offloading mechanism does not introduce significant time overhead. In the experiments described in the main text, we chose a decay value of 0.1. Besides, to validate the effectiveness of our cache, we conducted an ablation study: running InfLLM without the GPU cache. The experimental results demonstrate that for encoding a 100K sequence, the addition of a GPU cache reduces our time costs from 21.5s to 18.8s. ",
+        "bbox": [
+            174,
+            844,
+            825,
+            887
+        ],
+        "page_idx": 14
+    },
+    {
+        "type": "table",
+        "img_path": "images/a44a19bc988d6e4fcc73d532250c54bd16636330b5ce22a667414e04cc3c2054.jpg",
+        "table_caption": [
+            "Table 5: The results of InfLLM and baseline models on LongBench. The $9 5 \\%$ quantile for text lengths in LongBench is 31K. The context window size for sliding window models refers to the local window size, and for InfLLM refers to “local window size $^ +$ selected memory size”. "
+        ],
+        "table_footnote": [],
+        "table_body": "<table><tr><td></td><td>Window</td><td>NQA</td><td>Qasper</td><td>MFQA</td><td>HQA</td><td>2WikiMQA</td><td>Musique</td></tr><tr><td colspan=\"8\">Mistral-based Models (7B)</td></tr><tr><td>Mistral</td><td>32K</td><td>22.06</td><td>29.16</td><td>47.65</td><td>37.53</td><td>21.96</td><td>19.03</td></tr><tr><td>Infinite</td><td>6K</td><td>18.44</td><td>30.02</td><td>39.05</td><td>32.02</td><td>22.27</td><td>15.81</td></tr><tr><td>Streaming</td><td>6K</td><td>17.92</td><td>30.05</td><td>39.09</td><td>32.18</td><td>21.83</td><td>14.71</td></tr><tr><td>InfLLM</td><td>6K</td><td>22.12</td><td>29.33</td><td>47.42</td><td>36.56</td><td>22.31</td><td>17.68</td></tr><tr><td>InfLLM</td><td>12K</td><td>23.03</td><td>29.52</td><td>47.62</td><td>39.53</td><td>23.61</td><td>18.92</td></tr><tr><td colspan=\"8\">Llama-3-based Models (8B)</td></tr><tr><td>Llama-3</td><td>8K</td><td>19.85</td><td>42.36</td><td>41.03</td><td>47.38</td><td>39.20</td><td>22.96</td></tr><tr><td>Infinite</td><td>8K</td><td>19.39</td><td>42.80</td><td>40.44</td><td>43.77</td><td>37.89</td><td>18.33</td></tr><tr><td>Streaming</td><td>8K</td><td>20.05</td><td>42.46</td><td>39.54</td><td>43.69</td><td>37.89</td><td>19.68</td></tr><tr><td>InfLLM</td><td>8K</td><td>22.64</td><td>43.70</td><td>49.03</td><td>49.04</td><td>35.61</td><td>26.06</td></tr><tr><td></td><td>Window</td><td>GovReport</td><td>QMSum</td><td>MultiNews</td><td>TREC</td><td>TQA</td><td>SAMSum</td></tr><tr><td colspan=\"8\"></td></tr><tr><td>Mistral</td><td>32K</td><td>31.12</td><td>Mistral-based Models (7B) 23.87</td><td>26.62</td><td>71.00</td><td>85.97</td><td>42.29</td></tr><tr><td>Infinite</td><td>6K</td><td>29.74</td><td>21.92</td><td>26.65</td><td>70.00</td><td>85.22</td><td>41.60</td></tr><tr><td>Streaming</td><td>6K</td><td>29.83</td><td>21.94</td><td>26.64</td><td>70.00</td><td>85.57</td><td>41.31</td></tr><tr><td>InfLLM</td><td>6K</td><td>31.03</td><td>23.49</td><td>26.70</td><td>69.00</td><td>86.67</td><td>42.52</td></tr><tr><td>InfLLM</td><td>12K</td><td>31.37</td><td>23.77</td><td>26.66</td><td>71.00</td><td>87.34</td><td>41.80</td></tr><tr><td colspan=\"8\"></td></tr><tr><td>Llama-3</td><td>8K</td><td>29.94</td><td>Llama-3-based Models (8B) 21.45</td><td>27.51</td><td>74.00</td><td>90.50</td><td>42.30</td></tr><tr><td>Infinite</td><td>8K</td><td>29.25</td><td>21.41</td><td>27.62</td><td>74.00</td><td>90.08</td><td>41.72</td></tr><tr><td>Streaming</td><td>8K</td><td>29.17</td><td>21.33</td><td>27.56</td><td>73.50</td><td>90.08</td><td>41.55</td></tr><tr><td>InfLLM</td><td>8K</td><td>30.76</td><td>22.70</td><td>27.57</td><td>73.50</td><td>90.91</td><td>42.43</td></tr><tr><td></td><td>Window</td><td>PsgCount</td><td>PsgRetrieval</td><td>LCC</td><td>RepoBench-P</td><td>Avg.</td><td></td></tr><tr><td colspan=\"8\"></td></tr><tr><td>Mistral</td><td>32K</td><td>3.95</td><td>86.94</td><td>Mistral-based Models (7B) 57.42</td><td>54.14</td><td>43.78</td><td></td></tr><tr><td>Infinite</td><td>6K</td><td>2.08</td><td>42.80</td><td>57.12</td><td>53.43</td><td>39.07</td><td></td></tr><tr><td>Streaming</td><td>6K</td><td>2.50</td><td>42.17</td><td>55.38</td><td>51.46</td><td>38.67</td><td></td></tr><tr><td>InfLLM</td><td>6K</td><td>2.87</td><td>64.00</td><td>56.67</td><td>52.97</td><td>41.90</td><td></td></tr><tr><td>InfLLM</td><td>12K</td><td>3.01</td><td>87.42</td><td>56.69</td><td>52.09</td><td>44.02</td><td></td></tr><tr><td colspan=\"8\">Llama-3-based Models (8B)</td></tr><tr><td>Llama-3</td><td>8K</td><td>8.50</td><td>62.50</td><td>60.83</td><td>49.14</td><td>44.73</td><td></td></tr><tr><td>Infinite</td><td>8K</td><td>4.50</td><td>50.00</td><td>60.12</td><td>48.62</td><td>43.03</td><td></td></tr><tr><td>Streaming</td><td>8K</td><td>5.00</td><td>49.00</td><td>60.35</td><td>48.95</td><td>42.99</td><td></td></tr><tr><td>InfLLM</td><td>8K</td><td>7.17</td><td>84.00</td><td>59.88</td><td>46.48</td><td>46.95</td><td></td></tr></table>",
+        "bbox": [
+            173,
+            132,
+            825,
+            662
+        ],
+        "page_idx": 15
+    },
+    {
+        "type": "text",
+        "text": "",
+        "bbox": [
+            173,
+            672,
+            825,
+            771
+        ],
+        "page_idx": 15
+    },
+    {
+        "type": "text",
+        "text": "B Positional Encoding ",
+        "text_level": 1,
+        "bbox": [
+            176,
+            794,
+            375,
+            811
+        ],
+        "page_idx": 15
+    },
+    {
+        "type": "text",
+        "text": "In InfLLM, we assign all tokens beyond the local window size with the same positional encoding. Therefore, for the current tokens, we do not explicitly provide positional information for the context. But we think that the unidirectional nature of a decoder-only model allows it to recognize the positional information of the context. For instance, assume a sequence contains three spans $S _ { A } , S _ { B }$ , and $S _ { C }$ in order. When encoding $S _ { C }$ , although $S _ { A }$ and $S _ { B }$ are assigned the same positional encoding, the unidirectional nature of the decoder-only model allows the key-value hidden states of $S _ { A }$ and $S _ { B }$ inherently embeds their relative positional information: $S _ { B }$ can utilize information from $S _ { A }$ during its encoding, while $S _ { A }$ can only access information from preceding parts of the sequence. ",
+        "bbox": [
+            174,
+            827,
+            825,
+            911
+        ],
+        "page_idx": 15
+    },
+    {
+        "type": "text",
+        "text": "",
+        "bbox": [
+            173,
+            92,
+            823,
+            119
+        ],
+        "page_idx": 16
+    },
+    {
+        "type": "text",
+        "text": "To verify the model’s capability to capture the relative positional information of the context, we adopt the Retrieve.Passkey task with multiple pass keys for evaluation. In this task, each sequence contains two pass keys, and the model is required to output these two pass keys in order. The data construction approach is consistent with that of $\\infty$ -Bench (Zhang et al., 2023a), where the positions of the two pass keys are randomly selected. We created 50 sequences, each 64K in length. The experimental results reveal that in this task, InfLLM can output the values of the two pass keys in the correct order $100 \\%$ of the time. This indicates that, although our positional encoding disregards the relative positional information of the context, the model can still effectively understand the context in sequence. ",
+        "bbox": [
+            173,
+            126,
+            825,
+            251
+        ],
+        "page_idx": 16
+    },
+    {
+        "type": "text",
+        "text": "C External Experiments ",
+        "text_level": 1,
+        "bbox": [
+            176,
+            281,
+            393,
+            299
+        ],
+        "page_idx": 16
+    },
+    {
+        "type": "text",
+        "text": "C.1 Implementation Details ",
+        "text_level": 1,
+        "bbox": [
+            176,
+            320,
+            379,
+            335
+        ],
+        "page_idx": 16
+    },
+    {
+        "type": "text",
+        "text": "The context memory is constructed for all layers in LLMs. We set the size of our GPU cache as 32, which is twice the number of loaded units for each step. We set the frequency score decay coefficient as 0.1. We adopt the half-float precision for all experiments. We use NVIDIA A100 or A800 to conduct our experiments. For the experiment that scales to 1, 024K context, we set the encoding chunk size as 2048, and the number of representative tokens as 1 to speed up experiments. ",
+        "bbox": [
+            173,
+            351,
+            825,
+            420
+        ],
+        "page_idx": 16
+    },
+    {
+        "type": "text",
+        "text": "C.2 Performance on LongBench ",
+        "text_level": 1,
+        "bbox": [
+            176,
+            449,
+            410,
+            463
+        ],
+        "page_idx": 16
+    },
+    {
+        "type": "text",
+        "text": "We also employ LongBench Bai et al. (2023) as the benchmark to evaluate the effectiveness of InfLLM and baseline models. The evaluation results are shown in Table 5. The results indicate that: (1) InfLLM outperforms other models capable of processing streaming inputs across various diverse tasks. It proves that the context information provided by the context memory can efficiently enhance the model performance. (2) When applying Llama-3 as the base model, both StreamingLLM and LM-Infinite achieve only comparable or even worse performance than the original Llama-3. This indicates that while sliding window attention can effectively extend the context window size of LLMs, these models discard long-distance contextual information, thereby failing to achieve effective long-sequence understanding. (3) Mistral can handle text lengths up to 32K, covering most instances in LongBench. In contrast, InfLLM, with a window size of only 12K, achieves comparable or even superior performance on average. This further demonstrates InfLLM’s ability to filter out noise in long contexts, leading to better long-sequence understanding. ",
+        "bbox": [
+            173,
+            479,
+            825,
+            645
+        ],
+        "page_idx": 16
+    },
+    {
+        "type": "text",
+        "text": "C.3 Experiments on Vicuna ",
+        "text_level": 1,
+        "bbox": [
+            176,
+            674,
+            379,
+            688
+        ],
+        "page_idx": 16
+    },
+    {
+        "type": "text",
+        "text": "In the previous sections, we demonstrated that InfLLM can extend the context windows of Llama-3 (with a maximum length of 8K) and Mistral (with a maximum length of 32K) to several hundred thousand tokens. To further validate the effectiveness of InfLLM, we apply it to the Vicuna Chiang et al. (2023), which has a ",
+        "bbox": [
+            174,
+            704,
+            485,
+            800
+        ],
+        "page_idx": 16
+    },
+    {
+        "type": "table",
+        "img_path": "images/5e2296dc55978cd50c1a2f868d31d179844539dcbc749c6efbeead50c1afac0d.jpg",
+        "table_caption": [
+            "Table 6: The results of Vicuna-based models. "
+        ],
+        "table_footnote": [],
+        "table_body": "<table><tr><td></td><td>R.PK</td><td>R.Num</td><td>R.KV</td><td>Math.F</td></tr><tr><td>Vicuna</td><td>5.08</td><td>4.41</td><td>1.40</td><td>11.71</td></tr><tr><td>InfLLM</td><td>99.15</td><td>81.69</td><td>0.60</td><td>11.14</td></tr></table>",
+        "bbox": [
+            508,
+            742,
+            810,
+            797
+        ],
+        "page_idx": 16
+    },
+    {
+        "type": "text",
+        "text": "maximum length of only 4K. The experimental results are shown in Table 6. The results show that we effectively extend Vicuna’s context length to 128K, achieving significant performance improvements on the Retrieve.Passkey and Retrieve.Number tasks. However, InfLLM can not show performance gains on the Retrieve.KV and Math.Find tasks. This is because the hidden vectors contained in Vicuna have a limited ability to filter out noise in extremely long texts, making it difficult for context memory to effectively locate relevant information in the more complex contexts of the Retrieve.KV and Math.Find tasks. In the future, It deserves further exploration to design more powerful memory mechanism. ",
+        "bbox": [
+            174,
+            801,
+            825,
+            911
+        ],
+        "page_idx": 16
+    },
+    {
+        "type": "table",
+        "img_path": "images/a5ce6377920c206bdcbabf483c530fbdf309fc0c429a9d7ba9d6b26e848b5755.jpg",
+        "table_caption": [
+            "Table 7: The combination of InfLLM and models with continual pre-training, Yi-9B-200K (Yi200K). "
+        ],
+        "table_footnote": [],
+        "table_body": "<table><tr><td></td><td>Train-Free</td><td>R.PK</td><td>R.Num</td><td>R.KV</td><td>Choice</td><td>QA</td><td>Sum</td><td>Math.F</td></tr><tr><td>Yi-200K</td><td></td><td>100.0</td><td>98.3</td><td>54.5</td><td>63.3</td><td>13.0</td><td>5.9</td><td>23.4</td></tr><tr><td>Yi-200K+InfLLM</td><td>\\x$</td><td>100.0</td><td>98.3</td><td>47.8</td><td>45.4</td><td>8.2</td><td>4.7</td><td>33.1</td></tr></table>",
+        "bbox": [
+            227,
+            125,
+            766,
+            180
+        ],
+        "page_idx": 17
+    },
+    {
+        "type": "text",
+        "text": "C.4 Combination of InfLLM with Yi-200K ",
+        "text_level": 1,
+        "bbox": [
+            176,
+            204,
+            485,
+            219
+        ],
+        "page_idx": 17
+    },
+    {
+        "type": "text",
+        "text": "We also present the results for the combination of InfLLM and Yi-9B-200K (Young et al., 2024) in Table 7. From the results, we can observe that InfLLM can also achieve comparable results with Yi-9B-200K. ",
+        "bbox": [
+            174,
+            229,
+            825,
+            272
+        ],
+        "page_idx": 17
+    },
+    {
+        "type": "text",
+        "text": "NeurIPS Paper Checklist ",
+        "text_level": 1,
+        "bbox": [
+            173,
+            88,
+            387,
+            107
+        ],
+        "page_idx": 18
+    },
+    {
+        "type": "text",
+        "text": "1. Claims ",
+        "text_level": 1,
+        "bbox": [
+            214,
+            117,
+            284,
+            131
+        ],
+        "page_idx": 18
+    },
+    {
+        "type": "text",
+        "text": "Question: Do the main claims made in the abstract and introduction accurately reflect the paper’s contributions and scope? ",
+        "bbox": [
+            232,
+            136,
+            825,
+            164
+        ],
+        "page_idx": 18
+    },
+    {
+        "type": "text",
+        "text": "Answer: [Yes] ",
+        "bbox": [
+            232,
+            169,
+            330,
+            184
+        ],
+        "page_idx": 18
+    },
+    {
+        "type": "text",
+        "text": "Justification: We provide detailed experimental results to support our claims. ",
+        "bbox": [
+            235,
+            189,
+            735,
+            203
+        ],
+        "page_idx": 18
+    },
+    {
+        "type": "text",
+        "text": "Guidelines: ",
+        "bbox": [
+            232,
+            208,
+            308,
+            222
+        ],
+        "page_idx": 18
+    },
+    {
+        "type": "text",
+        "text": "• The answer NA means that the abstract and introduction do not include the claims made in the paper.   \n• The abstract and/or introduction should clearly state the claims made, including the contributions made in the paper and important assumptions and limitations. A No or NA answer to this question will not be perceived well by the reviewers.   \n• The claims made should match theoretical and experimental results, and reflect how much the results can be expected to generalize to other settings.   \n• It is fine to include aspirational goals as motivation as long as it is clear that these goals are not attained by the paper. ",
+        "bbox": [
+            251,
+            227,
+            825,
+            359
+        ],
+        "page_idx": 18
+    },
+    {
+        "type": "text",
+        "text": "2. Limitations ",
+        "text_level": 1,
+        "bbox": [
+            214,
+            364,
+            316,
+            378
+        ],
+        "page_idx": 18
+    },
+    {
+        "type": "text",
+        "text": "Question: Does the paper discuss the limitations of the work performed by the authors? ",
+        "bbox": [
+            228,
+            385,
+            803,
+            398
+        ],
+        "page_idx": 18
+    },
+    {
+        "type": "text",
+        "text": "Answer: [Yes] ",
+        "bbox": [
+            232,
+            404,
+            330,
+            417
+        ],
+        "page_idx": 18
+    },
+    {
+        "type": "text",
+        "text": "Justification: We provide discussion about the limitation of this paper in the Appendix. ",
+        "bbox": [
+            233,
+            422,
+            800,
+            438
+        ],
+        "page_idx": 18
+    },
+    {
+        "type": "text",
+        "text": "Guidelines: ",
+        "bbox": [
+            232,
+            443,
+            308,
+            455
+        ],
+        "page_idx": 18
+    },
+    {
+        "type": "text",
+        "text": "• The answer NA means that the paper has no limitation while the answer No means that the paper has limitations, but those are not discussed in the paper.   \n• The authors are encouraged to create a separate \"Limitations\" section in their paper.   \n• The paper should point out any strong assumptions and how robust the results are to violations of these assumptions (e.g., independence assumptions, noiseless settings, model well-specification, asymptotic approximations only holding locally). The authors should reflect on how these assumptions might be violated in practice and what the implications would be.   \nThe authors should reflect on the scope of the claims made, e.g., if the approach was only tested on a few datasets or with a few runs. In general, empirical results often depend on implicit assumptions, which should be articulated.   \nThe authors should reflect on the factors that influence the performance of the approach. For example, a facial recognition algorithm may perform poorly when image resolution is low or images are taken in low lighting. Or a speech-to-text system might not be used reliably to provide closed captions for online lectures because it fails to handle technical jargon.   \n• The authors should discuss the computational efficiency of the proposed algorithms and how they scale with dataset size.   \n• If applicable, the authors should discuss possible limitations of their approach to address problems of privacy and fairness.   \n• While the authors might fear that complete honesty about limitations might be used by reviewers as grounds for rejection, a worse outcome might be that reviewers discover limitations that aren’t acknowledged in the paper. The authors should use their best judgment and recognize that individual actions in favor of transparency play an important role in developing norms that preserve the integrity of the community. Reviewers will be specifically instructed to not penalize honesty concerning limitations. ",
+        "bbox": [
+            248,
+            462,
+            825,
+            838
+        ],
+        "page_idx": 18
+    },
+    {
+        "type": "text",
+        "text": "3. Theory Assumptions and Proofs ",
+        "text_level": 1,
+        "bbox": [
+            214,
+            844,
+            459,
+            859
+        ],
+        "page_idx": 18
+    },
+    {
+        "type": "text",
+        "text": "Question: For each theoretical result, does the paper provide the full set of assumptions and a complete (and correct) proof? ",
+        "bbox": [
+            232,
+            864,
+            823,
+            892
+        ],
+        "page_idx": 18
+    },
+    {
+        "type": "text",
+        "text": "Answer: [NA] ",
+        "bbox": [
+            232,
+            897,
+            328,
+            911
+        ],
+        "page_idx": 18
+    },
+    {
+        "type": "text",
+        "text": "Justification: We propose an empirical method without theoretical analysis and proofs. ",
+        "bbox": [
+            232,
+            92,
+            797,
+            106
+        ],
+        "page_idx": 19
+    },
+    {
+        "type": "text",
+        "text": "Guidelines: ",
+        "bbox": [
+            232,
+            109,
+            308,
+            122
+        ],
+        "page_idx": 19
+    },
+    {
+        "type": "text",
+        "text": "• The answer NA means that the paper does not include theoretical results.   \n• All the theorems, formulas, and proofs in the paper should be numbered and crossreferenced.   \n• All assumptions should be clearly stated or referenced in the statement of any theorems.   \n• The proofs can either appear in the main paper or the supplemental material, but if they appear in the supplemental material, the authors are encouraged to provide a short proof sketch to provide intuition.   \n• Inversely, any informal proof provided in the core of the paper should be complemented by formal proofs provided in appendix or supplemental material.   \n• Theorems and Lemmas that the proof relies upon should be properly referenced. ",
+        "bbox": [
+            251,
+            127,
+            826,
+            275
+        ],
+        "page_idx": 19
+    },
+    {
+        "type": "text",
+        "text": "4. Experimental Result Reproducibility ",
+        "text_level": 1,
+        "bbox": [
+            214,
+            279,
+            491,
+            292
+        ],
+        "page_idx": 19
+    },
+    {
+        "type": "text",
+        "text": "Question: Does the paper fully disclose all the information needed to reproduce the main experimental results of the paper to the extent that it affects the main claims and/or conclusions of the paper (regardless of whether the code and data are provided or not)? ",
+        "bbox": [
+            232,
+            296,
+            825,
+            338
+        ],
+        "page_idx": 19
+    },
+    {
+        "type": "text",
+        "text": "Answer: [Yes] ",
+        "bbox": [
+            232,
+            342,
+            330,
+            356
+        ],
+        "page_idx": 19
+    },
+    {
+        "type": "text",
+        "text": "Justification: We provide implementation details in Section 4.2 and Appendix C.1. Besides, we provide the source code used in this paper. ",
+        "bbox": [
+            233,
+            359,
+            825,
+            388
+        ],
+        "page_idx": 19
+    },
+    {
+        "type": "text",
+        "text": "Guidelines: ",
+        "bbox": [
+            232,
+            392,
+            308,
+            405
+        ],
+        "page_idx": 19
+    },
+    {
+        "type": "text",
+        "text": "• The answer NA means that the paper does not include experiments.   \n• If the paper includes experiments, a No answer to this question will not be perceived well by the reviewers: Making the paper reproducible is important, regardless of whether the code and data are provided or not.   \n• If the contribution is a dataset and/or model, the authors should describe the steps taken to make their results reproducible or verifiable.   \nDepending on the contribution, reproducibility can be accomplished in various ways. For example, if the contribution is a novel architecture, describing the architecture fully might suffice, or if the contribution is a specific model and empirical evaluation, it may be necessary to either make it possible for others to replicate the model with the same dataset, or provide access to the model. In general. releasing code and data is often one good way to accomplish this, but reproducibility can also be provided via detailed instructions for how to replicate the results, access to a hosted model (e.g., in the case of a large language model), releasing of a model checkpoint, or other means that are appropriate to the research performed.   \n• While NeurIPS does not require releasing code, the conference does require all submissions to provide some reasonable avenue for reproducibility, which may depend on the nature of the contribution. For example (a) If the contribution is primarily a new algorithm, the paper should make it clear how to reproduce that algorithm. (b) If the contribution is primarily a new model architecture, the paper should describe the architecture clearly and fully. (c) If the contribution is a new model (e.g., a large language model), then there should either be a way to access this model for reproducing the results or a way to reproduce the model (e.g., with an open-source dataset or instructions for how to construct the dataset). (d) We recognize that reproducibility may be tricky in some cases, in which case authors are welcome to describe the particular way they provide for reproducibility. In the case of closed-source models, it may be that access to the model is limited in some way (e.g., to registered users), but it should be possible for other researchers to have some path to reproducing or verifying the results. ",
+        "bbox": [
+            250,
+            410,
+            825,
+            849
+        ],
+        "page_idx": 19
+    },
+    {
+        "type": "text",
+        "text": "5. Open access to data and code ",
+        "text_level": 1,
+        "bbox": [
+            214,
+            852,
+            439,
+            866
+        ],
+        "page_idx": 19
+    },
+    {
+        "type": "text",
+        "text": "Question: Does the paper provide open access to the data and code, with sufficient instructions to faithfully reproduce the main experimental results, as described in supplemental material? ",
+        "bbox": [
+            232,
+            869,
+            823,
+            911
+        ],
+        "page_idx": 19
+    },
+    {
+        "type": "text",
+        "text": "Answer: [Yes] ",
+        "bbox": [
+            232,
+            92,
+            330,
+            106
+        ],
+        "page_idx": 20
+    },
+    {
+        "type": "text",
+        "text": "Justification: We released our code for further research. The data used in this paper is constructed by previous works, which we haved cited in our papper. ",
+        "bbox": [
+            235,
+            111,
+            825,
+            138
+        ],
+        "page_idx": 20
+    },
+    {
+        "type": "text",
+        "text": "Guidelines: ",
+        "bbox": [
+            232,
+            142,
+            308,
+            156
+        ],
+        "page_idx": 20
+    },
+    {
+        "type": "text",
+        "text": "• The answer NA means that paper does not include experiments requiring code.   \n• Please see the NeurIPS code and data submission guidelines (https://nips.cc/ public/guides/CodeSubmissionPolicy) for more details.   \n• While we encourage the release of code and data, we understand that this might not be possible, so “No” is an acceptable answer. Papers cannot be rejected simply for not including code, unless this is central to the contribution (e.g., for a new open-source benchmark).   \n• The instructions should contain the exact command and environment needed to run to reproduce the results. See the NeurIPS code and data submission guidelines (https: //nips.cc/public/guides/CodeSubmissionPolicy) for more details.   \n• The authors should provide instructions on data access and preparation, including how to access the raw data, preprocessed data, intermediate data, and generated data, etc.   \n• The authors should provide scripts to reproduce all experimental results for the new proposed method and baselines. If only a subset of experiments are reproducible, they should state which ones are omitted from the script and why.   \n• At submission time, to preserve anonymity, the authors should release anonymized versions (if applicable).   \n• Providing as much information as possible in supplemental material (appended to the paper) is recommended, but including URLs to data and code is permitted. ",
+        "bbox": [
+            250,
+            160,
+            826,
+            440
+        ],
+        "page_idx": 20
+    },
+    {
+        "type": "text",
+        "text": "6. Experimental Setting/Details ",
+        "text_level": 1,
+        "bbox": [
+            212,
+            444,
+            436,
+            458
+        ],
+        "page_idx": 20
+    },
+    {
+        "type": "text",
+        "text": "Question: Does the paper specify all the training and test details (e.g., data splits, hyperparameters, how they were chosen, type of optimizer, etc.) necessary to understand the results? ",
+        "bbox": [
+            232,
+            463,
+            825,
+            503
+        ],
+        "page_idx": 20
+    },
+    {
+        "type": "text",
+        "text": "Answer: [Yes] ",
+        "bbox": [
+            232,
+            508,
+            330,
+            523
+        ],
+        "page_idx": 20
+    },
+    {
+        "type": "text",
+        "text": "Justification: We provide the implementation details in Section 4.1 and Appendix C.1. ",
+        "bbox": [
+            235,
+            527,
+            794,
+            542
+        ],
+        "page_idx": 20
+    },
+    {
+        "type": "text",
+        "text": "Guidelines: ",
+        "bbox": [
+            232,
+            546,
+            308,
+            560
+        ],
+        "page_idx": 20
+    },
+    {
+        "type": "text",
+        "text": "• The answer NA means that the paper does not include experiments. • The experimental setting should be presented in the core of the paper to a level of detail that is necessary to appreciate the results and make sense of them. • The full details can be provided either with the code, in appendix, or as supplemental material. ",
+        "bbox": [
+            251,
+            565,
+            825,
+            638
+        ],
+        "page_idx": 20
+    },
+    {
+        "type": "text",
+        "text": "7. Experiment Statistical Significance ",
+        "text_level": 1,
+        "bbox": [
+            214,
+            642,
+            477,
+            657
+        ],
+        "page_idx": 20
+    },
+    {
+        "type": "text",
+        "text": "Question: Does the paper report error bars suitably and correctly defined or other appropriate information about the statistical significance of the experiments? ",
+        "bbox": [
+            232,
+            662,
+            823,
+            690
+        ],
+        "page_idx": 20
+    },
+    {
+        "type": "text",
+        "text": "Answer: [NA] ",
+        "bbox": [
+            232,
+            694,
+            328,
+            708
+        ],
+        "page_idx": 20
+    },
+    {
+        "type": "text",
+        "text": "Justification: The method proposed in this paper does not require any training. Therefore, there is no randomness in the experimental results. ",
+        "bbox": [
+            235,
+            713,
+            825,
+            741
+        ],
+        "page_idx": 20
+    },
+    {
+        "type": "text",
+        "text": "Guidelines: ",
+        "bbox": [
+            232,
+            746,
+            310,
+            758
+        ],
+        "page_idx": 20
+    },
+    {
+        "type": "text",
+        "text": "• The answer NA means that the paper does not include experiments.   \n• The authors should answer \"Yes\" if the results are accompanied by error bars, confidence intervals, or statistical significance tests, at least for the experiments that support the main claims of the paper.   \n• The factors of variability that the error bars are capturing should be clearly stated (for example, train/test split, initialization, random drawing of some parameter, or overall run with given experimental conditions).   \n• The method for calculating the error bars should be explained (closed form formula, call to a library function, bootstrap, etc.)   \n• The assumptions made should be given (e.g., Normally distributed errors).   \n• It should be clear whether the error bar is the standard deviation or the standard error of the mean.   \n• It is OK to report 1-sigma error bars, but one should state it. The authors should preferably report a 2-sigma error bar than state that they have a $96 \\%$ CI, if the hypothesis of Normality of errors is not verified.   \n• For asymmetric distributions, the authors should be careful not to show in tables or figures symmetric error bars that would yield results that are out of range (e.g. negative error rates).   \n• If error bars are reported in tables or plots, The authors should explain in the text how they were calculated and reference the corresponding figures or tables in the text. ",
+        "bbox": [
+            251,
+            763,
+            825,
+            912
+        ],
+        "page_idx": 20
+    },
+    {
+        "type": "text",
+        "text": "",
+        "bbox": [
+            251,
+            92,
+            825,
+            238
+        ],
+        "page_idx": 21
+    },
+    {
+        "type": "text",
+        "text": "8. Experiments Compute Resources ",
+        "text_level": 1,
+        "bbox": [
+            212,
+            243,
+            465,
+            257
+        ],
+        "page_idx": 21
+    },
+    {
+        "type": "text",
+        "text": "Question: For each experiment, does the paper provide sufficient information on the computer resources (type of compute workers, memory, time of execution) needed to reproduce the experiments? ",
+        "bbox": [
+            233,
+            263,
+            825,
+            304
+        ],
+        "page_idx": 21
+    },
+    {
+        "type": "text",
+        "text": "Answer: [Yes] ",
+        "bbox": [
+            232,
+            310,
+            330,
+            324
+        ],
+        "page_idx": 21
+    },
+    {
+        "type": "text",
+        "text": "Justification: We provide the details in Appendix C.1 and report the computation time consumption in Table 2. ",
+        "bbox": [
+            232,
+            329,
+            823,
+            357
+        ],
+        "page_idx": 21
+    },
+    {
+        "type": "text",
+        "text": "Guidelines: ",
+        "bbox": [
+            232,
+            363,
+            310,
+            376
+        ],
+        "page_idx": 21
+    },
+    {
+        "type": "text",
+        "text": "• The answer NA means that the paper does not include experiments.   \n• The paper should indicate the type of compute workers CPU or GPU, internal cluster, or cloud provider, including relevant memory and storage.   \n• The paper should provide the amount of compute required for each of the individual experimental runs as well as estimate the total compute.   \n• The paper should disclose whether the full research project required more compute than the experiments reported in the paper (e.g., preliminary or failed experiments that didn’t make it into the paper). ",
+        "bbox": [
+            251,
+            382,
+            825,
+            501
+        ],
+        "page_idx": 21
+    },
+    {
+        "type": "text",
+        "text": "9. Code Of Ethics ",
+        "text_level": 1,
+        "bbox": [
+            212,
+            506,
+            341,
+            520
+        ],
+        "page_idx": 21
+    },
+    {
+        "type": "text",
+        "text": "Question: Does the research conducted in the paper conform, in every respect, with the NeurIPS Code of Ethics https://neurips.cc/public/EthicsGuidelines? ",
+        "bbox": [
+            232,
+            526,
+            823,
+            554
+        ],
+        "page_idx": 21
+    },
+    {
+        "type": "text",
+        "text": "Answer: [Yes] ",
+        "bbox": [
+            232,
+            559,
+            330,
+            573
+        ],
+        "page_idx": 21
+    },
+    {
+        "type": "text",
+        "text": "Justification: We conform with the NeurIPS Code of Ethics. ",
+        "bbox": [
+            232,
+            578,
+            625,
+            593
+        ],
+        "page_idx": 21
+    },
+    {
+        "type": "text",
+        "text": "Guidelines: ",
+        "bbox": [
+            232,
+            598,
+            308,
+            612
+        ],
+        "page_idx": 21
+    },
+    {
+        "type": "text",
+        "text": "• The answer NA means that the authors have not reviewed the NeurIPS Code of Ethics.   \n• If the authors answer No, they should explain the special circumstances that require a deviation from the Code of Ethics.   \n• The authors should make sure to preserve anonymity (e.g., if there is a special consideration due to laws or regulations in their jurisdiction). ",
+        "bbox": [
+            251,
+            617,
+            825,
+            693
+        ],
+        "page_idx": 21
+    },
+    {
+        "type": "text",
+        "text": "10. Broader Impacts ",
+        "text_level": 1,
+        "bbox": [
+            205,
+            698,
+            352,
+            712
+        ],
+        "page_idx": 21
+    },
+    {
+        "type": "text",
+        "text": "Question: Does the paper discuss both potential positive societal impacts and negative societal impacts of the work performed? ",
+        "bbox": [
+            233,
+            717,
+            823,
+            744
+        ],
+        "page_idx": 21
+    },
+    {
+        "type": "text",
+        "text": "Answer: [Yes] ",
+        "bbox": [
+            232,
+            751,
+            330,
+            765
+        ],
+        "page_idx": 21
+    },
+    {
+        "type": "text",
+        "text": "Justification: We discuss the broader impact in the Appendix. ",
+        "bbox": [
+            232,
+            770,
+            633,
+            784
+        ],
+        "page_idx": 21
+    },
+    {
+        "type": "text",
+        "text": "Guidelines: ",
+        "bbox": [
+            232,
+            790,
+            310,
+            803
+        ],
+        "page_idx": 21
+    },
+    {
+        "type": "text",
+        "text": "• The answer NA means that there is no societal impact of the work performed.   \n• If the authors answer NA or No, they should explain why their work has no societal impact or why the paper does not address societal impact.   \n• Examples of negative societal impacts include potential malicious or unintended uses (e.g., disinformation, generating fake profiles, surveillance), fairness considerations (e.g., deployment of technologies that could make decisions that unfairly impact specific groups), privacy considerations, and security considerations.   \n• The conference expects that many papers will be foundational research and not tied to particular applications, let alone deployments. However, if there is a direct path to any negative applications, the authors should point it out. For example, it is legitimate to point out that an improvement in the quality of generative models could be used to generate deepfakes for disinformation. On the other hand, it is not needed to point out that a generic algorithm for optimizing neural networks could enable people to train models that generate Deepfakes faster.   \n• The authors should consider possible harms that could arise when the technology is being used as intended and functioning correctly, harms that could arise when the technology is being used as intended but gives incorrect results, and harms following from (intentional or unintentional) misuse of the technology.   \nIf there are negative societal impacts, the authors could also discuss possible mitigation strategies (e.g., gated release of models, providing defenses in addition to attacks, mechanisms for monitoring misuse, mechanisms to monitor how a system learns from feedback over time, improving the efficiency and accessibility of ML). ",
+        "bbox": [
+            251,
+            809,
+            825,
+            911
+        ],
+        "page_idx": 21
+    },
+    {
+        "type": "text",
+        "text": "",
+        "bbox": [
+            250,
+            90,
+            825,
+            303
+        ],
+        "page_idx": 22
+    },
+    {
+        "type": "text",
+        "text": "11. Safeguards ",
+        "text_level": 1,
+        "bbox": [
+            205,
+            308,
+            313,
+            323
+        ],
+        "page_idx": 22
+    },
+    {
+        "type": "text",
+        "text": "Question: Does the paper describe safeguards that have been put in place for responsible release of data or models that have a high risk for misuse (e.g., pretrained language models, image generators, or scraped datasets)? ",
+        "bbox": [
+            233,
+            327,
+            823,
+            369
+        ],
+        "page_idx": 22
+    },
+    {
+        "type": "text",
+        "text": "Answer: [NA] ",
+        "bbox": [
+            232,
+            373,
+            328,
+            387
+        ],
+        "page_idx": 22
+    },
+    {
+        "type": "text",
+        "text": "Justification: In this paper, we propose a training-free method to extend the context window of existing LLMs. ",
+        "bbox": [
+            230,
+            393,
+            823,
+            420
+        ],
+        "page_idx": 22
+    },
+    {
+        "type": "text",
+        "text": "Guidelines: ",
+        "bbox": [
+            232,
+            425,
+            308,
+            439
+        ],
+        "page_idx": 22
+    },
+    {
+        "type": "text",
+        "text": "• The answer NA means that the paper poses no such risks.   \n• Released models that have a high risk for misuse or dual-use should be released with necessary safeguards to allow for controlled use of the model, for example by requiring that users adhere to usage guidelines or restrictions to access the model or implementing safety filters.   \n• Datasets that have been scraped from the Internet could pose safety risks. The authors should describe how they avoided releasing unsafe images.   \n• We recognize that providing effective safeguards is challenging, and many papers do not require this, but we encourage authors to take this into account and make a best faith effort. ",
+        "bbox": [
+            251,
+            444,
+            825,
+            588
+        ],
+        "page_idx": 22
+    },
+    {
+        "type": "text",
+        "text": "12. Licenses for existing assets ",
+        "text_level": 1,
+        "bbox": [
+            205,
+            594,
+            419,
+            608
+        ],
+        "page_idx": 22
+    },
+    {
+        "type": "text",
+        "text": "Question: Are the creators or original owners of assets (e.g., code, data, models), used in the paper, properly credited and are the license and terms of use explicitly mentioned and properly respected? ",
+        "bbox": [
+            233,
+            614,
+            823,
+            655
+        ],
+        "page_idx": 22
+    },
+    {
+        "type": "text",
+        "text": "Answer: [Yes] ",
+        "bbox": [
+            232,
+            660,
+            330,
+            674
+        ],
+        "page_idx": 22
+    },
+    {
+        "type": "text",
+        "text": "ustification: We properly cite the data, and code used in this paper. ",
+        "bbox": [
+            240,
+            679,
+            669,
+            693
+        ],
+        "page_idx": 22
+    },
+    {
+        "type": "text",
+        "text": "Guidelines: ",
+        "bbox": [
+            232,
+            698,
+            308,
+            710
+        ],
+        "page_idx": 22
+    },
+    {
+        "type": "text",
+        "text": "• The answer NA means that the paper does not use existing assets.   \n• The authors should cite the original paper that produced the code package or dataset.   \n• The authors should state which version of the asset is used and, if possible, include a URL.   \n• The name of the license (e.g., CC-BY 4.0) should be included for each asset.   \n• For scraped data from a particular source (e.g., website), the copyright and terms of service of that source should be provided.   \n• If assets are released, the license, copyright information, and terms of use in the package should be provided. For popular datasets, paperswithcode.com/datasets has curated licenses for some datasets. Their licensing guide can help determine the license of a dataset.   \n• For existing datasets that are re-packaged, both the original license and the license of the derived asset (if it has changed) should be provided. ",
+        "bbox": [
+            251,
+            715,
+            825,
+            911
+        ],
+        "page_idx": 22
+    },
+    {
+        "type": "text",
+        "text": "• If this information is not available online, the authors are encouraged to reach out to the asset’s creators. ",
+        "bbox": [
+            250,
+            92,
+            823,
+            118
+        ],
+        "page_idx": 23
+    },
+    {
+        "type": "text",
+        "text": "13. New Assets ",
+        "text_level": 1,
+        "bbox": [
+            205,
+            125,
+            313,
+            137
+        ],
+        "page_idx": 23
+    },
+    {
+        "type": "text",
+        "text": "Question: Are new assets introduced in the paper well documented and is the documentation provided alongside the assets? ",
+        "bbox": [
+            232,
+            143,
+            823,
+            170
+        ],
+        "page_idx": 23
+    },
+    {
+        "type": "text",
+        "text": "Answer: [Yes] ",
+        "bbox": [
+            232,
+            175,
+            328,
+            189
+        ],
+        "page_idx": 23
+    },
+    {
+        "type": "text",
+        "text": "Justification: We provide detailed readme to the released code. ",
+        "bbox": [
+            232,
+            194,
+            642,
+            208
+        ],
+        "page_idx": 23
+    },
+    {
+        "type": "text",
+        "text": "Guidelines: ",
+        "bbox": [
+            232,
+            213,
+            310,
+            227
+        ],
+        "page_idx": 23
+    },
+    {
+        "type": "text",
+        "text": "• The answer NA means that the paper does not release new assets.   \n• Researchers should communicate the details of the dataset/code/model as part of their submissions via structured templates. This includes details about training, license, limitations, etc.   \n• The paper should discuss whether and how consent was obtained from people whose asset is used.   \n• At submission time, remember to anonymize your assets (if applicable). You can either create an anonymized URL or include an anonymized zip file. ",
+        "bbox": [
+            251,
+            232,
+            825,
+            349
+        ],
+        "page_idx": 23
+    },
+    {
+        "type": "text",
+        "text": "14. Crowdsourcing and Research with Human Subjects ",
+        "text_level": 1,
+        "bbox": [
+            205,
+            354,
+            596,
+            369
+        ],
+        "page_idx": 23
+    },
+    {
+        "type": "text",
+        "text": "Question: For crowdsourcing experiments and research with human subjects, does the paper include the full text of instructions given to participants and screenshots, if applicable, as well as details about compensation (if any)? ",
+        "bbox": [
+            230,
+            373,
+            825,
+            415
+        ],
+        "page_idx": 23
+    },
+    {
+        "type": "text",
+        "text": "Answer: [NA] ",
+        "bbox": [
+            232,
+            420,
+            328,
+            434
+        ],
+        "page_idx": 23
+    },
+    {
+        "type": "text",
+        "text": "Justification: We donot require human annotation and evaluation in this paper. ",
+        "bbox": [
+            232,
+            439,
+            741,
+            453
+        ],
+        "page_idx": 23
+    },
+    {
+        "type": "text",
+        "text": "Guidelines: ",
+        "bbox": [
+            232,
+            458,
+            310,
+            472
+        ],
+        "page_idx": 23
+    },
+    {
+        "type": "text",
+        "text": "• The answer NA means that the paper does not involve crowdsourcing nor research with human subjects.   \n• Including this information in the supplemental material is fine, but if the main contribution of the paper involves human subjects, then as much detail as possible should be included in the main paper.   \n• According to the NeurIPS Code of Ethics, workers involved in data collection, curation, or other labor should be paid at least the minimum wage in the country of the data collector. ",
+        "bbox": [
+            251,
+            477,
+            825,
+            592
+        ],
+        "page_idx": 23
+    },
+    {
+        "type": "text",
+        "text": "15. Institutional Review Board (IRB) Approvals or Equivalent for Research with Human Subjects ",
+        "text_level": 1,
+        "bbox": [
+            209,
+            597,
+            821,
+            625
+        ],
+        "page_idx": 23
+    },
+    {
+        "type": "text",
+        "text": "Question: Does the paper describe potential risks incurred by study participants, whether such risks were disclosed to the subjects, and whether Institutional Review Board (IRB) approvals (or an equivalent approval/review based on the requirements of your country or institution) were obtained? ",
+        "bbox": [
+            232,
+            628,
+            825,
+            684
+        ],
+        "page_idx": 23
+    },
+    {
+        "type": "text",
+        "text": "Answer: [NA] ",
+        "bbox": [
+            232,
+            689,
+            328,
+            703
+        ],
+        "page_idx": 23
+    },
+    {
+        "type": "text",
+        "text": "Justification: This paper does not involve crowdsourcing nor research with human subjects. ",
+        "bbox": [
+            233,
+            708,
+            823,
+            722
+        ],
+        "page_idx": 23
+    },
+    {
+        "type": "text",
+        "text": "Guidelines: ",
+        "bbox": [
+            232,
+            727,
+            310,
+            741
+        ],
+        "page_idx": 23
+    },
+    {
+        "type": "text",
+        "text": "• The answer NA means that the paper does not involve crowdsourcing nor research with human subjects.   \n• Depending on the country in which research is conducted, IRB approval (or equivalent) may be required for any human subjects research. If you obtained IRB approval, you should clearly state this in the paper.   \n• We recognize that the procedures for this may vary significantly between institutions and locations, and we expect authors to adhere to the NeurIPS Code of Ethics and the guidelines for their institution.   \n• For initial submissions, do not include any information that would break anonymity (if applicable), such as the institution conducting the review. ",
+        "bbox": [
+            251,
+            746,
+            825,
+            891
+        ],
+        "page_idx": 23
+    }
+]

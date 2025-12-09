@@ -1,0 +1,71 @@
+dataset:
+  name: ImageNet-1K
+  validation_split: true
+  image_size: 224
+
+models:
+  convnext_tiny:
+    architecture: ConvNeXt-Tiny
+    pretrained: true
+    dataset: ImageNet-21K
+  convnext_small:
+    architecture: ConvNeXt-Small
+    pretrained: true
+    dataset: ImageNet-21K
+  convnext_base:
+    architecture: ConvNeXt-Base
+    pretrained: true
+    dataset: ImageNet-21K
+  convnext_large:
+    architecture: ConvNeXt-Large
+    pretrained: true
+    dataset: ImageNet-21K
+  convnext_huge:
+    architecture: ConvNeXt-Huge
+    pretrained: true
+    dataset: ImageNet-21K
+  vit_s_16:
+    architecture: ViT-S/16
+    pretrained: true
+    dataset: ImageNet-21K
+  vit_l_16:
+    architecture: ViT-L/16
+    pretrained: true
+    dataset: ImageNet-21K
+  vit_h_14:
+    architecture: ViT-H/14
+    pretrained: true
+    dataset: ImageNet-21K
+  clip_large:
+    architecture: CLIP-Large
+    pretrained_source: OpenCLIP
+    dataset: LAION-2B
+  clip_xl:
+    architecture: CLIP-XLarge
+    pretrained_source: OpenCLIP
+    dataset: LAION-2B
+
+evaluation:
+  batch_size: 128
+  transformations:
+    scale_factors: [1, 1.25, 1.5, 2, 3]
+    shift_pixels: [0, 10, 20]
+    resolution_sizes: [112, 224, 336, 512, 640]
+  inference_steps: 10000
+
+training:
+  learning_rate: 0.001  # Default to typical training; actual training is pretrained, no fine-tuning from scratch
+  batch_size: 256
+  epochs: 100
+  optimizer: AdamW
+  weight_decay: 0.01
+  scheduler: cosine_annealing
+
+misc:
+  seed: 42
+  evaluation_metrics:
+    accuracy: top-1
+    calibration: ECE (Expected Calibration Error)
+    mistake_analysis: class confusion
+    bias: shape vs texture bias
+    invariance_tests: scale, shift, resolution

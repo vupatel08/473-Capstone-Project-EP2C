@@ -1,0 +1,44 @@
+## regularizer.py
+import torch
+from typing import Optional
+
+class Regularizer:
+    """
+    Implements the trace loss regularization for the covariance matrix of spectrally transformed embeddings.
+    Encourages the spectrum (diagonal elements) of the covariance matrix to approach 1, preventing collapse.
+    """
+
+    def __init__(self, trace_loss_weight: float = 0.01, epsilon: float = 1e-5):
+        """
+        Initializes the Regularizer with a weight for the trace loss and a stability epsilon.
+        
+        Args:
+            trace_loss_weight (float): Hyperparameter to scale the regularization loss.
+            epsilon (float): Small constant added to the diagonal for numerical stability.
+        """
+        self.trace_loss_weight = trace_loss_weight
+        self.epsilon = epsilon
+
+    def __call__(self, covariance_matrix: torch.Tensor) -> torch.Tensor:
+        """
+        Computes the trace regularization loss given a covariance matrix.
+        
+        Args:
+            covariance_matrix (torch.Tensor): Covariance matrix of shape (d, d), assumed symmetric.
+        
+        Returns:
+            torch.Tensor: Scalar tensor representing the scaled trace loss.
+        """
+        # Ensure covariance matrix is symmetric; add epsilon to diagonal for stability
+        cov = covariance_matrix
+        diag_elements = torch.diagonal(cov)
+        # Add epsilon for numerical stability if necessary
+        diag_stable = diag_elements + self.epsilon
+
+        # Compute (1 - diag_element)^2 for each diagonal
+        deviations = (1.0 - diag_stable).pow(2)
+        # Sum over all dimensions
+        trace_loss = deviations.sum()
+        # Scale by the regularization weight
+        scaled_loss = self.trace_loss_weight * trace_loss
+        return scaled_loss

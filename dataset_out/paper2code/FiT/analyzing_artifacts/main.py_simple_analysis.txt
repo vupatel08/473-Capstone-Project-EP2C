@@ -1,0 +1,179 @@
+# Logic Analysis for main.py
+
+This script serves as the primary entry point orchestrating dataset loading, model initialization, training, inference (including resolution extrapolation), and evaluation. Its design emphasizes modularity, clarity, and fidelity to the paper's methodology, leveraging the provided configuration file for hyperparameters and operational parameters.
+
+---
+
+## 1. Parsing Inputs & Configuration
+
+- **Objective:** Load and parse `config.yaml` to extract all hyperparameters, paths, and flags.
+- **Approach:**
+  - Use `argparse` for optional command-line overrides (e.g., path to config).
+  - Load the YAML config with `yaml.safe_load()` or similar.
+- **Key variables:**
+  - `training` parameters: total steps, batch size, guidance scale, EMA decay.
+  - `dataset`: dataset name, resolution.
+  - `model`: architecture type, patch size, hidden dims, pretrained model paths.
+  - `extrapolation`: method, max resolution, inference resolution, aspect ratios.
+  - `generation`: inference steps, guidance scale.
+  - `evaluation`: sample sizes, dataset split.
+
+---
+
+## 2. Initialize Logging & Output Setup
+
+- **Objective:** Set up directory structure, log file, and checkpointing.
+- **Steps:**
+  - Create output directory (`logging.output_dir`).
+  - Configure logging (e.g., `logging.basicConfig`).
+  - Initialize checkpoint saver/loading mechanisms if pretrained models are used.
+
+---
+
+## 3. Load Dataset
+
+- **Objective:** Instantiate `DatasetLoader` or equivalent class.
+- **Implementation:**
+  - Call `DatasetLoader.load_data()` with dataset parameters.
+  - For reproducibility, ensure consistent preprocessing:
+    - Resize images to a fixed resolution (≤ 256×256) for training.
+    - Enable augmentations like random crop, flip, etc.
+  - Return dataset objects compatible with `torch.utils.DataLoader`.
+- **Considerations:**
+  - Use `torchvision.datasets.ImageFolder` or custom loader.
+  - For evaluation, load validation set.
+
+---
+
+## 4. Initialize Model
+
+- **Objective:** Instantiate the `FiTTransformer` model with parameters.
+- **Implementation:**
+  - Load architecture (e.g., `model.py`) with:
+    - Patch size = 2.
+    - Hidden dims, layers, attention heads from config.
+  - Load pretrained VAE and diffusion models:
+    - Use paths from `pretrained_vae_path` and `pretrained_diffusion_path`.
+  - Initialize model weights:
+    - Use `Xavier`, `kaiming`, as appropriate.
+  - Wrap model with EMA if applicable (see training loop).
+
+- **Adaptive aspects:**
+  - Ensure model supports setting resolution scale factors after initialization.
+  - Implement `set_resolution_scale()` method to dynamically scale rotary bases for extrapolation.
+
+---
+
+## 5. Initialize Diffusion Sampler
+
+- **Objective:** Instantiate diffusion process handler: `DiffusionSampler`.
+- **Implementation:**
+  - Load pretrained diffusion model checkpoint.
+  - Set diffusion hyperparameters, steps = 250, guidance scale from config.
+  - Ensure sampler supports:
+    - Arbitrary resolution and aspect ratio input.
+    - Guidance function during sampling.
+- **Note:**
+  - Can use `diffusers` library or custom sampling loop as per paper.
+
+---
+
+## 6. Training Loop
+
+- **Objective:** Train the model for specified steps.
+- **Sequence:**
+  - For each iteration up to `total_steps`:
+    - Load batch of images:
+      - Resize and crop images using standard transformations.
+      - Encode batch images via pretrained VAE (`VAE.encode()`).
+      - Patchify latent codes into tokens.
+    - Prepare input tokens:
+      - Pad sequences to `L_max` (e.g., 256 tokens).
+      - Generate positional embeddings (via `PositionalEncoding`) for tokens.
+    - Forward pass:
+      - Compute diffusion loss (noise prediction or epsilon prediction).
+      - Use guidance if employed.
+    - Backpropagation:
+      - Update model parameters with AdamW.
+      - Update EMA with decay `0.9999`.
+
+- **Important:**
+  - Log training metrics periodically (loss, guidance scale, step).
+  - Save checkpoints at intervals (`save_interval`).
+  - Handle early stopping, if needed.
+
+---
+
+## 7. Resolution Extrapolation & Inference
+
+- **Objective:** Generate images at multiple resolutions, especially out-of-distribution resolutions for validation.
+- **Procedure:**
+  - For each desired test resolution (from `resolution_inference` or `aspect_ratio_test`):
+    - Determine scale factors:
+      - \( s_h = \max(\frac{H_{test}}{L_{train}}, 1.0) \)
+      - \( s_w = \max(\frac{W_{test}}{L_{train}}, 1.0) \)
+    - Call `set_resolution_scale(s_h, s_w)` on model:
+      - Internally, this adjusts rotary bases per equations (using `positional_encoding.py` methods).
+    - Generate sample images:
+      - Use `DiffusionSampler.sample()` with prompt, resolution, guidance.
+    - Save generated images for qualitative analysis.
+
+- **Note:**
+  - Implement multiple inference runs with different resolution/aspect ratio combinations.
+  - Use guidance guidance (e.g., guidance scale 4.0) for best results.
+  - Collect images for evaluation.
+
+---
+
+## 8. Evaluation & Metric Computation
+
+- **Objective:** Assess the quality of generated images.
+- **Method:**
+  - Pass generated images through `evaluation.py` functions:
+    - Compute FID:
+      - Provide generated images and reference real images (validation set).
+    - Compute IS, Precision, Recall.
+  - Use standard datasets/splits as in paper.
+  - Log metrics.
+
+- **Special consideration:**
+  - For out-of-distribution resolutions, measure interpolation success (FID, IS degrades gracefully).
+  - For in-distribution resolutions, verify consistency against baseline (e.g., DiT, BigGAN).
+
+---
+
+## 9. Save Results & Log
+
+- Save:
+  - Generated sample images (e.g., in `output_dir`).
+  - Model checkpoints (EMA weights).
+  - Evaluation metrics.
+- Log:
+  - Training progress.
+  - Final metrics.
+  - Resolution extrapolation success stories.
+
+---
+
+## 10. Finalization & Cleanup
+
+- Close logs.
+- Save final models.
+- Generate figures, sample galleries.
+- Cleanup temporary files.
+
+---
+
+## 11. Additional Considerations
+
+- **Robustness:**
+  - Handle exceptions (e.g., missing files, OOM errors).
+- **Reproducibility:**
+  - Set random seed(s).
+  - Log environment info.
+- **Extensibility:**
+  - Make it easy to switch between NTK or YaRN extrapolation methods via config.
+
+---
+
+This detailed logical plan ensures the main.py script systematically handles all stages from setup, training, inference, to evaluation, maintaining fidelity to the paper's methodology and the explicit design described. It leverages modularity, respects configurations, and provides a clear foundation for implementing reproducible experimentation consistent with the FiT approach.

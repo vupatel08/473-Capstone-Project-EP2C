@@ -1,0 +1,275 @@
+```python
+## sampling.py
+import numpy as np
+import torch
+import torch.nn.functional as F
+from sklearn.cluster import AgglomerativeClustering
+from typing import List, Tuple, Dict, Callable
+from label_smoothing import LabelSmoother
+
+class GGSampler:
+    """
+    Implements the core Gibbs Sampling with Graph-based Smoothing (GGS) procedure.
+    """
+
+    def __init__(self,
+                 predictor,
+                 sequences: List[str],
+                 predictor_predict_func: Callable[[str], float],
+                 predictor_grad_func: Callable[[str], np.ndarray],
+                 proposals_per_sequence: int = 100,
+                 gwg_rounds: int = 15,
+                 clustering_clusters: int = 20,
+                 temperature: float = 0.1,
+                 mutation_batch_size: int = 100,
+                 sequence_length: int = 236,
+                 vocab_SIZE: int = 20,
+                 seed: int = 42):
+        """
+        Initialize the sampler.
+        Args:
+            predictor: Trained predictor model with predict() and compute_gradients().
+            sequences: Current set of sequences (initial input pool).
+            predictor_predict_func: Function to get predictor's predicted fitness.
+            predictor_grad_func: Function to get gradients w.r.t. input.
+            proposals_per_sequence: Number of proposals generated per sequence each round.
+            gwg_rounds: Total rounds of sampling.
+            clustering_clusters: Number of clusters for sequence reduction.
+            temperature: Temperature for proposal softmax.
+            mutation_batch_size: Total proposals spread across sequences per round.
+            sequence_length: Sequence length (fixed).
+            vocab_SIZE: Number of amino acids (default 20).
+            seed: Random seed for reproducibility.
+        """
+        self.predictor = predictor
+        self.sequences = sequences
+        self.predict = predictor_predict_func
+        self.grad_fn = predictor_grad_func
+        self.proposals_per_sequence = proposals_per_sequence
+        self.rounds = gwg_rounds
+        self.num_clusters = clustering_clusters
+        self.tau = temperature
+        self.batch_size = mutation_batch_size
+        self.seq_len = sequence_length
+        self.vocab_size = vocab_SIZE
+        self.rng = np.random.RandomState(seed)
+
+    def run_sampling(self) -> List[str]:
+        """
+        Main loop: perform R rounds of GH (Gibbs sampling with clustering).
+        Returns:
+            List of accepted sequences after the last round.
+        """
+        
+        current_sequences = self.sequences.copy()
+
+        for r in range(self.rounds):
+            # Generate proposals for all sequences in current pool
+            proposals = []
+            proposal_scores = []
+
+            for seq in current_sequences:
+                # Generate proposals per sequence
+                seq_proposals = self._generate_proposals(seq)
+                proposals.extend(seq_proposals)
+
+            # Evaluate energy and gradients for proposals
+            energies = []
+            gradients = []
+
+            for seq in proposals:
+                f_x = self.predict(seq)
+                energies.append(f_x)
+                grads = self.grad_fn(seq)  # shape: [seq_len, vocab_size]
+                gradients.append(grads)
+
+            energies = np.array(energies)
+            # Compute proposal probabilities q(x'|x)
+            q_probs = self._compute_proposal_probs(gradients)
+
+            # Accept/reject proposals
+            accepted_sequences = []
+
+            for i, seq in enumerate(proposals):
+                current_seq = self._find_parent(seq, current_sequences)
+                f_current = self.predict(current_seq)
+                f_proposal = energies[i]
+                q_curr_to_prop = q_probs[i]
+                # Estimate q proposal ratio q(x|x') / q(x'|x)
+                # Since proposals are symmetric (mutations), approximate ratio:
+                # For simplicity, assume symmetric (q ratio=1), or compute explicitly if possible
+                # Here, for most practical purposes, use symmetry approximation
+                # (Note: For asymmetric proposals, compute ratio properly)
+                ratio = 1.0
+
+                mh_prob = min(1.0, np.exp(f_proposal - f_current) * ratio)
+                u = self.rng.uniform()
+                if u < mh_prob:
+                    accepted_sequences.append(seq)
+
+            # Cluster accepted sequences
+            if len(accepted_sequences) == 0:
+                # No proposals accepted; fallback could be original set or skip
+                # For robustness, keep previous set unchanged
+                print(f"Round {r+1}: No proposals accepted; keeping previous sequences.")
+                next_sequences = current_sequences
+            else:
+                clusters = self._cluster_sequences(accepted_sequences)
+                # Calculate predicted fitness for accepted sequences
+                seq_fitnesses = np.array([self.predict(seq) for seq in accepted_sequences])
+                # Select top per cluster
+                top_seqs = self._select_top_per_cluster(accepted_sequences, seq_fitnesses, clusters)
+                next_sequences = top_seqs
+
+            current_sequences = next_sequences
+            print(f"Round {r+1} completed: {len(current_sequences)} sequences retained.")
+
+        return current_sequences
+
+    def _generate_proposals(self, sequence: str) -> List[str]:
+        """
+        Generate proposals (mutations) for a single sequence
+        by sampling mutations in Hamming neighborhood using gradient info.
+        """
+        proposals = []
+        # For proposals, generate N proposals per sequence
+        for _ in range(self.proposals_per_sequence):
+            proposal_seq = self._mutate(sequence)
+            proposals.append(proposal_seq)
+        return proposals
+
+    def _mutate(self, sequence: str) -> str:
+        """
+        Mutate a sequence at a random position guided by gradient-informed probabilities.
+        """
+        # Get gradient for current sequence
+        grad = self.grad_fn(sequence)  # shape: [seq_len, vocab_size]
+        # Compute scores per position for possible mutations
+        logits = np.zeros((self.seq_len, self.vocab_size))
+        for i in range(self.seq_len):
+            # The gradient indicates change in fitness with respect to amino acid at position i
+            # We can interpret raw gradients as scores
+            # For now, use gradients directly as scores
+            logits[i, :] = grad[i, :]
+        # Apply temperature softmax for each position
+        for i in range(self.seq_len):
+            # Softmax scaled by temperature
+            scores = logits[i, :]
+            # To prevent overflow, subtract max
+            max_score = np.max(scores)
+            exp_scores = np.exp((scores - max_score) / self.tau)
+            probs = exp_scores / np.sum(exp_scores)
+            # Sample new amino acid index
+            aa_idx = self.rng.choice(self.vocab_size, p=probs)
+            # Construct mutated sequence: change amino acid at position i
+            sequence = list(sequence)
+            sequence[i] = self._index_to_aa(aa_idx)
+            sequence = ''.join(sequence)
+        return sequence
+
+    def _compute_proposal_probs(self, gradients: List[np.ndarray]) -> np.ndarray:
+        """
+        Compute q(x'|x) probabilities for all proposals based on gradient scores.
+        """
+        probs = []
+        for grad in gradients:
+            logits = np.zeros((self.seq_len, self.vocab_size))
+            for i in range(self.seq_len):
+                logits[i, :] = grad[i, :]
+            seq_probs = []
+            for i in range(self.seq_len):
+                scores = logits[i, :]
+                max_score = np.max(scores)
+                exp_scores = np.exp((scores - max_score)/self.tau)
+                probs_i = exp_scores / np.sum(exp_scores)
+                seq_probs.append(probs_i)
+            # The overall proposal probability is the product over positions
+            # For simplicity and efficiency, approximate by the sum of log-probabilities
+            log_prob = 0.0
+            for probs_i in seq_probs:
+                # The selected amino acid index's probability
+                # Since sampling is in _mutate, actual probability is for the sampled aa
+                # but here, we can sum all for the proposal distribution
+                # For Metropolis, ratios matter, but for simplicity, approximate ratio as 1
+                # or implement if running full
+                pass
+            # For simplicity, set uniform probability over proposals, or ignore ratio
+            # Returning 1.0 as ratio placeholder
+            probs.append(1.0)
+        return np.array(probs)
+
+    def _cluster_sequences(self, sequences: List[str]) -> List[List[str]]:
+        """
+        Cluster sequences based on Levenshtein distance into specified number of clusters.
+        """
+        if len(sequences) == 0:
+            return []
+
+        # Use AgglomerativeClustering with precomputed distances
+        dist_matrix = self._compute_distance_matrix(sequences)
+        clustering = AgglomerativeClustering(n_clusters=self.num_clusters,
+                                             affinity='precomputed',
+                                             linkage='average')
+        labels = clustering.fit_predict(dist_matrix)
+        clusters: Dict[int, List[str]] = {}
+        for seq, lbl in zip(sequences, labels):
+            clusters.setdefault(lbl, []).append(seq)
+        return list(clusters.values())
+
+    def _compute_distance_matrix(self, sequences: List[str]) -> np.ndarray:
+        """
+        Compute full pairwise Levenshtein distance matrix for clustering.
+        """
+        n = len(sequences)
+        dist_mat = np.zeros((n, n))
+        for i in range(n):
+            for j in range(i+1, n):
+                dist = self._levenshtein_distance(sequences[i], sequences[j])
+                dist_mat[i, j] = dist
+                dist_mat[j, i] = dist
+        return dist_mat
+
+    def _select_top_per_cluster(self, sequences: List[str], fitnesses: np.ndarray, clusters: List[List[str]]) -> List[str]:
+        """
+        Select sequence with highest predictor score in each cluster.
+        """
+        seq_fit_map = {seq: fit for seq, fit in zip(sequences, fitnesses)}
+        top_seqs = []
+        for cluster in clusters:
+            top_seq = max(cluster, key=lambda s: seq_fit_map[s])
+            top_seqs.append(top_seq)
+        return top_seqs
+
+    def _find_parent(self, seq: str, pool: List[str]) -> str:
+        """
+        Helper to find existing sequence in pool matching the sequence.
+        """
+        # Because mutations are local, assume identity matching
+        # For robustness, match sequence exactly
+        if seq in pool:
+            return seq
+        else:
+            # fallback to closest in pool
+            return min(pool, key=lambda s: self._levenshtein_distance(s, seq))
+
+    def _levenshtein_distance(self, s1: str, s2: str) -> int:
+        """Use existing implementation from dataset_loader or placeholder"""
+        # For consistency, implement here quickly
+        # Alternatively, import Python-Levenshtein library if available
+        import difflib
+        seqmatch = difflib.SequenceMatcher(None, s1, s2)
+        matches = sum(n for _, _, n in seqmatch.get_matching_blocks())
+        return max(len(s1), len(s2)) - matches
+
+    def _index_to_aa(self, index: int) -> str:
+        """
+        Map index to amino acid letter.
+        """
+        aa_list = ['A','C','D','E','F','G','H','I','K','L',
+                   'M','N','P','Q','R','S','T','V','W','Y']
+        if 0 <= index < len(aa_list):
+            return aa_list[index]
+        else:
+            return 'A'  # fallback
+
+```

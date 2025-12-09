@@ -1,0 +1,45 @@
+## label_smoothing.py
+import numpy as np
+import scipy.sparse as sp
+import scipy.sparse.linalg as la
+from typing import Union
+
+class LabelSmoother:
+    def __init__(self, laplacian: sp.spmatrix, gamma: float = 1.0):
+        """
+        Initialize the LabelSmoother with a graph Laplacian and smoothing hyperparameter gamma.
+        Args:
+            laplacian (scipy.sparse.spmatrix): The graph Laplacian matrix L (shape: [N, N]).
+            gamma (float): Regularization parameter controlling smoothing strength.
+        """
+        self.laplacian = laplacian
+        self.gamma = gamma
+        self._precompute_factorization()
+
+    def _precompute_factorization(self):
+        """
+        Precompute the matrix factorization (solve factorization) for (I + gamma * L).
+        This improves efficiency when smoothing multiple label vectors with the same gamma.
+        """
+        N = self.laplacian.shape[0]
+        identity = sp.eye(N, format='csr')
+        A = identity + self.gamma * self.laplacian
+        # Use sparse LU factorization for efficiency
+        # For symmetric positive-definite matrices, use splu
+        self.solver = la.factorized(A)
+
+    def smooth_labels(self, labels: Union[np.ndarray, list]) -> np.ndarray:
+        """
+        Smooth the provided labels over the graph using Tikhonov regularization.
+        Args:
+            labels (np.ndarray or list): 1D array-like object of shape (N,)
+                containing the observed fitness values for each node.
+        Returns:
+            np.ndarray: Smoothed labels as a 1D array of shape (N,).
+        """
+        labels_array = np.asarray(labels).astype(np.float64)
+        if labels_array.ndim != 1:
+            raise ValueError("Labels must be a 1D array.")
+        # Solve (I + gamma L) * y_hat = y for y_hat
+        y_hat = self.solver(labels_array)
+        return y_hat

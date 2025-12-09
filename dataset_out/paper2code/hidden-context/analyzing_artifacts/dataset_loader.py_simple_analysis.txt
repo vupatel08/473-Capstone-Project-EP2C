@@ -1,0 +1,191 @@
+# Logic Analysis for dataset_loader.py
+
+This document details the core logic, data structures, and functional requirements for implementing the `DatasetLoader` class, which is central to managing datasets in our experiments. Its responsibilities include loading existing datasets, generating synthetic data that reflects hidden context, relabeling data via GPT APIs to simulate annotation divergence, and preparing data batches for training and evaluation.
+
+---
+
+## 1. Overall Responsibilities and Methods
+
+### a. `__init__(self, dataset_type: str, relabel: bool)`
+- Initialize the dataset loader.
+- Store configuration flags:
+  - `dataset_type`: indicates the dataset mode (e.g., `'synthetic'`, `'relabeled_hh_rlhf'`, `'real'`).
+  - `relabel`: boolean flag to trigger relabeling process.
+- Set attributes:
+  - Dataset storage (`self.data`, `self.labels`, etc.).
+  - Whether data is synthetic or loaded from pre-existing sources.
+  - Placeholder for relabeled data if relabeling is enabled.
+
+### b. `load_data(self) -> Dataset`
+- Load datasets based on `dataset_type`.
+- For **real datasets**:
+  - Load pre-existing data files (assumed to be in standard formats like JSONL, CSV, or pickled).
+  - Structure data as comparisons with associated labels and optional metadata.
+- For **synthetic data**:
+  - Generate alternatives and comparison pairs with controlled utilities and hidden context, via `generate_synthetic_data()`.
+- For **relabeled datasets**:
+  - Load raw original dataset (e.g., HH-RLHF).
+  - If `relabel` is True, then invoke `relabel_data()` to produce relabeled contrast pairs reflecting hidden context effects.
+
+### c. `generate_synthetic_data(self) -> Dataset`
+- Generate synthetic alternatives:
+  - Define a fixed, finite set of alternatives `A` (e.g., `[0,1]` or a discretized interval).
+  - Sample hidden context `z` per sample, e.g., Bernoulli(0.5).
+  - Compute true utility \( u(a, z) \) based on specified functions, e.g., piecewise or probabilistic.
+- Generate comparison pairs:
+  - Sample pairs `(a, b)` from `A`.
+  - Determine preference outcome using true utility with added noise if needed.
+  - Store comparison outcome (a preference label) and associated alternatives.
+- Save list of comparison objects, with associated true utilities (for validation).
+
+### d. `relabel_data(self, dataset: Dataset) -> Dataset`
+- Use GPT API calls to re-annotate the existing dataset’s pairs according to new objectives or hidden labels:
+  - For each comparison, send the prompt + the two responses (or alternatives).
+  - Use the specified prompts for helpfulness or harmfulness tasks.
+  - Collect GPT-generated labels indicating which response/objective is preferred.
+  - For harmfulness relabeling, invert the label if necessary.
+  - Store re-annotated pairs with the new labels, simulating divergence in annotator objectives (hidden context).
+- Since API calls are slow or rate-limited, implement asynchronously or in batches, with possible caching.
+
+---
+
+## 2. Data Structures and Internal Representation
+
+### a. Comparison Pair Data Structure
+- Use a class or dict to encapsulate:
+  ```python
+  class ComparisonPair:
+      prompt_response_a: str  # The prompt and first response
+      response_b: str          # The second response
+      preference: int        # 1 if a preferred, 0 if b preferred
+      label_objective: str   # e.g., 'helpful', 'harmless' for context
+  ```
+- Or, a list of such objects for batch processing.
+
+### b. Dataset Storage
+- Store data as:
+  - `self.data`: list of `ComparisonPair` objects.
+  - `self.labels`: corresponding preference labels.
+  - Additional info: e.g., response texts, prompt texts, true utilities (for synthetic).
+
+### c. Data Output Format
+- For batching and integration:
+  - Provide `get_batch()` method that returns a batch of pairs with formal structure, e.g., tensors or dicts, compatible with training routines.
+  - Data extraction methods should support sampling with optional shuffling, filtering by label or objective.
+
+---
+
+## 3. Implementation Details and Constraints
+
+### a. Synthetic Data Generation
+- Use numpy/scipy for sampling hidden context and utility functions.
+- The utility functions are specified explicitly (e.g., step functions or probabilistic models).
+- Generate a dataset size as per config (`synthetic_size`), e.g., 10,000 comparisons.
+- Store the true utility functions for later comparison or analysis.
+
+### b. Relabeling via GPT API
+- For API calls:
+  - Compose prompts based on templates provided.
+  - For each comparison, send a request with prompt & responses.
+  - Parse GPT response to extract preference judgment (e.g., 'A', 'B', 'a', 'b').
+  - Implement batching to improve efficiency.
+  - Cache responses to avoid repeated calls.
+- Handle API rate limits and timeouts gracefully.
+- Asynchronous calls are preferred if supported.
+
+### c. Data Loading & Storage
+- Loaded data should be saved persistently (e.g., as pickle or JSON) to enable offline reuse.
+- For synthetic data, save generated datasets in appropriate formats.
+- Data format used by downstream modules: list/dict suitable for batch processing.
+
+---
+
+## 4. Algorithmic Outline
+
+### `__init__`
+```python
+def __init__(self, dataset_type: str, relabel: bool):
+    # Save parameters
+    self.dataset_type = dataset_type
+    self.relabel = relabel
+    # Initialize containers
+    self.data = []
+    self.labels = []
+    self.metadata = {}  # Optional for auxiliary info
+```
+
+### `load_data()`
+```python
+def load_data(self):
+    if self.dataset_type == 'synthetic':
+        self.data = self.generate_synthetic_data()
+    elif self.dataset_type == 'relabeled_hh_rlhf':
+        # Load preexisting dataset from file
+        self.data = load_from_file()
+        if self.relabel:
+            self.data = self.relabel_data(self.data)
+    elif self.dataset_type == 'real':
+        # Load real HH-RLHF or other dataset
+        self.data = load_real_dataset()
+        if self.relabel:
+            self.data = self.relabel_data(self.data)
+    else:
+        raise ValueError("Unknown dataset_type")
+    return self
+```
+
+### `generate_synthetic_data()`
+```python
+def generate_synthetic_data():
+    data = []
+    A = np.linspace(0,1,num=..., dtype=float)  # discretize if needed
+    for _ in range(config.synthetic_size):
+        z = np.random.binomial(1, 0.5)
+        a, b = sample_pair(A)
+        u_a = utility_function(a,z)
+        u_b = utility_function(b,z)
+        preference = 1 if u_a > u_b else 0
+        data.append(ComparisonPair(prompt=None, response_a=a, response_b=b, preference=preference))
+    return data
+```
+
+### `relabel_data()`
+```python
+async def relabel_data(self, dataset):
+    # For each comparison, call GPT API to relabel according to current task objective
+    relabeled_data = []
+    for comp in dataset:
+        prompt = build_prompt(comp.prompt_response_a, comp.response_b, objective=comp.label_objective)
+        preference_label = await call_gpt_api(prompt)
+        # Possibly invert if relabeling for opposing objectives
+        relabeled_data.append(ComparisonPair(comp.prompt_response_a, comp.response_b, preference_label, comp.label_objective))
+    return relabeled_data
+```
+
+---
+
+## 5. Validation Checks & Testing
+
+- Verify that synthetic data reflects controlled utility functions.
+- Confirm relabeling aligns with prompt expectations.
+- Check that dataset object structures are compatible with training routines.
+- Confirm data batching yields diverse and balanced samples.
+- Test relabeling asynchronously for speedup and robustness.
+
+---
+
+## 6. Summary of Key Logic Elements
+
+| Function / Step | Purpose | Implementation notes |
+|------------------|---------|----------------------|
+| Initialization | Store config & prepare containers | straightforward class init |
+| Data Loading | Load datasets or generate synthetic | switch on `dataset_type` |
+| Synthetic Data | Generate alternatives, compare via true utility | numpy/scipy sampling, specify utility functions |
+| Relabeling | Use GPT to re-label pairs | batch API calls, parse responses |
+| Data Structuring | Pack data for training | class/tuple with comparisons and labels |
+| Validation | Confirm synthetic reflects true utility | compare learned order with true |
+
+
+---
+
+This logic analysis provides a comprehensive blueprint for implementing `dataset_loader.py`, ensuring it correctly handles all data scenarios, supports experimental needs, and aligns with the core methodologies described in the paper.

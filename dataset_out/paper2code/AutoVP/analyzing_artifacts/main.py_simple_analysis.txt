@@ -1,0 +1,158 @@
+# Main.py: Logical Analysis and Design for AutoVP Reproduction
+
+This document provides a detailed, step-by-step logic analysis for implementing `main.py`, the entry point of the AutoVP framework, guided by the provided paper, design scheme, task list, and configuration file (`config.yaml`). The goal is to establish a clear, structured flow that initializes the necessary components, manages hyperparameter tuning, conducts training, and finally performs evaluation and visualization — all in a modular, reproducible manner.
+
+---
+
+## 1. High-Level Objectives and Workflow
+
+- **Read and parse configuration parameters**.
+- **Load and prepare datasets** based on dataset name and hyperparameters.
+- **Initialize pre-trained backbone models** with frozen weights.
+- **Set up prompts**: trainable pixel or frequency prompts, with specified size and init strategy.
+- **Define label mapping mechanism**: FreqMap, IterMap, SemanticMap, or FullyMap.
+- **Conduct hyperparameter search**:
+  - Iterate over all combinations in the defined search space.
+  - For each configuration:
+    - Initialize prompts, models, label maps as per settings.
+    - Run a short training (2-5 epochs) with early stopping.
+    - Record validation/test accuracy.
+- **Identify the best hyperparameter configuration** based on validation/test scores.
+- **Retrain prompts and models** using the optimal configuration (full epochs).
+- **Perform final evaluation** using the best trained model:
+  - Compute accuracy, IoU, robustness metrics.
+  - Visualize prompts, label mappings, and results.
+- **Log, save checkpoints and results** for reproducibility and analysis.
+
+---
+
+## 2. Step-by-Step Logical Breakdown
+
+### 2.1 Import dependencies and set reproducibility
+- Import standard libraries: `torch`, `numpy`, `os`, `random`.
+- Import custom modules: dataset loader, model handler, prompt manager, label mapping, trainer, tuner, evaluator.
+- Set seed (from `config.misc.seed`) for reproducibility.
+- Configure logging verbosity with `logging` module, set to `config.logging.verbosity`.
+  
+### 2.2 Load dataset
+- Parse dataset name (`config.dataset.name`), directory (`config.dataset.root_dir`).
+- Use `DatasetLoader` class:
+  - Pass dataset name, root directory, split ratios, resize scale (`config.dataset.scale_factor`).
+  - Load training, validation, test datasets.
+  - Apply appropriate transforms (resizing, normalization), depending on dataset type (classification, segmentation, detection).
+- Save datasets into variables for subsequent use.
+
+### 2.3 Initialize the pre-trained backbone model
+- Retrieve model name (`config.model.backbone`) from config.
+- Initialize `PretrainedModel` instance:
+  - Load correct pre-trained weights.
+  - Set `freeze=True`.
+- Check if model supports extracting features and text embeddings (for CLIP semantic map).
+
+### 2.4 Prepare prompts
+- Read prompt size (`config.model.prompt_size`) and type (`config.model.prompt_type`).
+- Initialize contrastive or pixel prompts:
+  - For `prompt_type == 'pixel'`:
+    - Create a trainable tensor of shape `[prompt_size, channels, 1, 1]`.
+    - Initialize based on `prompt_init_type` (zeros, random, learned).
+  - For `prompt_type == 'frequency'`:
+    - Initialize FFT coefficients (complex tensor), zero or random.
+- Encapsulate in `PromptGenerator` class:
+  - Provide `get_prompt()`, `update()`, `visualize()` methods.
+
+### 2.5 Set up label mapping strategy
+- Select mapping strategy (`FreqMap`, `IterMap`, `SemanticMap`, `FullyMap`) based on hyperparameters.
+- Instantiate corresponding `LabelMapper`:
+  - For `SemanticMap`:
+    - Use CLIP text encoder for class name embeddings.
+  - For `FullyMap`:
+    - Initialize as linear layer (possibly with weight init based on class names).
+  - For `FreqMap` and `IterMap`:
+    - Initialize count matrices, mapping dictionaries.
+- Keep in mind the number of source classes per target class (`num_source_classes_per_target`).
+
+### 2.6 Define hyperparameter search space
+- Enumerate all combinations over:
+  - Prompt size options (`16`, `48`)
+  - Input scale options (`0.5`, `1.0`, `1.5`)
+  - Model choices (`resnet18`, `resnext101-ig`, `swin-t`, `clip`)
+  - Label map strategies (`FreqMap`, `IterMap`, `SemanticMap`, `FullyMap`)
+  - Number of source classes mapped (if applicable)
+- Use grid search with early stopping:
+  - For each configuration:
+    - During initial phase, train prompts for 2-5 epochs.
+    - Record validation/test accuracy.
+  - Retain top configurations (e.g., top 2) for full training.
+
+### 2.7 Conduct hyperparameter search
+- Loop over configurations.
+- For each:
+  - Initialize model, prompt, label mapper with current hyperparameters.
+  - Run a small number of training epochs:
+    - For each epoch:
+      - For each batch:
+        - Resize images according to scale.
+        - Generate prompts.
+        - Forward pass through backbone.
+        - Map outputs via selected label map.
+        - Compute loss, backpropagate prompts.
+        - Update prompts.
+      - Evaluate on validation set; apply early stopping if no improvement.
+  - Save the best validation/test score for configuration.
+
+### 2.8 Select and retrain with the best hyperparameters
+- Pick configuration with the highest validation/test accuracy.
+- Re-initialize prompts, models, label map with the selected hyperparameters.
+- Train fully over all epochs specified (`config.training.epochs`), with learning rate, weight decay, optimizer settings.
+- Save the final model checkpoints.
+
+### 2.9 Final evaluation
+- Load the fully trained best model and prompt.
+- Evaluate on the test set:
+  - Compute classification accuracy.
+  - If segmentation/detection, compute IoU.
+  - Compute robustness metrics with corrupted datasets if applicable.
+- Generate visualizations:
+  - Visual prompts overlay.
+  - Label mapping diagrams.
+  - Frequency analysis if needed.
+- Store results in logs, save models, plots, and detailed metrics.
+
+### 2.10 Log, Save & Cleanup
+- Log all hyperparameter configurations, metrics.
+- Save the best checkpoint.
+- Save logs / visualization outputs to `log_dir`.
+- Finish with a summary report.
+
+---
+
+## 3. Additional Considerations & Checks
+- **Dataset splits**: Ensure reproducibility, consistent splits.
+- **Model compatibility**: Make sure models support feature extraction and embeddings.
+- **Prompt updates**: Implement gradient updates with appropriate optimizer (Adam/SGD).
+- **Check hardware constraints**: batch size, memory management for large datasets/models.
+- **Reproducibility**: Set random seeds across `torch`, `numpy`, and Python's `random`.
+
+---
+
+## 4. Summary of Modular Components in `main.py`
+- **Configuration**:
+  - Load and override defaults.
+- **Dataset Loader**:
+  - Class instance to load datasets per setting.
+- **Model Handler**:
+  - Instantiate pre-trained models.
+- **Prompt Module**:
+  - Instantiate prompts, optional FFT prompts.
+- **Label Mapper Module**:
+  - Instantiate label mapping strategy.
+- **Hyperparameter Tuner**:
+  - Run grid search with early stopping.
+- **Training Loop**:
+  - For each configuration: prompt optimization training.
+- **Evaluation and Visualization**:
+  - Final metrics, plotting.
+
+---
+
+This detailed logic analysis ensures that `main.py` will orchestrate all necessary steps following the AutoVP methodology, enabling systematic, reproducible, and extendable implementation consistent with the paper's experimental design.

@@ -1,0 +1,173 @@
+**Logic Analysis for `dataset_generator.py`**
+
+---
+
+### **Overview & Objective**
+
+The goal of `dataset_generator.py` is to generate a synthetic long-context QA dataset for IN2 training, leveraging GPT-4 via an API such as openai. It produces a dataset comprising examples where each long context is constructed from multiple randomly sampled short segments, with QA pairs designed to require either local awareness or multi-segment reasoning.
+
+**Key points:**
+
+- Use GPT-4 API calls to synthesize QA pairs based on individual segments or sets of segments.
+- Depend on prompt templates defined in `utils.py` to craft prompts for data generation.
+- Support varied context lengths, from 4,000 to 32,000 tokens, distributed as per `config.yaml`.
+- Generate multiple samples to reach the dataset size specified in `training.dataset.size`.
+- Maintain data quality and diversity, and set structures for subsequent loading and training.
+
+---
+
+### **Functional Components & Workflow**
+
+#### **1. Initialization**
+
+- **Load configuration parameters**:
+  - Total dataset size (e.g., 1.1 million samples)
+  - Long context length parameters (`min_length`, `max_length`, `length_distribution`)
+  - API settings (`temperature`, `top_p`)
+  - Batch processing parameters (e.g., batch size for API requests, total steps)
+  
+- **Prepare list or source of raw texts**:
+  - Likely via pre-loaded corpus or files (not explicitly in the code, but assumed from context)
+  - Prioritize corpus sources like C4, Wikipedia, or similar large datasets
+  - Pre-processed with a tokenizer and split into small segments for sampling
+
+---
+
+#### **2. Sampling Raw Texts and Segments**
+
+- **Sample raw texts (`C_i`)**:
+  - Randomly or stratified from the corpus, ensuring data diversity
+  - Apply filtering to avoid contamination with evaluation data (overlap constraints)
+  
+- **Segment raw texts into fixed-size chunks (~128 tokens)**:
+  - Using `utils.py`'s prompt/template, or a segmentation algorithm
+  - Each text `C_i` yields multiple segments `[s_i^1, s_i^2, ..., s_i^n]`
+  - Implement `Algorithm 1` for segmentation:
+    - Use a sliding window approach
+    - Ensure segments are roughly 128 tokens
+    - Prevent too small or too large segments
+    
+---
+
+#### **3. Creating Long Contexts**
+
+- **Determine context length**:
+  - Sample from `length_distribution` with equal probability among `[4000, 8000, 16000, 32000]` tokens
+  - For each example, generate a long context `L_i` by concatenating multiple segments and filler text
+  - Use `Shuffe` operation as per Figure 2 to place segments at random positions within the context
+    - For multi-hop QA: ensure relevant segments are placed far apart
+- **Assemble `L_i`**:
+  - Concatenate segments and filler text
+  - Insert segments at random positions
+  - Possibly pad or truncate to conform to exact lengths
+
+---
+
+#### **4. Generating QA Pairs**
+
+- **Design two QA types**:
+  - **Type A: Fine-grained awareness**
+    - Sample a single segment `s_i^k`
+    - Prompt GPT-4 to generate a question-answer pair `q_i, a_i` based solely on `s_i^k`
+    - Use `utils.py` templates for the specific prompt
+  - **Type B: Multi-segment reasoning**
+    - Sample multiple segments `[s_i^1, s_i^2, ...]`
+    - Prompt GPT-4 to generate a question-answer pair that requires integrating info across those segments
+    - The prompt should emphasize reasoning and synthesis
+- **Implementation details**:
+  - For each `L_i`, select which question type to generate based on pre-defined ratios (e.g., 63% fine-grained, 17% multi-hop, 9% short-context, rest instruction data)
+  - Generate the QA pair by invoking GPT-4 through the API
+  - Extract the question and answer from API output, follow strict formatting rules
+- **Use prompt templates** from `utils.py`:
+  - These templates contain instructions, segment delimiters, and QA formatting
+  - For multi-hop questions, ensure prompts specify reasoning over multiple segments
+
+---
+
+#### **5. Data Serialization & Storage**
+
+- **Create a data record**:
+  - Store:
+    - `long_context`: concatenated string of segments with separators
+    - `question`: generated question text
+    - `answer`: generated answer text
+    - Additional metadata (e.g., context length, segments used) for quality control
+- **Write data to disk**:
+  - Save in a format suitable for later dataset loading (JSONL, JSON, or pickled data)
+  - Maintain indexing and batching structure
+- **Ensure data quality**:
+  - Possibly validate that QA pairs are complete and answerable
+  - Optionally filter or discard samples with incomplete responses or low quality
+
+---
+
+#### **6. Batch Processing and API Handling**
+
+- **Batch samples**:
+  - Process data in batches aligned with API rate limits
+  - Use delay or retries as needed to handle API rate limits or timeouts
+- **Prompt management**:
+  - Implement a function in `utils.py` to generate prompts given:
+    - Segment(s)
+    - QA task type
+    - Context instructions
+- **Logging & debug**:
+  - Log prompt submissions, responses, and errors
+  - Keep track of progress towards dataset size
+  - Monitor API token/usage quota
+
+---
+
+### **7. Handling Data Quality, Diversity, and Filtering**
+
+- Verify that:
+  - Generated questions are valid and related to the context
+  - Answers are consistent and well-formed
+  - No contamination with evaluation data (use overlap filtering)
+- Implement periodic checks:
+  - Sample a subset of generated data for manual inspection
+  - Adjust prompts if responses are too generic or incorrect
+
+---
+
+### **8. Summary of Critical Functions and Data Flow**
+
+| Step | Functionality | Specifics |
+|--------|----------------|------------|
+| Initialization | Load configs, prepare corpus | Config parameters, data sources |
+| Sampling Texts | Randomly sample raw texts | Use filtering, avoid overlap |
+| Segment Texts | Tokenize and split into segments | Using sliding window, per Algorithm 1 |
+| Assemble Long Contexts | Shuffle, concatenate segments | Distribute lengths, insert at random positions |
+| Generate QA pairs | API calls via GPT-4 | Prompt templates for various question types |
+| Save Data | Serialize datasets | JSONL or suitable format |
+
+---
+
+### **9. Limitations & Assumptions**
+
+- **API dependency**:
+  - API rate limits and quota management are critical
+  - Potential delays across large dataset generation
+- **Prompt fidelity**:
+  - Quality of QA depends on GPT-4 prompt design
+  - Ensure prompts are formatted correctly and consistently
+- **Data quality**:
+  - Adjust for noisy GPT outputs
+  - Filter or validate as needed
+- **Computational resources**:
+  - Costly API calls and local storage
+  - Sharding or batching for efficiency
+
+---
+
+### **10. Final Remarks**
+
+This logic analysis provides a detailed blueprint for implementing `dataset_generator.py`. The core focuses are:
+
+- Structured, flexible synthesis of synthetic long contexts with multi-hop QA.
+- Utilization of precise prompt templates from `utils.py`.
+- Robust handling of GPT-4 API interactions.
+- Support for varied context lengths and diverse data types.
+- Ensuring data quality, balance, and coverage for effective IN2 training.
+
+This thorough understanding ensures that subsequent code development adheres to the methodology and experimental rigor described in the paper.

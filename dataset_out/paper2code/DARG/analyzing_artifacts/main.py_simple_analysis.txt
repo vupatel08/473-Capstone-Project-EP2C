@@ -1,0 +1,62 @@
+{
+  "main.py": {
+    "Purpose": "Coordinate the entire experimentation pipeline from dataset loading, reasoning graph extraction, systematic perturbation, data regeneration, label verification, and evaluation across different complexity levels and datasets. Ensure modularity, configurability, and reproducibility.",
+    "Overall Flow": [
+      "Load configuration parameters from 'config.yaml' and possibly prompts from external files.",
+      "Initialize modules: DatasetLoader, ReasoningGraphHandler, DataGenerator, LabelVerifier, ModelEvaluator.",
+      "For each dataset specified in configuration:",
+      "    Load the dataset using DatasetLoader.",
+      "    For each data point in the dataset:",
+      "        Extract the reasoning graph via ReasoningGraph (using heuristics or rules).",
+      "        For each complexity level in 'complexity_levels' (from 'config.yaml'):",
+      "            Perturb the reasoning graph via GraphPerturber to achieve desired complexity profile.",
+      "            Use DataGenerator to regenerate natural language data from the perturbed graph.",
+      "            Verify the generated data's correctness with LabelVerifier; retry if verification fails (with possible multiple attempts).",
+      "    Store all (original and perturbed) data with metadata (including complexity info).",
+      "Evaluate all generated datasets with ModelEvaluator:",
+      "    For each model specified:",
+      "        Run inference with appropriate prompts (CoT, LtM, etc.).",
+      "        Compute accuracy, bias scores, CIARRs (or other metrics).",
+      "        Record performance metrics per complexity level and task.",
+      "Perform analysis comparing model robustness across complexity levels, plot figures (performance decline, bias increase), and cross-validate robustness metrics.",
+      "Facilitate output: Save processed datasets, evaluation metrics, and logs for reproducibility and detailed analysis."
+    ],
+    "Details and Considerations": [
+      "Loading configuration: Use 'pyyaml' to parse 'config.yaml', store parameters in a Config object or dict for accessible parameters throughout.",
+      "Prompt Templates: Load from external files, pass to respective modules (DataGenerator, LabelVerifier).",
+      "Dataset Loading: Handle datasets in JSON or CSV format; ensure schema matches expectations (question, answer, reasoning, etc.); support dataset splits if needed.",
+      "Graph Extraction: May involve regex parsing or NLP heuristics; ensure reproducibility by fixing random seeds where randomness occurs in graph perturbation.",
+      "Perturbation Process: Adjust graph attributes to increase depth, width, and numerical complexity as per specified deltas; maintain logical consistency.",
+      "Data Regeneration: Call openai API with prompts/completions structured with templates; set temperature ~0 for deterministic output; implement retries with backoff.",
+      "Verification: Send generated explanations/answers to LabelVerifier, which uses structured prompt + code execution. Retry failed verifications up to predefined attempts.",
+      "Data Storage: Save generated data points with associated graph and complexity metadata in structured directories or databases.",
+      "Model Evaluation: Use API keys and model names specified, handle both API calls (GPT models) and local models if necessary. Apply prompt engineering for CoT, LtM methods.",
+      "Metrics Calculation: Compute accuracy per complexity level; calculate CIARRs across increasing complexity levels to measure robustness; gather bias scores where applicable.",
+      "Results Visualization: Generate plots similar to Figures 2, 3, 4, etc., to analyze performance trends.",
+      "Logging & Reproducibility: Record all parameters, prompts, random seeds, API call details, API rate limits, and hardware info. Save logs."
+    ],
+    "Error Handling & Validation": [
+      "Incorporate manual validation checkpoints, e.g., sample verification of extracted graphs, regenerated data, and model outputs.",
+      "Implement retries for API calls and verification failures.",
+      "Log failed cases separately for manual inspection and potential adjustment of rules/prompts.",
+      "Validate the logical coherence of perturbed graphs before regeneration to avoid nonsensical data."
+    ],
+    "Resource Management": [
+      "Batch processing for API calls to avoid rate limits.",
+      "Use caching of API responses or intermediate data to prevent redundant requests.",
+      "Support multiple models and hardware configurations by modularly encapsulating API vs. local inference."
+    ],
+    "Reproducibility": [
+      "Set random seeds for graph perturbations and sampling.",
+      "Document hyperparameters, prompt versions, dataset paths, API configurations.",
+      "Save all intermediate and final datasets with clear schemas.",
+      "Ensure scripts can be run sequentially with minimal external intervention."
+    ],
+    "Final Notes": [
+      "Design the script to be configurable via command-line arguments or config files.",
+      "Enable parallelization for large datasets where feasible.",
+      "Include verbose logging and progress checkpoints for debugging and audit.",
+      "Facilitate easy extension to additional datasets, models, or complexity dimensions."
+    ]
+  }
+}

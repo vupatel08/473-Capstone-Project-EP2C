@@ -1,0 +1,33 @@
+# requirements.txt
+
+# Core data handling and numerical operations
+numpy==1.21.0             # For numerical computations and data manipulation
+pandas==1.3.0             # For reading, processing, and handling datasets
+scikit-learn==0.24.2      # For additional utilities like normalization or metrics if needed
+
+# Deep learning framework
+torch==1.9.0              # For implementing the neural network models, attention mechanisms, training, and inference
+
+# Visualization tools
+matplotlib==3.4.3         # For plotting forecast sequences, attention maps, and training curves
+
+# Additional utility (if needed)
+# (Optional) Could include tqdm for progress bars, but not essential for core logic
+
+# Notes:
+# 1. Dataset source formats: Expect CSV files as specified in data_paths. The loader should handle CSV reading.
+# 2. Variate normalization: If 'variate_normalization' is true, normalize each variate series independently to zero mean and unit variance before feeding into the model.
+# 3. No external libraries for attention modules or efficient attention plugins are mandated; implement standard PyTorch attention unless specified.
+# 4. Hyperparameters (embedding_dim, num_heads, num_layers, feedforward_dim, dropout_rate) are set via the YAML configuration and used to initialize and configure the model.
+# 5. Model training: Use AdamW optimizer with specified learning rate and weight decay; perform training over 'epochs' with batch size as specified.
+# 6. Data batching: Batches are generated with proper sequence slicing for input (sequence_length) and target (forecast_length), applying normalization if specified.
+# 7. Model evaluation: Compute MSE and MAE over validation/test sets; store metrics for logging.
+# 8. Visualization: Generate attention heatmaps if enabled; plot predicted versus true series for qualitative assessment.
+# 9. Checkpointing: Save model periodically as per save_frequency in the specified save_dir.
+# 10. Loggings: Record training progress, metrics, and losses at specified intervals into log_dir.
+# 11. Code should be modular: data loader, model class, training loop, evaluation functions, and visualization utilities are separate modules, as per design.
+# 12. For reproducibility, set random seeds uniformly across data shuffling, model initialization, and training.
+# 13. Data augmentation or advanced data processing techniques are not explicitly required unless stated.
+# 14. Confirm dataset file formats and normalization routines prior to implementation for accuracy.
+
+# End of requirements.txt content.

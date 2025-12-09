@@ -1,0 +1,1028 @@
+{
+  "code_to_paper": {
+    "curriculum_strategies.py:CurriculumStrategy": [
+      "Without specific section names",
+      "it's impossible to accurately link the code component to the paper sections. However",
+      "typically",
+      "sections like \"Methodology\"",
+      "\"Implementation Details\"",
+      "or \"Experimental Setup\" might be relevant for a code component like this."
+    ],
+    "curriculum_strategies.py:DifficultyBasedCurriculum": [
+      "Without specific section names/titles",
+      "it's impossible to accurately link the code component to the paper sections. Please provide the section names/titles for a proper analysis."
+    ],
+    "curriculum_strategies.py:ConfidenceBasedCurriculum": [
+      "The provided information does not include specific paper section names/titles. Please provide the names/titles of the paper sections to proceed with the analysis."
+    ],
+    "curriculum_strategies.py:SelfPacedCurriculum": [
+      "Without specific section names/titles",
+      "it's impossible to accurately identify the most relevant sections for the given code component. However",
+      "typically",
+      "sections like \"Methodology\"",
+      "\"Implementation Details\"",
+      "\"Experiment and Results\" could be relevant for a code component that implements a specific learning strategy."
+    ],
+    "curriculum_strategies.py:NoiseCurriculum": [
+      "Without specific section names/titles",
+      "it's impossible to accurately identify the most relevant sections for the code component. However",
+      "typically",
+      "sections like \"Methodology\"",
+      "\"Implementation Details\"",
+      "\"Experimental Setup\"",
+      "or \"Results and Discussion\" might contain relevant information about a specific code component. Please provide the actual section names/titles for a more accurate answer."
+    ],
+    "curriculum_strategies.py:__init__": [
+      "Without specific section names/titles",
+      "it's impossible to accurately identify the most relevant sections for the code component. However",
+      "typically",
+      "sections like \"Methodology\"",
+      "\"Implementation Details\"",
+      "\"Experiment Setup\" or \"Results and Discussion\" might contain relevant information about a function that computes the progress ratio of a curriculum based on the current epoch."
+    ],
+    "dataset_loader.py:DatasetLoader": [
+      "Without the specific section names/titles",
+      "it's impossible to accurately identify the most relevant sections for the given code component. However",
+      "based on the description of the code",
+      "sections that might be relevant could be titled something like \"Data Preprocessing\"",
+      "\"Dataset Description\"",
+      "or \"Methodology\"."
+    ],
+    "dataset_loader.py:_SubsetWithTargets": [
+      "The paper sections are not provided in the question. Please provide the paper sections to proceed."
+    ],
+    "dataset_loader.py:__init__": [
+      "Methodology",
+      "Dataset Description",
+      "Implementation Details"
+    ],
+    "evaluation.py:Evaluation": [
+      "\"Model Evaluation\"",
+      "\"Performance Metrics\"",
+      "\"Resource Usage Analysis\""
+    ],
+    "evaluation.py:__init__": [
+      "Without specific section names/titles",
+      "it's hard to provide an accurate answer. However",
+      "based on the code component description",
+      "the most relevant sections could be \"Model Training\"",
+      "\"Dataset Description\"",
+      "and \"Evaluation Methodology\"."
+    ],
+    "main.py:main": [
+      "The provided information is insufficient to determine the most relevant paper sections for the code component. Please provide more details about the function in the main.py file."
+    ],
+    "models.py:LeNet": [
+      "Without specific section names",
+      "it's hard to provide an accurate answer. However",
+      "based on the code component description",
+      "the most relevant sections could be \"Methodology\"",
+      "\"Implementation Details\"",
+      "\"Experimental Setup\" or any section discussing the \"LeNet-5 architecture\"."
+    ],
+    "models.py:ResNet18": [
+      "Without specific section names/titles",
+      "it's impossible to accurately identify the most relevant sections for the given code component. However",
+      "typically",
+      "sections like \"Methodology\"",
+      "\"Implementation Details\"",
+      "\"Experimental Setup\"",
+      "or \"Model Architecture\" would be most relevant for a code component describing a specific model implementation like ResNet-18."
+    ],
+    "models.py:ViT": [
+      "Without specific section names/titles",
+      "it's impossible to accurately identify the most relevant sections for the given code component. However",
+      "typically",
+      "sections like \"Methodology\"",
+      "\"Implementation Details\"",
+      "\"Experimental Setup\" or \"Model Architecture\" could potentially discuss the Vision Transformer from Hugging Face transformers."
+    ],
+    "models.py:LSTM": [
+      "Methodology",
+      "Implementation Details",
+      "Experimental Setup"
+    ],
+    "models.py:BERT": [
+      "The paper sections are not clearly defined in the provided text. Please provide the section names/titles to proceed."
+    ],
+    "models.py:GPT2": [
+      "Without specific section names/titles",
+      "it's impossible to accurately identify the most relevant sections for the given code component. However",
+      "typically",
+      "sections like \"Methodology\"",
+      "\"Model Architecture\"",
+      "\"Implementation Details\"",
+      "or \"Experimental Setup\" might contain relevant information about a GPT-2 model for language modeling/classification."
+    ],
+    "models.py:GCN": [
+      "Without specific section names/titles",
+      "it's impossible to accurately identify the most relevant sections for the provided code component. However",
+      "typically",
+      "sections like \"Methodology\"",
+      "\"Implementation Details\"",
+      "\"Experimental Setup\" or \"Results and Discussion\" might contain relevant information about a Graph Convolutional Network implemented using torch_geometric. Please provide the actual section names/titles for a more accurate answer."
+    ],
+    "models.py:GAT": [
+      "Without specific section names/titles",
+      "it's impossible to accurately identify the most relevant sections for the code component. However",
+      "typically",
+      "sections like \"Methodology\"",
+      "\"Implementation Details\"",
+      "\"Experimental Setup\" or \"Results and Discussion\" might contain relevant information about a Graph Attention Network implemented using torch_geometric."
+    ],
+    "models.py:GIN": [
+      "Without specific section names",
+      "it's hard to provide an accurate answer. However",
+      "based on the code component",
+      "the most relevant sections could be \"Methodology\"",
+      "\"Implementation Details\"",
+      "\"Graph Isomorphism Network\"",
+      "or \"Experimental Setup\"."
+    ],
+    "models.py:__init__": [
+      "Without specific section names",
+      "it's impossible to accurately link the code component to the paper sections. However",
+      "typically",
+      "sections like \"Methodology\"",
+      "\"Implementation Details\"",
+      "or \"Experimental Setup\" might be relevant for a code component like this."
+    ],
+    "resources.py:ResourceLogger": [
+      "Without specific section names",
+      "it's impossible to accurately identify the most relevant sections for the code component. However",
+      "based on the code description",
+      "sections that might be relevant could be titled something like \"Methodology\"",
+      "\"Experiment Setup\"",
+      "\"Resource Management\"",
+      "or \"Performance Evaluation\"."
+    ],
+    "resources.py:__init__": [
+      "Without specific section names",
+      "it's impossible to accurately link the code component to the paper sections. However",
+      "based on the code description",
+      "sections that might be relevant could be titled something like \"Methodology\"",
+      "\"Experiment Setup\"",
+      "\"Resource Management\"",
+      "or \"Performance Evaluation\"."
+    ],
+    "trainer.py:Trainer": [
+      "Without specific section names",
+      "it's hard to provide an accurate answer. However",
+      "based on the code description",
+      "the most relevant sections could be something like \"Experimental Setup\"",
+      "\"Model Training Process\"",
+      "and \"Curriculum Learning Implementation\"."
+    ],
+    "trainer.py:__init__": [
+      "Methodology",
+      "Experiment Setup",
+      "Model Implementation"
+    ],
+    "utils.py:ConfigManager": [
+      "The provided paper sections are not clear enough to link with the code component. Please provide more detailed sections."
+    ],
+    "utils.py:ResourceLogger": [
+      "Methodology",
+      "Implementation Details",
+      "Experimental Setup"
+    ],
+    "utils.py:__init__": [
+      "The provided information is not sufficient to identify the relevant paper sections for the code component. Please provide more details or context."
+    ],
+    "utils.py:get_data_transform": [
+      "Without specific section names",
+      "it's hard to provide an accurate answer. However",
+      "based on the code component's description",
+      "the most relevant sections could be \"Data Preprocessing\"",
+      "\"Methodology\"",
+      "and \"Implementation Details\"."
+    ],
+    "utils.py:set_deterministic": [
+      "The provided information does not include specific paper section names/titles. Please provide the names/titles of the paper sections to proceed with the analysis."
+    ]
+  },
+  "paper_to_code": {
+    "Without specific section names": [
+      {
+        "component": "curriculum_strategies.py:CurriculumStrategy",
+        "description": "Base class for curriculum learning strategies.\n    Defines the interface for obtaining sample weights and optional updates.",
+        "file": "curriculum_strategies.py"
+      },
+      {
+        "component": "models.py:LeNet",
+        "description": "Implementation of LeNet-5 architecture for small images.",
+        "file": "models.py"
+      },
+      {
+        "component": "models.py:GIN",
+        "description": "Graph Isomorphism Network using torch_geometric.",
+        "file": "models.py"
+      },
+      {
+        "component": "models.py:__init__",
+        "description": "ResNet-18 with optional pretrained weights and custom output classes.",
+        "file": "models.py"
+      },
+      {
+        "component": "resources.py:ResourceLogger",
+        "description": "Handles resource tracking during training epochs, including timing and GPU memory.\n    Records per-epoch resource usage metrics for analysis in CurBench.",
+        "file": "resources.py"
+      },
+      {
+        "component": "resources.py:__init__",
+        "description": "Call at the beginning of an epoch.\n        - Records start time if enabled.\n        - Resets GPU peak memory stats if enabled.",
+        "file": "resources.py"
+      },
+      {
+        "component": "trainer.py:Trainer",
+        "description": "Orchestrates the training process for a model with optional curriculum learning.\n    Implements resource logging and adheres to the experimental setup in CurBench.",
+        "file": "trainer.py"
+      },
+      {
+        "component": "utils.py:get_data_transform",
+        "description": "Provide data transformation pipeline based on dataset and phase.",
+        "file": "utils.py"
+      }
+    ],
+    "it's impossible to accurately link the code component to the paper sections. However": [
+      {
+        "component": "curriculum_strategies.py:CurriculumStrategy",
+        "description": "Base class for curriculum learning strategies.\n    Defines the interface for obtaining sample weights and optional updates.",
+        "file": "curriculum_strategies.py"
+      },
+      {
+        "component": "models.py:__init__",
+        "description": "ResNet-18 with optional pretrained weights and custom output classes.",
+        "file": "models.py"
+      },
+      {
+        "component": "resources.py:__init__",
+        "description": "Call at the beginning of an epoch.\n        - Records start time if enabled.\n        - Resets GPU peak memory stats if enabled.",
+        "file": "resources.py"
+      }
+    ],
+    "typically": [
+      {
+        "component": "curriculum_strategies.py:CurriculumStrategy",
+        "description": "Base class for curriculum learning strategies.\n    Defines the interface for obtaining sample weights and optional updates.",
+        "file": "curriculum_strategies.py"
+      },
+      {
+        "component": "curriculum_strategies.py:SelfPacedCurriculum",
+        "description": "Implements Self-Paced Learning: starts easy, gradually adds hard samples.",
+        "file": "curriculum_strategies.py"
+      },
+      {
+        "component": "curriculum_strategies.py:NoiseCurriculum",
+        "description": "Focuses on reducing the influence of noisy samples.\n    Assumes a noise estimate or surrogate difficulty.",
+        "file": "curriculum_strategies.py"
+      },
+      {
+        "component": "curriculum_strategies.py:__init__",
+        "description": "Compute the progress ratio [0, 1] of curriculum based on current epoch.",
+        "file": "curriculum_strategies.py"
+      },
+      {
+        "component": "models.py:ResNet18",
+        "description": "ResNet-18 with optional pretrained weights and custom output classes.",
+        "file": "models.py"
+      },
+      {
+        "component": "models.py:ViT",
+        "description": "Vision Transformer from Hugging Face transformers.",
+        "file": "models.py"
+      },
+      {
+        "component": "models.py:GPT2",
+        "description": "GPT-2 for language modeling / classification.",
+        "file": "models.py"
+      },
+      {
+        "component": "models.py:GCN",
+        "description": "Graph Convolutional Network using torch_geometric.",
+        "file": "models.py"
+      },
+      {
+        "component": "models.py:GAT",
+        "description": "Graph Attention Network using torch_geometric.",
+        "file": "models.py"
+      },
+      {
+        "component": "models.py:__init__",
+        "description": "ResNet-18 with optional pretrained weights and custom output classes.",
+        "file": "models.py"
+      }
+    ],
+    "sections like \"Methodology\"": [
+      {
+        "component": "curriculum_strategies.py:CurriculumStrategy",
+        "description": "Base class for curriculum learning strategies.\n    Defines the interface for obtaining sample weights and optional updates.",
+        "file": "curriculum_strategies.py"
+      },
+      {
+        "component": "curriculum_strategies.py:SelfPacedCurriculum",
+        "description": "Implements Self-Paced Learning: starts easy, gradually adds hard samples.",
+        "file": "curriculum_strategies.py"
+      },
+      {
+        "component": "curriculum_strategies.py:NoiseCurriculum",
+        "description": "Focuses on reducing the influence of noisy samples.\n    Assumes a noise estimate or surrogate difficulty.",
+        "file": "curriculum_strategies.py"
+      },
+      {
+        "component": "curriculum_strategies.py:__init__",
+        "description": "Compute the progress ratio [0, 1] of curriculum based on current epoch.",
+        "file": "curriculum_strategies.py"
+      },
+      {
+        "component": "models.py:ResNet18",
+        "description": "ResNet-18 with optional pretrained weights and custom output classes.",
+        "file": "models.py"
+      },
+      {
+        "component": "models.py:ViT",
+        "description": "Vision Transformer from Hugging Face transformers.",
+        "file": "models.py"
+      },
+      {
+        "component": "models.py:GPT2",
+        "description": "GPT-2 for language modeling / classification.",
+        "file": "models.py"
+      },
+      {
+        "component": "models.py:GCN",
+        "description": "Graph Convolutional Network using torch_geometric.",
+        "file": "models.py"
+      },
+      {
+        "component": "models.py:GAT",
+        "description": "Graph Attention Network using torch_geometric.",
+        "file": "models.py"
+      },
+      {
+        "component": "models.py:__init__",
+        "description": "ResNet-18 with optional pretrained weights and custom output classes.",
+        "file": "models.py"
+      }
+    ],
+    "\"Implementation Details\"": [
+      {
+        "component": "curriculum_strategies.py:CurriculumStrategy",
+        "description": "Base class for curriculum learning strategies.\n    Defines the interface for obtaining sample weights and optional updates.",
+        "file": "curriculum_strategies.py"
+      },
+      {
+        "component": "curriculum_strategies.py:SelfPacedCurriculum",
+        "description": "Implements Self-Paced Learning: starts easy, gradually adds hard samples.",
+        "file": "curriculum_strategies.py"
+      },
+      {
+        "component": "curriculum_strategies.py:NoiseCurriculum",
+        "description": "Focuses on reducing the influence of noisy samples.\n    Assumes a noise estimate or surrogate difficulty.",
+        "file": "curriculum_strategies.py"
+      },
+      {
+        "component": "curriculum_strategies.py:__init__",
+        "description": "Compute the progress ratio [0, 1] of curriculum based on current epoch.",
+        "file": "curriculum_strategies.py"
+      },
+      {
+        "component": "models.py:LeNet",
+        "description": "Implementation of LeNet-5 architecture for small images.",
+        "file": "models.py"
+      },
+      {
+        "component": "models.py:ResNet18",
+        "description": "ResNet-18 with optional pretrained weights and custom output classes.",
+        "file": "models.py"
+      },
+      {
+        "component": "models.py:ViT",
+        "description": "Vision Transformer from Hugging Face transformers.",
+        "file": "models.py"
+      },
+      {
+        "component": "models.py:GPT2",
+        "description": "GPT-2 for language modeling / classification.",
+        "file": "models.py"
+      },
+      {
+        "component": "models.py:GCN",
+        "description": "Graph Convolutional Network using torch_geometric.",
+        "file": "models.py"
+      },
+      {
+        "component": "models.py:GAT",
+        "description": "Graph Attention Network using torch_geometric.",
+        "file": "models.py"
+      },
+      {
+        "component": "models.py:GIN",
+        "description": "Graph Isomorphism Network using torch_geometric.",
+        "file": "models.py"
+      },
+      {
+        "component": "models.py:__init__",
+        "description": "ResNet-18 with optional pretrained weights and custom output classes.",
+        "file": "models.py"
+      }
+    ],
+    "or \"Experimental Setup\" might be relevant for a code component like this.": [
+      {
+        "component": "curriculum_strategies.py:CurriculumStrategy",
+        "description": "Base class for curriculum learning strategies.\n    Defines the interface for obtaining sample weights and optional updates.",
+        "file": "curriculum_strategies.py"
+      },
+      {
+        "component": "models.py:__init__",
+        "description": "ResNet-18 with optional pretrained weights and custom output classes.",
+        "file": "models.py"
+      }
+    ],
+    "Without specific section names/titles": [
+      {
+        "component": "curriculum_strategies.py:DifficultyBasedCurriculum",
+        "description": "Uses explicit difficulty scores per sample (e.g., loss, noise level).",
+        "file": "curriculum_strategies.py"
+      },
+      {
+        "component": "curriculum_strategies.py:SelfPacedCurriculum",
+        "description": "Implements Self-Paced Learning: starts easy, gradually adds hard samples.",
+        "file": "curriculum_strategies.py"
+      },
+      {
+        "component": "curriculum_strategies.py:NoiseCurriculum",
+        "description": "Focuses on reducing the influence of noisy samples.\n    Assumes a noise estimate or surrogate difficulty.",
+        "file": "curriculum_strategies.py"
+      },
+      {
+        "component": "curriculum_strategies.py:__init__",
+        "description": "Compute the progress ratio [0, 1] of curriculum based on current epoch.",
+        "file": "curriculum_strategies.py"
+      },
+      {
+        "component": "evaluation.py:__init__",
+        "description": "Initialize Evaluation with trained model and dataset.",
+        "file": "evaluation.py"
+      },
+      {
+        "component": "models.py:ResNet18",
+        "description": "ResNet-18 with optional pretrained weights and custom output classes.",
+        "file": "models.py"
+      },
+      {
+        "component": "models.py:ViT",
+        "description": "Vision Transformer from Hugging Face transformers.",
+        "file": "models.py"
+      },
+      {
+        "component": "models.py:GPT2",
+        "description": "GPT-2 for language modeling / classification.",
+        "file": "models.py"
+      },
+      {
+        "component": "models.py:GCN",
+        "description": "Graph Convolutional Network using torch_geometric.",
+        "file": "models.py"
+      },
+      {
+        "component": "models.py:GAT",
+        "description": "Graph Attention Network using torch_geometric.",
+        "file": "models.py"
+      }
+    ],
+    "it's impossible to accurately link the code component to the paper sections. Please provide the section names/titles for a proper analysis.": [
+      {
+        "component": "curriculum_strategies.py:DifficultyBasedCurriculum",
+        "description": "Uses explicit difficulty scores per sample (e.g., loss, noise level).",
+        "file": "curriculum_strategies.py"
+      }
+    ],
+    "The provided information does not include specific paper section names/titles. Please provide the names/titles of the paper sections to proceed with the analysis.": [
+      {
+        "component": "curriculum_strategies.py:ConfidenceBasedCurriculum",
+        "description": "Uses model confidence or uncertainty as difficulty measure.",
+        "file": "curriculum_strategies.py"
+      },
+      {
+        "component": "utils.py:set_deterministic",
+        "description": "Apply deterministic settings for reproducibility, if needed.",
+        "file": "utils.py"
+      }
+    ],
+    "it's impossible to accurately identify the most relevant sections for the given code component. However": [
+      {
+        "component": "curriculum_strategies.py:SelfPacedCurriculum",
+        "description": "Implements Self-Paced Learning: starts easy, gradually adds hard samples.",
+        "file": "curriculum_strategies.py"
+      },
+      {
+        "component": "dataset_loader.py:DatasetLoader",
+        "description": "Handles dataset loading, preprocessing, applying label noise and class imbalance.\n    Supports CV datasets (CIFAR, Tiny-ImageNet, MNIST), NLP datasets (placeholder),\n    and graph datasets via PyTorch Geometric.",
+        "file": "dataset_loader.py"
+      },
+      {
+        "component": "models.py:ResNet18",
+        "description": "ResNet-18 with optional pretrained weights and custom output classes.",
+        "file": "models.py"
+      },
+      {
+        "component": "models.py:ViT",
+        "description": "Vision Transformer from Hugging Face transformers.",
+        "file": "models.py"
+      },
+      {
+        "component": "models.py:GPT2",
+        "description": "GPT-2 for language modeling / classification.",
+        "file": "models.py"
+      }
+    ],
+    "\"Experiment and Results\" could be relevant for a code component that implements a specific learning strategy.": [
+      {
+        "component": "curriculum_strategies.py:SelfPacedCurriculum",
+        "description": "Implements Self-Paced Learning: starts easy, gradually adds hard samples.",
+        "file": "curriculum_strategies.py"
+      }
+    ],
+    "it's impossible to accurately identify the most relevant sections for the code component. However": [
+      {
+        "component": "curriculum_strategies.py:NoiseCurriculum",
+        "description": "Focuses on reducing the influence of noisy samples.\n    Assumes a noise estimate or surrogate difficulty.",
+        "file": "curriculum_strategies.py"
+      },
+      {
+        "component": "curriculum_strategies.py:__init__",
+        "description": "Compute the progress ratio [0, 1] of curriculum based on current epoch.",
+        "file": "curriculum_strategies.py"
+      },
+      {
+        "component": "models.py:GAT",
+        "description": "Graph Attention Network using torch_geometric.",
+        "file": "models.py"
+      },
+      {
+        "component": "resources.py:ResourceLogger",
+        "description": "Handles resource tracking during training epochs, including timing and GPU memory.\n    Records per-epoch resource usage metrics for analysis in CurBench.",
+        "file": "resources.py"
+      }
+    ],
+    "\"Experimental Setup\"": [
+      {
+        "component": "curriculum_strategies.py:NoiseCurriculum",
+        "description": "Focuses on reducing the influence of noisy samples.\n    Assumes a noise estimate or surrogate difficulty.",
+        "file": "curriculum_strategies.py"
+      },
+      {
+        "component": "models.py:ResNet18",
+        "description": "ResNet-18 with optional pretrained weights and custom output classes.",
+        "file": "models.py"
+      }
+    ],
+    "or \"Results and Discussion\" might contain relevant information about a specific code component. Please provide the actual section names/titles for a more accurate answer.": [
+      {
+        "component": "curriculum_strategies.py:NoiseCurriculum",
+        "description": "Focuses on reducing the influence of noisy samples.\n    Assumes a noise estimate or surrogate difficulty.",
+        "file": "curriculum_strategies.py"
+      }
+    ],
+    "\"Experiment Setup\" or \"Results and Discussion\" might contain relevant information about a function that computes the progress ratio of a curriculum based on the current epoch.": [
+      {
+        "component": "curriculum_strategies.py:__init__",
+        "description": "Compute the progress ratio [0, 1] of curriculum based on current epoch.",
+        "file": "curriculum_strategies.py"
+      }
+    ],
+    "Without the specific section names/titles": [
+      {
+        "component": "dataset_loader.py:DatasetLoader",
+        "description": "Handles dataset loading, preprocessing, applying label noise and class imbalance.\n    Supports CV datasets (CIFAR, Tiny-ImageNet, MNIST), NLP datasets (placeholder),\n    and graph datasets via PyTorch Geometric.",
+        "file": "dataset_loader.py"
+      }
+    ],
+    "based on the description of the code": [
+      {
+        "component": "dataset_loader.py:DatasetLoader",
+        "description": "Handles dataset loading, preprocessing, applying label noise and class imbalance.\n    Supports CV datasets (CIFAR, Tiny-ImageNet, MNIST), NLP datasets (placeholder),\n    and graph datasets via PyTorch Geometric.",
+        "file": "dataset_loader.py"
+      }
+    ],
+    "sections that might be relevant could be titled something like \"Data Preprocessing\"": [
+      {
+        "component": "dataset_loader.py:DatasetLoader",
+        "description": "Handles dataset loading, preprocessing, applying label noise and class imbalance.\n    Supports CV datasets (CIFAR, Tiny-ImageNet, MNIST), NLP datasets (placeholder),\n    and graph datasets via PyTorch Geometric.",
+        "file": "dataset_loader.py"
+      }
+    ],
+    "\"Dataset Description\"": [
+      {
+        "component": "dataset_loader.py:DatasetLoader",
+        "description": "Handles dataset loading, preprocessing, applying label noise and class imbalance.\n    Supports CV datasets (CIFAR, Tiny-ImageNet, MNIST), NLP datasets (placeholder),\n    and graph datasets via PyTorch Geometric.",
+        "file": "dataset_loader.py"
+      },
+      {
+        "component": "evaluation.py:__init__",
+        "description": "Initialize Evaluation with trained model and dataset.",
+        "file": "evaluation.py"
+      }
+    ],
+    "or \"Methodology\".": [
+      {
+        "component": "dataset_loader.py:DatasetLoader",
+        "description": "Handles dataset loading, preprocessing, applying label noise and class imbalance.\n    Supports CV datasets (CIFAR, Tiny-ImageNet, MNIST), NLP datasets (placeholder),\n    and graph datasets via PyTorch Geometric.",
+        "file": "dataset_loader.py"
+      }
+    ],
+    "The paper sections are not provided in the question. Please provide the paper sections to proceed.": [
+      {
+        "component": "dataset_loader.py:_SubsetWithTargets",
+        "description": "Helper class to create a subset with specified targets (labels),\n    supporting potential curriculum algorithms that need access to targets.",
+        "file": "dataset_loader.py"
+      }
+    ],
+    "Methodology": [
+      {
+        "component": "dataset_loader.py:__init__",
+        "description": "Initialize DatasetLoader with dataset parameters.",
+        "file": "dataset_loader.py"
+      },
+      {
+        "component": "models.py:LSTM",
+        "description": "Standard LSTM for sequence tasks.",
+        "file": "models.py"
+      },
+      {
+        "component": "trainer.py:__init__",
+        "description": "Initialize the trainer with model, dataset, curriculum, and hyperparameters.",
+        "file": "trainer.py"
+      },
+      {
+        "component": "utils.py:ResourceLogger",
+        "description": "Handles timing and GPU memory tracking.",
+        "file": "utils.py"
+      }
+    ],
+    "Dataset Description": [
+      {
+        "component": "dataset_loader.py:__init__",
+        "description": "Initialize DatasetLoader with dataset parameters.",
+        "file": "dataset_loader.py"
+      }
+    ],
+    "Implementation Details": [
+      {
+        "component": "dataset_loader.py:__init__",
+        "description": "Initialize DatasetLoader with dataset parameters.",
+        "file": "dataset_loader.py"
+      },
+      {
+        "component": "models.py:LSTM",
+        "description": "Standard LSTM for sequence tasks.",
+        "file": "models.py"
+      },
+      {
+        "component": "utils.py:ResourceLogger",
+        "description": "Handles timing and GPU memory tracking.",
+        "file": "utils.py"
+      }
+    ],
+    "\"Model Evaluation\"": [
+      {
+        "component": "evaluation.py:Evaluation",
+        "description": "Handles evaluation of a trained model on a dataset, computing relevant performance metrics\n    according to dataset/task type and logging resource usage metrics (time, GPU memory).",
+        "file": "evaluation.py"
+      }
+    ],
+    "\"Performance Metrics\"": [
+      {
+        "component": "evaluation.py:Evaluation",
+        "description": "Handles evaluation of a trained model on a dataset, computing relevant performance metrics\n    according to dataset/task type and logging resource usage metrics (time, GPU memory).",
+        "file": "evaluation.py"
+      }
+    ],
+    "\"Resource Usage Analysis\"": [
+      {
+        "component": "evaluation.py:Evaluation",
+        "description": "Handles evaluation of a trained model on a dataset, computing relevant performance metrics\n    according to dataset/task type and logging resource usage metrics (time, GPU memory).",
+        "file": "evaluation.py"
+      }
+    ],
+    "it's hard to provide an accurate answer. However": [
+      {
+        "component": "evaluation.py:__init__",
+        "description": "Initialize Evaluation with trained model and dataset.",
+        "file": "evaluation.py"
+      },
+      {
+        "component": "models.py:LeNet",
+        "description": "Implementation of LeNet-5 architecture for small images.",
+        "file": "models.py"
+      },
+      {
+        "component": "models.py:GIN",
+        "description": "Graph Isomorphism Network using torch_geometric.",
+        "file": "models.py"
+      },
+      {
+        "component": "trainer.py:Trainer",
+        "description": "Orchestrates the training process for a model with optional curriculum learning.\n    Implements resource logging and adheres to the experimental setup in CurBench.",
+        "file": "trainer.py"
+      },
+      {
+        "component": "utils.py:get_data_transform",
+        "description": "Provide data transformation pipeline based on dataset and phase.",
+        "file": "utils.py"
+      }
+    ],
+    "based on the code component description": [
+      {
+        "component": "evaluation.py:__init__",
+        "description": "Initialize Evaluation with trained model and dataset.",
+        "file": "evaluation.py"
+      },
+      {
+        "component": "models.py:LeNet",
+        "description": "Implementation of LeNet-5 architecture for small images.",
+        "file": "models.py"
+      }
+    ],
+    "the most relevant sections could be \"Model Training\"": [
+      {
+        "component": "evaluation.py:__init__",
+        "description": "Initialize Evaluation with trained model and dataset.",
+        "file": "evaluation.py"
+      }
+    ],
+    "and \"Evaluation Methodology\".": [
+      {
+        "component": "evaluation.py:__init__",
+        "description": "Initialize Evaluation with trained model and dataset.",
+        "file": "evaluation.py"
+      }
+    ],
+    "The provided information is insufficient to determine the most relevant paper sections for the code component. Please provide more details about the function in the main.py file.": [
+      {
+        "component": "main.py:main",
+        "description": "",
+        "file": "main.py"
+      }
+    ],
+    "the most relevant sections could be \"Methodology\"": [
+      {
+        "component": "models.py:LeNet",
+        "description": "Implementation of LeNet-5 architecture for small images.",
+        "file": "models.py"
+      },
+      {
+        "component": "models.py:GIN",
+        "description": "Graph Isomorphism Network using torch_geometric.",
+        "file": "models.py"
+      }
+    ],
+    "\"Experimental Setup\" or any section discussing the \"LeNet-5 architecture\".": [
+      {
+        "component": "models.py:LeNet",
+        "description": "Implementation of LeNet-5 architecture for small images.",
+        "file": "models.py"
+      }
+    ],
+    "or \"Model Architecture\" would be most relevant for a code component describing a specific model implementation like ResNet-18.": [
+      {
+        "component": "models.py:ResNet18",
+        "description": "ResNet-18 with optional pretrained weights and custom output classes.",
+        "file": "models.py"
+      }
+    ],
+    "\"Experimental Setup\" or \"Model Architecture\" could potentially discuss the Vision Transformer from Hugging Face transformers.": [
+      {
+        "component": "models.py:ViT",
+        "description": "Vision Transformer from Hugging Face transformers.",
+        "file": "models.py"
+      }
+    ],
+    "Experimental Setup": [
+      {
+        "component": "models.py:LSTM",
+        "description": "Standard LSTM for sequence tasks.",
+        "file": "models.py"
+      },
+      {
+        "component": "utils.py:ResourceLogger",
+        "description": "Handles timing and GPU memory tracking.",
+        "file": "utils.py"
+      }
+    ],
+    "The paper sections are not clearly defined in the provided text. Please provide the section names/titles to proceed.": [
+      {
+        "component": "models.py:BERT",
+        "description": "BERT model for NLP tasks.",
+        "file": "models.py"
+      }
+    ],
+    "\"Model Architecture\"": [
+      {
+        "component": "models.py:GPT2",
+        "description": "GPT-2 for language modeling / classification.",
+        "file": "models.py"
+      }
+    ],
+    "or \"Experimental Setup\" might contain relevant information about a GPT-2 model for language modeling/classification.": [
+      {
+        "component": "models.py:GPT2",
+        "description": "GPT-2 for language modeling / classification.",
+        "file": "models.py"
+      }
+    ],
+    "it's impossible to accurately identify the most relevant sections for the provided code component. However": [
+      {
+        "component": "models.py:GCN",
+        "description": "Graph Convolutional Network using torch_geometric.",
+        "file": "models.py"
+      }
+    ],
+    "\"Experimental Setup\" or \"Results and Discussion\" might contain relevant information about a Graph Convolutional Network implemented using torch_geometric. Please provide the actual section names/titles for a more accurate answer.": [
+      {
+        "component": "models.py:GCN",
+        "description": "Graph Convolutional Network using torch_geometric.",
+        "file": "models.py"
+      }
+    ],
+    "\"Experimental Setup\" or \"Results and Discussion\" might contain relevant information about a Graph Attention Network implemented using torch_geometric.": [
+      {
+        "component": "models.py:GAT",
+        "description": "Graph Attention Network using torch_geometric.",
+        "file": "models.py"
+      }
+    ],
+    "based on the code component": [
+      {
+        "component": "models.py:GIN",
+        "description": "Graph Isomorphism Network using torch_geometric.",
+        "file": "models.py"
+      }
+    ],
+    "\"Graph Isomorphism Network\"": [
+      {
+        "component": "models.py:GIN",
+        "description": "Graph Isomorphism Network using torch_geometric.",
+        "file": "models.py"
+      }
+    ],
+    "or \"Experimental Setup\".": [
+      {
+        "component": "models.py:GIN",
+        "description": "Graph Isomorphism Network using torch_geometric.",
+        "file": "models.py"
+      }
+    ],
+    "based on the code description": [
+      {
+        "component": "resources.py:ResourceLogger",
+        "description": "Handles resource tracking during training epochs, including timing and GPU memory.\n    Records per-epoch resource usage metrics for analysis in CurBench.",
+        "file": "resources.py"
+      },
+      {
+        "component": "resources.py:__init__",
+        "description": "Call at the beginning of an epoch.\n        - Records start time if enabled.\n        - Resets GPU peak memory stats if enabled.",
+        "file": "resources.py"
+      },
+      {
+        "component": "trainer.py:Trainer",
+        "description": "Orchestrates the training process for a model with optional curriculum learning.\n    Implements resource logging and adheres to the experimental setup in CurBench.",
+        "file": "trainer.py"
+      }
+    ],
+    "sections that might be relevant could be titled something like \"Methodology\"": [
+      {
+        "component": "resources.py:ResourceLogger",
+        "description": "Handles resource tracking during training epochs, including timing and GPU memory.\n    Records per-epoch resource usage metrics for analysis in CurBench.",
+        "file": "resources.py"
+      },
+      {
+        "component": "resources.py:__init__",
+        "description": "Call at the beginning of an epoch.\n        - Records start time if enabled.\n        - Resets GPU peak memory stats if enabled.",
+        "file": "resources.py"
+      }
+    ],
+    "\"Experiment Setup\"": [
+      {
+        "component": "resources.py:ResourceLogger",
+        "description": "Handles resource tracking during training epochs, including timing and GPU memory.\n    Records per-epoch resource usage metrics for analysis in CurBench.",
+        "file": "resources.py"
+      },
+      {
+        "component": "resources.py:__init__",
+        "description": "Call at the beginning of an epoch.\n        - Records start time if enabled.\n        - Resets GPU peak memory stats if enabled.",
+        "file": "resources.py"
+      }
+    ],
+    "\"Resource Management\"": [
+      {
+        "component": "resources.py:ResourceLogger",
+        "description": "Handles resource tracking during training epochs, including timing and GPU memory.\n    Records per-epoch resource usage metrics for analysis in CurBench.",
+        "file": "resources.py"
+      },
+      {
+        "component": "resources.py:__init__",
+        "description": "Call at the beginning of an epoch.\n        - Records start time if enabled.\n        - Resets GPU peak memory stats if enabled.",
+        "file": "resources.py"
+      }
+    ],
+    "or \"Performance Evaluation\".": [
+      {
+        "component": "resources.py:ResourceLogger",
+        "description": "Handles resource tracking during training epochs, including timing and GPU memory.\n    Records per-epoch resource usage metrics for analysis in CurBench.",
+        "file": "resources.py"
+      },
+      {
+        "component": "resources.py:__init__",
+        "description": "Call at the beginning of an epoch.\n        - Records start time if enabled.\n        - Resets GPU peak memory stats if enabled.",
+        "file": "resources.py"
+      }
+    ],
+    "the most relevant sections could be something like \"Experimental Setup\"": [
+      {
+        "component": "trainer.py:Trainer",
+        "description": "Orchestrates the training process for a model with optional curriculum learning.\n    Implements resource logging and adheres to the experimental setup in CurBench.",
+        "file": "trainer.py"
+      }
+    ],
+    "\"Model Training Process\"": [
+      {
+        "component": "trainer.py:Trainer",
+        "description": "Orchestrates the training process for a model with optional curriculum learning.\n    Implements resource logging and adheres to the experimental setup in CurBench.",
+        "file": "trainer.py"
+      }
+    ],
+    "and \"Curriculum Learning Implementation\".": [
+      {
+        "component": "trainer.py:Trainer",
+        "description": "Orchestrates the training process for a model with optional curriculum learning.\n    Implements resource logging and adheres to the experimental setup in CurBench.",
+        "file": "trainer.py"
+      }
+    ],
+    "Experiment Setup": [
+      {
+        "component": "trainer.py:__init__",
+        "description": "Initialize the trainer with model, dataset, curriculum, and hyperparameters.",
+        "file": "trainer.py"
+      }
+    ],
+    "Model Implementation": [
+      {
+        "component": "trainer.py:__init__",
+        "description": "Initialize the trainer with model, dataset, curriculum, and hyperparameters.",
+        "file": "trainer.py"
+      }
+    ],
+    "The provided paper sections are not clear enough to link with the code component. Please provide more detailed sections.": [
+      {
+        "component": "utils.py:ConfigManager",
+        "description": "Handles loading and accessing nested configuration parameters from YAML file.",
+        "file": "utils.py"
+      }
+    ],
+    "The provided information is not sufficient to identify the relevant paper sections for the code component. Please provide more details or context.": [
+      {
+        "component": "utils.py:__init__",
+        "description": "Record start time.",
+        "file": "utils.py"
+      }
+    ],
+    "based on the code component's description": [
+      {
+        "component": "utils.py:get_data_transform",
+        "description": "Provide data transformation pipeline based on dataset and phase.",
+        "file": "utils.py"
+      }
+    ],
+    "the most relevant sections could be \"Data Preprocessing\"": [
+      {
+        "component": "utils.py:get_data_transform",
+        "description": "Provide data transformation pipeline based on dataset and phase.",
+        "file": "utils.py"
+      }
+    ],
+    "\"Methodology\"": [
+      {
+        "component": "utils.py:get_data_transform",
+        "description": "Provide data transformation pipeline based on dataset and phase.",
+        "file": "utils.py"
+      }
+    ],
+    "and \"Implementation Details\".": [
+      {
+        "component": "utils.py:get_data_transform",
+        "description": "Provide data transformation pipeline based on dataset and phase.",
+        "file": "utils.py"
+      }
+    ]
+  },
+  "paper_sections": [
+    {
+      "section": "Abstract",
+      "text": "Yuwei Zhou 1 Zirui Pan 1 Xin Wang 1 Hong Chen 1 Haoyang $\\mathbf { L i } ^ { 1 }$ Yanwen Huang 1 Zhixiao Xiong 1 Fangzhou Xiong 1 Peiyang $\\mathbf { X } \\mathbf { u } ^ { 1 }$ Shengnan Liu 1 Wenwu Zhu 1",
+      "ontology": "abstract"
+    }
+  ],
+  "coverage_score": 62.0
+}

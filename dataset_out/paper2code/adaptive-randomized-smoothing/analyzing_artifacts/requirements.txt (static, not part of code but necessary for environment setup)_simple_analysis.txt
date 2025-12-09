@@ -1,0 +1,33 @@
+# requirements.txt
+
+This file specifies the core Python packages required to implement, train, evaluate, and certify the Adaptive Randomized Smoothing (ARS) method as described in the paper, following the provided design and configuration details. The packages include deep learning frameworks, mathematical and scientific libraries, and visualization tools, ensuring a stable and reproducible environment compliant with the paper's experimental setup.
+
+## Core Deep Learning Framework
+- **torch==1.13.1**  
+  Provides the PyTorch deep learning library, fundamental for implementing the ResNet classifiers, U-Net mask model, noise injection modules, and training routines.
+
+- **torchvision==0.14.1**  
+  Facilitates dataset handling, image transformations, data augmentation, and pretrained model access (if needed). Supports dataset loading for CIFAR-10, CelebA, and ImageNet.
+
+## Numerical and Scientific Computing
+- **numpy==1.21.0**  
+  Essential for array manipulations, mathematical operations, and numerical computations necessary for constructing the certificates, combining model outputs, and implementing formulas (e.g., Gaussian quantiles).
+
+- **scipy==1.7.3**  
+  Provides statistical functions (such as inverse CDF via `scipy.stats.norm.ppf`), optimization routines, and support for numerical derivations relevant to certification bounds.
+
+## Visualization and Debugging
+- **matplotlib==3.5.1**  
+  For plotting experimental results, certification accuracy curves, masks, and example images during training and evaluation, as outlined in the paper.
+
+## Additional Considerations
+- **Optional / Environment-related:**  
+  - **torchsummary** (for model visualization and debugging).  
+  - **tensorboard** (for logging training progress, hyperparameter sweeps, and visualization).  
+  - **seaborn** (for advanced statistical plotting, if needed).
+
+---
+
+# Summary
+This static set of dependencies ensures that implementation aligns with the experimental, theoretical, and infrastructural requirements specified in the plan and design, supporting reproducibility of results under the configuration provided.  
+Ensure compatible CUDA/cuDNN versions if GPU acceleration is utilized, matching the paper's experimental hardware (NVIDIA A100, RTX 4090).

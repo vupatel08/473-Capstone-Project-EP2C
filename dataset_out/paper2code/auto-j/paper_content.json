@@ -1,0 +1,158 @@
+{
+  "title": "GENERATIVE JUDGE FOR EVALUATING ALIGNMENT",
+  "abstract": "Junlong $\\mathbf { L i } ^ { 1 , 6 }$ Shichao $\\mathbf { S u n } ^ { 3 , 6 }$ Weizhe Yuan4 Run-Ze Fan5,6 Hai Zhao1   \nPengfei $\\mathbf { L i u } ^ { 1 , 2 , 6 * }$   \n1Shanghai Jiao Tong University 2Shanghai Artificial Intelligence Laboratory   \n3Hong Kong Polytechnic University 4New York University 5Chinese Academy of Sciences   \n6Generative AI Research Lab (GAIR)",
+  "authors": [],
+  "body_text": [
+    {
+      "text": "# GENERATIVE JUDGE FOR EVALUATING ALIGNMENT"
+    },
+    {
+      "text": "Junlong $\\mathbf { L i } ^ { 1 , 6 }$ Shichao $\\mathbf { S u n } ^ { 3 , 6 }$ Weizhe Yuan4 Run-Ze Fan5,6 Hai Zhao1   \nPengfei $\\mathbf { L i u } ^ { 1 , 2 , 6 * }$   \n1Shanghai Jiao Tong University 2Shanghai Artificial Intelligence Laboratory   \n3Hong Kong Polytechnic University 4New York University 5Chinese Academy of Sciences   \n6Generative AI Research Lab (GAIR)"
+    },
+    {
+      "text": "# ABSTRACT"
+    },
+    {
+      "text": "The rapid development of Large Language Models (LLMs) has substantially expanded the range of tasks they can address. In the field of Natural Language Processing (NLP), researchers have shifted their focus from conventional NLP tasks (e.g., sequence tagging and parsing) towards tasks that revolve around aligning with human needs (e.g., brainstorming and email writing). This shift in task distribution imposes new requirements on evaluating these aligned models regarding generality (i.e., assessing performance across diverse scenarios), flexibility (i.e., examining under different protocols), and interpretability (i.e., scrutinizing models with explanations). In this paper, we propose a generative judge with 13B parameters, AUTO-J, designed to address these challenges. Our model is trained on user queries and LLM-generated responses under massive real-world scenarios and accommodates diverse evaluation protocols (e.g., pairwise response comparison and single-response evaluation) with well-structured natural language critiques. To demonstrate the efficacy of our approach, we construct a new testbed covering 58 different scenarios. Experimentally, AUTO-J outperforms a series of strong competitors, including both open-source and closed-source models, by a large margin. We also provide detailed analysis and case studies to further reveal the potential of our method and make a variety of resources public at https://github.com/GAIR-NLP/auto-j."
+    },
+    {
+      "text": "# 1 INTRODUCTION"
+    },
+    {
+      "text": "In natural language processing, the evaluation methodology for generation tasks is continually updating with the advancement of modeling techniques, ranging from ROUGE (Lin, 2004) to ROUGE-WE $\\mathrm { N g }$ & Abrecht, 2015) (a metric enhanced with word embedding (Mikolov et al., 2013)) and then to BERTScore (Zhang et al., 2019), BARTScore (Yuan et al., 2021), and GPTScore (Fu et al., 2023) (metrics enhanced by pre-trained language models (Peters et al., 2018; Devlin et al., 2019; Lewis et al., 2020)), aiming for a more reliable evaluation for ever-growing modeling techniques. Recently, the advent of large language models (Brown et al., 2020; Touvron et al., 2023a;b) has not only reshaped the implementation for modeling techniques (i.e., paradigm shift from “pre-train, fine-tuning” to “pre-train, supervised fine-tune, and reward model-based tune” (Ziegler et al., 2019; Stiennon et al., 2020; Ouyang et al., 2022)) but also broadened the spectrum of tasks that modeling techniques seek to address (i.e., task distribution shift from traditional NLP tasks towards those more aligned with human needs (Bai et al., 2022a; OpenAI, 2023; Zhou et al., 2023; Taori et al., 2023))."
+    },
+    {
+      "text": "Given the evolving modeling techniques, the evaluation methods are in urgent need of upgrading and improvement to adapt to new challenges and requirements, particularly in the following aspects: (i) generality: the evaluation method should support massive real-world scenarios where gold references are usually unavailable. Traditional approaches frequently require human references and apply a single evaluation metric to constrained tasks (e.g., ROUGE (Lin, 2004) for text summarization, BLEU (Papineni et al., 2002) for machine translation) are struggling to keep pace with the current demands for evaluation. (ii) flexibility: the evaluation method should accommodate different protocols with desirable performance. The current LLM-based modeling paradigm requires methodological support of the evaluation in various aspects, and the evaluation protocols they demand also exhibit variations. For instance, when learning a reward model, it is necessary to compare two responses, while evaluating the final system output often involves assessing a single response (Stiennon et al., 2020).1 (iii) interpretability: evaluation results are encouraged to provide more than solely numerical scores. Additional explanations are crucial to enhance the reliability of evaluation outcomes and facilitate humans’ involvement in the evaluation loop (Saunders et al., 2022)."
+    },
+    {
+      "text": "In this context, researchers have engaged in some explorations, with the central idea being to conceptualize evaluation as an instruction-following problem (Fu et al., 2023; Liu et al., 2023) based on a high-capacity LLM. For example, Zheng et al. (2023); Zhou et al. (2023); Dubois et al. (2023) employ proprietary LLMs (e.g., ChatGPT, Claude or GPT-4) through API calls to perform various evaluation protocols. Such methods have shown decent agreement with human judgment, but they also face challenges in terms of consistency and reproducibility due to the opacity of API models as well as the high API cost. An alternative is to train a specialized evaluator based on open-source LLMs. PandaLM (Wang et al., 2023c) is able to compare a pair of responses for a given query with a brief explanation of the evaluation process, and Shepherd (Wang et al., 2023b) can provide critiques to a LLM’s response to pinpoint its shortcomings. These models have achieved remarkable performance in certain settings; however, they are relatively limited in the following aspects: (a) Some are not optimized to evaluate various deployed LLMs under massive real-world scenarios but are only trained on synthetic data (e.g., the Alpaca dataset Taori et al. (2023) by GPT-3.5), online forums, or traditional NLP datasets, without the consideration of scenario-specific evaluation criteria. (b) Each of these models only supports one evaluation protocol, like pairwise comparison or single-response evaluation, making them less flexible for various evaluation requirements. (c) They only provide brief or no natural language explanation for their evaluation, reducing the reliability of the result."
+    },
+    {
+      "text": "To address the above challenges, we develop AUTO-J, a generative judge with 13B parameters trained on user queries and model-generated responses from massive real-world scenarios. Methodologically, to train a more generalized judge, we created a new dataset from a large collection of data, encompassing 58 different scenarios, with most samples coming from real-world user queries and LLMs’ responses. Based on the dataset, we guide GPT-4 (OpenAI, 2023) with carefully hand-written criteria for each scenario to collect desired evaluation judgments as our supervised training signals and apply heuristic filtering strategies and post-processing to unify output formats and mitigate noise. We also design new testbeds from the above dataset for pairwise comparison and single-response evaluation, with a diverse and balanced scenario distribution (§5.1). Through comprehensive meta-evaluation on its evaluation functionalities, we show that AUTO-J outperforms various strong baselines, including both open-source and closed-source models (§6.1, $\\ S 6 . 2$ , $\\ S 6 . 3 \\AA$ ). We also conduct detailed analysis and case studies (§6.4) to show a series of advantages offered by AUTO-J, from lessened positional bias in pairwise comparison, more specific critiques in single-response evaluation to the potential as a generative reward model to help improve base LLMs. To summarize, our contributions are:"
+    },
+    {
+      "text": "(i) We develop AUTO-J, a new open-source model that can effectively and flexibly evaluate LLMs for both pairwise comparison and single-response assessment, with well-structured natural language critiques to support its evaluation. It establishes a new state-of-the-art performance among opensource models across all 58 scenarios (e.g., $8 . 9 \\%$ improvement in pairwise evaluation in $\\ S 6 . 1 \\AA )$ ) and surpasses strong proprietary models such as ChatGPT and Claude-2 (e.g., with $1 2 . 1 \\%$ and $12 . 4 \\%$ gains in pairwise evaluation in $\\ S 6 . 1$ ) (ii) We construct a judgment dataset (§3) that covers 58 realworld scenarios. Each judgment consists of both a numerical rating (or a pairwise comparison result) and a critique generated in accordance with our curated 332 criteria. These data resources serve as a valuable foundation for both training and benchmarking evaluation methodologies under emerging technologies. (iii) We have released a wealth of resources to meet the diverse needs for future research: out-of-the-box models with superior performance; scenario typology and classifier; curated scenario-aware evaluation criterion and prompts; judgments with well-formatted critiques."
+    },
+    {
+      "text": "# 2 RELATED WORK"
+    },
+    {
+      "text": "# 2.1 EVALUATION OF LLMS"
+    },
+    {
+      "text": "It is universally known that the best way to evaluate LLMs is human judgment, but collecting human annotations can be costly, time-consuming, and laborious (Ouyang et al., 2022; Zheng et al., 2023)."
+    },
+    {
+      "text": "![](images/cdaae36f890f0602053633fd51a9848d20a1c53f50bc0655bb68eafbf8afd591.jpg)  \nFigure 1: An overview for our data construction pipeline in three steps."
+    },
+    {
+      "text": "Using strong LLMs (usually closed-source ones, e.g., GPT-4, Claude, ChatGPT) as an automated proxy for assessing LLMs has become a natural choice (Zhou et al., 2023). With appropriate prompt (query3, responses3)design, the quality of evaluation and agreement to human judgment can be promising (Dubois et al., 2023; Zheng et al., 2023; Zhang et al., 2023; Wang et al., 2023a). However, the cost concern still exists when calling the APIs of these proprietary models, especially when there is a frequent need for model validation on large-scale data. Moreover, closed-source evaluation leads to low reproducibility due to potential changes in models behind the API. Some recent works have started to make attempts for open-source alternatives. SelFee (Ye et al., 2023) collects generations, feedback, and revised generations from ChatGPT and fine-tunes LLaMA models to build a critique model. Shepherd (Wang et al., 2023b) trains a model that can output critiques for single-response with the data of feedback from online communities and human annotation. PandaLM (Wang et al., 2023c) trains a model to conduct pairwise comparison for LLM Instruction Tuning Optimization, and Zheng et al. (2023) also fine-tune Vicuna (Chiang et al., 2023) on a 20K pairwise comparison dataset to explore the potential of open-source models as a more cost-friendly proxy."
+    },
+    {
+      "text": "# 2.2 META-EVALUATION TESTBED FOR LLM EVALUATORS"
+    },
+    {
+      "text": "Besides the evaluators themselves, there is also a practical need to construct a comprehensive testbed to meta-evaluate them (i.e., assessing the quality of their evaluation). In Zheng et al. (2023), MTBench and Chatbot Arena Conversations are proposed. The former has only 80 human-crafted queries, each with several LLMs’ responses and expert-level human annotation on pairwise comparison; the latter is a large collection of crowdsourced data, with more than 30K queries from real-world users and their vote on pairs of responses from different LLMs. FairEval (Wang et al., 2023a) is based on the 80 queries from VicunaBench (Chiang et al., 2023) with human annotated labels between ChatGPT and Vicuna responses. PandaLM (Wang et al., 2023c) constructs a test set comprising 999 pairwise samples, with queries from 252 user-oriented instructions in Wang et al. (2022). LLMEval2 (Zhang et al., 2023) is much larger than the previous two, with 2,553 samples compiled from multiple data sources with human-annotated preferences. Shepherd (Wang et al., 2023b) collects 352 samples from multiple sources for its critique model as a test set to evaluate the quality of the critiques."
+    },
+    {
+      "text": "# 3 DATA CONSTRUCTION"
+    },
+    {
+      "text": "We construct data from massive real-world scenarios with high-quality evaluation judgments for both training and testing. The data construction pipeline involves three main steps: (1) defining evaluation scenario and criteria, (2) collecting real-world queries and responses from different models for these scenarios and (3) generating desired evaluation judgments for different evaluation protocols. An overview of our data construction pipeline is shown in Fig. 1."
+    },
+    {
+      "text": "# 3.1 SCENARIO AND CRITERIA DEFINITION"
+    },
+    {
+      "text": "Scenario We define 58 scenarios (including one “others” scenario), categorized into eight major groups: Summarization, Exam Questions, Code, Creative Writing, Functional Writing, Rewriting,"
+    },
+    {
+      "text": "![](images/7ad5f7bc0b6ee241a57dde83d81bab0fbbc8f7802a2f234547f1ef2e6d60f34c.jpg)  \nFigure 2: An example of the criteria for the “planning” scenario and a demonstration of the defined scenarios. In (b), Summa. Summarization, Commu. General Communication."
+    },
+    {
+      "text": "![](images/aec52e65eb3c308f7448d2b58c52007b0dd914cb7c7388265b1a6be1a707f81e.jpg)  \n(b) Scenario distribution."
+    },
+    {
+      "text": "General Communication, and NLP Tasks, as shown in Fig. 2 (b). The detailed description for each scenario is shown in Tab. 6, $\\ S \\mathrm { A }$ ."
+    },
+    {
+      "text": "Criteria Besides the definition and description, we also design a set of criteria for each scenario that serves as a reference to guide models on how to do the evaluation. Each criterion has a name and a description. We show a condensed version of the set of criteria for the \"planning\" scenario in Fig. 2 (a) (the complete version is in Fig. 10 ). Generally, criteria for each scenario consists of specific ones and basic ones (more general, shared by multiple scenarios). In total, we craft 332 different criteria. When we use a set of criteria, we put them in the system message for LLMs, as shown in Tab. 9."
+    },
+    {
+      "text": "# 3.2 QUERIES AND RESPONSES COLLECTION"
+    },
+    {
+      "text": "To start with, we first collect a large collection of data from the following sources: Chatbot Arena Conversations and MTBench (Zheng et al., 2023), OpenAI Summary (Stiennon et al., 2020), OpenAI WebGPT (Nakano et al., 2021), Stanford SHP (Ethayarajh et al., 2022), Synthetic GPT-J (Havrilla, 2023), and PKU-SafeRLHF (Ji et al., 2023). All these datasets are publicly available preference datasets with human preference comparisons containing two model-generated responses (win, lose, or tie) sharing the same query (and previous dialogue). We remove the non-English samples and only keep the first turn for multi-turn dialogues. In short, all samples share a common structure: A query, Response 1 & 2, and preference label (1/2/Tie)."
+    },
+    {
+      "text": "The next step is to classify the collected data based on the scenarios. Although this is trivial for datasets with relatively homogeneous components (OpenAI Summary, OpenAI WebGPT) or small query size (MTBench), this is quite challenging on larger and more complex ones. Therefore, we train a classifier to help us with this. The complete training details are in $\\ S \\mathbf { B }$ . Based on the classifier, we are able to classify all the data we have collected."
+    },
+    {
+      "text": "# 3.3 JUDGMENT GENERATION"
+    },
+    {
+      "text": "Pairwise: This part of the data comes from all datasets of the data source except MTBench. We guide GPT-4 to make pairwise response comparisons, with scenario-specific criteria as the system message in Tab. 9 and the user message prompt as in Tab. 11. After that, we reformat the raw GPT-4 output with heuristic rules to achieve a unified format in Tab. 19. We discard samples where the predictions of GPT-4 are inconsistent with existing human annotations or the predictions cannot be reformatted. For each scenario, the collection process continues until either all samples of this scenario have been annotated with a reformatted judgment (or discarded), or we have collected 100 samples for this scenario. The final size of pairwise training data is 3,436, and the detailed statistics are in Tab. 21."
+    },
+    {
+      "text": "Table 1: Agreement rates for pairwise comparison on different scenario groups and overall results. Results with underline are the best among all models and results in bold are the second-best. The mapping from abbreviations to names of scenario groups are: Summ Summarization, Crea $\\textrm { W } $ Creative Writing, Func $\\mathbf { W } $ Functional Writing, and Comm General Communication."
+    },
+    {
+      "text": "<table><tr><td>Model</td><td>Summ</td><td>Exam</td><td>Code</td><td>Rewriting</td><td>Crea W</td><td>Func W</td><td>Comm</td><td>NLP</td><td>Overall</td></tr><tr><td colspan=\"10\">Closed-source Models</td></tr><tr><td>ChatGPT</td><td>33.3</td><td>40.3</td><td>36.6</td><td>31.6</td><td>48.2</td><td>40.4</td><td>47.6</td><td>45.8</td><td>42.7</td></tr><tr><td>Claude-2</td><td>30.6</td><td>36.1</td><td>41.7</td><td>34.2</td><td>48.1</td><td>42.5</td><td>40.6</td><td>48.5</td><td>42.4</td></tr><tr><td>GPT-4</td><td>59.7</td><td>51.4</td><td>69.2</td><td>58.3</td><td>66.7</td><td>60.4</td><td>58.3</td><td>65.2</td><td>61.9</td></tr><tr><td colspan=\"10\">Open-source Models</td></tr><tr><td>SteamSHP</td><td>33.3</td><td>29.2</td><td>26.7</td><td>33.3</td><td>40.7</td><td>31.3</td><td>51.4</td><td>51.9</td><td>40.6</td></tr><tr><td>PandaLM</td><td>29.2</td><td>33.3</td><td>31.7</td><td>23.3</td><td>43.5</td><td>32.9</td><td>44.8</td><td>48.9</td><td>38.9</td></tr><tr><td>LLaMA-2-Chat-13B</td><td>20.8</td><td>27.8</td><td>19.2</td><td>20.0</td><td>31.5</td><td>27.5</td><td>35.8</td><td>31.8</td><td>29.0</td></tr><tr><td>Vicuna-13B-v1.5</td><td>30.6</td><td>23.6</td><td>35.0</td><td>28.3</td><td>36.1</td><td>37.5</td><td>45.5</td><td>39.8</td><td>37.3</td></tr><tr><td>WizardLM-13B-v1.2</td><td>22.2</td><td>20.8</td><td>32.5</td><td>19.2</td><td>28.7</td><td>25.4</td><td>29.2</td><td>33.0</td><td>27.8</td></tr><tr><td>LLaMA-2-chat-70B</td><td>34.7</td><td>33.3</td><td>36.7</td><td>35.8</td><td>51.4</td><td>54.2</td><td>47.2</td><td>47.7</td><td>45.9</td></tr><tr><td>AUTO-J</td><td>45.8</td><td>38.9</td><td>59.2</td><td>47.5</td><td>54.6</td><td>57.1</td><td>58.0</td><td>57.6</td><td>54.8</td></tr></table>"
+    },
+    {
+      "text": "Single-response: For single-response, we pick 960 query-response pairs from Chatbot Arena Conversations with a balanced sampling on different scenarios. In preliminary experiments, directly incorporating the scenario criteria as the system message (as in pairwise evaluation) impairs GPT-4’s performance on single-response assessment, overly constraining its generated output to the scenariospecific criteria. Therefore, we adopt a “divide-and-conquer” strategy: We collect two pieces of critiques from GPT-4 for a single response with and without scenario criteria as a system message, and then in the third inference, we get the final evaluation judgment by asking GPT-4 to combine these two critiques into a more comprehensive critique and give a final rating. The user message prompt and the prompt for combining critiques are in Tab. 12 and 13, and the detailed statistics are shown in Tab. 22. Tab. 20 shows an example from the “planning” scenario. We find that critiques generated with and without scenario criteria exhibit distinct stylistic differences: The former is longer and closely adheres to the given criteria, whereas the latter is more concise yet capable of incorporating details not covered by the criteria. Finally, combining the above two critiques, a comprehensive critique simultaneously contains general criteria for this scenario and specific details for this sample."
+    },
+    {
+      "text": "Input format: Besides the collected evaluation judgments, we also need to determine the input format for AUTO-J. In early-stage experiments, we attempted to include the scenario criteria as the system message in the input. However, models trained in this manner performed poorly, often simply paraphrasing the scenario criteria. Therefore, we adopt a technique akin to Context Distillation (Bai et al., 2022b) and Ghost Attention (Touvron et al., 2023b), where we omit the inclusion of scenario criteria in the input for the training data, allowing the model to learn them from the output end implicitly. This design significantly enhances the generality of AUTO-J. The final input formats for pairwise comparison and single-response evaluation are in Tab. 17 and Tab. 18, respectively."
+    },
+    {
+      "text": "# 4 TRAINING AUTO-J"
+    },
+    {
+      "text": "By integrating data from both pairwise and single-response evaluations, we train our model to seamlessly toggle between diverse evaluation protocols simply by applying the corresponding prompts. To lessen the positional bias (Wang et al., 2023a) in pairwise comparison, we apply a simple data augmentation trick. For each pairwise training sample, we swap the order of two responses in the input and alternate the “Response 1” and “Response $2 ^ { \\circ }$ in the evaluation judgment. Since this doubles the pairwise data, we balanced the dataset by duplicating each single-response samples as well."
+    },
+    {
+      "text": "We train AUTO-J from LLaMA-2-13B-chat (Touvron et al., 2023b) with the DeepSpeed (Rasley et al., 2020) library, Zero Redundancy Optimizer (ZeRO) (Rajbhandari et al., 2020; Ren et al., 2021) Stage 3, gradient-checkpointing (Chen et al., 2016) and FlashAttention (Dao et al., 2022; Dao, 2023) on 8 NVIDIA A100 GPUs. We use the bfloat16 (BF16) and tfloat32 (TF32) mix computation precision options to further optimize training and efficiency. The model is trained for 5 epochs (675 parameter update steps in total) and we save checkpoints for every 50 steps. We use AdamW (Loshchilov & Hutter, 2017) as our optimizer with $\\beta _ { 1 } = 0 . 9 , \\beta _ { 2 } = 0 . 9 5$ and weight decay of 0.1. We use a peak learning rate 1e-5 with $3 \\%$ warmup steps and cosine learning rate decay to 0, and set the batch size to 64 and maximum sequence length to 4,096. The loss is only calculated on the output end."
+    },
+    {
+      "text": "![](images/ec1faf48d80be237032150a176e8c67cfe3e1fa33ca89c51d72fb74d5a78a6ee.jpg)  \nFigure 3: Win-rate of AUTO-J against baselines on single-response critique generation task, judged by GPT-4 and Human. L2Chat refers to LLaMA-2-Chat-13B."
+    },
+    {
+      "text": "# 5 EVALUATION SETTING"
+    },
+    {
+      "text": "# 5.1 TASK AND TEST SET"
+    },
+    {
+      "text": "Task I: Pairwise Response Comparison (Eval-P) In this task, the evaluators will see a pair of generated responses for a given query and decide which is better or is tied. From each scenario defined in $\\ S 3 . 1$ , we randomly sample 24 pairwise comparison samples from the data we collected in $\\ S 3 . 2$ and skip those that have been used as training data. For some scenarios, the number of paired samples with pre-existed human annotation is smaller than 24, so we extract queries from either ShareGPT or the brainstormed seed data for training scenario classifier in $\\ S \\mathbf { B }$ . Samples from these two sources have no annotated pairwise labels, so we only use the query for each sample, generate a new pair of responses from two random selected $\\mathrm { L L M s } ^ { 2 }$ and manually annotate them. In total, we have $5 8 \\times 2 4 = 1 , 3 9 2$ testing samples, each with two responses generated by different LLMs and a human-annotated preference label. We refer to this test set as Eval-P, with the distribution on Win/Tie/Lose being 520/373/499."
+    },
+    {
+      "text": "Task II: Critique Generation for Single Response (Eval-C) In this task, we evaluate the quality of the generated critiques for single-response evaluation. The evaluators are required to write critiques for a response to pinpoint its shortcomings in addressing the query. We apply both GPT-4 and human evaluation to compare critiques generated by different models. In GPT-4 evaluation, we randomly shuffle the order of two critiques to mitigate the positional bias, and use the instruction in Tab. 16. In human evaluation, we recruit four expert-level annotators (graduate students) and guide them with the same instruction for GPT-4. We build the test set for this task on the basis of Eval-P by sampling 4 out of 24 queries for each scenario and pick the less preferred response for each query (if tie, we randomly pick one). We refer to this test set as Eval-C, with $5 8 \\times 4 = 2 3 2$ query-response pairs."
+    },
+    {
+      "text": "Task III: Overall Rating for Single Response (Eval-R) In this task, we evaluate the usefulness of the final rating for single-response evaluation in two ways: (1) The first is to use the ratings as verbal “rewards” to help improve the base policy models through the Best-of- $N$ selection (Lightman et al., 2023; Gao et al., 2023), i.e., selecting the best response among the first $N$ candidates with the assigned rewards, and use GPT-4 to grade the selected response. Generally, a more reliable model will select a better response with a higher GPT-4 rating more often. (2) The second is to calculate the response-level correlations between model-generated ratings and GPT-4 ratings. To save cost, we only collect the GPT-4 ratings on the previous “best-of- $. N ^ { \\ast }$ responses. The test set for this task is built on the basis of Eval-C by sampling 2 out of 4 queries for each scenario. We ask two different base LLMs (LLaMA-2-chat-7B and Vicuna-7B-v1.5) to generate 32 responses for each query through uniform sampling (temperature set as 1.0). We refer to this test set as Eval-R, with $5 8 \\times 2 = 1 1 6$ queries and $1 1 6 \\times 3 2 = 3 , 7 1 2$ query-response pairs for each base LLM."
+    },
+    {
+      "text": "# 5.2 BASELINES"
+    },
+    {
+      "text": "General-purpose models: We use LLaMA-2-Chat-13B (Touvron et al., 2023b), Vicuna-13B-v1.5 (Chiang et al., 2023), WizardLM-13B-v1.2 (Xu et al., 2023), and ChatGPT (GPT-3.5-turbo-0613). We also use GPT-4 (GPT-4-0613) in the pairwise comparison and critique generation, and Claude-2 and LLaMA-2-Chat-70B in pairwise comparison. These models are used with corresponding prompt for each task: pairwise comparison prompt in Tab. 14, critique generation prompt in Tab. 18 (the same input format for AUTO-J’s single-response evaluation), and rating prompt in Tab. 15. Evaluationspecific models: We use SelFee (Ye et al., 2023) in critique generation, SteamSHP (Ethayarajh et al., 2022) in pairwise comparison and overall rating, Open-Assistant’s reward model (Köpf et al., 2023) in overall rating, and PandaLM (Wang et al., 2023c) in pairwise comparison."
+    },
+    {
+      "text": "# 6 EXPERIMENTS"
+    },
+    {
+      "text": "# 6.1 PAIRWISE RESPONSE COMPARISON"
+    },
+    {
+      "text": "A common problem in pairwise response comparison is positional bias (Wang et al., 2023a), where an LLM may tend to favor specific positions, causing inconsistency in comparison results when response orders are swapped. To pursue stable and reliable results, we conduct two comparisons for each sample by swapping the order of the two responses in the prompt. We consider a model’s judgment to agree with human only when the two comparison results are consistent and align with the human judgment."
+    },
+    {
+      "text": "The agreement rates for AUTO-J and the baselines on Eval-P are in Tab. 1. AUTO-J achieves a significantly higher agreement rate than all baselines except GPT-4 on every scenario group. We also plot the prediction consistency for each model in Fig. 4. AUTO-J has a similar consistency rate to GPT-4 and is far more consistent than all other baselines, which makes it a more reliable and robust judge for pairwise comparison."
+    },
+    {
+      "text": "![](images/8d59ecc366e273833fd0e9a1be2782b4e09257004c48f1c99fcf2175d9ee6b3f.jpg)  \nFigure 4: Consistency of prediction when swapping the response order."
+    }
+  ],
+  "url": ""
+}

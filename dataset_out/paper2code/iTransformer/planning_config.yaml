@@ -1,0 +1,39 @@
+dataset:
+  name: "ETTh1"  # Example dataset, replace as needed
+  data_paths:
+    train: "path/to/train.csv"
+    val: "path/to/val.csv"
+    test: "path/to/test.csv"
+  variate_normalization: true
+  sequence_length: 96
+  forecast_length: 96
+
+model:
+  embedding_dim: 128
+  num_layers: 4
+  num_heads: 4
+  dropout_rate: 0.1
+  feedforward_dim: 512
+
+training:
+  learning_rate: 0.001  # Typical starting value; confirm with hyperparameter tuning
+  batch_size: 64
+  epochs: 50
+  optimizer: "adamw"
+  weight_decay: 0.01
+
+evaluation:
+  metrics: ["MSE", "MAE"]
+  evaluation_interval: 1  # Evaluate after each epoch
+
+saving:
+  save_dir: "checkpoints/"
+  save_frequency: 10  # Save model every 10 epochs
+
+logging:
+  log_dir: "logs/"
+  log_frequency: 10
+
+visualization:
+  attention_maps: true
+  forecast_plots: true

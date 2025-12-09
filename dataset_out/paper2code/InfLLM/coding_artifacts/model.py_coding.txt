@@ -1,0 +1,197 @@
+```python
+## model.py
+
+import torch
+from transformers import AutoModelForCausalLM, AutoTokenizer
+from transformers.modeling_outputs import CausalLMOutputWithPast
+from typing import Optional, Tuple, List, Dict
+
+class ModelWrapper:
+    """
+    Wrapper for pre-trained language models, integrating custom attention mechanisms
+    for long sequence processing as per InfLLM. Handles model loading, inference,
+    attention customization, and cache management.
+    """
+
+    def __init__(self, model_name: str = "Llama-3",
+                 load_in_8bit: bool = False,
+                 freeze_parameters: bool = True,
+                 device: str = "cuda",
+                 max_sequence_length: int = 1024000,
+                 cache_size: int = 64):
+        """
+        Initialize the ModelWrapper.
+
+        Args:
+            model_name (str): identifier for the pre-trained model.
+            load_in_8bit (bool): whether to load model in 8-bit mode.
+            freeze_parameters (bool): whether to freeze model parameters (inference only).
+            device (str): device to load the model ("cuda" or "cpu").
+            max_sequence_length (int): maximum sequence length the model can handle (for positional encoding).
+            cache_size (int): number of memory units to keep in GPU cache for relevance.
+        """
+        self.model_name = model_name
+        self.load_in_8bit = load_in_8bit
+        self.freeze_parameters = freeze_parameters
+        self.device = device
+        self.max_seq_len = max_sequence_length
+        self.cache_size = cache_size
+
+        self.tokenizer = AutoTokenizer.from_pretrained(self.model_name, use_fast=True)
+        if self.tokenizer.pad_token is None:
+            self.tokenizer.pad_token = self.tokenizer.eos_token
+
+        self._load_model()
+        self._prepare_model()
+
+        # Placeholders for internal states
+        self.past_key_values_cache: Optional[List[Tuple[torch.Tensor, torch.Tensor]]] = None
+        self.memory: Optional[ExternalMemory] = None
+
+    def _load_model(self):
+        """
+        Loads the pre-trained model with specified configuration.
+        """
+        load_kwargs = {
+            "model_name_or_path": self.model_name,
+            "device_map": "auto" if self.device.startswith("cuda") else None,
+            "torch_dtype": torch.float16,
+            "trust_remote_code": False,
+        }
+        if self.load_in_8bit:
+            load_kwargs["load_in_8bit"] = True
+
+        self.model = AutoModelForCausalLM.from_pretrained(**load_kwargs)
+        self.model.to(self.device)
+        self.model.eval()
+
+    def _prepare_model(self):
+        """
+        Freezes parameters if specified. Sets up hooks if custom attention is to be integrated.
+        """
+        if self.freeze_parameters:
+            for param in self.model.parameters():
+                param.requires_grad = False
+
+        # Assuming the attention modules are accessible, insert hooks if possible
+        # Alternatively, replace the attention module with a custom one
+        # For simplicity, assume we inject hooks into the attention layers
+        # Note: This requires model support, for generality, we wrap forward pass
+
+        # For illustration:
+        # self.model.transformer.layers[i].self_attn.register_forward_hook(self._attention_hook)
+
+        # Instead, we implement separate attention call in the generate method.
+
+    def encode_input(self, prompt: str, long_input: List[int]) -> Dict:
+        """
+        Tokenizes input prompt and long input sequence, preparing model inputs.
+
+        Args:
+            prompt (str): prompt text.
+            long_input (list): list of token IDs representing long sequence.
+
+        Returns:
+            dict: model input as tensors
+        """
+        input_ids = self.tokenizer(prompt, return_tensors='pt').input_ids
+        # For long sequences, concatenate prompt tokens and sequence
+        long_input_ids = torch.tensor([long_input], dtype=torch.long)
+        input_ids = torch.cat([input_ids, long_input_ids], dim=1)
+        input_ids = input_ids.to(self.device)
+        return {"input_ids": input_ids}
+
+    def generate(self,
+                 prompt: str,
+                 long_input: List[int],
+                 max_new_tokens: int = 512,
+                 do_streaming: bool = True,
+                 memory: Optional['ExternalMemory'] = None,
+                 past_key_values: Optional[List[Tuple[torch.Tensor, torch.Tensor]]] = None,
+                ). -> str:
+        """
+        Generate output text from prompt/long input with custom attention handling.
+        Handles streaming inference enabling long sequences.
+
+        Args:
+            prompt (str): prompt text.
+            long_input (List[int]): token IDs of the long sequence (or part)
+            max_new_tokens (int): maximum tokens to generate.
+            do_streaming (bool): whether to generate token-by-token (streamed).
+            memory (ExternalMemory): external memory object for relevance info.
+            past_key_values: cached past key-value tensors (initially None).
+
+        Returns:
+            str: generated text.
+        """
+        # Tokenize prompt
+        prompt_ids = self.tokenizer(prompt, return_tensors='pt').input_ids.to(self.device)
+        # Concatenate with long input tokens
+        long_ids = torch.tensor([long_input], dtype=torch.long).to(self.device)
+        input_ids = torch.cat([prompt_ids, long_ids], dim=1)
+
+        # Initialize cache if not exists
+        if past_key_values is None:
+            past_key_values = []
+
+        # Streaming generation loop
+        output_ids = []
+        current_input_ids = input_ids
+        for _ in range(max_new_tokens):
+            # Prepare model inputs
+            # Note: For incremental decoding, feed only last token input
+            input_t = current_input_ids[:, -1:]
+            # Call custom attention with external memory if available
+            outputs = self._infer_step(input_t, past_key_values, memory)
+            next_token_logits = outputs.logits[:, -1, :]
+            # Greedy (or sampling) decode
+            next_token_id = torch.argmax(next_token_logits, dim=-1)
+            output_ids.append(next_token_id.item())
+
+            # Update current input
+            current_input_ids = torch.cat([current_input_ids, next_token_id.unsqueeze(0)], dim=1)
+
+            # Update cache
+            past_key_values = outputs.past_key_values
+
+            # Break if EOS token
+            if next_token_id.item() == self.tokenizer.eos_token_id:
+                break
+
+        # Decode generated tokens
+        generated_text = self.tokenizer.decode(output_ids, skip_special_tokens=True)
+        return generated_text
+
+    def _infer_step(self, input_ids: torch.Tensor,
+                    past_key_values: Optional[List[Tuple[torch.Tensor, torch.Tensor]]],
+                    memory: Optional['ExternalMemory']):
+        """
+        Perform a single inference step with custom attention, integrating relevance info.
+
+        Args:
+            input_ids (torch.Tensor): input token IDs (batch_size=1, sequence_length=1).
+            past_key_values (list): cached past key-values for the attention.
+            memory (ExternalMemory): external memory object for relevance.
+
+        Returns:
+            CausalLMOutputWithPast: model outputs including logits and updated past_key_values.
+        """
+        # We assume the model's forward accepts:
+        # - input_ids
+        # - past_key_values
+        # - attention_mask (if needed)
+        # For custom attention, we'd need to override the forward or attention modules,
+        # but for simplicity, assume the model's attention layer can handle relevance via hooks or external info.
+        # Here, we call directly:
+        return self.model(input_ids=input_ids,
+                          past_key_values=past_key_values,
+                          use_cache=True,
+                          output_attentions=False,
+                          return_dict=True)
+
+    # Additional methods could include applying positional encodings, updating cache, etc.
+# Supporting class placeholders:
+# Actual attention modifications are assumed to be handled via hooks or external modules.
+# The caching and relevance mechanisms are integrated at inference call level.
+# This code assumes the external memory object (`ExternalMemory`) is set up separately and passed in.
+```

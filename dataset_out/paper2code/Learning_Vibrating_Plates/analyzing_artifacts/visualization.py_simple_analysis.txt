@@ -1,0 +1,130 @@
+**Logic Analysis for `visualization.py`**
+
+---
+
+### Purpose:
+`visualization.py` is designed to provide various plotting functions for qualitative and quantitative analysis of the learned vibration response models. Its primary functions include visualizing predicted and ground-truth responses, velocity fields at specific frequencies, peak detection and alignment, and comparisons between predicted and true responses.
+
+---
+
+### Core Functionalities Required:
+1. **Plot Response Functions**:
+   - Plot the scalar frequency response (`F(f)`) over the relevant frequency range (e.g., 1–300 Hz).
+   - Overlay predicted vs. ground-truth responses for direct visual comparison.
+   - Include visualization of the response peak positions, highlighting differences.
+
+2. **Plot Velocity Fields**:
+   - Visualize the velocity field vectors or magnitudes over the 2D surface of the plate at specific frequencies.
+   - Support both true and predicted velocity fields.
+   - Use consistent colorbars/scaling for comparison.
+
+3. **Peak Detection and Alignment Visualization**:
+   - Display detected peaks in ground-truth and predicted responses.
+   - Show peak matching, indicating pairings (including unmatched peaks if any).
+   - Use color coding (e.g., blue for ground truth, orange for prediction) and indicate matched peaks in red.
+
+4. **Response and Velocity Response Comparison**:
+   - Plot side-by-side comparison for selected responses at specific frequencies.
+   - Include error metrics visually where relevant.
+
+5. **Additional plots**:
+   - Peak response magnitude plot over the frequency or response sensitivity.
+   - Response residuals or errors over the frequency spectrum.
+
+---
+
+### Data Inputs:
+- **Response Functions**:
+  - Ground-truth response (`F_true`): array over `[1, 300] Hz`.
+  - Predicted response (`F_pred`): array over same frequency points.
+  - Frequency grid used for plotting should match the data (likely 300 points or the subset used).
+
+- **Velocity Fields**:
+  - 2D spatial arrays `V_true` and `V_pred` representing velocity components or magnitude.
+  - Spatial coordinates: grid (e.g., meshgrid over `[0, length] x [0, width]`).
+  
+- **Peak Data**:
+  - Peak locations (frequencies): `peaks_true`, `peaks_pred`.
+  - Peak matches: list of pairs (indices) for true and predicted peaks.
+
+- **Peak matching info**:
+  - Matching indices: from the Hungarian algorithm or similar, probably in a list or array format.
+
+---
+
+### Implementation Details:
+- Use `matplotlib.pyplot` as main visualization library.
+- Plot frequency response curves:
+  - Use `plt.plot()` for showing both true and predicted responses.
+  - Mark peaks, e.g., with `plt.scatter()`.
+  - Annotate peak locations for clarity.
+  
+- Plot velocity fields:
+  - Use `quiver()` for vector fields (if vector components are available).
+  - Use `imshow()` or `contourf()` for scalar velocity magnitudes.
+  - Consistent color scales between true and predicted fields to facilitate comparison.
+
+- Plot peak matching:
+  - Plot the two response functions overlaid.
+  - Draw lines connecting matched peaks.
+  - Use annotations or markers to show unmatched peaks.
+
+- Save plots:
+  - Save figures with descriptive filenames.
+  - Optional: include plotting parameters (axis labels, titles, legends).
+
+---
+
+### Handling Variability:
+- Support passing optional parameters:
+  - Frequencies to plot.
+  - Specific regions of the velocity fields.
+  - Peak data: true peaks, predicted peaks, matches.
+- Support multiple responses per figure for comprehensive visualization:
+  - Example: side-by-side plots for ground-truth vs. prediction.
+  - Multiple subplots arranged in grids.
+
+---
+
+### Typical Function Signatures:
+```python
+def plot_response(frequencies, F_true, F_pred=None, peaks_true=None, peaks_pred=None, match_indices=None, title='', save_path=None):
+    """
+    Plots response functions over frequency with optional peak markings.
+    """
+    
+def plot_velocity_field(grid_x, grid_y, V_true, V_pred=None, title='', save_path=None):
+    """
+    Visualizes 2D velocity fields; predictions and ground truth.
+    """
+
+def plot_peak_matching(frequencies, F_true, F_pred, peaks_true, peaks_pred, match_indices, title='', save_path=None):
+    """
+    Visualizes peaks and their correspondences.
+    """
+
+def plot_comparison_at_frequency(frequency, V_true, V_pred, velocity_scale=1.0, title='', save_path=None):
+    """
+    Side-by-side velocity fields at a specific frequency.
+    """
+```
+
+---
+
+### Additional Considerations:
+- **Color scales**: Ensure consistent scaling for direct comparison.
+- **Annotations**: Clearly label peaks, matches, and response curves.
+- **Layout**: Use subplots for integrated visualization, e.g., response + velocity + peak matching.
+- **Interactivity**: Basic interactivity (hover or zoom) can be valuable but is optional.
+- **Accessibility**: Use color schemes that are distinguishable.
+
+---
+
+### Summary:
+`visualization.py` will encompass a suite of plotting functions aimed at:
+- Quantitative comparison of responses.
+- Visual assessment of velocity fields.
+- Understanding peak detection and matching.
+- Serving as tools for qualitative evaluation during model development.
+
+The implementation should be modular, allow easy integration of different data inputs, and produce publication-quality visuals supporting the analysis of model accuracy and physical behavior representation.

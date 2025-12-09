@@ -1,0 +1,188 @@
+## sampling.py
+import torch
+import torch.nn as nn
+import torch.nn.functional as F
+import numpy as np
+import math
+import argparse
+from tqdm import tqdm
+from model import UNet
+from utils import (
+    get_timestep_embedding,
+    sign_bin,
+    STESign,
+)
+import yaml
+
+# Load configuration
+with open('config.yaml', 'r') as f:
+    config = yaml.safe_load(f)
+
+# Set device
+device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+
+# Diffusion parameters
+T = config['diffusion'].get('total_timesteps', 2000)
+inference_T = config['diffusion'].get('inference_timesteps', 50)  # number of sampling steps
+eta = 0.0  # deterministic DDIM; set in code if needed
+
+# Model path (should be provided or configured)
+CHECKPOINT_PATH = 'checkpoints/model_final.pth'  # or replace with desired checkpoint
+
+# Load trained model
+model = UNet(config['model'])
+model.load_state_dict(torch.load(CHECKPOINT_PATH, map_location='cpu'))
+model.to(device)
+model.eval()
+
+# Scheduler: betas, alphas, alpha_bars
+def get_diffusion_schedule(T):
+    """
+    Generates betas, alphas, and cumulative alpha products with scheduled or cosine
+    schedule (for simplicity, linear schedule here).
+    """
+    betas = np.linspace(0.0001, 0.02, T)
+    alphas = 1.0 - betas
+    alpha_bars = np.cumprod(alphas)
+    return torch.tensor(betas, dtype=torch.float32).to(device), torch.tensor(alpha_bars, dtype=torch.float32).to(device)
+
+betas, alpha_bars = get_diffusion_schedule(T)
+
+# Compute terms for DDIM
+def get_ddim_parameters(alpha_bars, timesteps):
+    """
+    Compute DDIM parameters for a sequence of timesteps.
+    """
+    alphas_cumprod = alpha_bars
+    sqrt_alphas_cumprod = torch.sqrt(alphas_cumprod)
+    sqrt_one_minus_alphas_cumprod = torch.sqrt(1 - alphas_cumprod)
+    return {
+        'alphas_cumprod': alphas_cumprod,
+        'sqrt_alphas_cumprod': sqrt_alphas_cumprod,
+        'sqrt_one_minus_alphas_cumprod': sqrt_one_minus_alphas_cumprod,
+    }
+
+# Generate the sequence of timesteps for inference
+timestep_seq = np.linspace(T - 1, 0, inference_T, dtype=int)
+
+# Prepare schedule tensors
+schedule = get_ddim_parameters(alpha_bars, torch.tensor(timestep_seq, dtype=torch.long).to(device))
+
+# Function to extract schedule values at specific timesteps
+def extract(schedule_tensor, t_indices):
+    return schedule_tensor[t_indices]
+
+# Main sampling function
+def ddim_sample(condition_lr: torch.Tensor, condition_hr_size: Tuple[int, int],
+                batch_size: int = 1, seed: int = None):
+    """
+    Perform DDIM sampling for image super-resolution conditioned on low-res image.
+    
+    Args:
+        condition_lr: condition input images (LR images), shape: [B, 3, H, W], scaled [0,1]
+        condition_hr_size: tuple (H, W), size of the final HR image 
+        batch_size: number of samples to generate
+        seed: random seed for reproducibility
+    Returns:
+        high_res: tensor [B, 3, H, W], in [-1,1]
+    """
+
+    if seed is not None:
+        torch.manual_seed(seed)
+        np.random.seed(seed)
+    
+    H, W = condition_hr_size
+    # Initialize x_T with standard Gaussian noise
+    x_t = torch.randn(batch_size, 3, H, W, device=device)
+
+    # Expand condition LR to batch if needed
+    condition_lr = condition_lr.to(device)
+
+    # Loop over timesteps from high T to 0
+    for idx in tqdm(range(inference_T):
+        , desc='Sampling'):
+        t_idx = timestep_seq[idx]
+        t_b = torch.tensor([t_idx]*batch_size, device=device)
+        
+        # Timestep embedding
+        t_emb = get_timestep_embedding(t_b, model.ch).to(device)  # shape: (B, ch)
+        
+        # Determine group index for biases/activation (if using TaR/TaA modules)
+        # Here, as per the paper, group t into K groups
+        K = config['model'].get('timestep_encoding_K',5)
+        t_group_idx = min(int(K * t_idx / T), K -1)  # index in [0, K-1]
+        # The bias and activation modules are inside model; here, for inference, we directly pass t and select bias/act
+
+        # Prepare input: concatenate conditioned LR + current noisy HR
+        # Input shape: [B, 6, H, W]
+        model_input = torch.cat([condition_lr, x_t], dim=1)  # condition LR + noise image
+
+        # Forward pass to predict noise epsilon
+        with torch.no_grad():
+            epsilon_pred = model(model_input, t_b.float())
+
+        # Extract schedule values for current timestep
+        alpha_cumprod_t = schedule['alphas_cumprod'][t_idx]
+        alpha_cumprod_prev = schedule['alphas_cumprod'][t_idx -1] if t_idx >0 else torch.tensor(1.0, device=device)
+        sqrt_alpha_cumprod_t = torch.sqrt(alpha_cumprod_t)
+        sqrt_one_minus_alpha_cumprod_t = torch.sqrt(1 - alpha_cumprod_t)
+        sqrt_alpha_cumprod_prev = torch.sqrt(alpha_cumprod_prev)
+
+        # Compute variance for stochastic or deterministic
+        sigma_t = eta * torch.sqrt((1 - alpha_cumprod_prev) / (1 - alpha_cumprod_t) * (1 - alpha_cumprod_t / alpha_cumprod_prev))
+        # For deterministic DDIM, eta=0, so sigma_t=0
+
+        # Compute the mean for x_{t-1}
+        # According to DDIM equation (see e.g., https://arxiv.org/abs/2206.00364)
+        pred_x0_coef = sqrt_alpha_cumprod_prev
+        pred_eps_coef = torch.sqrt(1 - alpha_cumprod_prev)
+        #
+        # Predicted x0
+        x0_pred = (x_t - sqrt_one_minus_alpha_cumprod_t * epsilon_pred) / sqrt_alpha_cumprod_t
+        # Reconstructed mean
+        mean_x_prev = pred_x0 * pred_x0_coef + torch.sqrt(1 - alpha_cumprod_prev) * epsilon_pred
+
+        if eta > 0:
+            # Add noise scaled by sigma_t for stochasticity
+            noise = torch.randn_like(x_t)
+            x_prev = mean_x_prev + sigma_t * noise
+        else:
+            x_prev = mean_x_prev  # deterministic
+
+        # Clamp or normalize if needed
+        x_t = x_prev
+
+    # Final output
+    return x_t
+
+# Usage example
+if __name__ == "__main__":
+    import matplotlib.pyplot as plt
+    from torchvision.utils import save_image
+
+    # Load a sample LR condition image
+    # For testing, replace with actual data loader or image
+    from utils import image_to_tensor
+    import cv2
+
+    # Sample: prepare a LR image tensor [1,3,H,W]
+    hr_size = (256, 256)  # sample size
+    # Load low-res image
+    lr_img_path = 'path_to_sample_lr_image.jpg'  # specify path here
+    lr_img = cv2.imread(lr_img_path)
+    lr_img = cv2.cvtColor(lr_img, cv2.COLOR_BGR2RGB)
+    lr_img_resized = cv2.resize(lr_img, (hr_size[1]//2, hr_size[0]//2), interpolation=cv2.INTER_CUBIC)  # scale=2
+
+    lr_tensor = image_to_tensor(lr_img_resized).unsqueeze(0)  # shape [1,3,H,W]
+
+    # Run sampling
+    fake_hr = ddim_sample(lr_tensor, hr_size, batch_size=1, seed=42)
+
+    # Convert to image
+    gen_img = utils.tensor_to_image(fake_hr.squeeze(0))
+    plt.imshow(gen_img)
+    plt.axis('off')
+    plt.show()
+
+    # Save generated image
+    save_image(torch.clamp(torch.tensor(gen_img).permute(2,0,1),0,1), 'generated_hr.png')

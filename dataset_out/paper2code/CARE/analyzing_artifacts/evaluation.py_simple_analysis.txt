@@ -1,0 +1,153 @@
+# Evaluation.py Logic Analysis
+
+**Purpose and Scope**
+
+This module contains utilities for evaluating the learned representations from the CARE model. It includes functions for:
+- Performing linear evaluation (trained linear classifiers on fixed features)
+- Visualizing embedding trajectories resulting from input rotations or transformations
+- Computing cosine similarity histograms for positive pairs to assess equivariance/sensitivity
+- Computing metrics related to the degree of equivariance (e.g., cosine similarity distributions, trajectories)
+
+**Core Functions and Components**
+
+1. **Linear Probing**
+   - **Function:** `compute_linear_probe()`
+   - **Inputs:**
+     - Encoders' extracted features (frozen)
+     - Dataset (training and test)
+   - **Process:**
+     - Freeze the backbone encoder
+     - Train a linear classifier (e.g., Logistic Regression or linear model) on the training features
+     - Evaluate top-1 / top-5 accuracy on the test set
+     - Use `sklearn.linear_model.LogisticRegression`
+   - **Outputs:**
+     - Dictionary or structure with accuracy metrics
+   - **Notes:**
+     - Needs a standard train/test split
+     - Should support batching
+     - Save or log results for comparison
+
+2. **Embedding Trajectory Visualization**
+   - **Function:** `visualize_trajectories()`
+   - **Inputs:**
+     - Original sample x
+     - List of augmentation functions or parameters (`a_list`) (e.g., rotations)
+     - Embedding function `f`
+   - **Process:**
+     - For each augmentation `a` in `a_list`:
+       - Apply augmentation to input: `a(x)`
+       - Compute embedding `z = f(a(x))`
+       - Store resulting embeddings
+     - Plot 2D (or 3D) trajectories of these embeddings:
+       - Use scatter plots or line plots
+       - For multiple proteins or images, plot trajectories with different colors
+   - **Outputs:**
+     - Embedding trajectory plots saved as images or displayed interactively
+   - **Notes:**
+     - May require dimensionality reduction if `d` is large (e.g., PCA or t-SNE)
+     - Useful for qualitative assessment of the learned geometry
+
+3. **Cosine Similarity Histogram**
+   - **Function:** `plot_cosine_histogram()`
+   - **Inputs:**
+     - Pairs of embeddings `(z_i, z_j)` (e.g., positive pairs `f(x)` and `f(a(x))`)
+     - Optional: label indicating positive/negative pairs
+   - **Process:**
+     - For each pair, compute cosine similarity:
+       \[
+       \cos \theta_{i,j} = \frac{z_i^\top z_j}{\|z_i\|\|z_j\|} \text{ (assuming normalized)} 
+       \]
+       (Embeddings are normalized, so cosine similarity equals dot product)
+     - Collect similarities into histogram bins
+     - Plot histograms:
+       - Emphasize positive pairs (should be close to 1 if equivariance)
+       - Optionally include negatives to compare distributions
+   - **Outputs:**
+     - Histogram plots saved or displayed
+   - **Notes:**
+     - Useful for visualizing the distribution of similarities
+     - Can compare different models / training stages
+
+4. **Additional Metrics for Equivariance Sensitivity**
+   - **Function:** `compute_equivariance_metrics()`
+   - **Metrics:**
+     - Distribution of cosine similarities for positive pairs
+     - Trajectory smoothness or deviation (e.g., between `f(a(x))` and optimal rotation of `f(x)`)
+     - Quantitative measures like `γ_f` (from paper), comparing transformed embeddings
+   - **Process:**
+     - Implement Wahba’s problem solution (see main paper or previous code) to estimate the rotation `R_a`
+     - Calculate the deviation between `f(a(x))` and `R_a f(x)` in Frobenius norm
+     - Summarize over dataset, plot histograms or scatter plots
+   - **Outputs:**
+     - Metrics in numeric form
+     - Histograms/plots for the distribution of cosine similarities and deviations
+   - **Notes:**
+     - To analyze the equivariance degree
+
+**Implementation Strategy and Data Flow**
+
+- **Input Data:**
+  - Features (embeddings): precomputed or computed on-the-fly
+  - Dataset splits: test set for evaluation, training set for linear probe
+
+- **Internal Processing:**
+  - For classification or metrics requiring embeddings:
+    - Use a trained encoder `f` (frozen)
+    - For linear probe:
+      - Fit a simple classifier to train features
+      - Test on test features
+  - For trajectory visualization:
+    - Generate augmented versions of inputs
+    - Compute embeddings
+    - Possibly reduce dimensions if needed
+    - Plot trajectories
+  - For cosine similarity histograms:
+    - Collect pairs (positive pairs): original and augmented
+    - Compute cosine similarities
+    - Plot histograms for analysis
+
+- **Outputs:**
+  - Accuracy scores
+  - Trajectory images
+  - Cosine similarity histograms
+  - Diagnostic metrics (e.g., mean deviation, variance)
+
+**Dependencies & Libraries**
+
+- `scikit-learn`:
+  - For linear classifiers (Logistic Regression)
+- `matplotlib`:
+  - For generating plots (trajectories, histograms)
+- `numpy`:
+  - For data manipulation and calculations
+- `torch`:
+  - For embedding computations, flattening, normalization
+- Optional: `seaborn` or advanced visualization libs for nicer plots
+
+**Special Considerations**
+
+- Embeddings should be normalized to unit vectors before computing angular metrics
+- When visualizing trajectories, consider PCA or t-SNE if embedding dimensionality exceeds 3
+- Save plots as images with clear labels for comparison across methods
+- Provide functions to load precomputed embeddings for efficiency, or compute on demand
+- Provide progress indicators (e.g., tqdm) for batch processing
+
+**Summary**
+
+The `evaluation.py` module will consist of:
+- `compute_linear_probe()`: fit and evaluate linear classifier, output accuracy
+- `visualize_trajectories()`: projection and plot of embedding trajectories along applied input transformations
+- `plot_cosine_histogram()`: histogram of cosine similarities between paired embeddings
+- Optionally, `compute_equivariance_metrics()`: numerical metrics and deviation measures
+
+All functions should accept:
+- The encoder model (`f`)
+- Datasets or embeddings
+- Augmentation parameters or functions
+- Plot save paths or display flags
+
+This structure will enable comprehensive evaluation of the learned representations' geometric and functional properties, consistent with the paper's methods.
+
+---
+
+**End of Evaluation.py Logic Analysis**

@@ -1,0 +1,127 @@
+# Logic Analysis for utils.py
+
+This file will implement utility functions that facilitate the primary components of the CATS model and training pipeline, including positional encoding, masking strategies, visualization helpers, and core tensor operations. The functions must be designed for reusability, consistency, and compatibility with PyTorch tensors.
+
+---
+
+## 1. Positional Encoding
+
+### Purpose:
+- Enable the model to incorporate temporal order information into the patch embeddings.
+- Use learnable positional embeddings as specified in the configuration.
+
+### Requirements:
+- Create a function to generate positional embedding matrices of size `[sequence_length, embed_dim]`.
+- Provide both sinusoidal (non-learnable) and learned positional encodings, with preferences based on the config.
+
+### Implementation Notes:
+- As per the experimental setup, learnable positional embedding parameters are used.
+- Create a function: `get_positional_encoding(seq_len: int, d_model: int, learnable: bool = True)` that returns a tensor.
+- If `learnable=True`, initialize a torch.nn.Parameter of shape `[seq_len, d_model]`.
+- If not learnable, generate sinusoidal positional encodings for more traditional embedding.
+
+---
+
+## 2. Masking Functions
+
+### Purpose:
+- Support the query-adaptive masking strategy during training, as specified.
+- Implement probabilistic masks on the attention outputs or input patches.
+
+### Requirements:
+- A function: `generate_mask(sequence_shape: Tuple[int, ...], probability: float)` that returns a binary mask tensor `[sequence_shape]` with elements sampled from Bernoulli distribution with `p=probability`.
+- Implement a function: `apply_mask(tensor: torch.Tensor, mask: torch.Tensor)` that applies the mask (element-wise) to the tensor. Typically, set masked positions to zero or detach.
+
+### Additional:
+- A specialized function for horizon-dependent masking: for each horizon query, generate a mask with probability `p` (from config), and potentially extend to masking entire attention outputs or input features.
+
+---
+
+## 3. Visualization Helpers
+
+### Purpose:
+- Show attention maps, forecast results, and attention score heatmaps.
+- Provide functions to visualize cross-attention maps over patches, highlighting periodic/pattern properties.
+
+### Requirements:
+- `plot_attention_map(attention_scores: torch.Tensor, title: str = "")`
+  - Plot heatmaps of attention matrices over patches.
+  - Accept attention scores of shape `[n_heads, seq_len_q, seq_len_k]`.
+- `plot_forecast_and_attention(forecast: np.ndarray, input_sequence: np.ndarray, attention_map: np.ndarray, title: str = "")`
+  - Plot the forecasted time series alongside true signals.
+  - Overlay attention heatmaps if appropriate.
+
+### Implementation:
+- Use `matplotlib.pyplot` for plotting.
+- For high-dimensional attention maps, normalize scores, use `imshow()` with colorbars.
+- For synthetic data visualization, overlay shocks or periodicity annotations.
+
+---
+
+## 4. Common Tensor Operations
+
+### Purpose:
+- Standardize operations such as normalization, splitting sequences into patches, and concatenation.
+- Ensure consistency and reduce redundant code in main modules.
+
+### Requirements:
+- `normalize_tensor(tensor: torch.Tensor, method: str = "standard") -> torch.Tensor`
+  - Perform z-score normalization (`(x - mean) / std`)
+  - Or min-max scaling as an alternative.
+- `split_into_patches(sequence: torch.Tensor, patch_size: int, overlap: int = 0) -> torch.Tensor`
+  - Divide sequence with optional overlap into patches.
+- `combine_patches(patches: torch.Tensor, overlap: int = 0) -> torch.Tensor`
+  - Reconstruct original sequence (may only be used for evaluation/visualization).
+  
+### Additional:
+- Functions to handle batch operations efficiently, e.g., batch embedding, masking.
+
+---
+
+## 5. Miscellaneous Utilities
+
+### 5.1. Horizon-Dependent Query Embeddings:
+- A function: `create_horizon_queries(num_horizons: int, embed_dim: int, learnable: bool = True)` 
+  - Return a tensor of shape `[num_horizons, embed_dim]` with learnable parameters, initialized accordingly.
+
+### 5.2. Parameter Initialization:
+- `init_parameters(tensor: torch.Tensor, method: str = "xavier")`
+  - For consistent initialization.
+
+### 5.3. Attention Map Visualization:
+- Specific function to generate overlays based on attention scores, for interpretability analysis as shown in figures.
+
+---
+
+## 6. Implementation Compatibility & Style
+- Use PyTorch tensors throughout.
+- All functions should be compatible with GPU tensors for seamless integration.
+- Clear docstrings and type annotations.
+- Modular design to facilitate testing and debugging.
+
+---
+
+## 7. Summary: Function List in utils.py
+
+| Function Name | Purpose | Inputs | Outputs | Notes |
+|----------------|---------|---------|---------|--------|
+| `get_positional_encoding(seq_len, d_model, learnable=True)` | Generate positional encodings | sequence length, embedding size | torch.Tensor | learnable or sinusoidal |
+| `generate_mask(shape, probability)` | Generate binary Bernoulli mask | shape, probability | torch.Tensor | batch-wise or sequence-wise |
+| `apply_mask(tensor, mask)` | Apply mask to tensor | tensor, mask | masked tensor | mask to zero positions|
+| `plot_attention_map(attention_scores, title="")` | Plot attention heatmap | attention tensor | None | visualize attention per head |
+| `plot_forecast_and_attention(forecast, input_seq, attention_map, title="")` | Plot forecast and attention | forecast array, input array, attention scores | None | comparative visualization |
+| `normalize_tensor(tensor, method="standard")` | Normalize tensor | tensor | normalized tensor | standardization or min-max |
+| `split_into_patches(sequence, patch_size, overlap=0)` | Segmentation into patches | sequence tensor | patches tensor | shape: [num_patches, patch_size] |
+| `combine_patches(patches, overlap=0)` | Reconstruct original sequence | patches tensor | sequence tensor | for visualization |
+| `create_horizon_queries(num_horizons, embed_dim, learnable=True)` | Generate horizon queries | num horizons, embed dim | tensor | for cross-attention queries |
+| `init_parameters(tensor, method="xavier")` | Initialize tensors | tensor | None | for consistent init |
+
+---
+
+## 8. Final Remarks:
+- All functions should be designed to be as general as possible yet optimized for the specific use case in the cross-attention-only time series transformer.
+- Emphasis on reproducibility: random seeds for initialization if relevant, consistent use of tensor types.
+- Attention visualization functions will be crucial for interpretability analysis as in Figures 6–15.
+- Ensure clarity in API and flexible parameters for different datasets/scenarios.
+
+This completes the logic analysis for `utils.py`. Each function must be implemented with thorough testing and documentation, aligned with the outlined requirements, facilitating end-to-end experiment reproduction and interpretability analyses.

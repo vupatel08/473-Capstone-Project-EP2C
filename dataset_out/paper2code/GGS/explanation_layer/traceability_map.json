@@ -1,0 +1,384 @@
+{
+  "code_to_paper": {
+    "dataset_loader.py:DatasetLoader": [
+      "The provided paper sections do not seem to contain any relevant information related to the code component. Please provide more relevant paper sections."
+    ],
+    "dataset_loader.py:__init__": [
+      "The provided paper sections do not seem to contain any relevant information related to the code component. Please provide more paper sections."
+    ],
+    "evaluation.py:Evaluation": [
+      "It seems like there's a misunderstanding. The provided \"Paper Sections\" is not actually a section of a paper",
+      "but rather the authors' information. For a proper analysis",
+      "please provide actual sections of the paper such as \"Introduction\"",
+      "\"Methods\"",
+      "\"Results\"",
+      "\"Discussion\"",
+      "etc."
+    ],
+    "evaluation.py:__init__": [
+      "Without the full list of paper sections",
+      "it's hard to provide an accurate answer. However",
+      "based on the code component",
+      "the most relevant sections could be \"Methodology\"",
+      "\"Evaluation\"",
+      "\"Results and Discussion\"."
+    ],
+    "graph_utils.py:create_sequence_graph": [
+      "The provided paper sections do not seem to contain any relevant information related to the code component. Please provide more relevant paper sections."
+    ],
+    "graph_utils.py:compute_graph_laplacian": [
+      "The provided information does not include any paper sections. Please provide the relevant paper sections to proceed."
+    ],
+    "graph_utils.py:perform_label_smoothing": [
+      "Without the full list of paper sections",
+      "it's impossible to provide an accurate answer. However",
+      "based on the code component",
+      "the most relevant sections could be \"Methodology\"",
+      "\"Data Preprocessing\"",
+      "\"Results and Discussion\". Please provide the full list of paper sections for a more accurate answer."
+    ],
+    "graph_utils.py:cluster_sequences": [
+      "The provided paper sections do not seem to contain any relevant information related to the code component. Please provide the actual sections of the paper such as \"Introduction\"",
+      "\"Methods\"",
+      "\"Results\"",
+      "etc."
+    ],
+    "graph_utils.py:select_top_per_cluster": [
+      "The provided information does not include any paper sections. The only information given is the authors' names and their contact information",
+      "which is not relevant to the code component. Please provide the actual sections of the paper for analysis."
+    ],
+    "label_smoothing.py:LabelSmoother": [
+      "The provided paper sections do not contain any relevant information related to the code component. Please provide more relevant paper sections."
+    ],
+    "label_smoothing.py:__init__": [
+      "The provided paper sections do not seem to contain any relevant information related to the code component. Please provide more relevant paper sections."
+    ],
+    "main.py:main": [
+      "The provided information does not include any specific paper sections related to the code component. Please provide more detailed information."
+    ],
+    "model.py:SequenceFitnessPredictor": [
+      "Methods",
+      "Results",
+      "Discussion"
+    ],
+    "model.py:__init__": [
+      "\"Model Architecture\"",
+      "\"Hyperparameters\"",
+      "\"Implementation Details\""
+    ],
+    "sampling.py:GGSampler": [
+      "The provided information does not include any paper sections. Please provide the relevant paper sections to proceed."
+    ],
+    "sampling.py:__init__": [
+      "The provided paper sections do not seem to contain any relevant information related to the code component. Please provide more relevant paper sections."
+    ],
+    "trainer.py:Trainer": [
+      "The provided paper sections do not seem to be relevant to the code component. Please provide the actual sections of the paper such as \"Methodology\"",
+      "\"Results\"",
+      "\"Discussion\"",
+      "etc."
+    ],
+    "trainer.py:__init__": [
+      "The provided paper sections do not seem to match the code component. Please provide relevant paper sections."
+    ]
+  },
+  "paper_to_code": {
+    "The provided paper sections do not seem to contain any relevant information related to the code component. Please provide more relevant paper sections.": [
+      {
+        "component": "dataset_loader.py:DatasetLoader",
+        "description": "Initialize DatasetLoader.\n        :param dataset_path: Path to raw dataset file.\n        :param dataset_name: Name of dataset: 'GFP' or 'AAV'.\n        :param filters: Dict with keys 'percentile_range' and 'mutational_gap'.\n        :param config: Full configuration dict for dataset filtering details.",
+        "file": "dataset_loader.py"
+      },
+      {
+        "component": "graph_utils.py:create_sequence_graph",
+        "description": "Construct an undirected sequence similarity graph.\n    Nodes are sequences, edges connect neighbors based on similarity.\n    \n    Args:\n        sequences (List[str]): List of sequence strings.\n        knn_neighbors (int): Number of neighbors for KNN graph.\n        similarity_threshold (float or None): Threshold distance to connect nodes.\n            If None, build KNN graph.\n    \n    Returns:\n        nx.Graph: Undirected graph with sequences as nodes.",
+        "file": "graph_utils.py"
+      },
+      {
+        "component": "label_smoothing.py:__init__",
+        "description": "Initialize the LabelSmoother with a graph Laplacian and smoothing hyperparameter gamma.\n        Args:\n            laplacian (scipy.sparse.spmatrix): The graph Laplacian matrix L (shape: [N, N]).\n            gamma (float): Regularization parameter controlling smoothing strength.",
+        "file": "label_smoothing.py"
+      },
+      {
+        "component": "sampling.py:__init__",
+        "description": "Initialize the sampler.\n        Args:\n            predictor: Trained predictor model with predict() and compute_gradients().\n            sequences: Current set of sequences (initial input pool).\n            predictor_predict_func: Function to get predictor's predicted fitness.\n            predictor_grad_func: Function to get gradients w.r.t. input.\n            proposals_per_sequence: Number of proposals generated per sequence each round.\n            gwg_rounds: Total rounds of sampling.\n            clustering_clusters: Number of clusters for sequence reduction.\n            temperature: Temperature for proposal softmax.\n            mutation_batch_size: Total proposals spread across sequences per round.\n            sequence_length: Sequence length (fixed).\n            vocab_SIZE: Number of amino acids (default 20).\n            seed: Random seed for reproducibility.",
+        "file": "sampling.py"
+      }
+    ],
+    "The provided paper sections do not seem to contain any relevant information related to the code component. Please provide more paper sections.": [
+      {
+        "component": "dataset_loader.py:__init__",
+        "description": "Initialize DatasetLoader.\n        :param dataset_path: Path to raw dataset file.\n        :param dataset_name: Name of dataset: 'GFP' or 'AAV'.\n        :param filters: Dict with keys 'percentile_range' and 'mutational_gap'.\n        :param config: Full configuration dict for dataset filtering details.",
+        "file": "dataset_loader.py"
+      }
+    ],
+    "It seems like there's a misunderstanding. The provided \"Paper Sections\" is not actually a section of a paper": [
+      {
+        "component": "evaluation.py:Evaluation",
+        "description": "Evaluation class for assessing protein sequence generation quality,\n    predictive accuracy, diversity, and extrapolation Metrics.",
+        "file": "evaluation.py"
+      }
+    ],
+    "but rather the authors' information. For a proper analysis": [
+      {
+        "component": "evaluation.py:Evaluation",
+        "description": "Evaluation class for assessing protein sequence generation quality,\n    predictive accuracy, diversity, and extrapolation Metrics.",
+        "file": "evaluation.py"
+      }
+    ],
+    "please provide actual sections of the paper such as \"Introduction\"": [
+      {
+        "component": "evaluation.py:Evaluation",
+        "description": "Evaluation class for assessing protein sequence generation quality,\n    predictive accuracy, diversity, and extrapolation Metrics.",
+        "file": "evaluation.py"
+      }
+    ],
+    "\"Methods\"": [
+      {
+        "component": "evaluation.py:Evaluation",
+        "description": "Evaluation class for assessing protein sequence generation quality,\n    predictive accuracy, diversity, and extrapolation Metrics.",
+        "file": "evaluation.py"
+      },
+      {
+        "component": "graph_utils.py:cluster_sequences",
+        "description": "Cluster sequences based on Levenshtein distance using hierarchical clustering.\n    \n    Args:\n        sequences (List[str]): List of sequences.\n        num_clusters (int): Desired number of clusters.\n    \n    Returns:\n        List[List[str]]: List of clusters, each a list of sequences.",
+        "file": "graph_utils.py"
+      }
+    ],
+    "\"Results\"": [
+      {
+        "component": "evaluation.py:Evaluation",
+        "description": "Evaluation class for assessing protein sequence generation quality,\n    predictive accuracy, diversity, and extrapolation Metrics.",
+        "file": "evaluation.py"
+      },
+      {
+        "component": "graph_utils.py:cluster_sequences",
+        "description": "Cluster sequences based on Levenshtein distance using hierarchical clustering.\n    \n    Args:\n        sequences (List[str]): List of sequences.\n        num_clusters (int): Desired number of clusters.\n    \n    Returns:\n        List[List[str]]: List of clusters, each a list of sequences.",
+        "file": "graph_utils.py"
+      },
+      {
+        "component": "trainer.py:Trainer",
+        "description": "Handles training and validation of the predictor model.\n    Implements training loop with data batching, loss computation,\n    optimizer steps, checkpointing, and metrics tracking.",
+        "file": "trainer.py"
+      }
+    ],
+    "\"Discussion\"": [
+      {
+        "component": "evaluation.py:Evaluation",
+        "description": "Evaluation class for assessing protein sequence generation quality,\n    predictive accuracy, diversity, and extrapolation Metrics.",
+        "file": "evaluation.py"
+      },
+      {
+        "component": "trainer.py:Trainer",
+        "description": "Handles training and validation of the predictor model.\n    Implements training loop with data batching, loss computation,\n    optimizer steps, checkpointing, and metrics tracking.",
+        "file": "trainer.py"
+      }
+    ],
+    "etc.": [
+      {
+        "component": "evaluation.py:Evaluation",
+        "description": "Evaluation class for assessing protein sequence generation quality,\n    predictive accuracy, diversity, and extrapolation Metrics.",
+        "file": "evaluation.py"
+      },
+      {
+        "component": "graph_utils.py:cluster_sequences",
+        "description": "Cluster sequences based on Levenshtein distance using hierarchical clustering.\n    \n    Args:\n        sequences (List[str]): List of sequences.\n        num_clusters (int): Desired number of clusters.\n    \n    Returns:\n        List[List[str]]: List of clusters, each a list of sequences.",
+        "file": "graph_utils.py"
+      },
+      {
+        "component": "trainer.py:Trainer",
+        "description": "Handles training and validation of the predictor model.\n    Implements training loop with data batching, loss computation,\n    optimizer steps, checkpointing, and metrics tracking.",
+        "file": "trainer.py"
+      }
+    ],
+    "Without the full list of paper sections": [
+      {
+        "component": "evaluation.py:__init__",
+        "description": "Initialize Evaluation object.\n        Args:\n            predictor: Predictor model with methods `predict_batch()` (and optionally `predict()`).\n            sequences (List[str]): Sequences to evaluate.\n            true_fitnesses (Optional[np.ndarray]): Ground-truth fitness scores for sequences.\n            train_sequences (Optional[List[str]]): Training sequences for novelty/extrapolation.\n            train_fitnesses (Optional[np.ndarray]): Ground truth for training data.\n            config (Optional[dict]): Configuration dictionary, if needed for metrics preferences.",
+        "file": "evaluation.py"
+      },
+      {
+        "component": "graph_utils.py:perform_label_smoothing",
+        "description": "Smooth labels over the graph using Tikhonov regularization:\n    \\hat{Y} = (I + gamma * L)^(-1) * Y\n    \n    Args:\n        labels (np.ndarray): 1D array of labels (fitness scores).\n        laplacian (scipy.sparse.csr_matrix): The graph Laplacian matrix.\n        gamma (float): Regularization hyperparameter.\n    \n    Returns:\n        np.ndarray: Smoothed labels.",
+        "file": "graph_utils.py"
+      }
+    ],
+    "it's hard to provide an accurate answer. However": [
+      {
+        "component": "evaluation.py:__init__",
+        "description": "Initialize Evaluation object.\n        Args:\n            predictor: Predictor model with methods `predict_batch()` (and optionally `predict()`).\n            sequences (List[str]): Sequences to evaluate.\n            true_fitnesses (Optional[np.ndarray]): Ground-truth fitness scores for sequences.\n            train_sequences (Optional[List[str]]): Training sequences for novelty/extrapolation.\n            train_fitnesses (Optional[np.ndarray]): Ground truth for training data.\n            config (Optional[dict]): Configuration dictionary, if needed for metrics preferences.",
+        "file": "evaluation.py"
+      }
+    ],
+    "based on the code component": [
+      {
+        "component": "evaluation.py:__init__",
+        "description": "Initialize Evaluation object.\n        Args:\n            predictor: Predictor model with methods `predict_batch()` (and optionally `predict()`).\n            sequences (List[str]): Sequences to evaluate.\n            true_fitnesses (Optional[np.ndarray]): Ground-truth fitness scores for sequences.\n            train_sequences (Optional[List[str]]): Training sequences for novelty/extrapolation.\n            train_fitnesses (Optional[np.ndarray]): Ground truth for training data.\n            config (Optional[dict]): Configuration dictionary, if needed for metrics preferences.",
+        "file": "evaluation.py"
+      },
+      {
+        "component": "graph_utils.py:perform_label_smoothing",
+        "description": "Smooth labels over the graph using Tikhonov regularization:\n    \\hat{Y} = (I + gamma * L)^(-1) * Y\n    \n    Args:\n        labels (np.ndarray): 1D array of labels (fitness scores).\n        laplacian (scipy.sparse.csr_matrix): The graph Laplacian matrix.\n        gamma (float): Regularization hyperparameter.\n    \n    Returns:\n        np.ndarray: Smoothed labels.",
+        "file": "graph_utils.py"
+      }
+    ],
+    "the most relevant sections could be \"Methodology\"": [
+      {
+        "component": "evaluation.py:__init__",
+        "description": "Initialize Evaluation object.\n        Args:\n            predictor: Predictor model with methods `predict_batch()` (and optionally `predict()`).\n            sequences (List[str]): Sequences to evaluate.\n            true_fitnesses (Optional[np.ndarray]): Ground-truth fitness scores for sequences.\n            train_sequences (Optional[List[str]]): Training sequences for novelty/extrapolation.\n            train_fitnesses (Optional[np.ndarray]): Ground truth for training data.\n            config (Optional[dict]): Configuration dictionary, if needed for metrics preferences.",
+        "file": "evaluation.py"
+      },
+      {
+        "component": "graph_utils.py:perform_label_smoothing",
+        "description": "Smooth labels over the graph using Tikhonov regularization:\n    \\hat{Y} = (I + gamma * L)^(-1) * Y\n    \n    Args:\n        labels (np.ndarray): 1D array of labels (fitness scores).\n        laplacian (scipy.sparse.csr_matrix): The graph Laplacian matrix.\n        gamma (float): Regularization hyperparameter.\n    \n    Returns:\n        np.ndarray: Smoothed labels.",
+        "file": "graph_utils.py"
+      }
+    ],
+    "\"Evaluation\"": [
+      {
+        "component": "evaluation.py:__init__",
+        "description": "Initialize Evaluation object.\n        Args:\n            predictor: Predictor model with methods `predict_batch()` (and optionally `predict()`).\n            sequences (List[str]): Sequences to evaluate.\n            true_fitnesses (Optional[np.ndarray]): Ground-truth fitness scores for sequences.\n            train_sequences (Optional[List[str]]): Training sequences for novelty/extrapolation.\n            train_fitnesses (Optional[np.ndarray]): Ground truth for training data.\n            config (Optional[dict]): Configuration dictionary, if needed for metrics preferences.",
+        "file": "evaluation.py"
+      }
+    ],
+    "\"Results and Discussion\".": [
+      {
+        "component": "evaluation.py:__init__",
+        "description": "Initialize Evaluation object.\n        Args:\n            predictor: Predictor model with methods `predict_batch()` (and optionally `predict()`).\n            sequences (List[str]): Sequences to evaluate.\n            true_fitnesses (Optional[np.ndarray]): Ground-truth fitness scores for sequences.\n            train_sequences (Optional[List[str]]): Training sequences for novelty/extrapolation.\n            train_fitnesses (Optional[np.ndarray]): Ground truth for training data.\n            config (Optional[dict]): Configuration dictionary, if needed for metrics preferences.",
+        "file": "evaluation.py"
+      }
+    ],
+    "The provided information does not include any paper sections. Please provide the relevant paper sections to proceed.": [
+      {
+        "component": "graph_utils.py:compute_graph_laplacian",
+        "description": "Compute the (unnormalized or normalized) graph Laplacian matrix.\n    \n    Args:\n        graph (nx.Graph): Input similarity graph.\n        normalized (bool): Whether to compute normalized Laplacian.\n    \n    Returns:\n        scipy.sparse.csr_matrix: Laplacian matrix (sparse).",
+        "file": "graph_utils.py"
+      },
+      {
+        "component": "sampling.py:GGSampler",
+        "description": "Implements the core Gibbs Sampling with Graph-based Smoothing (GGS) procedure.",
+        "file": "sampling.py"
+      }
+    ],
+    "it's impossible to provide an accurate answer. However": [
+      {
+        "component": "graph_utils.py:perform_label_smoothing",
+        "description": "Smooth labels over the graph using Tikhonov regularization:\n    \\hat{Y} = (I + gamma * L)^(-1) * Y\n    \n    Args:\n        labels (np.ndarray): 1D array of labels (fitness scores).\n        laplacian (scipy.sparse.csr_matrix): The graph Laplacian matrix.\n        gamma (float): Regularization hyperparameter.\n    \n    Returns:\n        np.ndarray: Smoothed labels.",
+        "file": "graph_utils.py"
+      }
+    ],
+    "\"Data Preprocessing\"": [
+      {
+        "component": "graph_utils.py:perform_label_smoothing",
+        "description": "Smooth labels over the graph using Tikhonov regularization:\n    \\hat{Y} = (I + gamma * L)^(-1) * Y\n    \n    Args:\n        labels (np.ndarray): 1D array of labels (fitness scores).\n        laplacian (scipy.sparse.csr_matrix): The graph Laplacian matrix.\n        gamma (float): Regularization hyperparameter.\n    \n    Returns:\n        np.ndarray: Smoothed labels.",
+        "file": "graph_utils.py"
+      }
+    ],
+    "\"Results and Discussion\". Please provide the full list of paper sections for a more accurate answer.": [
+      {
+        "component": "graph_utils.py:perform_label_smoothing",
+        "description": "Smooth labels over the graph using Tikhonov regularization:\n    \\hat{Y} = (I + gamma * L)^(-1) * Y\n    \n    Args:\n        labels (np.ndarray): 1D array of labels (fitness scores).\n        laplacian (scipy.sparse.csr_matrix): The graph Laplacian matrix.\n        gamma (float): Regularization hyperparameter.\n    \n    Returns:\n        np.ndarray: Smoothed labels.",
+        "file": "graph_utils.py"
+      }
+    ],
+    "The provided paper sections do not seem to contain any relevant information related to the code component. Please provide the actual sections of the paper such as \"Introduction\"": [
+      {
+        "component": "graph_utils.py:cluster_sequences",
+        "description": "Cluster sequences based on Levenshtein distance using hierarchical clustering.\n    \n    Args:\n        sequences (List[str]): List of sequences.\n        num_clusters (int): Desired number of clusters.\n    \n    Returns:\n        List[List[str]]: List of clusters, each a list of sequences.",
+        "file": "graph_utils.py"
+      }
+    ],
+    "The provided information does not include any paper sections. The only information given is the authors' names and their contact information": [
+      {
+        "component": "graph_utils.py:select_top_per_cluster",
+        "description": "Select the sequence with highest fitness from each cluster.\n    \n    Args:\n        sequences (List[str]): List of sequences.\n        fitnesses (np.ndarray): Corresponding predicted fitness scores.\n        clusters (List[List[str]]): Clusters of sequences.\n    \n    Returns:\n        List[str]: Top sequences per cluster.",
+        "file": "graph_utils.py"
+      }
+    ],
+    "which is not relevant to the code component. Please provide the actual sections of the paper for analysis.": [
+      {
+        "component": "graph_utils.py:select_top_per_cluster",
+        "description": "Select the sequence with highest fitness from each cluster.\n    \n    Args:\n        sequences (List[str]): List of sequences.\n        fitnesses (np.ndarray): Corresponding predicted fitness scores.\n        clusters (List[List[str]]): Clusters of sequences.\n    \n    Returns:\n        List[str]: Top sequences per cluster.",
+        "file": "graph_utils.py"
+      }
+    ],
+    "The provided paper sections do not contain any relevant information related to the code component. Please provide more relevant paper sections.": [
+      {
+        "component": "label_smoothing.py:LabelSmoother",
+        "description": "Initialize the LabelSmoother with a graph Laplacian and smoothing hyperparameter gamma.\n        Args:\n            laplacian (scipy.sparse.spmatrix): The graph Laplacian matrix L (shape: [N, N]).\n            gamma (float): Regularization parameter controlling smoothing strength.",
+        "file": "label_smoothing.py"
+      }
+    ],
+    "The provided information does not include any specific paper sections related to the code component. Please provide more detailed information.": [
+      {
+        "component": "main.py:main",
+        "description": "",
+        "file": "main.py"
+      }
+    ],
+    "Methods": [
+      {
+        "component": "model.py:SequenceFitnessPredictor",
+        "description": "A flexible neural network model for predicting protein sequence fitness.\n    Supports CNN and Transformer architectures, with methods for training,\n    inference, and gradient computation w.r.t. input sequences.",
+        "file": "model.py"
+      }
+    ],
+    "Results": [
+      {
+        "component": "model.py:SequenceFitnessPredictor",
+        "description": "A flexible neural network model for predicting protein sequence fitness.\n    Supports CNN and Transformer architectures, with methods for training,\n    inference, and gradient computation w.r.t. input sequences.",
+        "file": "model.py"
+      }
+    ],
+    "Discussion": [
+      {
+        "component": "model.py:SequenceFitnessPredictor",
+        "description": "A flexible neural network model for predicting protein sequence fitness.\n    Supports CNN and Transformer architectures, with methods for training,\n    inference, and gradient computation w.r.t. input sequences.",
+        "file": "model.py"
+      }
+    ],
+    "\"Model Architecture\"": [
+      {
+        "component": "model.py:__init__",
+        "description": "Initialize the model based on configuration parameters.\n        Args:\n            config (Dict): Dictionary containing model hyperparameters.\n                Expected keys:\n                    - 'architecture' : str, e.g., 'cnn' or 'transformer'\n                    - 'sequence_length' : int, length of sequences\n                    - 'vocab_size' : int, number of amino acids (default 20)\n                    - 'embedding_dim' : int, used for transformer or embedding layer (optional)\n                    - 'dropout_rate' : float, dropout probability\n                    - 'hidden_dim' : int, hidden layer size for CNN",
+        "file": "model.py"
+      }
+    ],
+    "\"Hyperparameters\"": [
+      {
+        "component": "model.py:__init__",
+        "description": "Initialize the model based on configuration parameters.\n        Args:\n            config (Dict): Dictionary containing model hyperparameters.\n                Expected keys:\n                    - 'architecture' : str, e.g., 'cnn' or 'transformer'\n                    - 'sequence_length' : int, length of sequences\n                    - 'vocab_size' : int, number of amino acids (default 20)\n                    - 'embedding_dim' : int, used for transformer or embedding layer (optional)\n                    - 'dropout_rate' : float, dropout probability\n                    - 'hidden_dim' : int, hidden layer size for CNN",
+        "file": "model.py"
+      }
+    ],
+    "\"Implementation Details\"": [
+      {
+        "component": "model.py:__init__",
+        "description": "Initialize the model based on configuration parameters.\n        Args:\n            config (Dict): Dictionary containing model hyperparameters.\n                Expected keys:\n                    - 'architecture' : str, e.g., 'cnn' or 'transformer'\n                    - 'sequence_length' : int, length of sequences\n                    - 'vocab_size' : int, number of amino acids (default 20)\n                    - 'embedding_dim' : int, used for transformer or embedding layer (optional)\n                    - 'dropout_rate' : float, dropout probability\n                    - 'hidden_dim' : int, hidden layer size for CNN",
+        "file": "model.py"
+      }
+    ],
+    "The provided paper sections do not seem to be relevant to the code component. Please provide the actual sections of the paper such as \"Methodology\"": [
+      {
+        "component": "trainer.py:Trainer",
+        "description": "Handles training and validation of the predictor model.\n    Implements training loop with data batching, loss computation,\n    optimizer steps, checkpointing, and metrics tracking.",
+        "file": "trainer.py"
+      }
+    ],
+    "The provided paper sections do not seem to match the code component. Please provide relevant paper sections.": [
+      {
+        "component": "trainer.py:__init__",
+        "description": "Initialize the Trainer with hyperparameters and datasets.\n        Args:\n            config (Dict): Configuration dict with hyperparameters.\n            train_sequences (List[str]): List of training sequences.\n            train_labels (np.ndarray): Array of smoothed labels for training.\n            val_sequences (List[str]): Validation sequences.\n            val_labels (np.ndarray): Validation labels.\n            checkpoint_dir (str): Directory to save checkpoints.",
+        "file": "trainer.py"
+      }
+    ]
+  },
+  "paper_sections": [
+    {
+      "section": "Abstract",
+      "text": "Andrew Kirjner\u2217   \nMassachusetts Institute of Technology   \nkirjner@mit.edu   \nJason Yim\u2217   \nMassachusetts Institute of Technology   \njyim@mit.edu",
+      "ontology": "abstract"
+    }
+  ],
+  "coverage_score": 32.0
+}

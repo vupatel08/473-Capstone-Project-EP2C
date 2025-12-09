@@ -1,0 +1,148 @@
+# Evaluation.py Logic Analysis
+
+This evaluation.py module orchestrates the core inference and certification procedures for the ARS framework, following the methodology, formulas, and data flow specified in the paper. It leverages trained models (mask unet, classifier) and utility functions to generate robust class predictions with provable guarantees under input perturbations.
+
+The essential functions within evaluation.py include:
+
+- **Monte Carlo Prediction Generation**: Sampling noise, mask inference, masked images, prediction aggregation.
+- **Class Probability Estimation**: Estimating the probability of the predicted class ($p_+$) and its adversarial class ($p_{-}$).
+- **Robust Radius Calculation**: Applying formulas (e.g., Eq. 2.2, 2.4) based on class probabilities and noise parameters for certified $L_\infty$ radius bounds.
+  
+Below is a detailed, step-by-step **logic flow** and **function structure** to support implementation:
+
+---
+
+# 1. Initialization and Inputs
+
+- **Input Data**:
+  - `X`: Original input image tensor (normalized, batch consideration if applicable).
+  - `n_samples`: Number of Monte Carlo samples for prediction (from config hyperparameters).
+  - `conf_level`: Confidence level for probability bounds (e.g., 0.99).
+  - `error_tolerance`: Tolerance for the statistical estimation error in probability bounds.
+- **Models & Utilities**:
+  - `mask_unet`: Trained mask module (`w`), provides pixel-wise masks with values in [0, 1].
+  - `classifier`: Trained classifier model `g`.
+  - `noise_params`: Dict or objects with `sigma1`, `sigma2`.
+- **Other Configurations**:
+  - `background_scale`: For certification radius calculations under $L_\infty$ bounds.
+  - `norm_type`: Norm bounds considered (e.g., `L_inf`).
+  - `certification_formulas`: Reference to formula code (Eq. 2.2, 2.4).
+
+---
+
+# 2. Step 1: Mask Prediction (Input-Dependent Mask)
+
+**Function: `predict_mask(noisy_input)`**
+- Sample noise `z1` ~ `N(0, sigma1^2 I)`.
+- Generate noisy image: `X_noisy = X + z1`.
+- Pass `X_noisy` through `mask_unet`: output value in [0, 1]).
+- Return the mask tensor `w(m1)`.
+
+**Note**: This step is designed to focus the subsequent noise addition on relevant parts, reducing noise variance in step 2.
+
+---
+
+# 3. Step 2: Generate Noisy Masked Image
+
+- **Compute the Mask**: `w = predict_mask(X + z1)` (per sample or batch).
+- **Element-wise multiply**: `masked_X = w * X`.
+- **Add noise**:
+  - Sample `z2` ~ `N(0, (||w||_2)^2 / d * sigma2^2 * I)` (per the formula).
+  - Generate `m2 = masked_X + z2`.
+- The noise in this step depends on the mask norm (`||w||_2`) and the privacy parameters.
+
+**Function: `generate_masked_noisy_image(w, X)`**
+
+---
+
+# 4. Prediction via Classifier
+
+- **Input**:
+  - Multiple Monte Carlo samples (n_samples).
+- **Process**:
+  - For each sample:
+    1. Generate `z1`, `z2`.
+    2. Predict mask: `w`.
+    3. Generate `m2`.
+    4. Compute weighted average estimate:
+       $$ \hat{X} = c_{1} m_1 + c_{2} m_2 $$
+       where `c_1` and `c_2` are derived to produce an unbiased estimate with minimal variance, per the formulas:
+       $$ c_{1,i} = \frac{||w||_2 \sigma_2^2}{\sigma_1^2 w_i^2 + ||w||_2^2 \sigma_2^2} $$
+       $$ c_{2,i} = \frac{\sigma_1^2 w_i}{\sigma_1^2 w_i^2 + ||w||_2^2 \sigma_2^2} $$
+  - Pass `\hat{X}` through classifier `g`.
+- **Output**:
+  - Collect class logits or probabilities for each sample.
+
+---
+
+# 5. Class Probability Estimation and Confidence Bounds
+
+- **Aggregate Predictions**:
+  - Compute softmax over logits or directly estimate class probabilities over all `n_samples`.
+- **Estimate class probabilities**:
+  - Extract `p_{+}`: probability of the predicted class (`y+`) as the fraction of samples predicted as class `y+`.
+  - Extract `p_{-}`: the maximum probability over other classes.
+- **Confidence bounds**:
+  - Use statistical bounds (Clopper-Pearson or normal approximation) at confidence level `conf_level` with error tolerance `error_tolerance` to construct lower bounds (`p_{+}^{lower}`) and upper bounds (`p_{-}^{upper}`).
+
+**Function: `estimate_class_probabilities(predictions, conf_level, error_tolerance)`**
+
+---
+
+# 6. Certification Radius Calculation
+
+- Based on class probability bounds:
+  - Apply Eq. 2.2 or Eq. 2.4:
+  
+  $$ r_{X} = \frac{\sigma}{2} \left( \Phi^{-1}(\underline{p_{+}}) - \Phi^{-1}(\overline{p_{-}}) \right) $$
+
+- For $L_\infty$:
+  
+  $$ r_{X}^{\infty} = \frac{\sigma}{2\sqrt{d}} \left( \Phi^{-1}(\underline{p_{+}}) - \Phi^{-1}(\overline{p_{-}}) \right) $$
+
+- Adjust the radius calculation formula as per the norm constraints, background scale, and dimension.
+- Result: a scalar bounding radius where the predicted class remains robust with probability at least `conf_level`.
+
+**Function: `compute_certified_radius(p_plus_lower, p_minus_upper, sigma, dimension, norm_type='L_infinity', background_scale=1)`**
+
+---
+
+# 7. Return Results
+
+- **Predicted Class**:
+  - Class with highest estimated probability.
+- **Certified Radius**:
+  - Calculated robustness radius.
+- **Class probabilities with confidence bounds**.
+- **Additional info**:
+  - Estimated class probabilities.
+  - Variance bounds.
+  - Confidence level.
+
+---
+
+# 8. Additional Considerations
+
+- **Monte Carlo sampling size (`n_samples`)**:
+  - Pick sufficiently large (e.g., 1000) for statistical accuracy, as per configuration.
+- **Ensemble over multiple inputs**:
+  - When evaluating batches, process sample-wise, then aggregate class probabilities.
+- **Efficiency Optimization**:
+  - Reuse noise samples where possible.
+  - Log detailed sampling stats and class probability estimates.
+Parse and handle multiple images per batch.
+
+---
+
+# Summary
+
+`evaluation.py` will:
+
+- Call the mask predictor with noisy inputs.
+- Generate masked, noisy images with input-dependent variance.
+- Aggregate multiple predictions over Monte Carlo samples for class probabilities.
+- Adjust class probabilities estimates based on confidence bounds.
+- Compute the certified robustness radius following formulas (Eq. 2.2, 2.4).
+- Return class label, radius, and probability confidence bounds.
+
+This structured approach adheres to the framework, ensuring transparent, reproducible, and theoretically sound robustness certifications consistent with the paper’s methodology.

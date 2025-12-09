@@ -1,0 +1,140 @@
+# evaluation.py - Logic Analysis for Self-Consistency Evaluation Metrics
+
+This file will implement the core evaluation logic required to quantify the self-consistency and related metrics of the Code LLMs according to the framework outlined in the paper and plan. The key goals are:
+
+1. Implement the computation of the TOM (Test Output Match) score, which compares the outputs of subsequent generated programs over multiple test cases.
+2. Aggregate individual input results into overall self-consistency scores (`SC_n` and `SSC_n`) across a set of evaluated problems.
+3. Support detailed per-input diagnostics for debugging purposes.
+4. Provide interfaces for evaluation outputs suitable for reporting or further analysis.
+
+Below is a structured, detailed breakdown of the core logic, arguments, assumptions, and computational procedures necessary to correctly implement this module.
+
+---
+
+# 1. Inputs and Data Structures
+
+### a. Inputs
+- **Test outputs** from the test execution component for `pl_i` and `pl_{i+1}`:
+  - For each program, a list of outputs:
+    - Each element corresponds to one test case.
+    - Outputs may be:
+      - Exact output values.
+      - Error messages (syntax/runtime errors).
+- **Expected outputs**:
+  - The ground-truth expected results for each test case (if available).
+  - For self-consistency, the primary comparison is between the outputs of `pl_i` and `pl_{i+1}`.
+
+### b. Data structures
+- `test_outputs_i`: list of outputs for program at step `i`.
+- `test_outputs_{i+1}`: list of outputs for program at step `i+1`.
+- Length of lists: equal, corresponding to the number of test cases.
+- For each input problem:
+  - An object/dictionary containing:
+    - `input_id`: integer or string identifier.
+    - `test_cases`: list of test input objects, with:
+      - `input`: test input data (could be scalar, list, etc.).
+      - `expected_output`: ground truth (may be optional or missing for some cases).
+
+---
+
+# 2. Core Computation
+
+### a. Test Output Match (TOM) score calculation
+- **Objective**: Measure how similar the outputs of `pl_i` and `pl_{i+1}` are over all test cases.
+- **Method**: For each test case:
+  - Compare the output values (`output_i` vs. `output_{i+1}`).
+  - If **both are errors** (e.g., syntax or runtime errors), compare the error messages for exact match.
+  - If **both are normal outputs**, compare values for equality:
+    - For scalar/primitive outputs, simple equality.
+    - For complex outputs, potentially more sophisticated structural comparison could be considered (but for this implementation, exact equality).
+  - Assign score `1` if outputs match; `0` if not.
+- **Aggregate**: Sum the matches, divide by total number of test cases to get a percentage.
+
+### b. Handling errors
+- Recognize error strings versus actual outputs.
+- Use exact string comparison for error messages.
+- When errors occur (e.g., index errors, syntax errors), the output comparison is based on the error message string.
+
+---
+
+# 3. Semantic Equivalence Approximation
+
+- The TOM score is an **approximation** of semantic equivalence:
+  - High TOM indicates likely semantic equivalence.
+  - Low TOM suggests difference in semantics or errors.
+- The metric relies solely on test case outputs and errors, consistent with the paper's approach.
+
+---
+
+# 4. Implementation of the `compute_tom()` method
+
+- **Inputs**:
+  - `test_outputs_pl_i`: list of outputs from program `pl_i`.
+  - `test_outputs_pl_next`: list of outputs from `pl_{i+1}`.
+- **Outputs**:
+  - `tom_score`: a float between `0` and `1`.
+- **Process**:
+  - For `k` in number of test cases:
+    - Retrieve outputs `out_i`, `out_next`.
+    - Check if both are errors:
+      - Convert outputs to string.
+      - Compare strings exactly.
+    - Else, compare primitive outputs for equality.
+  - Count total matches; compute the ratio.
+
+---
+
+# 5. Output summaries and aggregate scores
+
+### a. Input Result:
+- Binary indicator `1` (semantics preserved) or `0` (not).
+- Possibly include error flags, or special case flags (e.g., syntax errors).
+
+### b. Macro aggregation:
+- Over multiple inputs, compute:
+  - `SC_n`: average of all `s c_{n,j}` indicating self-consistency within `n` steps.
+  - `SSC_n`: average of all `ssc_{n,j}` indicating strong self-consistency.
+
+### c. Additional diagnostics:
+- Collect per-input details:
+  - Input id
+  - Test case-wise TOM scores
+  - Overall per-input binary result
+  - Flag indicating early termination due to exact match or instability.
+
+---
+
+# 6. Additional considerations
+
+- **Error handling**:
+  - When code raises exceptions or produces syntax errors, treat outputs as error strings for comparison.
+- **Test case generation**:
+  - The evaluation assumes test cases have been generated externally.
+  - The function receives `test_cases` (a list or structure), with inputs and expected outputs, for the subprocess execution part.
+- **Extensibility**:
+  - The class can be extended to support different metrics or adjust for more complex output comparisons if needed.
+
+---
+
+# 7. Practical Implementation Notes
+
+- Use `deepcopy` or similar to avoid state mutation.
+- Ensure outputs are normalized before comparison (e.g., strip whitespace for string errors).
+- Implement functions like:
+  - `compare_outputs(output1, output2)` for flexible, uniform comparison.
+  - `execute_test(program_code, test_cases)` to run code and gather outputs.
+
+---
+
+# 8. Summary
+
+The `EvaluationMetrics` class in `evaluation.py` should provide:
+- `compute_tom(test_outputs_program_i, test_outputs_program_{i+1})` to return a floating-point score.
+- Methods to aggregate individual input scores into overall `SC_n` and `SSC_n`.
+- Store detailed per-input diagnostics for debugging or further analysis.
+
+This design aligns fully with the paper’s methodology, the JSON data flow, and the config specifications, ensuring reproducibility and robustness.
+
+---
+
+This completes the logic analysis for implementation in `evaluation.py`. It provides a rigorous, detailed blueprint consistent with the methodology, metrics, and experimental framework described in the paper and plan.

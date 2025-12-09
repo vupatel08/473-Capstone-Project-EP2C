@@ -1,0 +1,56 @@
+datasets:
+  - name: "MMLU"
+    split: "test"
+  - name: "ARC-Challenge"
+    split: "test"
+  - name: "BoolQ"
+    split: "validation"
+  - name: "SocialIQA"
+    split: "test"
+  - name: "MedMCQA"
+    split: "test"
+  - name: "ScienceQA"
+    split: "test"
+  - name: "A-OKVQA"
+    split: "test"
+  - name: "SEED-Bench"
+    split: "test"
+  - name: "MMBench"
+    split: "test"
+  - name: "Answer Set Pruning"
+    split: "validation"
+
+models:
+  - name: "Llama2-7B"
+  - name: "Llama2-13B"
+  - name: "Llama2-70B"
+  - name: "Vicuna-v1.5-7B"
+  - name: "Vicuna-v1.5-13B"
+  - name: "WizardLM-13B"
+  - name: "InternLM-7B"
+  - name: "InternLM-20B"
+  - name: "Falcon-7b"
+  - name: "MPT-7B"
+
+inference_parameters:
+  temperature: 0.5
+  top_k: 10
+  max_tokens: 50
+  num_return_sequences: 1
+
+attack:
+  permutation_sampling: 1000
+  max_permutations: null  # means generate all or sample up to permutation_sampling
+  confidence_threshold: 0.5
+
+prompt_format:
+  base_template: |
+    Question: {question_text}
+    Answer options:
+    {answer_options}
+    Please select the most appropriate answer: [Answer:]
+
+model_settings:
+  device: "cuda"
+  use_cuda: true
+  seed: 42

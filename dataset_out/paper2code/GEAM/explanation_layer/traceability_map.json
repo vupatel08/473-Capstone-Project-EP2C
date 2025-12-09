@@ -1,0 +1,490 @@
+{
+  "code_to_paper": {
+    "dataset_loader.py:MoleculeDataset": [
+      "The provided paper sections are not sufficient to link with the given code component. Please provide more relevant paper sections such as \"Methodology\"",
+      "\"Data Preprocessing\"",
+      "\"Dataset\"",
+      "\"Implementation Details\"",
+      "etc."
+    ],
+    "dataset_loader.py:__init__": [
+      "The provided paper sections do not seem to contain any relevant information related to the code component. Please provide more relevant paper sections."
+    ],
+    "evaluation.py:calculate_docking_score": [
+      "The provided paper sections are not sufficient to link with the given code component. Please provide more relevant paper sections."
+    ],
+    "evaluation.py:calculate_qed": [
+      "The paper sections are not provided in the question. Please provide the paper sections to proceed."
+    ],
+    "evaluation.py:calculate_sa": [
+      "The provided paper sections do not seem to contain any relevant information related to the code component. Please provide more relevant paper sections."
+    ],
+    "evaluation.py:evaluate_molecules": [
+      "The provided paper sections do not seem to contain any relevant information related to the code component. Please provide more relevant paper sections."
+    ],
+    "evaluation.py:visualize_interaction": [
+      "The provided paper sections do not seem to contain any relevant information related to the code component. Please provide more detailed paper sections."
+    ],
+    "fgib.py:GNNEncoder": [
+      "The provided paper sections are not sufficient to link with the given code component. Please provide more relevant paper sections."
+    ],
+    "fgib.py:GCNConv": [
+      "The provided information does not include any paper sections related to the code component. Please provide relevant paper sections."
+    ],
+    "fgib.py:FGIB": [
+      "Without specific section names/titles related to the code component",
+      "it's impossible to provide an accurate answer. However",
+      "typically",
+      "sections like \"Methodology\"",
+      "\"Implementation Details\"",
+      "or \"Algorithm Description\" might be relevant for a code component like this. Please provide the actual section names/titles for a more accurate answer."
+    ],
+    "fgib.py:__init__": [
+      "The provided information is not sufficient to identify the relevant paper sections for the given code component. Please provide more detailed paper sections related to the code component."
+    ],
+    "ga_optimizer.py:GAOptimizer": [
+      "The paper sections are not provided in the question. Please provide the paper sections to proceed."
+    ],
+    "ga_optimizer.py:__init__": [
+      "The paper sections are not provided in the question. Please provide the paper sections to proceed."
+    ],
+    "model.py:EdgeEncoder": [
+      "Without more specific section names",
+      "it's impossible to accurately determine the most relevant sections for the given code component. However",
+      "typically",
+      "sections like \"Methodology\"",
+      "\"Implementation Details\"",
+      "\"Model Architecture\"",
+      "or \"Feature Encoding\" could potentially discuss the encoding of edge features into a dense vector space."
+    ],
+    "model.py:GCNConv": [
+      "Without more specific paper sections",
+      "it's impossible to accurately link the code component to the paper sections. Typically",
+      "sections like \"Methodology\"",
+      "\"Implementation Details\"",
+      "\"Model Architecture\"",
+      "or \"Experimental Setup\" would be relevant for a code component like a custom GCN layer."
+    ],
+    "model.py:GNNEncoder": [
+      "Without specific section names",
+      "it's hard to provide an accurate answer. However",
+      "based on the code component description",
+      "the most relevant sections could be \"Methodology\"",
+      "\"Model Implementation\"",
+      "\"Graph Neural Networks\"",
+      "or \"Experimental Setup\". Please provide the actual section names for a more accurate match."
+    ],
+    "model.py:__init__": [
+      "The provided paper sections are not sufficient to link with the given code component. Please provide more relevant paper sections."
+    ],
+    "sac_policy.py:for": [
+      "The provided paper sections do not seem to contain any relevant information related to the code component. Please provide more relevant paper sections."
+    ],
+    "sac_policy.py:SACTrainer": [
+      "The provided information is insufficient to determine the most relevant paper sections for the code component. Please provide more details about the code component and the paper sections."
+    ],
+    "sac_policy.py:gumbel_softmax_sample": [
+      "Without specific section names/titles",
+      "it's impossible to accurately link the code component to the paper sections. Please provide the section names/titles."
+    ],
+    "sac_policy.py:gumbel_softmax": [
+      "The provided paper sections do not seem to contain any relevant information related to the code component. Please provide more relevant paper sections."
+    ],
+    "sac_policy.py:attach_fragment": [
+      "The provided paper sections are not sufficient to link with the given code component. Please provide more relevant paper sections."
+    ],
+    "sac_policy.py:compute_reward": [
+      "Without the full list of paper sections",
+      "it's hard to provide an accurate answer. However",
+      "based on the code component",
+      "the most relevant sections could be \"Methodology\"",
+      "\"Experiment Setup\"",
+      "\"Results and Discussion\". Please provide the full list of sections for a more accurate answer."
+    ],
+    "sac_policy.py:is_valid_molecule": [
+      "The provided paper sections do not seem to contain any relevant information related to the code component. Please provide more relevant paper sections."
+    ],
+    "sac_policy.py:train_agent": [
+      "The provided paper sections do not seem to contain any relevant information related to the code component. Please provide more relevant paper sections."
+    ],
+    "sac_policy.py:molecule_to_data": [
+      "The provided information is insufficient to determine the most relevant paper sections for the given code component. Please provide more details about the function in the file 'sac_policy.py' and its purpose."
+    ]
+  },
+  "paper_to_code": {
+    "The provided paper sections are not sufficient to link with the given code component. Please provide more relevant paper sections such as \"Methodology\"": [
+      {
+        "component": "dataset_loader.py:MoleculeDataset",
+        "description": "A dataset class that loads molecules from a SMILES file, filters invalid molecules,\n    converts them into torch_geometric Data objects, and handles dataset splits.",
+        "file": "dataset_loader.py"
+      }
+    ],
+    "\"Data Preprocessing\"": [
+      {
+        "component": "dataset_loader.py:MoleculeDataset",
+        "description": "A dataset class that loads molecules from a SMILES file, filters invalid molecules,\n    converts them into torch_geometric Data objects, and handles dataset splits.",
+        "file": "dataset_loader.py"
+      }
+    ],
+    "\"Dataset\"": [
+      {
+        "component": "dataset_loader.py:MoleculeDataset",
+        "description": "A dataset class that loads molecules from a SMILES file, filters invalid molecules,\n    converts them into torch_geometric Data objects, and handles dataset splits.",
+        "file": "dataset_loader.py"
+      }
+    ],
+    "\"Implementation Details\"": [
+      {
+        "component": "dataset_loader.py:MoleculeDataset",
+        "description": "A dataset class that loads molecules from a SMILES file, filters invalid molecules,\n    converts them into torch_geometric Data objects, and handles dataset splits.",
+        "file": "dataset_loader.py"
+      },
+      {
+        "component": "fgib.py:FGIB",
+        "description": "Implements the Goal-aware Fragment Information Bottleneck.",
+        "file": "fgib.py"
+      },
+      {
+        "component": "model.py:EdgeEncoder",
+        "description": "Encodes edge features into a dense vector space.",
+        "file": "model.py"
+      },
+      {
+        "component": "model.py:GCNConv",
+        "description": "Custom GCN layer that incorporates edge features.",
+        "file": "model.py"
+      }
+    ],
+    "etc.": [
+      {
+        "component": "dataset_loader.py:MoleculeDataset",
+        "description": "A dataset class that loads molecules from a SMILES file, filters invalid molecules,\n    converts them into torch_geometric Data objects, and handles dataset splits.",
+        "file": "dataset_loader.py"
+      }
+    ],
+    "The provided paper sections do not seem to contain any relevant information related to the code component. Please provide more relevant paper sections.": [
+      {
+        "component": "dataset_loader.py:__init__",
+        "description": "Args:\n            root: Directory for saving processed dataset.\n            smiles_list: List of SMILES strings to load.\n            properties: Optional list of target property values corresponding to SMILES.\n            transform: Optional transform for data.\n            pre_transform: Optional pre-processing transform.",
+        "file": "dataset_loader.py"
+      },
+      {
+        "component": "evaluation.py:calculate_sa",
+        "description": "Calculate Synthetic Accessibility (SA) score using rdkit.",
+        "file": "evaluation.py"
+      },
+      {
+        "component": "evaluation.py:evaluate_molecules",
+        "description": "Evaluates generated molecules:\n    - Computes docking score (normalized), QED, SA\n    - Computes combined property Y\n    - Computes similarity and novelty\n    - Computes #Circles (diversity)\n    - Visualizes interactions\n    Returns: dict of metrics and optionally visualizations.",
+        "file": "evaluation.py"
+      },
+      {
+        "component": "sac_policy.py:for",
+        "description": "Encode current molecule graph to a fixed vector.\n        Args:\n            mol_data: torch_geometric Data object representing molecule\n        Returns:\n            graph embedding: tensor [hidden_dim]",
+        "file": "sac_policy.py"
+      },
+      {
+        "component": "sac_policy.py:gumbel_softmax",
+        "description": "Sample from Gumbel-Softmax with optional hard approximation.",
+        "file": "sac_policy.py"
+      },
+      {
+        "component": "sac_policy.py:is_valid_molecule",
+        "description": "Checks whether a molecule is chemically valid.",
+        "file": "sac_policy.py"
+      },
+      {
+        "component": "sac_policy.py:train_agent",
+        "description": "Runs the SAC-based molecule generation process.\n    Args:\n        initial_molecule: RDKit Mol object (e.g., benzene)\n        goal_vocabulary: list of fragment Data objects\n        oracle_func: function to evaluate property/reward\n        num_epochs: training epochs for SAC\n        max_steps: max steps per episode\n    Returns:\n        final molecule object",
+        "file": "sac_policy.py"
+      }
+    ],
+    "The provided paper sections are not sufficient to link with the given code component. Please provide more relevant paper sections.": [
+      {
+        "component": "evaluation.py:calculate_docking_score",
+        "description": "Calculates the docking score of a molecule against a target protein.\n    Assumes QuickVina2 is installed and callable via subprocess.",
+        "file": "evaluation.py"
+      },
+      {
+        "component": "fgib.py:GNNEncoder",
+        "description": "GNN encoder with message passing layers for node embedding.",
+        "file": "fgib.py"
+      },
+      {
+        "component": "model.py:__init__",
+        "description": "Custom GCN layer that incorporates edge features.",
+        "file": "model.py"
+      },
+      {
+        "component": "sac_policy.py:attach_fragment",
+        "description": "Attaches fragment to current_mol at specified sites.\n    Args:\n        current_mol: RDKit molecule object\n        fragment: RDKit molecule object\n        site_on_current: atom index on current_mol to bond\n        site_on_fragment: atom index on fragment to bond\n    Returns:\n        new_mol: RDKit molecule object or None if invalid\n        success: bool",
+        "file": "sac_policy.py"
+      }
+    ],
+    "The paper sections are not provided in the question. Please provide the paper sections to proceed.": [
+      {
+        "component": "evaluation.py:calculate_qed",
+        "description": "Calculate QED using RDKit.",
+        "file": "evaluation.py"
+      },
+      {
+        "component": "ga_optimizer.py:GAOptimizer",
+        "description": "Genetic Algorithm module for molecule evolution in the GEAM framework.\n    Implements population initialization, selection, crossover, mutation, and reproduction.",
+        "file": "ga_optimizer.py"
+      },
+      {
+        "component": "ga_optimizer.py:__init__",
+        "description": "Args:\n            config (dict): Configuration parameters from \"config.yaml\"\n                - 'population_size': int\n                - 'mutation_rate': float\n                - 'max_size': int\n                - 'reproduction_count': int",
+        "file": "ga_optimizer.py"
+      }
+    ],
+    "The provided paper sections do not seem to contain any relevant information related to the code component. Please provide more detailed paper sections.": [
+      {
+        "component": "evaluation.py:visualize_interaction",
+        "description": "Generate and save a PLIP interaction diagram between molecule and protein.",
+        "file": "evaluation.py"
+      }
+    ],
+    "The provided information does not include any paper sections related to the code component. Please provide relevant paper sections.": [
+      {
+        "component": "fgib.py:GCNConv",
+        "description": "Custom GCN layer with edge features.",
+        "file": "fgib.py"
+      }
+    ],
+    "Without specific section names/titles related to the code component": [
+      {
+        "component": "fgib.py:FGIB",
+        "description": "Implements the Goal-aware Fragment Information Bottleneck.",
+        "file": "fgib.py"
+      }
+    ],
+    "it's impossible to provide an accurate answer. However": [
+      {
+        "component": "fgib.py:FGIB",
+        "description": "Implements the Goal-aware Fragment Information Bottleneck.",
+        "file": "fgib.py"
+      }
+    ],
+    "typically": [
+      {
+        "component": "fgib.py:FGIB",
+        "description": "Implements the Goal-aware Fragment Information Bottleneck.",
+        "file": "fgib.py"
+      },
+      {
+        "component": "model.py:EdgeEncoder",
+        "description": "Encodes edge features into a dense vector space.",
+        "file": "model.py"
+      }
+    ],
+    "sections like \"Methodology\"": [
+      {
+        "component": "fgib.py:FGIB",
+        "description": "Implements the Goal-aware Fragment Information Bottleneck.",
+        "file": "fgib.py"
+      },
+      {
+        "component": "model.py:EdgeEncoder",
+        "description": "Encodes edge features into a dense vector space.",
+        "file": "model.py"
+      },
+      {
+        "component": "model.py:GCNConv",
+        "description": "Custom GCN layer that incorporates edge features.",
+        "file": "model.py"
+      }
+    ],
+    "or \"Algorithm Description\" might be relevant for a code component like this. Please provide the actual section names/titles for a more accurate answer.": [
+      {
+        "component": "fgib.py:FGIB",
+        "description": "Implements the Goal-aware Fragment Information Bottleneck.",
+        "file": "fgib.py"
+      }
+    ],
+    "The provided information is not sufficient to identify the relevant paper sections for the given code component. Please provide more detailed paper sections related to the code component.": [
+      {
+        "component": "fgib.py:__init__",
+        "description": "Args:\n            data: torch_geometric.data.Data with x, edge_index, edge_attr\n        Returns:\n            node_embeddings: [num_nodes, hidden_dim]",
+        "file": "fgib.py"
+      }
+    ],
+    "Without more specific section names": [
+      {
+        "component": "model.py:EdgeEncoder",
+        "description": "Encodes edge features into a dense vector space.",
+        "file": "model.py"
+      }
+    ],
+    "it's impossible to accurately determine the most relevant sections for the given code component. However": [
+      {
+        "component": "model.py:EdgeEncoder",
+        "description": "Encodes edge features into a dense vector space.",
+        "file": "model.py"
+      }
+    ],
+    "\"Model Architecture\"": [
+      {
+        "component": "model.py:EdgeEncoder",
+        "description": "Encodes edge features into a dense vector space.",
+        "file": "model.py"
+      },
+      {
+        "component": "model.py:GCNConv",
+        "description": "Custom GCN layer that incorporates edge features.",
+        "file": "model.py"
+      }
+    ],
+    "or \"Feature Encoding\" could potentially discuss the encoding of edge features into a dense vector space.": [
+      {
+        "component": "model.py:EdgeEncoder",
+        "description": "Encodes edge features into a dense vector space.",
+        "file": "model.py"
+      }
+    ],
+    "Without more specific paper sections": [
+      {
+        "component": "model.py:GCNConv",
+        "description": "Custom GCN layer that incorporates edge features.",
+        "file": "model.py"
+      }
+    ],
+    "it's impossible to accurately link the code component to the paper sections. Typically": [
+      {
+        "component": "model.py:GCNConv",
+        "description": "Custom GCN layer that incorporates edge features.",
+        "file": "model.py"
+      }
+    ],
+    "or \"Experimental Setup\" would be relevant for a code component like a custom GCN layer.": [
+      {
+        "component": "model.py:GCNConv",
+        "description": "Custom GCN layer that incorporates edge features.",
+        "file": "model.py"
+      }
+    ],
+    "Without specific section names": [
+      {
+        "component": "model.py:GNNEncoder",
+        "description": "GNN encoder with multiple message passing steps for molecular graphs.",
+        "file": "model.py"
+      }
+    ],
+    "it's hard to provide an accurate answer. However": [
+      {
+        "component": "model.py:GNNEncoder",
+        "description": "GNN encoder with multiple message passing steps for molecular graphs.",
+        "file": "model.py"
+      },
+      {
+        "component": "sac_policy.py:compute_reward",
+        "description": "Evaluate molecule property/score via external oracle, e.g., docking.\n    Args:\n        molecule: RDKit Mol object\n        oracle_func: function to evaluate property; returns scalar\n    Returns:\n        reward: float",
+        "file": "sac_policy.py"
+      }
+    ],
+    "based on the code component description": [
+      {
+        "component": "model.py:GNNEncoder",
+        "description": "GNN encoder with multiple message passing steps for molecular graphs.",
+        "file": "model.py"
+      }
+    ],
+    "the most relevant sections could be \"Methodology\"": [
+      {
+        "component": "model.py:GNNEncoder",
+        "description": "GNN encoder with multiple message passing steps for molecular graphs.",
+        "file": "model.py"
+      },
+      {
+        "component": "sac_policy.py:compute_reward",
+        "description": "Evaluate molecule property/score via external oracle, e.g., docking.\n    Args:\n        molecule: RDKit Mol object\n        oracle_func: function to evaluate property; returns scalar\n    Returns:\n        reward: float",
+        "file": "sac_policy.py"
+      }
+    ],
+    "\"Model Implementation\"": [
+      {
+        "component": "model.py:GNNEncoder",
+        "description": "GNN encoder with multiple message passing steps for molecular graphs.",
+        "file": "model.py"
+      }
+    ],
+    "\"Graph Neural Networks\"": [
+      {
+        "component": "model.py:GNNEncoder",
+        "description": "GNN encoder with multiple message passing steps for molecular graphs.",
+        "file": "model.py"
+      }
+    ],
+    "or \"Experimental Setup\". Please provide the actual section names for a more accurate match.": [
+      {
+        "component": "model.py:GNNEncoder",
+        "description": "GNN encoder with multiple message passing steps for molecular graphs.",
+        "file": "model.py"
+      }
+    ],
+    "The provided information is insufficient to determine the most relevant paper sections for the code component. Please provide more details about the code component and the paper sections.": [
+      {
+        "component": "sac_policy.py:SACTrainer",
+        "description": "",
+        "file": "sac_policy.py"
+      }
+    ],
+    "Without specific section names/titles": [
+      {
+        "component": "sac_policy.py:gumbel_softmax_sample",
+        "description": "Sample from Gumbel-Softmax distribution.",
+        "file": "sac_policy.py"
+      }
+    ],
+    "it's impossible to accurately link the code component to the paper sections. Please provide the section names/titles.": [
+      {
+        "component": "sac_policy.py:gumbel_softmax_sample",
+        "description": "Sample from Gumbel-Softmax distribution.",
+        "file": "sac_policy.py"
+      }
+    ],
+    "Without the full list of paper sections": [
+      {
+        "component": "sac_policy.py:compute_reward",
+        "description": "Evaluate molecule property/score via external oracle, e.g., docking.\n    Args:\n        molecule: RDKit Mol object\n        oracle_func: function to evaluate property; returns scalar\n    Returns:\n        reward: float",
+        "file": "sac_policy.py"
+      }
+    ],
+    "based on the code component": [
+      {
+        "component": "sac_policy.py:compute_reward",
+        "description": "Evaluate molecule property/score via external oracle, e.g., docking.\n    Args:\n        molecule: RDKit Mol object\n        oracle_func: function to evaluate property; returns scalar\n    Returns:\n        reward: float",
+        "file": "sac_policy.py"
+      }
+    ],
+    "\"Experiment Setup\"": [
+      {
+        "component": "sac_policy.py:compute_reward",
+        "description": "Evaluate molecule property/score via external oracle, e.g., docking.\n    Args:\n        molecule: RDKit Mol object\n        oracle_func: function to evaluate property; returns scalar\n    Returns:\n        reward: float",
+        "file": "sac_policy.py"
+      }
+    ],
+    "\"Results and Discussion\". Please provide the full list of sections for a more accurate answer.": [
+      {
+        "component": "sac_policy.py:compute_reward",
+        "description": "Evaluate molecule property/score via external oracle, e.g., docking.\n    Args:\n        molecule: RDKit Mol object\n        oracle_func: function to evaluate property; returns scalar\n    Returns:\n        reward: float",
+        "file": "sac_policy.py"
+      }
+    ],
+    "The provided information is insufficient to determine the most relevant paper sections for the given code component. Please provide more details about the function in the file 'sac_policy.py' and its purpose.": [
+      {
+        "component": "sac_policy.py:molecule_to_data",
+        "description": "",
+        "file": "sac_policy.py"
+      }
+    ]
+  },
+  "paper_sections": [
+    {
+      "section": "Abstract",
+      "text": "Seul Lee 1 Seanie Lee 1 Kenji Kawaguchi 2 Sung Ju Hwang 1 3",
+      "ontology": "abstract"
+    }
+  ],
+  "coverage_score": 38.0
+}

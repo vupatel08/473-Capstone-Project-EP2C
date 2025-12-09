@@ -1,0 +1,216 @@
+## utils.py
+
+import torch
+import torch.nn as nn
+import torch.nn.functional as F
+import time
+from typing import List, Tuple, Dict, Optional
+
+# -------------------- 1. Model Component Splitting Logic --------------------
+
+def generate_schedules(full_model: nn.Module, num_components: int) -> List[Tuple[int, int]]:
+    """
+    Automatically generate layer-wise splits of the full model into N parts,
+    aiming for balanced computational load.
+    For simplicity, splits are made at layer boundaries assuming full_model is nn.Sequential or has layers attribute.
+    Special handling (like for SDXL) can be added with an argument or custom logic.
+    """
+    # Obtain full list of layers
+    if hasattr(full_model, 'layers'):
+        layers = list(full_model.layers)
+    elif isinstance(full_model, nn.Sequential):
+        layers = list(full_model.children())
+    else:
+        # Attempt to treat as nn.Module with submodules
+        layers = list(full_model.children())
+
+    total_layers = len(layers)
+    # For SDXL or special grouping, implement specific logic if needed
+    layer_slices = []
+
+    # Simple evenly partition
+    layer_size = total_layers // num_components
+    for idx in range(num_components):
+        start_idx = idx * layer_size
+        # Last slice takes remaining layers
+        end_idx = (idx + 1) * layer_size if idx != num_components -1 else total_layers
+        layer_slices.append((start_idx, end_idx))
+    return layer_slices
+
+# -------------------- 2. Tensor Operations & Feature Normalization --------------------
+
+def normalize_feature(tensor: torch.Tensor, method: str='l2') -> torch.Tensor:
+    """
+    Normalize features for high similarity comparison.
+    """
+    if method == 'l2':
+        norm = torch.norm(tensor, p=2, dim=1, keepdim=True)
+        return tensor / (norm + 1e-8)
+    elif method == 'max':
+        max_val, _ = torch.max(tensor, dim=1, keepdim=True)
+        return tensor / (max_val + 1e-8)
+    elif method == 'mean':
+        mean_val = torch.mean(tensor, dim=1, keepdim=True)
+        return tensor / (mean_val + 1e-8)
+    else:
+        raise ValueError(f"Unknown normalization method: {method}")
+
+def cosine_similarity(tensor1: torch.Tensor, tensor2: torch.Tensor) -> float:
+    """
+    Compute cosine similarity between two tensors.
+    """
+    tensor1_norm = F.normalize(tensor1, p=2, dim=-1)
+    tensor2_norm = F.normalize(tensor2, p=2, dim=-1)
+    return (tensor1_norm * tensor2_norm).sum(dim=-1).mean().item()
+
+# -------------------- 3. Performance Measurement --------------------
+
+def measure_inference_time(model_fn, inputs, repetitions: int = 10) -> float:
+    """
+    Measure average inference time (seconds) of model_fn on inputs.
+    Includes synchronization for accurate timing.
+    """
+    torch.cuda.synchronize()
+    start = time.time()
+    for _ in range(repetitions):
+        with torch.no_grad():
+            model_fn(inputs)
+    torch.cuda.synchronize()
+    duration = (time.time() - start) / repetitions
+    return duration
+
+# -------------------- 4. Prepare Input for Components (Stride & Approx) --------------------
+
+def prepare_component_input(
+    x_t: torch.Tensor,
+    hidden_state: torch.Tensor,
+    time_embedding: torch.Tensor,
+    component_idx: int,
+    total_components: int,
+    stride: int
+) -> torch.Tensor:
+    """
+    Prepare input tensor for a component taking into account high similarity assumption.
+    For stride > 1, may skip some steps or interpolate.
+    For simplicity, here we assume the input is the current noisy sample at t,
+    with optional reuse from previous hidden_state if available.
+    """
+    # For now, just return x_t; in practice, can incorporate high_sim features
+    # For stride S, real implementation might interpolate or cache features accordingly
+    return x_t
+
+# -------------------- 5. Dataset Handling --------------------
+
+def load_and_preprocess_dataset(
+    dataset_name:str, image_size:int, split_ratio:float,
+    max_samples:Optional[int]=None
+):
+    """
+    Load dataset (e.g., MS COCO), resize images, perform split.
+    """
+    from torchvision.datasets import CocoCaptions
+    import os
+    import random
+
+    # Set seed for reproducibility
+    seed = 42
+    random.seed(seed)
+
+    dataset_path = './datasets/'  # assuming default root; can be adapted
+
+    if dataset_name.lower() in ('ms coco', 'coco'):
+        train_ann = os.path.join(dataset_path, 'annotations', 'instances_train2017.json')
+        val_ann = os.path.join(dataset_path, 'annotations', 'instances_val2017.json')
+        train_img_dir = os.path.join(dataset_path, 'images', 'train2017')
+        val_img_dir = os.path.join(dataset_path, 'images', 'val2017')
+        full_train = CocoCaptions(train_img_dir, train_ann, transform= ) # to be assigned externally
+        full_val = CocoCaptions(val_img_dir, val_ann, transform= )
+    else:
+        raise NotImplementedError(f"Dataset {dataset_name} not supported.")
+
+    # Subsample if needed
+    def subset_dataset(ds):
+        if max_samples is not None and len(ds) > max_samples:
+            indices = list(range(len(ds)))
+            random.shuffle(indices)
+            selected = indices[:max_samples]
+            from torch.utils.data import Subset
+            return Subset(ds, selected)
+        else:
+            return ds
+
+    train_dataset = subset_dataset(full_train)
+    val_dataset = subset_dataset(full_val)
+
+    # Return datasets; loaders to be constructed elsewhere
+    return train_dataset, val_dataset
+
+# -------------------- 6. Broadcast & Gather Utilities --------------------
+
+def broadcast_hidden_state(state: torch.Tensor, device_ids: List[int]) -> None:
+    """
+    Broadcast a tensor from the device corresponding to device_ids[0]
+    to all devices in the list, using torch.distributed.
+    """
+    import torch.distributed as dist
+    # Determine source rank: current process/device
+    # Assuming process/device mapping is 1:1
+    src_rank = 0  # assume process rank 0 among device_ids is root
+    # Move tensor to the device of current process if needed
+    # For simplicity, assuming tensor is on correct device
+    dist.broadcast(tensor=state, src=src_rank)
+
+def gather_hidden_states(states: List[torch.Tensor]) -> List[torch.Tensor]:
+    """
+    Gather tensors from all processes/devices into a list.
+    """
+    import torch.distributed as dist
+    gather_list = [torch.empty_like(states[0]) for _ in range(dist.get_world_size())]
+    # Each process should put its local state in 'states_local'
+    # For simplicity, assume 'states' is the local tensor
+    dist.all_gather(gather_list, states)
+    return gather_list
+
+# -------------------- 7. Feature Similarity & Normalization --------------------
+
+def get_high_similarity_feature(feature: torch.Tensor) -> torch.Tensor:
+    """
+    Normalize feature for high similarity calculations.
+    """
+    return normalize_feature(feature, method='l2')
+
+# -------------------- 8. Device & Parameter Management --------------------
+
+def freeze_model_parameters(model: nn.Module) -> None:
+    """
+    Freeze parameters for inference or when training with fixed weights.
+    """
+    for param in model.parameters():
+        param.requires_grad = False
+
+def initialize_hidden_states(
+    components: List[nn.Module],
+    device_list: List[torch.device]
+) -> List[torch.Tensor]:
+    """
+    Initialize hidden states as zeros, or load if needed.
+    """
+    hidden_states = []
+    for comp, device in zip(components, device_list):
+        # Assuming some size; here, just create dummy tensors
+        # In practice, match actual feature shapes
+        dummy_size = (1, 3, 512, 512)  # placeholder shape
+        hidden_states.append(torch.zeros(dummy_size, device=device))
+    return hidden_states
+
+def update_hidden_states(
+    current_states: List[torch.Tensor],
+    new_states: List[torch.Tensor]
+) -> None:
+    """
+    Update stored hidden states in-place.
+    """
+    for i in range(len(current_states)):
+        current_states[i] = new_states[i].detach()
+
+# -------------------- 9. Additional utilities can be added as needed --------------------

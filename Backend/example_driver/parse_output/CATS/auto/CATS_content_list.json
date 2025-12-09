@@ -1,0 +1,2848 @@
+[
+    {
+        "type": "text",
+        "text": "Are Self-Attentions Effective for Time Series Forecasting? ",
+        "text_level": 1,
+        "bbox": [
+            325,
+            122,
+            673,
+            172
+        ],
+        "page_idx": 0
+    },
+    {
+        "type": "text",
+        "text": "Dongbin $\\mathbf { K i m ^ { 1 } }$ , Jinseong Park1, Jaewook Lee1\\*, Hoki Kim2\\* 1Seoul National University 2Chung-Ang University {dongbin413,jinseong,jaewook}@snu.ac.kr, hokikim@cau.ac.kr ",
+        "bbox": [
+            245,
+            223,
+            748,
+            281
+        ],
+        "page_idx": 0
+    },
+    {
+        "type": "text",
+        "text": "Abstract ",
+        "text_level": 1,
+        "bbox": [
+            462,
+            315,
+            535,
+            332
+        ],
+        "page_idx": 0
+    },
+    {
+        "type": "text",
+        "text": "Time series forecasting is crucial for applications across multiple domains and various scenarios. Although Transformers have dramatically advanced the landscape of forecasting, their effectiveness remains debated. Recent findings have indicated that simpler linear models might outperform complex Transformer-based approaches, highlighting the potential for more streamlined architectures. In this paper, we shift the focus from evaluating the overall Transformer architecture to specifically examining the effectiveness of self-attention for time series forecasting. To this end, we introduce a new architecture, Cross-Attention-only Time Series transformer (CATS), that rethinks the traditional transformer framework by eliminating self-attention and leveraging cross-attention mechanisms instead. By establishing future horizon-dependent parameters as queries and enhanced parameter sharing, our model not only improves long-term forecasting accuracy but also reduces the number of parameters and memory usage. Extensive experiment across various datasets demonstrates that our model achieves superior performance with the lowest mean squared error and uses fewer parameters compared to existing models. The implementation of our model is available at: https://github.com/dongbeank/CATS. ",
+        "bbox": [
+            233,
+            348,
+            766,
+            569
+        ],
+        "page_idx": 0
+    },
+    {
+        "type": "text",
+        "text": "1 Introduction ",
+        "text_level": 1,
+        "bbox": [
+            174,
+            594,
+            310,
+            613
+        ],
+        "page_idx": 0
+    },
+    {
+        "type": "text",
+        "text": "Time series forecasting plays a critical role within the machine learning society, given its applications ranging from financial forecasting to medical diagnostics. To improve the accuracy of predictions, researchers have extensively explored and developed various models. These range from traditional statistical methods to modern deep learning techniques. Most notably, Transformer [19] has brought about a paradigm shift in time series forecasting, resulting in numerous high-performance models, such as Informer [29], Autoformer [23], Pyraformer [11], FEDformer [31], and Crossformer [28]. This line of work establishes new benchmarks for high performance in time series forecasting. ",
+        "bbox": [
+            174,
+            627,
+            825,
+            724
+        ],
+        "page_idx": 0
+    },
+    {
+        "type": "text",
+        "text": "However, Zeng et al. [26] have raised questions about the effectiveness of Transformer-based time series forecasting models especially for long term time series forecasting. Specifically, their experiments demonstrated that simple linear models could outperform these Transformer-based approaches, thereby opening new avenues for research into simpler architectural frameworks. Indeed, the following studies [12, 6] have further validated that these linear models can be enhanced by incorporating additional features. ",
+        "bbox": [
+            174,
+            731,
+            825,
+            814
+        ],
+        "page_idx": 0
+    },
+    {
+        "type": "text",
+        "text": "Despite these developments, the effectiveness of each components in Transformer architecture in time series forecasting remains a subject of debate. Nie et al. [14] introduced an encoder-only Transformer that utilizes patching rather than point-wise input tokens, which exhibited improved performance compared to linear models. Zeng et al. [26] also highlighted potential shortcomings in simpler linear networks, such as their inability to capture temporal dynamics at change points [18] compared to Transformers. Consequently, while a streamlined architecture may be beneficial, it is imperative to critically evaluate which elements of the Transformer are necessary and which are not for time series modeling. ",
+        "bbox": [
+            174,
+            820,
+            823,
+            876
+        ],
+        "page_idx": 0
+    },
+    {
+        "type": "image",
+        "img_path": "images/fa8cecafa1611c14db28a8dc168cfb54ea012b1e8e1f08298288835719fcbbd0.jpg",
+        "image_caption": [
+            "Figure 1: Experimental results illustrating the mean squared error (MSE) and the number of parameters with varying input sequence lengths on ETTm1. Each bubble represents a different model, with the bubble size indicating the number of parameters in millions—larger bubbles denote models with more parameters. Our model consistently shows the lowest MSE (i.e., best performance) with fewer parameters even for longer input sequences. The detailed results can be found in Table 5. "
+        ],
+        "image_footnote": [],
+        "bbox": [
+            176,
+            92,
+            820,
+            261
+        ],
+        "page_idx": 1
+    },
+    {
+        "type": "text",
+        "text": "",
+        "bbox": [
+            174,
+            371,
+            825,
+            426
+        ],
+        "page_idx": 1
+    },
+    {
+        "type": "text",
+        "text": "In light of these considerations, our study shifts focus from the overall architecture of the Transformer to a more specific question: Are self-attentions effective for time series forecasting? While this question is also noted in [26], their analysis was limited to substituting attention layers with linear layers, leaving substantial room for potential model design when focusing on Transformers. Furthermore, the issue of temporal information loss (i.e., permutation-invariant and anti-order characteristics of self-attention) is predominantly caused by the use of self-attention rather than the Transformer architecture itself. Therefore, we aim to resolve the issues of self-attention and therefore propose a new forecasting architecture that achieves higher performance with a more efficient structure. ",
+        "bbox": [
+            174,
+            433,
+            825,
+            544
+        ],
+        "page_idx": 1
+    },
+    {
+        "type": "text",
+        "text": "In this paper, we introduce a novel forecasting architecture named Cross-Attention-only Time Series transformer (CATS) that simplifies the original Transformer architecture by eliminating all selfattentions and focusing on the potential of cross-attentions. Specifically, our model establishes future horizon-dependent parameters as queries and treats past time series data as key and value pairs. This allows us to enhance parameter sharing and improve long-term forecasting performance. As shown in Figure 1, our model shows the lowest mean squared error (i.e., better forecasting performance) even for longer input sequences and with fewer parameters than existing models. Moreover, we demonstrate that this simplified architecture can provide a clearer understanding of how future predictions are derived from past data with individual attention maps for the specific forecasting horizon. Finally, through extensive experiments, we show that our proposed model not only achieves state-of-the-art performance but also requires fewer parameters and less memory consumption compared to previous Transformer models across various time series datasets. ",
+        "bbox": [
+            174,
+            550,
+            825,
+            715
+        ],
+        "page_idx": 1
+    },
+    {
+        "type": "text",
+        "text": "2 Related Work ",
+        "text_level": 1,
+        "bbox": [
+            174,
+            738,
+            321,
+            756
+        ],
+        "page_idx": 1
+    },
+    {
+        "type": "text",
+        "text": "Time Series Transformers Transformer models [19] have shown effective in various domains [5, 4, 15], with a novel encoder-decoder structure with self-attention, masked self-attention, and cross-attention. The self-attention mechanism is a key component for extracting semantic correlations between paired elements, even with identical input elements; however, autoregressive inference with self-attention requires quadratic time and memory complexity. Therefore, Informer [29] proposed directly predicting multi-steps, and a line of work, such as Autoformer [23], FEDformer [31], and Pyraformer [11], investigated the complexity issue in time series transformers. Simultaneously, unique properties of time series, such as stationarity [12], decomposition [23], frequency features [31], or cross-dimensional properties [28] were employed to modify the attention layer for forecasting tasks. Recently, researchers have investigated the essential architecture in Transformers to capture long-term dependencies. PatchTST [14] became a de-facto standard Transformer model by patching the time series input in a channel-independence manner, which is widely used in following Transformerbased forecasting models [13, 7]. On the other hand, Das et al. [3] emphasized the importance of decoder-only forecasting models, while they focused on zero-shot using pre-trained language models. However, none of them have investigated the importance of cross-attention for time series forecasting. ",
+        "bbox": [
+            174,
+            772,
+            825,
+            911
+        ],
+        "page_idx": 1
+    },
+    {
+        "type": "text",
+        "text": "",
+        "bbox": [
+            174,
+            90,
+            826,
+            161
+        ],
+        "page_idx": 2
+    },
+    {
+        "type": "text",
+        "text": "Temporal Information Encoding Fixed temporal order in time series is the distinct property of time series, in contrast to the language domain where semantic information does not heavily depend on the word ordering [4]. Thus, some researchers have used learnable positional encoding in Transformers to embed time-dependent properties [9, 23]. However, Zeng et al. [26] first argued that self-attention is not suitable for time series due to its permutation invariant and anti-order properties. While they focus on building complex representations, they are inefficient in maintaining the original context of historical and future values. They rather proposed linear models without any embedding layer and demonstrated that it can achieve better performance than Transformer models, particularly showing robust performance to long input sequences. Recent linear time series models outperformed previous Transformer models with simple architectures by focusing on pre-processing and frequencybased properties [10, 2, 21]. On the other hand, Woo et al. [22] investigated the new line of works of time-index models, which try to model the underlying dynamics with given time stamps. These related works imply that preserving the order of time series sequences plays a crucial role in time series forecasting. ",
+        "bbox": [
+            173,
+            174,
+            825,
+            368
+        ],
+        "page_idx": 2
+    },
+    {
+        "type": "text",
+        "text": "3 Revisiting Self-Attention in Time Series Forecasting ",
+        "text_level": 1,
+        "bbox": [
+            174,
+            387,
+            637,
+            405
+        ],
+        "page_idx": 2
+    },
+    {
+        "type": "text",
+        "text": "Motivation of Self-Attention Removal Following the concerns about the effectiveness of selfattention on temporal information preservation [26], we conduct an experiment using PatchTST [14]. We consider three variations of the PatchTST model: the original PatchTST with overlapping patches with length 16 and stride 8 (Fig. 2a); a modified PatchTST with non-overlapping patches with length 24 (Fig. 2b); and a version where self-attention is replaced by a linear embedding layer, using non-overlapping patches with length 24 (Fig. 2c). This setup allows us to isolate the effects of self-attention on temporal information preservation, while controlling for the impact of patch overlap. ",
+        "bbox": [
+            173,
+            419,
+            826,
+            516
+        ],
+        "page_idx": 2
+    },
+    {
+        "type": "image",
+        "img_path": "images/5317447b2011890c96daade8630f52eebb968ecdfc3d7de5874c5c6faa2be1e5.jpg",
+        "image_caption": [
+            "Figure 2: Absolute values of weights in the final linear layer for different PatchTST variations. The distinct patterns reveal how each model captures temporal information. "
+        ],
+        "image_footnote": [],
+        "bbox": [
+            238,
+            545,
+            759,
+            707
+        ],
+        "page_idx": 2
+    },
+    {
+        "type": "text",
+        "text": "Fig. 2 illustrates the absolute values of the weights in the final linear layer for these model variations. Compared to the original PatchTST (Fig. 2a), both non-overlapping versions (Fig. 2b and Fig. 2c) show more vivid patterns. The version with linear embedding (Fig. 2c) demonstrates the clearest capture of temporal information, suggesting that the self-attention mechanism itself may not be necessary for capturing temporal information. ",
+        "bbox": [
+            174,
+            770,
+            825,
+            839
+        ],
+        "page_idx": 2
+    },
+    {
+        "type": "text",
+        "text": "In Table 1, we summarize the forecasting performance of the original PatchTST (Fig. 2a) and PatchTST without self-attention (Fig. 2c). PatchTST without self-attention consistently improves or maintains performance across all forecasting horizons. Specifically, the original version with self-attention shows lower performance for longer forecast horizons. This result suggests that selfattention may not only be unnecessary for effective time series forecasting but could even hinder performance in certain cases. Therefore, better performance of w/o self-attention challenges the conventional belief regarding the importance of self-attention mechanisms in Transformer-based models for time series forecasting tasks. ",
+        "bbox": [
+            174,
+            845,
+            825,
+            915
+        ],
+        "page_idx": 2
+    },
+    {
+        "type": "text",
+        "text": "",
+        "bbox": [
+            174,
+            92,
+            593,
+            147
+        ],
+        "page_idx": 3
+    },
+    {
+        "type": "table",
+        "img_path": "images/91113e8f0296e00f1dc1db5d348bcdcf99bb3bfb2b5601c34b36760741d1f364.jpg",
+        "table_caption": [
+            "Table 1: Effect of self-attention in PatchTST on forecasting performance (MSE) on ETTm1. "
+        ],
+        "table_footnote": [],
+        "table_body": "<table><tr><td>Horizon</td><td>original</td><td>w/o self-attn</td></tr><tr><td>96</td><td>0.290</td><td>0.290</td></tr><tr><td>192</td><td>0.332</td><td>0.328</td></tr><tr><td>336</td><td>0.366</td><td>0.359</td></tr><tr><td>720</td><td>0.416</td><td>0.414</td></tr></table>",
+        "bbox": [
+            607,
+            143,
+            823,
+            214
+        ],
+        "page_idx": 3
+    },
+    {
+        "type": "text",
+        "text": "Our findings offer new insights into the role of self-attention in time series forecasting. As shown in Fig. 2 and Table 1, replacing self-attention with a linear layer not only captures clear temporal patterns but also results in significant performance improvements, particularly for longer forecast horizons. These results highlight potential areas for enhancing the handling of temporal information, beyond addressing the well-known concerns regarding computational complexity. ",
+        "bbox": [
+            174,
+            154,
+            596,
+            243
+        ],
+        "page_idx": 3
+    },
+    {
+        "type": "text",
+        "text": "",
+        "bbox": [
+            176,
+            237,
+            741,
+            251
+        ],
+        "page_idx": 3
+    },
+    {
+        "type": "image",
+        "img_path": "images/92552fa66c9f6a3d8cd4b3614f37eae1ce5b9d433c06e5caa906a35bd3e7aba4.jpg",
+        "image_caption": [
+            "Figure 3: Illustration of existing time series forecasting architectures and the proposed architecture. "
+        ],
+        "image_footnote": [],
+        "bbox": [
+            202,
+            303,
+            795,
+            419
+        ],
+        "page_idx": 3
+    },
+    {
+        "type": "text",
+        "text": "Rethinking Transformer Design Given the challenges associated with self-attention in time series forecasting, we propose a fundamental rethinking of the Transformer architecture for this task. Fig. 3 illustrates the differences between existing architectures and our proposed approach. Traditional Transformer architectures (Fig. 3a) and encoder-only models (Fig. 3b) rely heavily on self-attention mechanisms, which may lead to temporal information loss. In contrast, Zeng et al. [26] proposed a simplified linear model, DLinear (Fig. 3c), which removes all Transformer-based components. While this approach reduces computational load and potentially avoids some temporal information loss, it may struggle to capture complex temporal dependencies. ",
+        "bbox": [
+            173,
+            465,
+            825,
+            577
+        ],
+        "page_idx": 3
+    },
+    {
+        "type": "text",
+        "text": "To address these challenges while preserving the advantages of Transformer architectures, we propose the Cross-Attention-only Time Series transformer (CATS), depicted in Fig. 3d. Our approach removes all self-attention layers and focuses solely on cross-attention, aiming to better capture temporal dependencies while maintaining the structural advantages of the transformer architecture. In the following section, we will introduce our CATS model in detail, explaining our key innovations including a novel use of cross-attention, efficient parameter sharing, and adaptive masking techniques. ",
+        "bbox": [
+            174,
+            583,
+            826,
+            666
+        ],
+        "page_idx": 3
+    },
+    {
+        "type": "text",
+        "text": "4 Proposed Methodology ",
+        "text_level": 1,
+        "bbox": [
+            174,
+            695,
+            398,
+            713
+        ],
+        "page_idx": 3
+    },
+    {
+        "type": "text",
+        "text": "4.1 Problem Definition and Notations ",
+        "text_level": 1,
+        "bbox": [
+            174,
+            733,
+            446,
+            748
+        ],
+        "page_idx": 3
+    },
+    {
+        "type": "text",
+        "text": "A multivariate time series forecasting task aims to predict future values $\\tilde { \\cal X } = \\{ \\mathbf { x } _ { L + 1 } , \\dotsc , \\mathbf { x } _ { L + T } \\} \\in$ $\\mathbb { R } ^ { M \\times T }$ with the prediction $\\hat { \\pmb X } = \\{ \\hat { \\mathbf x } _ { L + 1 } , \\dots , \\hat { \\mathbf x } _ { L + T } \\} \\in \\mathbb { R } ^ { M \\times T }$ based on past datasets $\\boldsymbol { x } \\ =$ $\\left\\{ \\mathbf { x } _ { 1 } , \\ldots , \\mathbf { x } _ { L } \\right\\} \\in \\bar { \\mathbb { R } } ^ { M \\times L }$ . Here, $T$ represents the forecasting horizon, $L$ denotes the input sequence length, and $M$ represents the dimension of time series data. ",
+        "bbox": [
+            174,
+            762,
+            825,
+            821
+        ],
+        "page_idx": 3
+    },
+    {
+        "type": "text",
+        "text": "In traditional time series transformers, we feed the historical multivariate time series $\\boldsymbol { X }$ to embedding layers, resulting in the historical embedding $\\pmb { H } \\in \\mathbb { R } ^ { D \\times L }$ . Here, $D$ is the embedding size. Note that, in channel-independence manners, the multivariate input is considered to separate univariate time series $\\mathbf { x } \\in \\mathbb { R } ^ { 1 \\times L }$ . With patching [14], univariate time series $\\mathbf { x }$ transforms into patches $\\mathbf { p } =$ $\\mathtt { P a t c h } ( \\mathbf { x } ) \\in \\mathbb { R } ^ { P \\times N _ { L } }$ where $P$ is the size of each patch and $N _ { L }$ is the number of input patches. Similar to non-patching situations, patches are fed to embedding layers $P = \\mathtt { E m b e d d i n g } ( \\mathbf { p } ) \\in \\mathbb { R } ^ { D \\times N _ { L } }$ . ",
+        "bbox": [
+            174,
+            828,
+            825,
+            911
+        ],
+        "page_idx": 3
+    },
+    {
+        "type": "image",
+        "img_path": "images/117dd3f514d87248b1d54c335153de60a90069dd982476f3f6e9ebba3847b6a4.jpg",
+        "image_caption": [
+            "Figure 4: Illustration on the proposed model architecture. Our model removes all self-attentions from the original Transformer structure and focuses on cross-attentions. To fully utilize the cross-attention, we conceptualize the future horizon as queries and use the input time series (i.e., past time series) as keys and values (Fig. A). This simplified structure enables us to enhance the parameter sharing across forecasting horizons (Fig. B) and make use of query-adaptive masking (Fig. C) for performance. "
+        ],
+        "image_footnote": [],
+        "bbox": [
+            171,
+            92,
+            815,
+            354
+        ],
+        "page_idx": 4
+    },
+    {
+        "type": "text",
+        "text": "4.2 Model Structure ",
+        "text_level": 1,
+        "bbox": [
+            176,
+            467,
+            326,
+            482
+        ],
+        "page_idx": 4
+    },
+    {
+        "type": "text",
+        "text": "Our proposed architecture consists of three key components: (A) Cross-Attention with Future as Query, (B) Parameter Sharing across Horizons, and (C) Query-Adaptive Masking. Fig. 4 illustrates how our model modifies the traditional transformer structure. ",
+        "bbox": [
+            174,
+            496,
+            825,
+            536
+        ],
+        "page_idx": 4
+    },
+    {
+        "type": "text",
+        "text": "By focusing solely on cross-attention, our approach allows us to maintain the periodic properties of time series, which self-attention, with its permutation-invariant and anti-order characteristics, struggles to capture. Furthermore, we leverage advanced architectural designs of time series transformers, such as patching [14], which linear models cannot utilize. The following subsections provide detailed descriptions of each component of our CATS model, explaining how these elements work together to address the challenges of time series forecasting. ",
+        "bbox": [
+            174,
+            544,
+            825,
+            627
+        ],
+        "page_idx": 4
+    },
+    {
+        "type": "text",
+        "text": "Cross-Attention via Future as Query Similar to self-attention, the cross-attention mechanism employs three elements: key, query, and value. The distinctive feature of cross-attention is that the query originates from a different source than the key or value. Generally, the query component aims to identify the most relevant information among the keys and uses it to extract crucial data from the values [1, 27]. In the realm of time series forecasting, where predictions are often made for a specific target horizon—such as forecasting 10 steps ahead. Therefore, within this concept of forecasting, we argue that each future horizon should be regarded as a question, i.e., an independent query. ",
+        "bbox": [
+            174,
+            648,
+            825,
+            746
+        ],
+        "page_idx": 4
+    },
+    {
+        "type": "text",
+        "text": "To implement this, we establish horizon-dependent parameters as learnable queries. As shown in Fig. 4, we begin by creating parameters for the specified forecasting horizon. For each of these virtualized parameters, we assign a fixed number of parameters to represent the corresponding horizon as learnable queries q. For example, $\\mathbf { q } _ { i }$ is a horizon-dependent query at $L + i$ . When patching is applied, these queries are then processed independently; each learnable query $\\mathbf { q } \\in \\mathbb { R } ^ { P }$ is first fed into the embedding layer, and then fed into the multi-head attention with the embedded input time series patches as the key and value. ",
+        "bbox": [
+            174,
+            752,
+            825,
+            849
+        ],
+        "page_idx": 4
+    },
+    {
+        "type": "text",
+        "text": "Based on these new query parameters, we can utilize a cross-attention-only structure in the decoder, resulting in an advantage in efficiency. In Table 2, we summarize the time complexity of recent Transformer models and ours. The results indicate that our method only requires the time complexity of $\\mathcal { O } ( L T / P ^ { 2 } )$ , where most of the Transformer-based models require ${ \\dot { \\mathcal { O } } } ( L ^ { 2 } )$ except FEDformer and ",
+        "bbox": [
+            176,
+            856,
+            825,
+            911
+        ],
+        "page_idx": 4
+    },
+    {
+        "type": "table",
+        "img_path": "images/5a1e52cf78da48ddfd6014c81c5e75210364d6476d388ef2e0dca35ef2df8f3e.jpg",
+        "table_caption": [
+            "Table 2: Time complexity of Transformer-based models to calculate attention outputs. Time refers to the inference time obtained by averaging 10 runs under $L = 9 6$ and $T = 7 2 0$ on Electricity. "
+        ],
+        "table_footnote": [],
+        "table_body": "<table><tr><td>Method</td><td>Encoder</td><td>Decoder</td><td>Time</td><td>Method</td><td>Encoder</td><td>Decoder</td><td>Time</td></tr><tr><td>Transformer [13]</td><td>O(L2)</td><td>O(T (T + L))</td><td>10.4ms</td><td>Informer [29]</td><td>O(L log L)</td><td>O(T (T + log L))</td><td>13.5ms</td></tr><tr><td>Autoformer [23]</td><td>O(Llog L)</td><td>O ((L/2 + H) log (L/2 + T ))</td><td>24.1ms</td><td>Pyraformer [11]</td><td>O(L)</td><td>O(T (T + L))</td><td>11.2ms</td></tr><tr><td>FEDformer [31]</td><td>O(L)</td><td>O (L/2 + H)</td><td>69.3ms</td><td>Crossformer [28]</td><td>O (M L2/P2)</td><td>O (MT(T + L)/P2)</td><td>30.6ms</td></tr><tr><td>PatchTST [14]</td><td>O (L2/P2)</td><td></td><td>7.6ms</td><td>CATS (Ours)</td><td></td><td>O (LT/P 2)</td><td>7.0ms</td></tr></table>",
+        "bbox": [
+            173,
+            126,
+            825,
+            184
+        ],
+        "page_idx": 5
+    },
+    {
+        "type": "text",
+        "text": "Pyraformer. However, since these two models have an encoder-decoder and a relatively huge amount of parameters, they require $1 0 \\mathrm { x }$ and $4 \\mathbf { x }$ computational times than ours, respectively. ",
+        "bbox": [
+            174,
+            210,
+            823,
+            239
+        ],
+        "page_idx": 5
+    },
+    {
+        "type": "text",
+        "text": "Parameter Sharing across Horizons One of the strongest benefits of cross-attention via future horizon as a query $\\mathbf { q }$ is that each cross-attention is only calculated on the values from a single forecasting horizon and the input time series. Mathematically, for a prediction of future value $\\hat { \\mathbf { x } } _ { L + i }$ can be expressed as a function solely dependent on the past samples $X = [ \\mathbf { x } _ { 1 } , . . . , \\mathbf { x } _ { L } ]$ and $\\mathbf { q } _ { i }$ , independent of ${ \\bf q } _ { j }$ for all $i \\neq j$ or $i$ and $j$ are not in the same patch. ",
+        "bbox": [
+            173,
+            253,
+            825,
+            324
+        ],
+        "page_idx": 5
+    },
+    {
+        "type": "text",
+        "text": "This independent forecasting mechanism offers a notable advantage; a higher level of parameter sharing. As demonstrated in [14], significant reductions in the required number of parameters can be achieved in time series forecasting through parameter sharing between inputs or patches, enhancing computational efficiency. Regarding this, we propose parameter sharing across all possible layers — the embedding layer, multi-head attention, and projection layer — for every horizon-dependent query q. In other words, all horizon queries $\\mathbf { q } _ { 1 } , \\ldots , \\mathbf { q } _ { T }$ or $\\mathbf { q } _ { 1 } , \\ldots , \\mathbf { q } _ { N _ { T } }$ share the same embedding layer used for the input time series $\\mathbf { x } _ { 1 } , \\ldots , \\mathbf { x } _ { L }$ or patches $\\mathbf { p } _ { 1 } , \\ldots , \\mathbf { p } _ { N _ { L } }$ before proceeding to the cross-attention layer, respectively. Furthermore, to maximize the parameter sharing, we also propose cross-dimension sharing that uses the same query parameters for all dimensions. ",
+        "bbox": [
+            173,
+            330,
+            825,
+            455
+        ],
+        "page_idx": 5
+    },
+    {
+        "type": "text",
+        "text": "For the multi-head attention and projection layers, we apply the same algorithm across horizons. Notably, unlike the approach in PatchTST [14], we also share the projection layer for each prediction. Specifically, PatchTST, being an encoder-only model, employs a fully connected layer as the projection layer for the encoder outputs $\\pmb { P } \\in \\mathbb { R } ^ { D \\times N _ { L } }$ , resulting in $( D \\times N _ { L } ) \\times T$ parameters. In contrast, our model first processes raw queries $\\mathbf { q } = [ \\mathbf { q } _ { 1 } , \\dots , \\mathbf { q } _ { N _ { T } } ] \\in \\mathbb { R } ^ { P \\times N _ { T } }$ . These queries are then embedded through the cross-attention mechanism, resulting in $\\pmb { \\dot { Q } } = [ \\pmb { q } _ { 1 } , \\dots , \\pmb { q } _ { N _ { T } } ] \\in \\mathbb { R } ^ { D \\times N _ { T } }$ . The final projection uses shared parameters $W \\in \\mathbb { R } ^ { P \\times D }$ , producing an output $W Q \\in \\bar { \\mathbb { R } } ^ { P \\times N _ { T } }$ . Thus, our number of parameters for this projection becomes $P \\times D$ , which is not proportionally increasing to $T$ . This approach significantly reduces time complexity during both the training and inference phases. ",
+        "bbox": [
+            173,
+            460,
+            825,
+            585
+        ],
+        "page_idx": 5
+    },
+    {
+        "type": "text",
+        "text": "In Table 3, we outline the impact of parameter sharing across different forecasting horizons. In contrast to the model without parameter sharing, which exhibits a rapid increase in parameters as the forecasting horizon extends, our model, which shares all layers including the projection layer, maintains a nearly consistent number of parameters. ",
+        "bbox": [
+            174,
+            592,
+            549,
+            675
+        ],
+        "page_idx": 5
+    },
+    {
+        "type": "table",
+        "img_path": "images/78ae31874a15b40642c72f42f2a2e383c41e622764b444e8e436077a08092aef.jpg",
+        "table_caption": [
+            "Table 3: Effect of parameter sharing across horizons on the number of parameters for different forecasting horizons on ETTh1. "
+        ],
+        "table_footnote": [],
+        "table_body": "<table><tr><td>Horizon</td><td>w/ sharing</td><td>w/o sharing</td></tr><tr><td>96</td><td>355,320</td><td>404,672</td></tr><tr><td>192</td><td>355,416</td><td>552,320</td></tr><tr><td>336</td><td>355,560</td><td>958,112</td></tr><tr><td>720</td><td>355,944</td><td>3,121,568</td></tr></table>",
+        "bbox": [
+            568,
+            657,
+            813,
+            733
+        ],
+        "page_idx": 5
+    },
+    {
+        "type": "text",
+        "text": "Additionally, all operations, including embedding and multi-head attention, are performed independently for each learnable query. This implies that the forecast for a specific horizon does not depend on other horizons. Such an approach allows us to generate distinct attention maps for each forecasting horizon, providing a clear understanding of how each prediction is derived. Please refer to Section 5.5. ",
+        "bbox": [
+            174,
+            681,
+            550,
+            737
+        ],
+        "page_idx": 5
+    },
+    {
+        "type": "text",
+        "text": "",
+        "bbox": [
+            176,
+            737,
+            826,
+            765
+        ],
+        "page_idx": 5
+    },
+    {
+        "type": "text",
+        "text": "Query-Adaptive Masking Parameter sharing across horizons enhances the efficiency of our proposed architecture and simplifies the model. However, we observed that a high degree of parameter sharing could lead to overfitting to the keys and values (i.e., past time series data), rather than the queries (i.e., forecasting horizon). Specifically, the model may converge to generate similar or identical predictions, $\\hat { \\mathbf { x } } _ { L + i }$ and $\\hat { \\mathbf { x } } _ { L + j }$ , despite receiving different horizon queries, $\\mathbf { q } _ { i }$ and ${ \\bf q } _ { j }$ (i.e., the target horizons differ). ",
+        "bbox": [
+            174,
+            779,
+            825,
+            863
+        ],
+        "page_idx": 5
+    },
+    {
+        "type": "text",
+        "text": "Therefore, to ensure the model focuses on each horizon-dependent query $\\mathbf { q }$ , we introduce a new technique that masks the attention outputs. As illustrated in the right-bottom figure of Fig. 4, for each horizon, we apply a mask to the direct connection from Multi-Head Attention to LayerNorm with a probability $p$ . This mask prevents access to the input time series information, resulting in only the query to influence future value predictions. This selective disconnection, rather than the application of dropout in the residual connections, helps the layers to concentrate more effectively on the forecasting queries. We note that this approach can be related to stochastic depth in residual networks [8]. The stochastic depth technique has proven effective across various tasks, such as vision tasks [17, 25]. To the best of our knowledge, this is the first application of stochastic depth in Transformers for time series forecasting. A detailed analysis of query-adaptive masking can be found in Appendix. ",
+        "bbox": [
+            176,
+            869,
+            825,
+            911
+        ],
+        "page_idx": 5
+    },
+    {
+        "type": "text",
+        "text": "",
+        "bbox": [
+            174,
+            90,
+            825,
+            189
+        ],
+        "page_idx": 6
+    },
+    {
+        "type": "text",
+        "text": "In summary, the framework described in this section, including cross-attention via future as query, parameter sharing across horizons, and query-adaptive masking, is named the Cross-Attention-only Time Series transformer (CATS). ",
+        "bbox": [
+            176,
+            194,
+            825,
+            236
+        ],
+        "page_idx": 6
+    },
+    {
+        "type": "text",
+        "text": "5 Experiments ",
+        "text_level": 1,
+        "bbox": [
+            174,
+            255,
+            312,
+            272
+        ],
+        "page_idx": 6
+    },
+    {
+        "type": "text",
+        "text": "In this section, we provide extensive experiments to provide the benefits of our proposed framework, CATS, including forecasting performance and computational efficiency. To this end, we use 7 different real-world datasets and 9 baseline models. For datasets, we use Electricity, ETT (ETTh1, ETTh2, ETTm1, and ETTm2), Weather, Traffic, and M4. These datasets are provided in [23] and [24] for time series forecasting benchmark, detailed in Appendix. ",
+        "bbox": [
+            174,
+            285,
+            825,
+            354
+        ],
+        "page_idx": 6
+    },
+    {
+        "type": "text",
+        "text": "For baselines, we utilize a wide range of various baselines, including the state-of-the-art long-term time series forecasting model TimeMixer [21], PatchTST [14], Timesnet [24], Crossformer [28], MICN [20], FiLM [30], DLinear [26], Autoformer [23], and Informer [29]. For both long-term and short-term time series forecasting results, we report performance of our model alongside the results of other models as presented in TimeMixer [21], ensuring a consistent comparison across all baselines. We used 4 NVIDIA RTX 4090 24GB GPUs with 2 Intel(R) Xeon(R) Gold 5218R CPUs $\\textcircled { a } 2 . 1 0 \\mathrm { G H z }$ for all experiments. ",
+        "bbox": [
+            174,
+            361,
+            825,
+            458
+        ],
+        "page_idx": 6
+    },
+    {
+        "type": "text",
+        "text": "5.1 Long-term Time Series Forecasting Results ",
+        "text_level": 1,
+        "bbox": [
+            174,
+            473,
+            513,
+            488
+        ],
+        "page_idx": 6
+    },
+    {
+        "type": "text",
+        "text": "To ease comparison, we follow the settings of [21] for long-term forecasting, using various forecast horizons with a fixed 96 input sequence length. Detailed settings are provided in the Appendix. Table 11 summarizes the forecasting performance across all datasets and baselines. Our proposed model, CATS, demonstrates superior performance in multivariate long-term forecasting tasks across multiple datasets. CATS consistently achieves the lowest Mean Squared Error (MSE) and Mean Absolute Error (MAE) on the Traffic dataset for all forecast horizons, outperforming all other models. For the Weather, Electricity, and ETT datasets, CATS shows competitive performance, achieving the best results on most forecast horizons. This indicates that CATS effectively captures underlying patterns in diverse time series data, highlighting its capability to handle complex temporal dependencies. Additional experiments with longer input sequence lengths of 512 are provided in the Appendix. ",
+        "bbox": [
+            174,
+            498,
+            825,
+            651
+        ],
+        "page_idx": 6
+    },
+    {
+        "type": "table",
+        "img_path": "images/c37af8228ac309c3d9067662f1b581f684ed47912d7edfc51b56c3a8f97077f7.jpg",
+        "table_caption": [
+            "Table 4: Multivariate long-term forecasting results with recent forecasting models and ours for unified hyperparameter settings. The best results are in bold and the second best are underlined. Full results are provided in Appendix. "
+        ],
+        "table_footnote": [],
+        "table_body": "<table><tr><td colspan=\"2\">Models</td><td colspan=\"2\">CATS</td><td colspan=\"2\">TimeMixer</td><td colspan=\"2\">PatchTST</td><td colspan=\"2\">Timesnet Crossformer</td><td colspan=\"2\">MICN</td><td colspan=\"2\">FiLM</td><td colspan=\"2\">DLinear Autoformer</td><td colspan=\"2\">Informer</td></tr><tr><td>Metric</td><td></td><td>MSE MAE 0.207</td><td>MSE MAE</td><td></td><td>MSE MAE</td><td>MSE</td><td>MAE</td><td>MSE MAE</td><td></td><td>MSE MAE</td><td>MSE MAE</td><td>MSE MAE</td><td>MSE</td><td>MAE</td><td>MSE 0.300</td><td>MAE</td></tr><tr><td>Weeer</td><td>96 192 336 720</td><td>0.161 0.208 0.250 0.264 0.290 0.342</td><td>0.163 0.208 0.251 0.341 0.339</td><td>0 0.250 0.287 0.341</td><td>0.186 0.227 0.234 0.265 0.284 0.301 0.356 0.349</td><td>0.172 0.219 0.246 0.365</td><td>0.220 0.261 0.337 0.359</td><td>0.195 0.209 0.273 0.379</td><td>0.271 0.277 0.332 0.401</td><td>0.198 0.261 0.239 0.299 0.285 0.336 0.351 0.388</td><td>0.195 0.239 0.289 0.361</td><td>0.236 0.195 0.271 0.237 0.306 0.282 0.351 0.345</td><td>0.252 0.295 0.331 0.382</td><td>0.266 0.336 0.307 0.359 0.419</td><td>0.367 0.395 0.428 1.059</td><td>0.384 0.598 0.544 0.578 0.523</td></tr><tr><td>Ere</td><td>96 192 336 720</td><td>|0.149 0.237 0.163 0.250 0.180 0.268 0.219 0.302</td><td>|0.153 0.166 0.185 0.225</td><td>0.247 0.256 0.277 0.310 0.258</td><td>0.190 0.296 0.199 0.304 0.217 0.319 0.352</td><td>0.168 0.184 0.322 0.198 0.300</td><td>0.272 0.220 0.320</td><td>|0.2190.314 0.231 0.322 0.2460.337 0.280 0.363</td><td></td><td>0.180 0.293 0.189 0.302 0.198 0.312 0.217 0.330</td><td>0.198 0.274 0.198 0.278 0.217 0.300 0.278 0.356</td><td>0.210 0.302 0.210 0.305 0.223 0.258</td><td>0.201 0.319 0.350 0.254</td><td>0.317 0.222 0.334 0.231 0.443 0.361</td><td></td><td>0.741 0.274 0.368 0.296 0.386 0.300 0.394 0.373 0.439</td></tr><tr><td>TreaL</td><td>96 |0.421 192 336 720</td><td>0.270 0.4360.275 0.4530.284 0.484 0.303</td><td>0.462 0.285 0.473 0.296 0.498 0.296 0.506 0.313</td><td></td><td>|0.526 0.347 0.522 0.332 0.517 0.334 0.552 0.352</td><td>|0.593 0.321 0.617 0.336 0.629 0.336 0.640 0.350</td><td></td><td>0.644 0.429 0.6650.431 0.674 0.420 0.6830.424</td><td>|0.577 0.350 0.5890.356 0.5940.358 0.613 0.361</td><td></td><td>|0.647 0.384 0.600 0.361 0.610 0.367 0.691 0.425</td><td>|0.650 0.396 | 0.598 0.370 0.6050.373 0.6450.394</td><td></td><td>| 0.613 0.388 0.616 0.382 0.622 0.337</td><td>| 0.719 0.391 0.696 0.379 0.777 0.420</td><td></td></tr><tr><td>(A∀) </td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td>|1.414 0.816</td><td></td></tr><tr><td></td><td></td><td></td><td></td><td></td><td></td><td>0.455</td><td></td><td></td><td>0.479</td><td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr><tr><td></td><td></td><td></td><td></td><td>0.373</td><td></td><td>0.365</td><td>0.385</td><td></td><td></td><td>0.340 0.388 0.408 0.431</td><td></td><td></td><td></td><td></td><td></td><td></td></tr><tr><td></td><td>96</td><td>0.289 0.339</td><td>| 0.290 0.339</td><td></td><td>0.326 0.362</td><td>|0.312</td><td>0.355</td><td>0.4650.456</td><td></td><td></td><td></td><td></td><td></td><td>0.660 0.408</td><td></td><td>0.864 0.472</td></tr><tr><td></td><td>192</td><td>0.348 0.374</td><td>0.350</td><td></td><td>0.388 0.397</td><td></td><td></td><td>0.5530.518</td><td></td><td></td><td>|0.324 0.358</td><td>0.3190.368</td><td></td><td>| 0.389 0.415</td><td></td><td></td></tr><tr><td></td><td>336</td><td>0.376 0.395</td><td>0.390</td><td>0.404</td><td>0.4260.423</td><td></td><td></td><td>0.6860.584</td><td></td><td></td><td>0.384 0.393</td><td>0.3990.418</td><td></td><td>0.448 0.443</td><td>1.985</td><td>0.989</td></tr><tr><td></td><td>720</td><td></td><td></td><td>0.438</td><td></td><td></td><td>0.421</td><td></td><td></td><td>0.476</td><td>0.428 0.423</td><td>0.469</td><td>0.463</td><td>0.491 0.473</td><td>2.101</td><td>1.101</td></tr><tr><td></td><td></td><td>0.434 0.433</td><td>0.439</td><td></td><td>0.464 0.455</td><td>0.467</td><td>0.455</td><td>1.038 0.754</td><td></td><td>0.597 0.541</td><td>0.481 0.459</td><td>0.596 0.537</td><td></td><td>0.533 0.504</td><td>2.343</td><td>1.163</td></tr><tr><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr><tr><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr></table>",
+        "bbox": [
+            173,
+            713,
+            823,
+            902
+        ],
+        "page_idx": 6
+    },
+    {
+        "type": "table",
+        "img_path": "images/4782b80c3207a59078e0dc237fd6cb861f8faf9df4c4f7f5c9dc9ef2a69dad9c.jpg",
+        "table_caption": [
+            "Table 5: Comparison of models with the number of parameters, GPU memory consumption, and MSE across different input sequence lengths on ETTm1. Full results with more diverse input lengths are provided in Appendix. "
+        ],
+        "table_footnote": [],
+        "table_body": "<table><tr><td></td><td colspan=\"4\">Parameters</td><td colspan=\"4\">GPU Memory</td><td colspan=\"4\">MSE</td></tr><tr><td>Input Length</td><td>336</td><td>720</td><td>1440</td><td>2880</td><td>336</td><td>720</td><td>1440</td><td>2880</td><td>336</td><td>720</td><td>1440</td><td>2880</td></tr><tr><td>PatchTST</td><td></td><td>4.3M 8.7M (2.0x)</td><td>17.0M (4.0x)</td><td>33.6M (7.9x)</td><td>3.5GB</td><td>7.4GB (2.1x)</td><td>22.0GB (6.3x)</td><td>58.6GB (16.9x)</td><td>0.418 0.418</td><td></td><td>0.420</td><td>0.412</td></tr><tr><td>TimeMixer</td><td></td><td>1.1M 4.1M (3.6x)</td><td>14.2M (12.6x)</td><td>52.9M (46.8x)</td><td>2.9GB</td><td>3.9GB (1.3x)</td><td>5.9GB (2.0x)</td><td>10.3GB (3.6x)</td><td>0.428</td><td>0.425</td><td>0.414</td><td>0.472</td></tr><tr><td>DLinear</td><td>0.5M</td><td>1.0M (2.1x)</td><td>2.1M (4.2x)</td><td>4.2M (8.5x)</td><td>1.1GB</td><td>1.1GB (1.0x)</td><td>1.2GB (1.0x)</td><td>1.2GB (1.1x)</td><td>0.426</td><td>0.422</td><td>0.401</td><td>0.408</td></tr><tr><td>CATS</td><td>0.4M</td><td>0.4M (1.0x)</td><td>0.4M (1.0x)</td><td>0.4M (1.1x)</td><td>1.9GB</td><td>2.1GB (1.1x)</td><td>2.7GB (1.4x)</td><td>3.8GB (2.0x)</td><td>0.407</td><td>0.402</td><td>0.399</td><td>0.395</td></tr></table>",
+        "bbox": [
+            174,
+            138,
+            821,
+            208
+        ],
+        "page_idx": 7
+    },
+    {
+        "type": "text",
+        "text": "5.2 Efficient and Robust Forecasting for Long Input Sequences ",
+        "text_level": 1,
+        "bbox": [
+            173,
+            227,
+            624,
+            242
+        ],
+        "page_idx": 7
+    },
+    {
+        "type": "text",
+        "text": "Zeng et al. [26] observed that many models experience a decline in performance when using long input sequences for time series forecasting. To address this, some approaches have been developed to capture long-term dependencies. For instance, TimeMixer [21] employs linear models with mixed scale, and PatchTST [14] utilizes an encoder network to encode long-term information. However, these models still have computational issues, particularly in terms of escalating memory and parameter requirements. Thus, in this subsection, we provide a comparison between previous models and ours in terms of efficient and robust forecasting for long input sequences. ",
+        "bbox": [
+            173,
+            252,
+            825,
+            349
+        ],
+        "page_idx": 7
+    },
+    {
+        "type": "text",
+        "text": "First of all, to provide a fair comparison, we summarize the number of parameters, GPU memory consumption, and forecasting performance of comparison models with varying input lengths. As summarized in Table 5, existing complex models, such as PatchTST and TimeMixer, suffer from increased parameters and computational burdens when performing forecasting with long input lengths. Although DLinear uses fewer parameters and less GPU memory, its performance is limited due to its linear structure in capturing non-linearity patterns. Considering both performance and efficiency, the proposed model demonstrates robust performance improvement even with longer input lengths. In Appendix, we provide additional experimental results supporting these findings. ",
+        "bbox": [
+            173,
+            356,
+            825,
+            468
+        ],
+        "page_idx": 7
+    },
+    {
+        "type": "image",
+        "img_path": "images/9c78579f07adc084cd754a3f95969de4fcdb9a236e1d59835535666a12b89947.jpg",
+        "image_caption": [
+            "Figure 5: Efficiency and performance analysis for time series forecasting models. We summarize the forecasting performance, number of parameters, GPU memory consumption, and running time with varying forecasting horizon lengths on Traffic. The running time is averaged from 300 iterations. "
+        ],
+        "image_footnote": [],
+        "bbox": [
+            176,
+            493,
+            823,
+            633
+        ],
+        "page_idx": 7
+    },
+    {
+        "type": "text",
+        "text": "Furthermore, we conduct a deeper comparison between Transformer-based models. Especially, TimeMixer [21] argues that their model outperforms PatchTST [14] in the setting of long input sequences. Regarding this setting, we also conduct an experiment on $L = 5 1 2$ . We summarize the results in Fig. 5. Among these Transformer-based models, our model achieves the lowest MSE for most forecasting horizons. Moreover, our model requires even a lower number of parameters, GPU memory, and running time. Especially, for parameter efficiency, CATS shows significant differences even on a log scale due to its efficient parameter-sharing. Fig. 5c highlights GPU memory usage across different forecasting horizons. While PatchTST and TimeMixer consume significantly more memory, CATS maintains a low and stable memory consumption, demonstrating superior memory efficiency. In Fig. 5d CATS also consistently achieves lower running times compared to PatchTST and TimeMixer. ",
+        "bbox": [
+            174,
+            710,
+            825,
+            863
+        ],
+        "page_idx": 7
+    },
+    {
+        "type": "text",
+        "text": "Additionally, we also compare the same factors when we use a longer input length $L = 2 8 8 0$ . As more input length is used, the forecasting performance of our model outperforms all other models. Most importantly, while the computational complexity increases as input length increases, our model achieves a faster running time, compared to other models with a 512 input sequence length. Overall, these results emphasize the efficiency and performance advantages of our model, particularly in terms of parameter count, memory usage, and running time. ",
+        "bbox": [
+            176,
+            869,
+            825,
+            911
+        ],
+        "page_idx": 7
+    },
+    {
+        "type": "text",
+        "text": "",
+        "bbox": [
+            174,
+            90,
+            825,
+            133
+        ],
+        "page_idx": 8
+    },
+    {
+        "type": "text",
+        "text": "5.3 Short-term Time Series Forecasting Results ",
+        "text_level": 1,
+        "bbox": [
+            174,
+            148,
+            516,
+            164
+        ],
+        "page_idx": 8
+    },
+    {
+        "type": "text",
+        "text": "Table 6 summarizes the averaged results for the M4 dataset, comparing the performance of various models. Our CATS model consistently achieved the best results across all metrics. Notably, CATS reduced MASE by $1 9 . 9 4 \\%$ compared to PatchTST, a self-attention-only model that suffers from temporal information loss as mentioned in Section 3. CATS, with its cross-attention-only structure, effectively mitigated this issue and captured temporal dependencies more efficiently than previous models. Although TimeMixer, a state-of-the-art linear model, performed well, CATS surpassed it across all metrics. This demonstrates that CATS excels at capturing short-term temporal dependencies, providing superior performance in short-term forecasting tasks. ",
+        "bbox": [
+            173,
+            174,
+            825,
+            286
+        ],
+        "page_idx": 8
+    },
+    {
+        "type": "table",
+        "img_path": "images/e507a9c9780a3499913d35da3432695054eee61511fae11143502ed946c17c42.jpg",
+        "table_caption": [
+            "Table 6: Averaged univariate short-term forecasting results in the M4 dataset. The best results are in bold and the second best are underlined. Full results are presented in Appendix. "
+        ],
+        "table_footnote": [],
+        "table_body": "<table><tr><td></td><td>Models</td><td>CATS</td><td>TimeMixer</td><td>Timesnet</td><td>PatchTST</td><td>MICN</td><td>FiLM</td><td>DLinear</td><td>Autoformer</td><td>Informer</td></tr><tr><td>Ae</td><td>SMAPE</td><td>11.701</td><td>11.723</td><td>11.829</td><td>13.152</td><td>19.638</td><td>14.863</td><td>13.639</td><td>12.909</td><td>14.086</td></tr><tr><td></td><td>MASE</td><td>1.557</td><td>1.559</td><td>1.585</td><td>1.945</td><td>5.947</td><td>2.207</td><td>2.095</td><td>1.771</td><td>2.718</td></tr><tr><td></td><td>OW</td><td>0.838</td><td>0.840</td><td>0.851</td><td>0.998</td><td>2.279</td><td>1.125</td><td>1.051</td><td>0.939</td><td>1.230</td></tr></table>",
+        "bbox": [
+            174,
+            324,
+            823,
+            391
+        ],
+        "page_idx": 8
+    },
+    {
+        "type": "text",
+        "text": "5.4 Replacement of Cross-Attention with Self-Attention ",
+        "text_level": 1,
+        "bbox": [
+            173,
+            405,
+            573,
+            420
+        ],
+        "page_idx": 8
+    },
+    {
+        "type": "text",
+        "text": "In our propose structure, we mainly use cross-attention rather than self-attention due to the forecastingunfriendly properties of self-attention. To verify the effectiveness of cross-attention in the proposed structure, we replace the cross-attention layers with self-attention layers while maintaining other structures. In Table 7, we gradually replace the cross-attention with self-attention (SA) among a total of three cross-attention layers. To maintain the original Transformer structure, we set the maximum replacement as two. As shown in this table, we confirm the effectiveness of the cross-attention mechanism compared to using self-attention layers. Specifically, the zero SA, which is our model, shows better performance than using SA for almost all cases except only one case. ",
+        "bbox": [
+            173,
+            430,
+            825,
+            542
+        ],
+        "page_idx": 8
+    },
+    {
+        "type": "table",
+        "img_path": "images/51654ee78129b08505d2d78da30cc9b1351bd50239261b1eb11fd2025ec4e44b.jpg",
+        "table_caption": [
+            "Table 7: Performance comparison on models with three attention layers. We replace one or more cross-attentions (CA) with self-attentions (SA) in our model. In total, there are three cross-attentions in all settngs and ‘Zero SA’ stands for our model. The best results are in bold. "
+        ],
+        "table_footnote": [],
+        "table_body": "<table><tr><td rowspan=\"3\">Dataset Case</td><td colspan=\"6\">Electricity</td><td colspan=\"6\">ETTm1</td></tr><tr><td colspan=\"2\">Zero SA</td><td colspan=\"2\">One SA</td><td colspan=\"2\">Two SA</td><td colspan=\"2\">Zero SA</td><td colspan=\"2\">One SA</td><td colspan=\"2\">Two SA</td></tr><tr><td>MSE</td><td>MAE</td><td>MSE</td><td>MAE</td><td>MSE</td><td>MAE</td><td>MSE</td><td>MAE</td><td>MSE</td><td>MAE</td><td>MSE</td><td>MAE</td></tr><tr><td>96</td><td>0.126</td><td>0.218</td><td>0.128</td><td>0.220</td><td>0.133</td><td>0.225</td><td>0.283</td><td>0.340</td><td>0.284</td><td>0.338</td><td>0.284</td><td>0.340</td></tr><tr><td>192</td><td>0.144</td><td>0.235</td><td>0.150</td><td>0.238</td><td>0.153</td><td>0.245</td><td>0.319</td><td>0.363</td><td>0.331</td><td>0.373</td><td>0.324</td><td>0.368</td></tr><tr><td>336</td><td>0.159</td><td>0.252</td><td>0.167</td><td>0.257</td><td>0.169</td><td>0.263</td><td>0.351</td><td>0.385</td><td>0.376</td><td>0.401</td><td>0.369</td><td>0.400</td></tr><tr><td>720</td><td>0.194</td><td>0.283</td><td>0.205</td><td>0.293</td><td>0.210</td><td>0.300</td><td>0.400</td><td>0.414</td><td>0.429</td><td>0.437</td><td>0.442</td><td>0.445</td></tr></table>",
+        "bbox": [
+            173,
+            594,
+            820,
+            703
+        ],
+        "page_idx": 8
+    },
+    {
+        "type": "text",
+        "text": "5.5 Explaining Periodic Patterns through Cross-Attention ",
+        "text_level": 1,
+        "bbox": [
+            173,
+            717,
+            588,
+            733
+        ],
+        "page_idx": 8
+    },
+    {
+        "type": "text",
+        "text": "As noted in Section 4.2, in our proposed model, all operations including embedding and multi-head attention are performed independently for each learnable query. In other words, the forecast for a specific horizon does not depend on other horizons. This approach helps us better understand how each prediction is derived. Therefore, in this subsection, we visualize how the proposed model understands the periodic properties. ",
+        "bbox": [
+            173,
+            742,
+            825,
+            813
+        ],
+        "page_idx": 8
+    },
+    {
+        "type": "text",
+        "text": "To provide an easy understanding, we here consider a simple time series forecasting task with data that consists of two independent signals as follows: ",
+        "bbox": [
+            173,
+            818,
+            823,
+            847
+        ],
+        "page_idx": 8
+    },
+    {
+        "type": "equation",
+        "img_path": "images/6f9875f7dd33bc727ecdce0e6051db8077c43102052afdd4181f99edc88ace4c.jpg",
+        "text": "$$\n\\begin{array} { r l } & { \\mathbf { x } ( t ) = \\{ x _ { ( t \\mathrm { m o d } \\tau ) } \\} _ { t = 1 } ^ { \\infty } , \\quad x _ { i } \\sim \\mathcal { N } ( 0 , 1 ) \\quad ( i = 0 , 1 , \\ldots , \\tau - 1 ) , } \\\\ & { \\pmb { y } ( t ) = \\left\\{ \\begin{array} { l l } { + k } & { \\mathrm { i f } \\ t \\equiv 0 } \\\\ { - k } & { \\mathrm { i f } \\ t \\equiv \\frac { 1 } { 2 } S } \\end{array} \\right. \\quad \\mathrm { ( m o d } \\ S ) } \\end{array}\n$$",
+        "text_format": "latex",
+        "bbox": [
+            282,
+            852,
+            712,
+            910
+        ],
+        "page_idx": 8
+    },
+    {
+        "type": "text",
+        "text": "For prediction, we use an input sequence length $L = 4 8$ and a forecasting horizon $T = 7 2$ with signals ${ \\bf x } ( t )$ and ${ \\mathbf { } } _ { { \\mathbf { } } ^ { y ( t ) } }$ are defined with $\\tau = 2 4$ , $S = 8$ , and $k = 5$ . The patch length is set to 4 without overlapping to elucidate the distinct periodic components with 2 attention heads. ",
+        "bbox": [
+            174,
+            90,
+            825,
+            133
+        ],
+        "page_idx": 9
+    },
+    {
+        "type": "image",
+        "img_path": "images/434299e15b30c61abb01deb4f71c8e49cc9a2bb3fcd468dad069e486e70e0cb8.jpg",
+        "image_caption": [
+            "Figure 6: Score map of cross-attentions between input and output patches. "
+        ],
+        "image_footnote": [],
+        "bbox": [
+            240,
+            161,
+            759,
+            300
+        ],
+        "page_idx": 9
+    },
+    {
+        "type": "text",
+        "text": "In Fig. 6, we illustrate a score map $( 1 2 \\times 1 8 )$ of the cross-attention from the trained CATS. Since both patch length and stride are set to 4, each patch will contain exactly one shock value. We observe that the cross-attentions capture the shocks within the signal and the periodicity of the signal in Fig. 6a and Fig. 6b, respectively. Fig. 6a shows that patches an even number of steps before the current patch contain the shocks of the same direction, resulting in higher attention scores, while odd-numbered steps have lower scores. Moreover, the correlation over 24 steps is clearly demonstrated in patches spaced by multiples of 6 steps, as shown in Fig. 6b. This periodic pattern ensures that the attention mechanism effectively captures the periodicity in ${ \\bf x } ( t )$ , reflecting the model’s ability to leverage this periodic information for more accurate predictions. In Appendix, we provide a detailed explanation. ",
+        "bbox": [
+            173,
+            338,
+            825,
+            463
+        ],
+        "page_idx": 9
+    },
+    {
+        "type": "image",
+        "img_path": "images/359133a4b50c59e0b742684c4de9a83496bca58e94022284c775c5ebc35e6e41.jpg",
+        "image_caption": [
+            "Figure 7: Illustration of (a) forecasting result, (b) averaged cross-attention score, and (c,d) patches with the highest score on ETTm1. The score map is averaged from all the heads across layers. "
+        ],
+        "image_footnote": [],
+        "bbox": [
+            179,
+            488,
+            823,
+            614
+        ],
+        "page_idx": 9
+    },
+    {
+        "type": "text",
+        "text": "Fig. 7 illustrates (a) forecasting results, (b) a cross-attention score map $( 5 \\times 4 )$ on the ETTm1 dataset, and (c, d) the two pairs with the highest attention scores. We predict 96 steps with input sequence length 96 on ETTm1. The input patches consist of four patches of 24 lengths and one padding patch. As shown in Fig. 7c and 7d, the patches with high attention scores exhibit similar temporal patterns, demonstrating the ability of CATS to detect sequential and periodic patterns. ",
+        "bbox": [
+            173,
+            666,
+            826,
+            736
+        ],
+        "page_idx": 9
+    },
+    {
+        "type": "text",
+        "text": "6 Conclusion ",
+        "text_level": 1,
+        "bbox": [
+            174,
+            755,
+            299,
+            772
+        ],
+        "page_idx": 9
+    },
+    {
+        "type": "text",
+        "text": "Based on our study, we exploit the advantages of Transformer models in time series forecasting by removing self-attentions and developing a new cross-attention-based architecture. We believe that our model establishes a strong baseline for such forecasting tasks and offers further insights into the complexities of long-term forecasting problems. Our findings provide a reevaluation of self-attentions in this domain, and we hope that future research can critically assess the efficacy and efficiency across various time series analysis tasks. As a limitation, our proposed methods assume channel independence between variables based on the recent work [14]. As the time series data in the real-world are highly correlated, we hope future research can address cross-variate dependency with reduced computation complexity based on the proposed architecture. ",
+        "bbox": [
+            174,
+            786,
+            825,
+            911
+        ],
+        "page_idx": 9
+    },
+    {
+        "type": "text",
+        "text": "7 Acknowledgements ",
+        "text_level": 1,
+        "bbox": [
+            176,
+            89,
+            367,
+            106
+        ],
+        "page_idx": 10
+    },
+    {
+        "type": "text",
+        "text": "This work was partly supported by the Institute of Information & communications Technology Planning & Evaluation (IITP) grant funded by the Korea government (MSIT) (No. RS-2022-II220984, Development of Artificial Intelligence Technology for Personalized Plug-and-Play Explanation and Verification of Explanation) and the National Research Foundation of Korea (NRF) grant funded by the Korean government (MSIT) (No. RS-2024-00338859). This work was also supported by the MSIT(Ministry of Science and ICT), Korea, under the ITRC(Information Technology Research Center) support program (IITP-2024-RS-2024-00438056) supervised by the IITP. ",
+        "bbox": [
+            174,
+            121,
+            826,
+            218
+        ],
+        "page_idx": 10
+    },
+    {
+        "type": "text",
+        "text": "References ",
+        "text_level": 1,
+        "bbox": [
+            174,
+            239,
+            266,
+            256
+        ],
+        "page_idx": 10
+    },
+    {
+        "type": "text",
+        "text": "[1] Chun-Fu Richard Chen, Quanfu Fan, and Rameswar Panda. Crossvit: Cross-attention multiscale vision transformer for image classification. In Proceedings of the IEEE/CVF international conference on computer vision, pages 357–366, 2021.   \n[2] Si-An Chen, Chun-Liang Li, Sercan O Arik, Nathanael Christian Yoder, and Tomas Pfister. Tsmixer: An all-mlp architecture for time series forecast-ing. Transactions on Machine Learning Research, 2023.   \n[3] Abhimanyu Das, Weihao Kong, Rajat Sen, and Yichen Zhou. A decoder-only foundation model for time-series forecasting. In International Conference on Machine Learning. PMLR, 2024.   \n[4] Jacob Devlin, Ming-Wei Chang, Kenton Lee, and Lee Kristina. Bert: Pre-training of deep bidirectional transformers for language understanding. In Proceedings of NAACL-HLT, pages 4171–4186, 2019.   \n[5] Alexey Dosovitskiy, Lucas Beyer, Alexander Kolesnikov, Dirk Weissenborn, Xiaohua Zhai, Thomas Unterthiner, Mostafa Dehghani, Matthias Minderer, Georg Heigold, Sylvain Gelly, Jakob Uszkoreit, and Neil Houlsby. An image is worth 16x16 words: Transformers for image recognition at scale. In International Conference on Learning Representations, 2021. URL https://openreview.net/forum?id $\\underset { . } { = }$ YicbFdNTTy.   \n[6] Vijay Ekambaram, Arindam Jati, Nam Nguyen, Phanwadee Sinthong, and Jayant Kalagnanam. Tsmixer: Lightweight mlp-mixer model for multivariate time series forecasting. In Proceedings of the 29th ACM SIGKDD Conference on Knowledge Discovery and Data Mining, pages 459–469, 2023.   \n[7] Mononito Goswami, Konrad Szafer, Arjun Choudhry, Yifu Cai, Shuo Li, and Artur Dubrawski. Moment: A family of open time-series foundation models. In International Conference on Machine Learning, 2024.   \n[8] Gao Huang, Yu Sun, Zhuang Liu, Daniel Sedra, and Kilian Q Weinberger. Deep networks with stochastic depth. In Computer Vision–ECCV 2016: 14th European Conference, Amsterdam, The Netherlands, October 11–14, 2016, Proceedings, Part IV 14, pages 646–661. Springer, 2016.   \n[9] Shiyang Li, Xiaoyong Jin, Yao Xuan, Xiyou Zhou, Wenhu Chen, Yu-Xiang Wang, and Xifeng Yan. Enhancing the locality and breaking the memory bottleneck of transformer on time series forecasting. Advances in neural information processing systems, 32, 2019.   \n[10] Zhe Li, Shiyi Qi, Yiduo Li, and Zenglin Xu. Revisiting long-term time series forecasting: An investigation on linear mapping. arXiv preprint arXiv:2305.10721, 2023.   \n[11] Shizhan Liu, Hang Yu, Cong Liao, Jianguo Li, Weiyao Lin, Alex X Liu, and Schahram Dustdar. Pyraformer: Low-complexity pyramidal attention for long-range time series modeling and forecasting. In International conference on learning representations, 2021.   \n[12] Yong Liu, Haixu Wu, Jianmin Wang, and Mingsheng Long. Non-stationary transformers: Exploring the stationarity in time series forecasting. Advances in Neural Information Processing Systems, 35:9881–9893, 2022.   \n[13] Yong Liu, Tengge Hu, Haoran Zhang, Haixu Wu, Shiyu Wang, Lintao Ma, and Mingsheng Long. itransformer: Inverted transformers are effective for time series forecasting. In The Twelfth International Conference on Learning Representations, 2024. URL https://openreview. net/forum?id $\\equiv$ JePfAI8fah.   \n[14] Yuqi Nie, Nam H Nguyen, Phanwadee Sinthong, and Jayant Kalagnanam. A time series is worth 64 words: Long-term forecasting with transformers. In The Eleventh International Conference on Learning Representations, 2023. URL https://openreview.net/forum? id=Jbdc0vTOcol.   \n[15] Alec Radford, Karthik Narasimhan, Tim Salimans, Ilya Sutskever, et al. Improving language understanding by generative pre-training. 2018.   \n[16] Noam Shazeer. Glu variants improve transformer. arXiv preprint arXiv:2002.05202, 2020.   \n[17] Robin Strudel, Ricardo Garcia, Ivan Laptev, and Cordelia Schmid. Segmenter: Transformer for semantic segmentation. In Proceedings of the IEEE/CVF international conference on computer vision, pages 7262–7272, 2021.   \n[18] Gerrit JJ Van den Burg and Christopher KI Williams. An evaluation of change point detection algorithms. arXiv preprint arXiv:2003.06222, 2020.   \n[19] Ashish Vaswani, Noam Shazeer, Niki Parmar, Jakob Uszkoreit, Llion Jones, Aidan N Gomez, Łukasz Kaiser, and Illia Polosukhin. Attention is all you need. Advances in neural information processing systems, 30, 2017.   \n[20] Huiqiang Wang, Jian Peng, Feihu Huang, Jince Wang, Junhui Chen, and Yifei Xiao. Micn: Multi-scale local and global context modeling for long-term series forecasting. In The Eleventh International Conference on Learning Representations, 2022.   \n[21] Shiyu Wang, Haixu Wu, Xiaoming Shi, Tengge Hu, Huakun Luo, Lintao Ma, James Y. Zhang, and JUN ZHOU. Timemixer: Decomposable multiscale mixing for time series forecasting. In The Twelfth International Conference on Learning Representations, 2024. URL https: //openreview.net/forum?id $\\equiv$ 7oLshfEIC2.   \n[22] Gerald Woo, Chenghao Liu, Doyen Sahoo, Akshat Kumar, and Steven Hoi. Learning deep timeindex models for time series forecasting. In International Conference on Machine Learning, pages 37217–37237. PMLR, 2023.   \n[23] Haixu Wu, Jiehui Xu, Jianmin Wang, and Mingsheng Long. Autoformer: Decomposition transformers with auto-correlation for long-term series forecasting. Advances in neural information processing systems, 34:22419–22430, 2021.   \n[24] Haixu Wu, Tengge Hu, Yong Liu, Hang Zhou, Jianmin Wang, and Mingsheng Long. Timesnet: Temporal 2d-variation modeling for general time series analysis. In The eleventh international conference on learning representations, 2022.   \n[25] Chenglin Yang, Yilin Wang, Jianming Zhang, He Zhang, Zijun Wei, Zhe Lin, and Alan Yuille. Lite vision transformer with enhanced self-attention. In Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition, pages 11998–12008, 2022.   \n[26] Ailing Zeng, Muxi Chen, Lei Zhang, and Qiang Xu. Are transformers effective for time series forecasting? In Proceedings of the AAAI conference on artificial intelligence, volume 37, pages 11121–11128, 2023.   \n[27] Haokui Zhang, Wenze Hu, and Xiaoyu Wang. Fcaformer: Forward cross attention in hybrid vision transformer. In Proceedings of the IEEE/CVF International Conference on Computer Vision, pages 6060–6069, 2023.   \n[28] Yunhao Zhang and Junchi Yan. Crossformer: Transformer utilizing cross-dimension dependency for multivariate time series forecasting. In The eleventh international conference on learning representations, 2022. ",
+        "bbox": [
+            173,
+            262,
+            826,
+            911
+        ],
+        "page_idx": 10
+    },
+    {
+        "type": "text",
+        "text": "",
+        "bbox": [
+            169,
+            78,
+            828,
+            924
+        ],
+        "page_idx": 11
+    },
+    {
+        "type": "text",
+        "text": "[29] Haoyi Zhou, Shanghang Zhang, Jieqi Peng, Shuai Zhang, Jianxin Li, Hui Xiong, and Wancai Zhang. Informer: Beyond efficient transformer for long sequence time-series forecasting. In Proceedings of the AAAI conference on artificial intelligence, volume 35, pages 11106–11115, 2021. ",
+        "bbox": [
+            174,
+            90,
+            826,
+            146
+        ],
+        "page_idx": 12
+    },
+    {
+        "type": "text",
+        "text": "[30] Tian Zhou, Ziqing Ma, Qingsong Wen, Liang Sun, Tao Yao, Wotao Yin, Rong Jin, et al. Film: Frequency improved legendre memory model for long-term time series forecasting. Advances in Neural Information Processing Systems, 35:12677–12690, 2022. ",
+        "bbox": [
+            173,
+            156,
+            821,
+            199
+        ],
+        "page_idx": 12
+    },
+    {
+        "type": "text",
+        "text": "[31] Tian Zhou, Ziqing Ma, Qingsong Wen, Xue Wang, Liang Sun, and Rong Jin. Fedformer: Frequency enhanced decomposed transformer for long-term series forecasting. In International conference on machine learning, pages 27268–27286. PMLR, 2022. ",
+        "bbox": [
+            173,
+            207,
+            825,
+            251
+        ],
+        "page_idx": 12
+    },
+    {
+        "type": "text",
+        "text": "A Experimental settings ",
+        "text_level": 1,
+        "bbox": [
+            174,
+            89,
+            392,
+            107
+        ],
+        "page_idx": 13
+    },
+    {
+        "type": "text",
+        "text": "A.1 Datasets ",
+        "text_level": 1,
+        "bbox": [
+            174,
+            121,
+            276,
+            136
+        ],
+        "page_idx": 13
+    },
+    {
+        "type": "text",
+        "text": "We evaluated the performance using seven datasets commonly used in long-term time series forecasting, including Weather, Traffic, Electricity, ETT (ETTh1, ETTh2, ETTm1, and ETTm2), and M4. These datasets capture a range of periodic characteristics and scenarios that are difficult to predict in the real world, making them highly suitable for tasks, such as long-term time series forecasting, generation, and imputation. Details of these datasets are described in Table 8. The M4 dataset are provided Wu et al. [24], while the remaining datasets are provided in Wu et al. [23]. ",
+        "bbox": [
+            173,
+            146,
+            826,
+            229
+        ],
+        "page_idx": 13
+    },
+    {
+        "type": "table",
+        "img_path": "images/d40c4d3150f3a060b442bd8d1aa5b4ca0d5f7589a862549ffe4303e667b23d40.jpg",
+        "table_caption": [
+            "Table 8: Details of 13 real-world datasets. "
+        ],
+        "table_footnote": [],
+        "table_body": "<table><tr><td></td><td>Dimension</td><td>Frequency</td><td>Timesteps</td><td>Information</td><td>Forecasting Horizon</td></tr><tr><td>Weather</td><td>21</td><td>10-min</td><td>52,696</td><td>Weather</td><td>(96, 192, 336, 720)</td></tr><tr><td>Electricity</td><td>321</td><td>Hourly</td><td>17,544</td><td>Electricity</td><td>(96, 192, 336, 720)</td></tr><tr><td>Traffic</td><td>862</td><td>Hourly</td><td>26,304</td><td>Transportation</td><td>(96, 192, 336, 720)</td></tr><tr><td>ETTh1</td><td>7</td><td>Hourly</td><td>17,420</td><td>Temperature</td><td>(96, 192, 336, 720)</td></tr><tr><td>ETTh2</td><td>7</td><td>Hourly</td><td>17,420</td><td>Temperature</td><td>(96, 192, 336, 720)</td></tr><tr><td>ETTm1</td><td>7</td><td>15-min</td><td>69,680</td><td>Temperature</td><td>(96, 192, 336, 720)</td></tr><tr><td>ETTm2</td><td>7</td><td>15-min</td><td>69,680</td><td>Temperature</td><td>(96, 192, 336, 720)</td></tr><tr><td>M4-Quartely</td><td>1</td><td>Quartely</td><td>48000</td><td>Finance</td><td>8</td></tr><tr><td>M4-Monthly</td><td>1</td><td>Monthly</td><td>96000</td><td>Industry</td><td>18</td></tr><tr><td>M4-Yearly</td><td>1</td><td>Yearly</td><td>46000</td><td>Demographic</td><td>6</td></tr><tr><td>M4-Weekly</td><td>1</td><td>Weekly</td><td>718</td><td>Macro</td><td>13</td></tr><tr><td>M4-Daily</td><td>1</td><td>Daily</td><td>8454</td><td>Micro</td><td>14</td></tr><tr><td>M4-Hourly</td><td>1</td><td>Hourly</td><td>828</td><td>Other</td><td>48</td></tr></table>",
+        "bbox": [
+            173,
+            267,
+            836,
+            474
+        ],
+        "page_idx": 13
+    },
+    {
+        "type": "text",
+        "text": "A.2 Hyperparameter Settings ",
+        "text_level": 1,
+        "bbox": [
+            174,
+            501,
+            393,
+            516
+        ],
+        "page_idx": 13
+    },
+    {
+        "type": "text",
+        "text": "In every experiment in our paper, following [14], we fixed the random seed of 2021 to enhance the reproducibility of our experiments. Additionally, following numerous studies in the field of time series forecasting [14], we fixed the input sequence length $L = 9 6$ . For the forecasting horizon $T$ , we also used the widely accepted values, i.e., [96, 192, 336, 720]. For our model, in all configurations, we adopt the GeGLU activation function [16] between the two linear layers in the feed-forward network for our model. Additionally, we use learnable positional embedding parameters for the input data and omit positional embeddings for learnable queries to avoid redundant parameter learning. ",
+        "bbox": [
+            173,
+            525,
+            825,
+            625
+        ],
+        "page_idx": 13
+    },
+    {
+        "type": "text",
+        "text": "For the experiments summarized in Table 4 and Table 11, our model uses three cross-attention layers with embedding size $D = 2 5 6$ , number of attention heads $H = 3 2$ . Specifically, to avoid overfitting on small datasets [14], we use patch length 48 on the ETTh1 and ETTh2 datasets. Further details on the hyperparameter settings for these experiments are provided in Table 9. ",
+        "bbox": [
+            174,
+            630,
+            825,
+            685
+        ],
+        "page_idx": 13
+    },
+    {
+        "type": "table",
+        "img_path": "images/8349be58b1152f3f6f141565ff1a4a9a0fe5f267213eb7141171ef298c9bcfd3.jpg",
+        "table_caption": [
+            "Table 9: Experimental settings used in Table 4 and Table 11. "
+        ],
+        "table_footnote": [],
+        "table_body": "<table><tr><td rowspan=1 colspan=1>Metric</td><td rowspan=1 colspan=1>| Layers</td><td rowspan=1 colspan=3>Embedding Size | Query Sharing | Input Sequence Length | Batch Size |</td><td rowspan=1 colspan=2>Batch Size | Epoch</td><td rowspan=1 colspan=1>e | Epoch | Learning Rate</td></tr><tr><td rowspan=1 colspan=1>Weather</td><td rowspan=1 colspan=1>3</td><td rowspan=1 colspan=1>256</td><td rowspan=1 colspan=1>False</td><td rowspan=1 colspan=1>96</td><td rowspan=1 colspan=1>64</td><td rowspan=1 colspan=1>30</td><td rowspan=1 colspan=1>10−3</td></tr><tr><td rowspan=1 colspan=1>Electricity</td><td rowspan=1 colspan=1>3</td><td rowspan=1 colspan=1>256</td><td rowspan=1 colspan=1>False</td><td rowspan=1 colspan=1>96</td><td rowspan=1 colspan=1>32</td><td rowspan=1 colspan=1>30</td><td rowspan=1 colspan=1>10−3</td></tr><tr><td rowspan=1 colspan=1>Traffic</td><td rowspan=1 colspan=1>3</td><td rowspan=1 colspan=1>256</td><td rowspan=1 colspan=1>True</td><td rowspan=1 colspan=1>96        </td><td rowspan=1 colspan=2>32    100</td><td rowspan=1 colspan=1>10−3</td></tr><tr><td rowspan=1 colspan=1>ETTh1</td><td rowspan=1 colspan=1>3</td><td rowspan=1 colspan=1>256</td><td rowspan=1 colspan=1>False</td><td rowspan=1 colspan=1>96</td><td rowspan=1 colspan=1>256</td><td rowspan=1 colspan=1>10</td><td rowspan=1 colspan=1>10−3</td></tr><tr><td rowspan=1 colspan=1>ETTh2</td><td rowspan=1 colspan=1>3</td><td rowspan=1 colspan=1>256</td><td rowspan=1 colspan=1>True   |</td><td rowspan=1 colspan=1>96        |</td><td rowspan=1 colspan=1>256</td><td rowspan=1 colspan=1>10</td><td rowspan=1 colspan=1>10−3</td></tr><tr><td rowspan=1 colspan=1>ETTm1</td><td rowspan=1 colspan=1>3</td><td rowspan=1 colspan=1>256</td><td rowspan=1 colspan=1>False</td><td rowspan=1 colspan=1>96        |</td><td rowspan=1 colspan=1>128</td><td rowspan=1 colspan=1>30</td><td rowspan=1 colspan=1>10−3</td></tr><tr><td rowspan=1 colspan=1>ETTm2</td><td rowspan=1 colspan=1>3</td><td rowspan=1 colspan=1>256</td><td rowspan=1 colspan=1>True   </td><td rowspan=1 colspan=1>96</td><td rowspan=1 colspan=1>128</td><td rowspan=1 colspan=1>30</td><td rowspan=1 colspan=1>10−3</td></tr></table>",
+        "bbox": [
+            205,
+            723,
+            789,
+            854
+        ],
+        "page_idx": 13
+    },
+    {
+        "type": "text",
+        "text": "Additionally, for the short-term forecasting experiments on the M4 dataset, we employed a slightly different configuration to better suit the nature of short-term time series. The hyperparameter settings for these experiments are detailed in Table 10. The complete results for these short-term experiments are presented in Table 12, while the full results for the long-term forecasting experiments with a fixed 96 input sequence length are provided in the Appendix in Table 11. ",
+        "bbox": [
+            176,
+            869,
+            825,
+            911
+        ],
+        "page_idx": 13
+    },
+    {
+        "type": "text",
+        "text": "",
+        "bbox": [
+            173,
+            90,
+            823,
+            119
+        ],
+        "page_idx": 14
+    },
+    {
+        "type": "table",
+        "img_path": "images/d89f8fdf9105a2c146a031a3ce923d58e88c10c96851b414ce912f0f6d5272c9.jpg",
+        "table_caption": [
+            "Table 10: Experimental settings of the M4 dataset. "
+        ],
+        "table_footnote": [],
+        "table_body": "<table><tr><td rowspan=1 colspan=8>Dataset | Layers ||Emeding Size | Input Sequence Length | Batch Size | Epoch | Patice|e | Learning Rate</td></tr><tr><td rowspan=1 colspan=1>M4-Quartely |</td><td rowspan=1 colspan=1>3</td><td rowspan=1 colspan=1>64</td><td rowspan=1 colspan=1>16</td><td rowspan=1 colspan=1>32</td><td rowspan=1 colspan=1>30</td><td rowspan=1 colspan=1>10</td><td rowspan=1 colspan=1>10−3</td></tr><tr><td rowspan=1 colspan=1>M4-Monthly</td><td rowspan=1 colspan=1>3</td><td rowspan=1 colspan=1>64</td><td rowspan=1 colspan=1>36</td><td rowspan=1 colspan=1>32</td><td rowspan=1 colspan=1>30</td><td rowspan=1 colspan=1>10</td><td rowspan=1 colspan=1>10−3</td></tr><tr><td rowspan=1 colspan=1>M4-Yearly</td><td rowspan=1 colspan=1>3</td><td rowspan=1 colspan=1>64     |</td><td rowspan=1 colspan=1>12</td><td rowspan=1 colspan=1>32</td><td rowspan=1 colspan=1>30</td><td rowspan=1 colspan=1>10</td><td rowspan=1 colspan=1>10−3</td></tr><tr><td rowspan=1 colspan=1>M4-Weekly</td><td rowspan=1 colspan=1>3</td><td rowspan=1 colspan=1>64     |</td><td rowspan=1 colspan=1>26</td><td rowspan=1 colspan=1>32</td><td rowspan=1 colspan=1>30</td><td rowspan=1 colspan=1>10</td><td rowspan=1 colspan=1>10−3</td></tr><tr><td rowspan=1 colspan=1>M4-Daily</td><td rowspan=1 colspan=1>3</td><td rowspan=1 colspan=1>64     |</td><td rowspan=1 colspan=1>28</td><td rowspan=1 colspan=1>32</td><td rowspan=1 colspan=1>30</td><td rowspan=1 colspan=1>10</td><td rowspan=1 colspan=1>10−3</td></tr><tr><td rowspan=1 colspan=1>M4-Hourly</td><td rowspan=1 colspan=1>3</td><td rowspan=1 colspan=1>128</td><td rowspan=1 colspan=1>96</td><td rowspan=1 colspan=1>32</td><td rowspan=1 colspan=1>30</td><td rowspan=1 colspan=1>10</td><td rowspan=1 colspan=1>10−3</td></tr></table>",
+        "bbox": [
+            202,
+            154,
+            787,
+            272
+        ],
+        "page_idx": 14
+    },
+    {
+        "type": "table",
+        "img_path": "images/204d252406ec6fa8adc611d60d7a692753ccf1e1a9b3c4aecc2fe9583cfb0568.jpg",
+        "table_caption": [
+            "Table 11: Multivariate long-term forecasting results with recent forecasting models and ours for unified hyperparameter settings. The best results are in bold and the second best are underlined. "
+        ],
+        "table_footnote": [],
+        "table_body": "<table><tr><td rowspan=1 colspan=16>Models  CATS   TimeMixer PatchTST  Timesnet Crossformer  MICN    FiLM    DLinear  Autoformer Informer</td></tr><tr><td rowspan=1 colspan=3>MetricMSE MAE</td><td rowspan=1 colspan=1>MSE MAE</td><td rowspan=1 colspan=1>MSE MAE</td><td rowspan=1 colspan=1>MSEMAE</td><td rowspan=1 colspan=1>MSE MAE</td><td rowspan=1 colspan=1>MSE MAE</td><td rowspan=1 colspan=3>MSE MAE</td><td rowspan=1 colspan=1>MSE MAE</td><td rowspan=1 colspan=3>MSEMAE</td><td rowspan=1 colspan=1>MSEMAE</td></tr><tr><td rowspan=4 colspan=1>MWeeer</td><td rowspan=1 colspan=1>96</td><td rowspan=1 colspan=1>0.1610.207</td><td rowspan=1 colspan=1>0.1630.209</td><td rowspan=1 colspan=1>0.186 0.227</td><td rowspan=1 colspan=1>0.1720.220</td><td rowspan=1 colspan=1>0.1950.271</td><td rowspan=1 colspan=1>0.198 0.261</td><td rowspan=1 colspan=3>0.1950.236</td><td rowspan=1 colspan=1>0.1950.252</td><td rowspan=1 colspan=3>0.2660.336</td><td rowspan=1 colspan=1>0.3000.384</td></tr><tr><td rowspan=1 colspan=1>192</td><td rowspan=1 colspan=1>0.2080.250</td><td rowspan=1 colspan=1>0.2080.250</td><td rowspan=1 colspan=1>0.234 0.265</td><td rowspan=1 colspan=1>0.2190.261</td><td rowspan=1 colspan=1>0.2090.277</td><td rowspan=1 colspan=1>0.239 0.299</td><td rowspan=1 colspan=3>0.2390.271</td><td rowspan=1 colspan=1>0.2370.295</td><td rowspan=1 colspan=3>0.3070.367</td><td rowspan=1 colspan=1>0.5980.544</td></tr><tr><td rowspan=2 colspan=1>336720</td><td rowspan=2 colspan=1>0.2640.2900.3420.341</td><td rowspan=1 colspan=1>0.2510.287</td><td rowspan=1 colspan=1>0.284 0.301</td><td rowspan=1 colspan=1>0.2460.337</td><td rowspan=1 colspan=1>0.2730.332</td><td rowspan=1 colspan=1>0.2850.336</td><td rowspan=1 colspan=3>0.2890.306</td><td rowspan=2 colspan=1>0.2820.3310.3450.382</td><td rowspan=2 colspan=3>0.3590.3950.4190.428</td><td rowspan=2 colspan=1>0.5780.5231.0590.741</td></tr><tr><td rowspan=1 colspan=1>0.3390.341</td><td rowspan=1 colspan=1>0.3560.349</td><td rowspan=1 colspan=1>0.3650.359</td><td rowspan=1 colspan=1>0.3790.401</td><td rowspan=1 colspan=1>0.3510.388</td><td rowspan=1 colspan=3>0.3610.351</td></tr><tr><td rowspan=4 colspan=1>Ere</td><td rowspan=4 colspan=1>96192336720</td><td rowspan=3 colspan=1>| 0.1490.2370.1630.2500.180 0.268</td><td rowspan=1 colspan=1>0.1530.247</td><td rowspan=1 colspan=1>|0.190 0.296</td><td rowspan=1 colspan=1>|0.168 0.272</td><td rowspan=1 colspan=1>0.2190.314</td><td rowspan=1 colspan=1>|0.180 0.293</td><td rowspan=1 colspan=3>|0.198 0.274</td><td rowspan=1 colspan=1>|0.210 0.302</td><td rowspan=1 colspan=3>0.2010.317</td><td rowspan=1 colspan=1>0.274 0.368</td></tr><tr><td rowspan=1 colspan=1>0.1660.256</td><td rowspan=1 colspan=1>0.1990.304</td><td rowspan=1 colspan=1>0.184 0.322</td><td rowspan=1 colspan=1>0.2310.322</td><td rowspan=1 colspan=1>0.189 0.302</td><td rowspan=2 colspan=3>0.198 0.2780.217 0.300</td><td rowspan=2 colspan=1>0.210 0.3050.2230.319</td><td rowspan=2 colspan=1>0.2220.231</td><td rowspan=1 colspan=1>0.222</td><td rowspan=2 colspan=1>0.3340.443</td><td rowspan=2 colspan=1>0.296 0.3860.300 0.394</td></tr><tr><td rowspan=1 colspan=1>0.1850.277</td><td rowspan=1 colspan=1>0.217 0.319</td><td rowspan=1 colspan=1>0.198 0.300</td><td rowspan=1 colspan=1>0.2460.337</td><td rowspan=1 colspan=1>0.198 0.312</td><td rowspan=1 colspan=1>31</td></tr><tr><td rowspan=1 colspan=1>0.2190.302</td><td rowspan=1 colspan=1>0.2250.310</td><td rowspan=1 colspan=1>0.2580.352</td><td rowspan=1 colspan=1>0.220 0.320</td><td rowspan=1 colspan=1>0.280 0.363</td><td rowspan=1 colspan=1>0.217 0.330</td><td rowspan=1 colspan=3>0.278 0.356</td><td rowspan=1 colspan=1>0.2580.350</td><td rowspan=1 colspan=3>0.2540.361</td><td rowspan=1 colspan=1>0.373 0.439</td></tr><tr><td rowspan=4 colspan=1>Lrec</td><td rowspan=2 colspan=1>96192</td><td rowspan=2 colspan=1>|0.421 0.270 |0.436 0.275</td><td rowspan=2 colspan=1>0.4620.2850.4730.296</td><td rowspan=2 colspan=1>|0.526 0.3470.522 0.332</td><td rowspan=2 colspan=1>|0.593 0.3210.617 0.336</td><td rowspan=2 colspan=1>0.644 0.4290.665 0.431</td><td rowspan=1 colspan=1>| 0.577 0.350 |</td><td rowspan=2 colspan=3>|0.647 0.3840.600 0.361</td><td rowspan=2 colspan=1>|0.650 0.3960.598 0.370</td><td rowspan=2 colspan=3>| 0.613 0.3880.616 0.382</td><td rowspan=3 colspan=1>| 0.719 0.3910.696 0.3790.777 0.420</td></tr><tr><td rowspan=1 colspan=1>0.589 0.356</td></tr><tr><td rowspan=1 colspan=1>336</td><td rowspan=1 colspan=1>0.4530.284</td><td rowspan=1 colspan=1>0.4980.296</td><td rowspan=1 colspan=1>0.5170.334</td><td rowspan=1 colspan=1>0.629 0.336</td><td rowspan=1 colspan=1>0.674 0.420</td><td rowspan=1 colspan=1>0.594 0.358</td><td rowspan=1 colspan=3>0.610 0.367</td><td rowspan=1 colspan=1>0.6050.373</td><td rowspan=1 colspan=3>0.6220.337</td></tr><tr><td rowspan=1 colspan=1>720</td><td rowspan=1 colspan=1>0.4840.303</td><td rowspan=1 colspan=1>0.5060.313</td><td rowspan=1 colspan=1>0.552 0.352</td><td rowspan=1 colspan=1>0.640 0.350</td><td rowspan=1 colspan=1>0.6830.424</td><td rowspan=1 colspan=1>0.613 0.361</td><td rowspan=1 colspan=3>0.691 0.425</td><td rowspan=1 colspan=1>0.6450.394</td><td rowspan=1 colspan=3>0.660 0.408</td><td rowspan=1 colspan=1>0.8640.472</td></tr><tr><td rowspan=6 colspan=1>EILI</td><td rowspan=2 colspan=1>96192</td><td rowspan=2 colspan=1>| 0.3180.3570.3570.377</td><td rowspan=1 colspan=1>|0.3200.357</td><td rowspan=1 colspan=1>0.3520.374</td><td rowspan=1 colspan=1>0.338 0.375</td><td rowspan=1 colspan=1>0.404 0.426</td><td rowspan=1 colspan=1>| 0.365 0.387</td><td rowspan=1 colspan=3>|0.3530.370</td><td rowspan=2 colspan=1>0.346 0.3740.3820.391</td><td rowspan=2 colspan=3>0.5050.4750.5530.496</td><td rowspan=2 colspan=1>0.6720.5710.7950.669</td></tr><tr><td rowspan=1 colspan=1>0.3610.381</td><td rowspan=1 colspan=1>0.3900.393</td><td rowspan=1 colspan=1>0.374 0.387</td><td rowspan=1 colspan=1>0.450 0.451</td><td rowspan=1 colspan=1>0.403 0.408</td><td rowspan=1 colspan=3>0.3890.387</td></tr><tr><td rowspan=4 colspan=1>336720</td><td rowspan=4 colspan=1>0.3870.4010.4480.437</td><td rowspan=1 colspan=1>0.3900.404</td><td rowspan=1 colspan=1>0.4210.414</td><td rowspan=1 colspan=1>0.410 0.411</td><td rowspan=1 colspan=1>0.5320.515</td><td rowspan=1 colspan=1>0.436 0.431</td><td rowspan=1 colspan=2>0.4210.408</td><td rowspan=1 colspan=2>0.408</td><td rowspan=1 colspan=1>0.4150.415</td><td rowspan=1 colspan=3>0.6210.537</td><td></td></tr><tr><td></td><td></td><td></td><td></td><td></td><td rowspan=3 colspan=3>0.4810.441</td><td rowspan=3 colspan=1>0.4730.451</td><td rowspan=3 colspan=3>0.6710.561</td><td></td></tr><tr><td></td><td></td><td></td><td></td><td></td><td rowspan=2 colspan=1>1.2120.8711.1660.823</td></tr><tr><td rowspan=1 colspan=1>0.4540.441</td><td rowspan=1 colspan=1>0.4620.449</td><td rowspan=1 colspan=1>0.478 0.450</td><td rowspan=1 colspan=1>0.6660.589</td><td rowspan=1 colspan=1>0.4890.462</td></tr><tr><td rowspan=2 colspan=1>m</td><td rowspan=2 colspan=1>96192</td><td rowspan=1 colspan=1>0.1780.261</td><td rowspan=1 colspan=1>0.1750.258</td><td rowspan=1 colspan=1>0.1830.270</td><td rowspan=1 colspan=1>0.1870.267</td><td rowspan=1 colspan=1>0.2870.366</td><td rowspan=1 colspan=1>0.1970.296</td><td rowspan=1 colspan=3>|0.183 0.266</td><td rowspan=1 colspan=1>0.1930.293</td><td rowspan=1 colspan=3>0.2550.339</td><td rowspan=1 colspan=1>0.3650.453</td></tr><tr><td rowspan=1 colspan=1>0.2480.308</td><td rowspan=1 colspan=1>0.2370.299</td><td rowspan=1 colspan=1>0.255 0.314</td><td rowspan=1 colspan=1>0.249 0.309</td><td rowspan=1 colspan=1>0.414 0.492</td><td rowspan=1 colspan=1>0.284 0.361</td><td rowspan=1 colspan=3>0.248 0.305</td><td rowspan=1 colspan=1>0.284 0.361</td><td rowspan=1 colspan=3>0.2810.340</td><td rowspan=1 colspan=1>0.5330.563</td></tr><tr><td rowspan=2 colspan=1></td><td rowspan=2 colspan=1>336720</td><td rowspan=1 colspan=1>0.3040.343</td><td rowspan=1 colspan=1>0.298 0.340</td><td rowspan=1 colspan=1>0.309 0.347</td><td rowspan=1 colspan=1>0.3210.351</td><td rowspan=1 colspan=1>0.5970.542</td><td rowspan=1 colspan=1>0.3810.429</td><td rowspan=1 colspan=3>0.309 0.343</td><td rowspan=1 colspan=1>0.3820.429</td><td rowspan=2 colspan=3>0.3390.3720.4330.432</td><td rowspan=2 colspan=1>1.363 0.8873.3791.338</td></tr><tr><td rowspan=1 colspan=1>0.4020.402</td><td rowspan=1 colspan=1>0.3910.396</td><td rowspan=1 colspan=1>0.4120.404</td><td rowspan=1 colspan=1>0.4080.403</td><td rowspan=1 colspan=1>1.7301.042</td><td rowspan=1 colspan=1>0.5490.522</td><td rowspan=1 colspan=3>0.410 0.400</td><td rowspan=1 colspan=1>0.5580.525</td></tr><tr><td rowspan=4 colspan=1>BELLI</td><td rowspan=4 colspan=1>96192336720</td><td rowspan=4 colspan=1>0.3710.3950.4260.4220.4370.4320.474 0.461</td><td rowspan=1 colspan=1>0.3750.400</td><td rowspan=1 colspan=1>|0.460 0.447</td><td rowspan=1 colspan=1>|0.384 0.402</td><td rowspan=1 colspan=1>|0.423 0.448</td><td rowspan=1 colspan=1>0.426 0.446</td><td rowspan=1 colspan=3>|0.438 0.433</td><td rowspan=1 colspan=1>0.3970.412</td><td rowspan=1 colspan=1>0.44</td><td rowspan=1 colspan=2>0.449 0.459</td><td rowspan=1 colspan=1>| 0.865 0.713</td></tr><tr><td rowspan=1 colspan=1>0.4290.421</td><td rowspan=1 colspan=1>0.512 0.477</td><td rowspan=1 colspan=1>0.436 0.429</td><td rowspan=1 colspan=1>0.4710.474</td><td rowspan=1 colspan=1>0.454 0.464</td><td rowspan=1 colspan=3>0.493 0.466</td><td rowspan=1 colspan=1>0.446 0.441</td><td rowspan=1 colspan=2>0.500</td><td rowspan=1 colspan=1>0.500 0.482</td><td rowspan=1 colspan=1>1.008 0.792</td></tr><tr><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td rowspan=1 colspan=2>0.521</td><td></td><td rowspan=1 colspan=1>1.107 0.809</td></tr><tr><td rowspan=1 colspan=1>0.4980.482</td><td rowspan=1 colspan=1>0.544 0.517</td><td rowspan=1 colspan=1>0.5210.500</td><td rowspan=1 colspan=1>0.6530.621</td><td rowspan=1 colspan=1>0.526 0.526</td><td rowspan=1 colspan=3>0.5860.538</td><td rowspan=1 colspan=1>0.5130.510</td><td rowspan=1 colspan=2>0.51</td><td rowspan=1 colspan=2>0.514 0.512</td><td rowspan=1 colspan=1>1.1810.865</td></tr><tr><td rowspan=4 colspan=1>ELLLE</td><td rowspan=2 colspan=1>96192</td><td rowspan=2 colspan=1>0.2870.3410.3610.388</td><td rowspan=1 colspan=1>0.2890.341</td><td rowspan=1 colspan=1>0.308 0.355</td><td rowspan=1 colspan=1>|0.340 0.374</td><td rowspan=1 colspan=1>|0.745 0.584</td><td rowspan=1 colspan=1>|0.372 0.424</td><td rowspan=1 colspan=3>0.322 0.364</td><td rowspan=1 colspan=1>0.340 0.394</td><td rowspan=2 colspan=3>0.346 0.3880.4560.453</td><td rowspan=2 colspan=1>|3.7551.5255.6021.931</td></tr><tr><td rowspan=1 colspan=1>0.3720.392</td><td rowspan=1 colspan=1>0.3930.405</td><td rowspan=1 colspan=1>0.402 0.414</td><td rowspan=1 colspan=1>0.8770.656</td><td rowspan=1 colspan=1>0.492 0.492</td><td rowspan=1 colspan=3>0.404 0.414</td><td rowspan=1 colspan=1>0.4820.479</td></tr><tr><td rowspan=2 colspan=1>336720</td><td rowspan=1 colspan=1>0.3740.403</td><td rowspan=1 colspan=1>0.3860.414</td><td rowspan=1 colspan=1>0.4270.436</td><td rowspan=1 colspan=1>0.4520.452</td><td rowspan=1 colspan=1>1.0430.731</td><td rowspan=1 colspan=1>0.6070.555</td><td rowspan=1 colspan=3>0.4350.445</td><td rowspan=1 colspan=1>0.5910.541</td><td rowspan=1 colspan=3>0.482 0.486</td><td rowspan=1 colspan=1>4.7211.835</td></tr><tr><td rowspan=1 colspan=1>0.4120.433</td><td rowspan=1 colspan=1>0.4120.434</td><td rowspan=1 colspan=1>0.4360.450</td><td rowspan=1 colspan=1>0.462 0.468</td><td rowspan=1 colspan=1>1.104 0.763</td><td rowspan=1 colspan=1>0.824 0.655</td><td rowspan=1 colspan=3>0.4470.458</td><td rowspan=1 colspan=1>0.839 0.661</td><td rowspan=1 colspan=3>0.515 0.511</td><td rowspan=1 colspan=1>3.6471.625</td></tr></table>",
+        "bbox": [
+            173,
+            325,
+            821,
+            633
+        ],
+        "page_idx": 14
+    },
+    {
+        "type": "table",
+        "img_path": "images/d91c4de1c590913289195df3d8f6c2ebd82d0e3be45ffd1d1baef1ed13af347a.jpg",
+        "table_caption": [
+            "Table 12: Full results of univariate short-term forecasting in the M4 dataset. All forecasting horizons are in [6, 48]. The best results are in bold and the second best are underlined. "
+        ],
+        "table_footnote": [],
+        "table_body": "<table><tr><td></td><td>Models</td><td>CATS</td><td>TimeMixer</td><td>Timesnet</td><td>PatchTST</td><td>MICN</td><td>FiLM</td><td>DLinear</td><td>Autoformer</td><td>Informer</td></tr><tr><td rowspan=\"2\">De</td><td> SMAPE</td><td>9.979</td><td>9.996</td><td>10.100</td><td>10.644</td><td>15.214</td><td>12.925</td><td>12.145</td><td>11.338</td><td>11.360</td></tr><tr><td>MASE</td><td>1.164</td><td>1.166</td><td>1.182</td><td>1.278</td><td>1.963</td><td>1.664</td><td>1.520</td><td>1.365</td><td>1.401</td></tr><tr><td rowspan=\"2\"></td><td>OWA</td><td>0.878</td><td>0.825</td><td>0.890</td><td>0.949</td><td>1.407</td><td>1.193</td><td>1.106</td><td>1.012</td><td>1.027</td></tr><tr><td>SMAPE</td><td>12.557</td><td>12.605</td><td>12.670</td><td>13.399</td><td>16.943</td><td>15.407</td><td>13.514</td><td>13.958</td><td>14.062</td></tr><tr><td rowspan=\"3\">AMe</td><td>MASE</td><td>0.916</td><td>0.919</td><td>0.933</td><td>1.031</td><td>1.442</td><td>1.298</td><td>1.037</td><td>1.103</td><td>1.141</td></tr><tr><td>OWA</td><td>0.866</td><td>0.869</td><td>0.878</td><td>0.949</td><td>1.265</td><td>1.144</td><td>0.956</td><td>1.002</td><td>1.024</td></tr><tr><td>SMAPE</td><td>13.263</td><td>13.206</td><td>13.387</td><td>16.463</td><td>25.022</td><td>17.431</td><td>16.965</td><td>13.974</td><td>14.727</td></tr><tr><td rowspan=\"3\">Kr</td><td>MASE</td><td>2.967</td><td>2.916</td><td>2.996</td><td>3.967</td><td>7.162</td><td>4.043</td><td>4.283</td><td>3.134</td><td>3.418</td></tr><tr><td>OWA</td><td>0.779</td><td>0.776</td><td>0.786</td><td>1.003</td><td>1.667</td><td>1.042</td><td>1.058</td><td>0.822</td><td>0.881</td></tr><tr><td>SMAPE</td><td>4.560</td><td>4.564</td><td>4.891</td><td>6.558</td><td>41.985</td><td>7.134</td><td>6.709</td><td>5.485</td><td>24.460</td></tr><tr><td rowspan=\"3\">Snr</td><td>MASE</td><td>3.107</td><td>3.115</td><td>3.302</td><td>4.511</td><td>62.734</td><td>5.09</td><td>4.953</td><td>3.865</td><td>20.960</td></tr><tr><td>OWA</td><td>0.970</td><td>0.982</td><td>1.035</td><td>1.401</td><td>14.313</td><td>1.553</td><td>1.487</td><td>1.187</td><td>5.879</td></tr><tr><td>SMAPE</td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr><tr><td rowspan=\"2\">AAre</td><td>MASE</td><td>11.701</td><td>11.723 1.559</td><td>11.829 1.585</td><td>13.152</td><td>19.638</td><td>14.863</td><td>13.639</td><td>12.909</td><td>14.086</td></tr><tr><td>OWA</td><td>1.557 0.838</td><td>.840</td><td>0.851</td><td>1.945 0.998</td><td>5.947 2.279</td><td>2.207 1.125</td><td>2.095 1.051</td><td>1.771 0.939</td><td>2.718 1.230</td></tr></table>",
+        "bbox": [
+            238,
+            699,
+            756,
+            892
+        ],
+        "page_idx": 14
+    },
+    {
+        "type": "text",
+        "text": "B Additional Experimental Results ",
+        "text_level": 1,
+        "bbox": [
+            174,
+            88,
+            483,
+            107
+        ],
+        "page_idx": 15
+    },
+    {
+        "type": "text",
+        "text": "B.1 Performance with Longer Input Sequences ",
+        "text_level": 1,
+        "bbox": [
+            174,
+            121,
+            513,
+            136
+        ],
+        "page_idx": 15
+    },
+    {
+        "type": "text",
+        "text": "In Table 5, we compared models with the number of parameters, GPU memory consumption, and MSE across different input lengths on ETTm1 with varying input sequence lengths. In this section, we provide comprehensive results on longer input sequence lengths $L = 5 1 2$ . The detailed parameters can be found in Table 13 and the corresponding experimental results are summarized in Table 14. As with unified hyperparameter settings, we follow the settings of the most recent work [21] to ease comparison. Overall, the experimental results clearly illustrate the superiority of CATS over recent forecasting models across multiple datasets and prediction horizons. CATS consistently shows the lowest Mean Squared Error (MSE) and Mean Absolute Error (MAE) across a variety of datasets and forecast horizons. For instance, on Electricity, at the 96 forecast horizon, CATS achieves the best MSE score of 0.144 and the best MAE score of 0.189, underscoring its accuracy in predicting electrical demand. ",
+        "bbox": [
+            173,
+            145,
+            826,
+            297
+        ],
+        "page_idx": 15
+    },
+    {
+        "type": "table",
+        "img_path": "images/6f1b71d2910aa0967bcff46b818d2c0f1036b4c96a087a7f360c54330d43069a.jpg",
+        "table_caption": [
+            "Table 13: Experimental settings with an input sequence length of 512. "
+        ],
+        "table_footnote": [],
+        "table_body": "<table><tr><td rowspan=1 colspan=8>Metric | Layers || Embedding Size | Query Sharing | Input Sequence Length | Batch Size |e| Epoch | Learning Rate</td></tr><tr><td rowspan=1 colspan=1>Weather</td><td rowspan=1 colspan=1>3</td><td rowspan=1 colspan=1>128</td><td rowspan=1 colspan=1>False</td><td rowspan=1 colspan=1>512</td><td rowspan=1 colspan=2>128    30</td><td rowspan=1 colspan=1>10−3</td></tr><tr><td rowspan=1 colspan=1>Electricity</td><td rowspan=1 colspan=1>3</td><td rowspan=1 colspan=1>128</td><td rowspan=1 colspan=1>False</td><td rowspan=1 colspan=1>512</td><td rowspan=1 colspan=1>32</td><td rowspan=1 colspan=1>30</td><td rowspan=1 colspan=1>10-3</td></tr><tr><td rowspan=1 colspan=1>Traffic</td><td rowspan=1 colspan=1>3</td><td rowspan=1 colspan=1>128</td><td rowspan=1 colspan=1>True</td><td rowspan=1 colspan=1>512</td><td rowspan=1 colspan=1>32</td><td rowspan=1 colspan=1>100</td><td rowspan=1 colspan=1>10−3</td></tr><tr><td rowspan=1 colspan=1>ETTh1</td><td rowspan=1 colspan=1>3</td><td rowspan=1 colspan=1>256</td><td rowspan=1 colspan=1>False</td><td rowspan=1 colspan=1>512</td><td rowspan=1 colspan=1>128</td><td rowspan=1 colspan=1>10</td><td rowspan=1 colspan=1>10−3</td></tr><tr><td rowspan=1 colspan=1>ETTh2</td><td rowspan=1 colspan=1>3</td><td rowspan=1 colspan=1>256</td><td rowspan=1 colspan=1>True</td><td rowspan=1 colspan=1>512</td><td rowspan=1 colspan=1>256</td><td rowspan=1 colspan=1>10</td><td rowspan=1 colspan=1>10−3</td></tr><tr><td rowspan=1 colspan=1>ETTm1</td><td rowspan=1 colspan=1>3</td><td rowspan=1 colspan=1>128</td><td rowspan=1 colspan=1>False</td><td rowspan=1 colspan=1>512</td><td rowspan=1 colspan=1>128</td><td rowspan=1 colspan=1>30</td><td rowspan=1 colspan=1>10−3</td></tr><tr><td rowspan=1 colspan=1>ETTm2</td><td rowspan=1 colspan=1>3</td><td rowspan=1 colspan=1>256</td><td rowspan=1 colspan=1>True</td><td rowspan=1 colspan=1>512</td><td rowspan=1 colspan=1>128</td><td rowspan=1 colspan=1>30</td><td rowspan=1 colspan=1>10−3</td></tr></table>",
+        "bbox": [
+            205,
+            332,
+            792,
+            464
+        ],
+        "page_idx": 15
+    },
+    {
+        "type": "table",
+        "img_path": "images/f4b8e4b8303f3e8f6e26ef4aa22e9ea7ff74ca41b1ffb42677d478833052daa7.jpg",
+        "table_caption": [
+            "Table 14: Multivariate long-term forecasting results with an input sequence length of 512. The best results are in bold and the second best are underlined. "
+        ],
+        "table_footnote": [],
+        "table_body": "<table><tr><td rowspan=1 colspan=15>Models  CATS   TimeMixer PatchTST  Timesnet Crossformer  MICN     FiLM    DLinear  Autoformer Informer</td></tr><tr><td rowspan=1 colspan=6>MetricMSE MAE</td><td rowspan=1 colspan=1>MSE MAE</td><td rowspan=1 colspan=1>MSE MAE</td><td rowspan=1 colspan=1>MSEMAE</td><td rowspan=1 colspan=1>MSE MAE</td><td rowspan=1 colspan=1>MSE MAE</td><td rowspan=1 colspan=1>MSE MAE</td><td rowspan=1 colspan=1>MSE MAE</td><td rowspan=1 colspan=1>MSE MAE</td><td rowspan=1 colspan=1>MSE MAE</td></tr><tr><td rowspan=5 colspan=1>MWeeer</td><td rowspan=1 colspan=1>96</td><td rowspan=1 colspan=4>0.1440.199</td><td rowspan=1 colspan=1>0.1470.197</td><td rowspan=1 colspan=1>0.1490.198</td><td rowspan=1 colspan=1>0.1720.220</td><td rowspan=1 colspan=1>0.2320.302</td><td rowspan=1 colspan=1>0.1610.229</td><td rowspan=1 colspan=1>0.1990.262</td><td rowspan=1 colspan=1>0.1760.237</td><td rowspan=2 colspan=1>0.266 0.3360.307 0.367</td><td rowspan=4 colspan=1>|0.300 0.3840.598 0.5440.578 0.523</td></tr><tr><td rowspan=3 colspan=1>192336</td><td rowspan=1 colspan=2>0.188</td><td rowspan=1 colspan=3>0.240</td><td rowspan=1 colspan=1>0.1890.239</td><td rowspan=1 colspan=1>0.194 0.241</td><td rowspan=1 colspan=1>0.219 0.261</td><td rowspan=1 colspan=1>0.3710.410</td><td rowspan=1 colspan=1>0.220 0.281</td><td rowspan=1 colspan=1>0.228 0.288</td><td rowspan=3 colspan=1>0.220 0.2820.2650.319</td></tr><tr><td rowspan=2 colspan=3>0.238 0.280</td><td></td><td rowspan=2 colspan=1>0.2410.280</td><td rowspan=2 colspan=1>0.3060.282</td><td rowspan=2 colspan=1>0.246 0.337</td><td rowspan=2 colspan=1>0.495 0.515</td><td rowspan=2 colspan=1>0.278 0.331</td><td rowspan=2 colspan=1>0.267 0.323</td><td></td></tr><tr><td></td><td rowspan=1 colspan=1>0.307 0.3670.359 0.395</td></tr><tr><td rowspan=1 colspan=1>720</td><td rowspan=1 colspan=4>0.3080.329</td><td rowspan=1 colspan=1>0.3100.330</td><td rowspan=1 colspan=1>0.3140.334</td><td rowspan=1 colspan=1>0.365 0.359</td><td rowspan=1 colspan=1>0.5260.542</td><td rowspan=1 colspan=1>0.3110.356</td><td rowspan=1 colspan=1>0.319 0.361</td><td rowspan=1 colspan=1>0.3230.362</td><td rowspan=1 colspan=1>0.4190.428</td><td rowspan=1 colspan=1>0.5900.741</td></tr><tr><td rowspan=4 colspan=1>Ee</td><td rowspan=2 colspan=1>96192</td><td rowspan=2 colspan=4>| 0.1260.2180.1440.235</td><td rowspan=2 colspan=1>0.1290.2240.1400.220</td><td rowspan=2 colspan=1>0.1290.2220.1470.240</td><td rowspan=2 colspan=1>0.168 0.2720.184 0.322</td><td rowspan=2 colspan=1>|0.150 0.2510.161 0.260</td><td rowspan=2 colspan=1>|0.164 0.2690.177 0.285</td><td rowspan=1 colspan=1>0.154 0.267</td><td rowspan=2 colspan=1>0.140 0.2370.153 0.249</td><td rowspan=2 colspan=1>0.2010.3170.2220.334</td><td rowspan=2 colspan=1>0.2740.3680.296 0.386</td></tr><tr><td rowspan=1 colspan=1>0.164 0.258</td></tr><tr><td rowspan=2 colspan=1>336720</td><td rowspan=2 colspan=4>0.1590.2520.1940.283</td><td rowspan=2 colspan=1>0.1610.2550.1940.287</td><td rowspan=2 colspan=1>0.163 0.2590.1970.290</td><td rowspan=2 colspan=1>0.198 0.3000.220 0.320</td><td rowspan=1 colspan=1>0.182 0.281</td><td rowspan=1 colspan=1>0.193 0.304</td><td rowspan=1 colspan=1>0.188 0.283</td><td rowspan=2 colspan=1>0.169 0.2670.203 0.301</td><td rowspan=2 colspan=1>0.2310.3380.254 0.361</td><td rowspan=2 colspan=1>0.300 0.3940.373 0.439</td></tr><tr><td rowspan=1 colspan=1>0.2510.339</td><td rowspan=1 colspan=1>0.212 0.321</td><td rowspan=1 colspan=1>0.2360.332</td></tr><tr><td rowspan=3 colspan=1>Laea</td><td rowspan=2 colspan=1>96192</td><td rowspan=2 colspan=4>| 0.3520.2430.3730.253</td><td rowspan=2 colspan=1>0.3600.249|0.3750.250</td><td rowspan=2 colspan=1>0.3600.2490.3790.256</td><td rowspan=1 colspan=1>| 0.593 0.321</td><td rowspan=1 colspan=1>0.514 0.267</td><td rowspan=1 colspan=1>| 0.519 0.309 |</td><td rowspan=1 colspan=1>0.416 0.294</td><td rowspan=1 colspan=1>|0.410 0.282</td><td rowspan=1 colspan=1>|0.613 0.388</td><td rowspan=1 colspan=1>| 0.719 0.391</td></tr><tr><td rowspan=1 colspan=1>0.617 0.336</td><td rowspan=1 colspan=1>0.5490.252</td><td rowspan=1 colspan=1>0.5370.315</td><td rowspan=1 colspan=1>0.408 0.288</td><td rowspan=1 colspan=1>0.423 0.287</td><td rowspan=1 colspan=1>0.616 0.382</td><td rowspan=1 colspan=1>0.696 0.379</td></tr><tr><td rowspan=1 colspan=1>336720</td><td rowspan=1 colspan=4>0.3870.2600.4250.281</td><td rowspan=1 colspan=1>0.3850.2700.4300.281</td><td rowspan=1 colspan=1>0.3920.2640.4320.286</td><td rowspan=1 colspan=1>0.629 0.3360.640 0.350</td><td rowspan=1 colspan=1>0.5300.3000.5730.313</td><td rowspan=1 colspan=1>0.534 0.3130.5770.325</td><td rowspan=1 colspan=1>0.425 0.2980.520 0.353</td><td rowspan=1 colspan=1>0.436 0.2960.4660.315</td><td rowspan=1 colspan=1>0.6220.3370.660 0.408</td><td rowspan=1 colspan=1>0.7770.4200.8640.472</td></tr><tr><td rowspan=4 colspan=1>BELLI</td><td rowspan=4 colspan=1>96192336720</td><td rowspan=4 colspan=4>0.3730.4010.4010.4210.4150.4340.4350.446</td><td rowspan=4 colspan=1>0.3610.3900.4090.4140.430 0.4290.4450.460</td><td rowspan=3 colspan=1>0.3700.4000.4130.4290.4220.440</td><td rowspan=2 colspan=1>0.3840.4020.436 0.429</td><td rowspan=2 colspan=1>0.4180.4380.5390.517</td><td rowspan=2 colspan=1>|0.4210.4310.474 0.487</td><td rowspan=4 colspan=1>0.4220.4320.462 0.4580.5010.4830.544 0.526</td><td rowspan=4 colspan=1>0.3750.3990.4050.4160.4390.4430.4720.490</td><td rowspan=4 colspan=1>0.4490.4590.500 0.4820.5210.4960.514 0.512</td><td rowspan=4 colspan=1>0.8650.7130.0800.7920.1070.8090.1810.865</td></tr><tr><td rowspan=2 colspan=1>0.474 0.4870.5690.551</td></tr><tr><td rowspan=1 colspan=1>0.638 0.469</td><td rowspan=1 colspan=1>0.7090.638</td></tr><tr><td rowspan=1 colspan=1>0.4470.468</td><td rowspan=1 colspan=1>0.5210.500</td><td rowspan=1 colspan=1>0.7330.636</td><td rowspan=1 colspan=1>0.770 0.672</td></tr><tr><td rowspan=2 colspan=1>RLL</td><td rowspan=1 colspan=1>96192</td><td rowspan=1 colspan=4>0.2560.3280.3110.366</td><td rowspan=1 colspan=1>0.2710.3300.3170.402</td><td rowspan=1 colspan=1>|0.274 0.3370.314 0.382</td><td rowspan=1 colspan=1>0.340 0.3740.2310.322</td><td rowspan=1 colspan=1>0.4250.4630.4730.500</td><td rowspan=1 colspan=1>|0.2990.3640.441 0.454</td><td rowspan=1 colspan=1>0.3230.3700.3910.415</td><td rowspan=1 colspan=1>0.2890.3530.3830.418</td><td rowspan=1 colspan=1>0.3580.3970.4560.453</td><td rowspan=2 colspan=1>0.7550.5250.602 0.9310.7210.8350.6470.625</td></tr><tr><td rowspan=1 colspan=1>336720</td><td rowspan=1 colspan=4>0.3190.3820.3950.438</td><td rowspan=1 colspan=1>0.3320.3960.3420.408</td><td rowspan=1 colspan=1>0.3290.3840.3790.422</td><td rowspan=1 colspan=1>0.4520.4520.4620.468</td><td rowspan=1 colspan=1>0.5810.5620.7750.665</td><td rowspan=1 colspan=1>0.654 0.5670.9560.716</td><td rowspan=1 colspan=1>0.415 0.4400.4410.459</td><td rowspan=1 colspan=1>0.4480.4650.6050.551</td><td rowspan=1 colspan=1>0.482 0.4860.515 0.511</td></tr><tr><td rowspan=2 colspan=1>EIL</td><td rowspan=2 colspan=1>96192336720</td><td rowspan=2 colspan=4>| 0.283 0.340 |0.319 0.3630.351 0.3850.4000.414</td><td rowspan=1 colspan=1>| 0.2910.340|0.3270.365</td><td rowspan=1 colspan=1>|0.293 0.3460.333 0.370</td><td rowspan=1 colspan=1>| 0.338 0.3750.374 0.387</td><td rowspan=1 colspan=1>0.3610.4030.387 0.422</td><td rowspan=1 colspan=1>| 0.316 0.3620.363 0.390</td><td rowspan=1 colspan=1>|0.302 0.3450.338 0.368</td><td rowspan=1 colspan=1>0.2990.3430.3350.365</td><td rowspan=1 colspan=1>|0.505 0.4750.5530.496</td><td rowspan=2 colspan=1>|0.6720.5710.7950.6690.2120.8710.1660.823</td></tr><tr><td rowspan=1 colspan=1>0.3600.3810.4150.417</td><td rowspan=1 colspan=1>0.369 0.3920.416 0.420</td><td rowspan=1 colspan=1>0.410 0.4110.478 0.450</td><td rowspan=1 colspan=1>0.6050.5720.703 0.645</td><td rowspan=1 colspan=1>0.408 0.4260.481 0.476</td><td rowspan=1 colspan=1>0.3730.3880.420 0.420</td><td rowspan=1 colspan=1>0.3690.3860.4250.421</td><td rowspan=1 colspan=1>0.6210.5370.6710.561</td></tr><tr><td rowspan=3 colspan=1>ZImE</td><td rowspan=3 colspan=1>96192336720</td><td rowspan=3 colspan=4>|0.1650.2560.2210.2970.2740.3340.3620.390</td><td rowspan=1 colspan=1>0.1640.2540.2230.295</td><td rowspan=1 colspan=1>0.1660.2560.2230.296</td><td rowspan=1 colspan=1>0.1870.2670.249 0.309</td><td rowspan=1 colspan=1>|0.275 0.3580.345 0.400</td><td rowspan=1 colspan=1>| 0.179 0.2750.307 0.376</td><td rowspan=1 colspan=1>0.165 0.2560.222 0.296</td><td rowspan=1 colspan=1>0.1670.2600.224 0.303</td><td rowspan=1 colspan=1>|0.2550.3390.2810.340</td><td rowspan=1 colspan=1>0.3650.4530.5330.563</td></tr><tr><td rowspan=2 colspan=1>0.2790.3300.3590.383</td><td rowspan=2 colspan=1>0.2740.3290.3620.385</td><td rowspan=1 colspan=1>0.3210.351</td><td rowspan=1 colspan=1>0.6570.528</td><td rowspan=1 colspan=1>0.3250.388</td><td rowspan=1 colspan=1>0.2770.333</td><td rowspan=2 colspan=1>0.2810.3420.3970.421</td><td rowspan=2 colspan=1>0.3390.3720.4220.419</td><td rowspan=2 colspan=1>0.3630.8870.3790.388</td></tr><tr><td rowspan=1 colspan=1>0.408 0.403</td><td rowspan=1 colspan=1>0.208 0.753</td><td rowspan=1 colspan=1>0.5020.490</td><td rowspan=1 colspan=1>0.3710.389</td></tr></table>",
+        "bbox": [
+            173,
+            521,
+            821,
+            830
+        ],
+        "page_idx": 15
+    },
+    {
+        "type": "text",
+        "text": "B.2 Additional Results for Section 5.2 ",
+        "text_level": 1,
+        "bbox": [
+            176,
+            857,
+            447,
+            872
+        ],
+        "page_idx": 15
+    },
+    {
+        "type": "text",
+        "text": "We provide additional experimental results to support the findings discussed in Section 5.2. Tables 15 and 16 summarize detailed comparisons of the number of parameters, GPU memory consumption, and MSE across different input lengths for the ETTm1 and Weather datasets, respectively. The linear models, TimeMixer and DLinear, exhibit smaller parameters for shorter input lengths. Despite CATS having slightly more parameters than TimeMixer for smaller inputs, it outperforms in terms of memory usage and MSE. This suggests that CATS is more efficient and effective in handling shorter inputs. For PatchTST, the number of parameters does not increase within the actual Transformer backbone as the input length increases. However, due to the need to flatten and project all inputs at the end, the parameters scale linearly with the input length. This highlights a limitation of the Encoder’s architecture. On the other hand, TimeMixer’s parameters grow almost quadratically as the input length doubles. Similarly, DLinear’s parameters increase linearly with the input length. Our proposed model, CATS demonstrates significant efficiency through parameter sharing, where the parameters hardly increase with longer inputs. Notably, from an input length of 336, CATS has fewer parameters than DLinear, showcasing the deep learning model’s advantage in detecting inherent patterns in the data. ",
+        "bbox": [
+            174,
+            883,
+            823,
+            911
+        ],
+        "page_idx": 15
+    },
+    {
+        "type": "table",
+        "img_path": "images/5cd59be40b0ac721e0f3370f844377690a77f6a1aa1db50a874d005e68aed705.jpg",
+        "table_caption": [
+            "Table 15: Comparison of models with the number of parameters, GPU memory consumption, and MSE across different input sequence lengths on ETTm1. Full results of Table 5. "
+        ],
+        "table_footnote": [],
+        "table_body": "<table><tr><td rowspan=\"2\">Models</td><td colspan=\"7\">Parameters across different input lengths</td></tr><tr><td>96</td><td>192</td><td>336</td><td>512</td><td>720</td><td>1440</td><td>2880</td></tr><tr><td>PatchTST</td><td>|1,506,384</td><td>2,612,304</td><td>4,271,184</td><td>6,298,704</td><td>8,694,864</td><td>16,989,264</td><td>33,578,064</td></tr><tr><td>TimeMixer</td><td>190,313</td><td>484,217</td><td>1,129,193</td><td>2,250,137</td><td>4,046,633</td><td>14,211,593</td><td>52,912,313</td></tr><tr><td>DLinear</td><td>139,680</td><td>277,920</td><td>485,280</td><td>738,720</td><td>1,038,240</td><td>2,075,040</td><td>4,148,640</td></tr><tr><td>CATS</td><td>360,264</td><td>360,776</td><td>361,544</td><td>362,440</td><td>363,592</td><td>367,432</td><td>375,112</td></tr><tr><td rowspan=\"2\">Models</td><td colspan=\"7\">GPU Memory Consumption across different input lengths</td></tr><tr><td>96 192</td><td></td><td>336</td><td>512</td><td>720</td><td>1440</td><td>2880</td></tr><tr><td>PatchTST</td><td>2,234MB</td><td>2,650MB</td><td>3,484MB</td><td>4,914MB</td><td>7,368MB</td><td>2,1968MB</td><td>58,590MB</td></tr><tr><td>TimeMixer</td><td>2,204MB</td><td>2,522MB</td><td>2,914MB</td><td>3,414MB</td><td>3,888MB</td><td>5,876MB</td><td>10,324MB</td></tr><tr><td>DLinear</td><td>1,098MB</td><td>1,102MB</td><td>1,104MB</td><td>1,114MB</td><td>1,114MB</td><td>1,154MB</td><td>1,214MB</td></tr><tr><td>CATS</td><td>1,712MB</td><td>1,796MB</td><td>1,884MB</td><td>2,042MB</td><td>2,140MB</td><td>2,700MB</td><td>3,826MB</td></tr><tr><td rowspan=\"2\">Models</td><td colspan=\"8\">MSE across different input lengths</td></tr><tr><td>96</td><td>192</td><td>336</td><td>512</td><td>720</td><td>1440</td><td>2880</td></tr><tr><td>PatchTST</td><td>0.457</td><td>0.424</td><td>0.418</td><td>0.420</td><td>0.418</td><td>0.420</td><td>0.413</td></tr><tr><td>TimeMixer</td><td>0.454</td><td>0.433</td><td>0.428</td><td>0.436</td><td>0.425</td><td>0.414</td><td>0.472</td></tr><tr><td>DLinear</td><td>0.473</td><td>0.438</td><td>0.426</td><td>0.427</td><td>0.422</td><td>0.401</td><td>0.408</td></tr><tr><td>CATS</td><td>0.450</td><td>0.418</td><td>0.407</td><td>0.400</td><td>0.402</td><td>0.399</td><td>0.395</td></tr></table>",
+        "bbox": [
+            183,
+            126,
+            813,
+            435
+        ],
+        "page_idx": 16
+    },
+    {
+        "type": "table",
+        "img_path": "images/e608ab71af2de8cc643cd921a3c46c4e4d583af765fcdd290e4c37b8a46dee3e.jpg",
+        "table_caption": [
+            "Table 16: Comparison of models with the number of parameters, GPU memory consumption, and MSE across different input sequence lengths on Weather. "
+        ],
+        "table_footnote": [],
+        "table_body": "<table><tr><td rowspan=\"2\">Models</td><td colspan=\"7\">Parameters across different input lengths</td></tr><tr><td>96</td><td>192</td><td>336</td><td>512</td><td>720</td><td>1440</td><td>2880</td></tr><tr><td>PatchTST</td><td>1,506,384</td><td>2,612,304</td><td>4,271,184</td><td>6,298,704</td><td>8,694,864</td><td>16,989,264</td><td>33,578,064</td></tr><tr><td>TimeMixer</td><td>219,249</td><td>595,305</td><td>1,465,569</td><td>3,028,185</td><td>5,582,529</td><td>20,343,969</td><td>77,423,049</td></tr><tr><td>DLinear</td><td>139,680</td><td>277,920</td><td>485,280</td><td>738,720</td><td>1,038,240</td><td>2,075,040</td><td>4,148,640</td></tr><tr><td>CATS</td><td>370,344</td><td>370,856</td><td>371,624</td><td>372,520</td><td>373,672</td><td>377,512</td><td>385,192</td></tr><tr><td rowspan=\"2\">Models</td><td colspan=\"7\">GPU Memory Consumption across different input lengths</td></tr><tr><td>96 192</td><td></td><td>336</td><td>512</td><td>720</td><td>1440</td><td>2880</td></tr><tr><td>PatchTST</td><td>1,680MB</td><td>2,110MB</td><td>2,762MB</td><td>4,596MB</td><td>5,726MB</td><td>16,472MB</td><td>45,278MB</td></tr><tr><td>TimeMixer</td><td>1,894MB</td><td>2,154MB</td><td>2,728MB</td><td>3,414MB</td><td>4,356MB</td><td>8,358MB</td><td>20,624MB</td></tr><tr><td>DLinear</td><td>1,106MB</td><td>1,114MB</td><td>1,188MB</td><td>1,188MB</td><td>1,188MB</td><td>1,362MB</td><td>1,632MB</td></tr><tr><td>CATS</td><td>1,522MB</td><td>1,590MB</td><td>1,665MB</td><td>1,755MB</td><td>1,892MB</td><td>2,282MB</td><td>3,140MB</td></tr><tr><td rowspan=\"2\">Models</td><td colspan=\"8\">MSE across different input lengths</td></tr><tr><td>96</td><td>192</td><td>336</td><td>512</td><td>720</td><td>1440</td><td>2880</td></tr><tr><td>PatchTST</td><td>0.351</td><td>0.336</td><td>0.320</td><td>0.315</td><td>0.309</td><td>0.308</td><td>0.312</td></tr><tr><td>TimeMixer</td><td>0.339</td><td>0.331</td><td>0.318</td><td>0.319</td><td>0.324</td><td>0.318</td><td>0.327</td></tr><tr><td>DLinear</td><td>0.346</td><td>0.334</td><td>0.325</td><td>0.320</td><td>0.316</td><td>0.311</td><td>0.309</td></tr><tr><td>CATS</td><td>0.342</td><td>0.325</td><td>0.314</td><td>0.308</td><td>0.305</td><td>0.301</td><td>0.291</td></tr></table>",
+        "bbox": [
+            184,
+            489,
+            813,
+            799
+        ],
+        "page_idx": 16
+    },
+    {
+        "type": "text",
+        "text": "",
+        "bbox": [
+            174,
+            827,
+            825,
+            911
+        ],
+        "page_idx": 16
+    },
+    {
+        "type": "text",
+        "text": "",
+        "bbox": [
+            174,
+            90,
+            825,
+            188
+        ],
+        "page_idx": 17
+    },
+    {
+        "type": "text",
+        "text": "Regarding GPU memory consumption, we observe that both PatchTST and TimeMixer require significantly more GPU memory as the input length increases. For example, PatchTST’s GPU memory usage scales drastically, making it less feasible for long input sequences. TimeMixer also shows an increase in GPU memory consumption, although it is less severe than PatchTST. In contrast, DLinear maintains a relatively constant GPU memory usage, demonstrating its efficiency in terms of computational resources. However, CATS stands out by offering a balanced approach, with moderate GPU memory usage that scales more favorably compared to PatchTST and TimeMixer. This balance between memory efficiency and performance is crucial for practical applications requiring long-term time series forecasting. ",
+        "bbox": [
+            173,
+            194,
+            825,
+            319
+        ],
+        "page_idx": 17
+    },
+    {
+        "type": "text",
+        "text": "Furthermore, when analyzing the MSE across different input lengths, CATS consistently shows the best performance. It maintains lower MSE compared to other models across all input lengths. This robustness in performance, combined with its efficient parameter and memory usage, highlights the superiority of CATS in long-term time series forecasting tasks. Overall, these results show the advantages of CATS in terms of parameter efficiency, GPU memory consumption, and forecasting accuracy. These findings support the proposed model’s potential for practical and scalable time series forecasting solutions. ",
+        "bbox": [
+            174,
+            325,
+            825,
+            422
+        ],
+        "page_idx": 17
+    },
+    {
+        "type": "text",
+        "text": "Table 17 presents the full results on the Traffic dataset. Here, we use the Traffic dataset with a batch size of 8. All GPU memory consumption was measured in a setting using four multi-GPUs. As shown in Table 17, CATS with a 2880 input sequence length consistently outperforms models with a 512 input sequence length, including PatchTST and TimeMixer. Specifically, CATS demonstrates fewer parameters, lower GPU memory consumption, and faster running speeds. These results highlight the efficiency of CATS with large input sizes. The Traffic dataset, characterized by high-dimensional data, shows a significant reduction in MSE when using longer input sequences. ",
+        "bbox": [
+            174,
+            428,
+            825,
+            526
+        ],
+        "page_idx": 17
+    },
+    {
+        "type": "text",
+        "text": "Table 18 provides the full results on the Electricity dataset. Similar to the Traffic dataset, CATS shows superior efficiency in training, particularly with an input size of 2880, across all cases. Here, we use the Electricity dataset with a batch size of 32. All GPU memory consumption was measured in a setting using four multi-GPUs. In this experiment, CATS with a 512 input sequence length did not use parameter sharing for queries, while CATS with a 2880 input sequence length did. This demonstrates the effectiveness of query parameter sharing when utilizing large amounts of data for training. The results confirm that query sharing among dimensions leads to greater efficiency and improved performance. ",
+        "bbox": [
+            174,
+            532,
+            825,
+            643
+        ],
+        "page_idx": 17
+    },
+    {
+        "type": "table",
+        "img_path": "images/31c6e3359b79f8b41913189e85a4ad6d3ebb91c9b444ad5594a1ba99a2230bad.jpg",
+        "table_caption": [
+            "Table 17: Comparison of models with the number of parameters, GPU memory consumption, running speed, and MSE across different forecasting horizon sizes on Traffic. Full results of Fig. 5. "
+        ],
+        "table_footnote": [],
+        "table_body": "<table><tr><td>Horizon</td><td>Models</td><td>Paramters</td><td>Gpu Memory</td><td>Running Time</td><td>MSE</td></tr><tr><td rowspan=\"4\">96</td><td>PatchTST</td><td>1,186,272</td><td>28.54GB</td><td>0.1390s/iter</td><td>0.360</td></tr><tr><td>TimeMixer</td><td>2,442,961</td><td>38.12GB</td><td>0.2548s/iter</td><td>0.360</td></tr><tr><td>CATS (L = 512)</td><td>357,496</td><td>5.81GB</td><td>0.0533s/iter</td><td>0.352</td></tr><tr><td>CATS (L = 2880)</td><td>370,168</td><td>9.79GB</td><td>0.1158s/iter</td><td>0.339</td></tr><tr><td rowspan=\"4\">192</td><td>PatchTST</td><td>1,972,800</td><td>28.34GB</td><td>0.1412s/iter</td><td>0.379</td></tr><tr><td>TimeMixer</td><td>2,535,505</td><td>38.13GB</td><td>0.2596s/iter</td><td>0.375</td></tr><tr><td>CATS (L = 512)</td><td>357,592</td><td>6.73GB</td><td>0.0571s/iter</td><td>0.373</td></tr><tr><td>CATS (L = 2880)</td><td>370,264</td><td>11.10GB</td><td>0.1209s/iter</td><td>0.362</td></tr><tr><td rowspan=\"4\">336</td><td>PatchTST</td><td>3,152,592</td><td>28.91GB</td><td>0.1487s/iter</td><td>0.392</td></tr><tr><td>TimeMixer</td><td>2,674,321</td><td>38.69GB</td><td>0.2647s/iter</td><td>0.385</td></tr><tr><td>CATS (L = 512)</td><td>357,736</td><td>7.46GB</td><td>0.0584s/iter</td><td>0.387</td></tr><tr><td>CATS (L = 2880)</td><td>370,408</td><td>12.72GB</td><td>0.1266s/iter</td><td>0.379</td></tr><tr><td rowspan=\"4\">720</td><td>PatchTST</td><td>6,298,704</td><td>29.15GB</td><td>0.1628s/iter</td><td>0.432</td></tr><tr><td>TimeMixer</td><td>3,044,497</td><td>41.17GB</td><td>0.2777s/iter</td><td>0.430</td></tr><tr><td>CATS (L = 512)</td><td>358,120</td><td>10.10GB</td><td>0.0734s/iter</td><td>0.423</td></tr><tr><td>CATS (L = 2880)</td><td>370,792</td><td>18.40GB</td><td>0.1556s/iter</td><td>0.420</td></tr></table>",
+        "bbox": [
+            196,
+            127,
+            803,
+            395
+        ],
+        "page_idx": 18
+    },
+    {
+        "type": "table",
+        "img_path": "images/5f05bb3f162fa7b60674be1632f52c807500e73de4866558896a2493a9d09d8e.jpg",
+        "table_caption": [
+            "Table 18: Comparison of models with the number of parameters, GPU memory consumption, running speed, and MSE across different forecasting horizon sizes on Electricity. "
+        ],
+        "table_footnote": [],
+        "table_body": "<table><tr><td>Horizon</td><td>Models</td><td>Paramters</td><td>Gpu Memory</td><td>Running Time</td><td>MSE</td></tr><tr><td rowspan=\"4\">96</td><td>PatchTST</td><td>1,186,272</td><td>40.36GB</td><td>0.2021s/iter</td><td>0.129</td></tr><tr><td>TimeMixer</td><td>2,429,049</td><td>33.80GB</td><td>0.2118s/iter</td><td>0.129</td></tr><tr><td>CATS (L = 512)</td><td>388,216</td><td>6.89GB</td><td>0.0587s/iter</td><td>0.126</td></tr><tr><td>CATS (L = 2880)</td><td>370,168</td><td>12.82GB</td><td>0.1653s/iter</td><td>0.126</td></tr><tr><td rowspan=\"4\">192</td><td>PatchTST</td><td>1,972,800</td><td>40.39GB</td><td>0.2048s/iter</td><td>0.147</td></tr><tr><td>TimeMixer</td><td>2,521,593</td><td>33.81GB</td><td>0.2212s/iter</td><td>0.140</td></tr><tr><td>CATS (L = 512)</td><td>419,032</td><td>8.07GB</td><td>0.0636s/iter</td><td>0.144</td></tr><tr><td>CATS (L = 2880)</td><td>370,264</td><td>14.70GB</td><td>0.1725s/iter</td><td>0.139</td></tr><tr><td rowspan=\"4\">336</td><td>PatchTST</td><td>3,152,592</td><td>40.42GB</td><td>0.2070s/iter</td><td>0.163</td></tr><tr><td>TimeMixer</td><td>2,660,409</td><td>34.24GB</td><td>0.2314s/iter</td><td>0.161</td></tr><tr><td>CATS (L = 512)</td><td>465,256</td><td>9.15GB</td><td>0.0690s/iter</td><td>0.159</td></tr><tr><td>CATS (L = 2880)</td><td>370,408</td><td>17.38GB</td><td>0.1839s/iter</td><td>0.153</td></tr><tr><td rowspan=\"4\">720</td><td>PatchTST</td><td>6,298,704</td><td>41.40GB</td><td>0.2313s/iter</td><td>0.197</td></tr><tr><td>TimeMixer</td><td>3,030,585</td><td>36.13GB</td><td>0.2478s/iter</td><td>0.194</td></tr><tr><td>CATS (L = 512)</td><td>588,520</td><td>12.77GB</td><td>0.0964s/iter</td><td>0.194</td></tr><tr><td>CATS (L = 2880)</td><td>370,792</td><td>25.86GB</td><td>0.2262s/iter</td><td>0.183</td></tr></table>",
+        "bbox": [
+            196,
+            454,
+            802,
+            723
+        ],
+        "page_idx": 18
+    },
+    {
+        "type": "text",
+        "text": "B.3 Ablation Study on Query-adaptive Masking ",
+        "text_level": 1,
+        "bbox": [
+            173,
+            757,
+            521,
+            773
+        ],
+        "page_idx": 18
+    },
+    {
+        "type": "text",
+        "text": "In this section, we demonstrate the effectiveness of query-adaptive masking compared to dropout, which is a widely adopted technique in Transformer-based forecasting models. We consider four different setups: using only dropout, using query-adaptive masking with fixed probabilities, queryadaptive masking with linearly increasing probabilities, and using both methods simultaneously. As shown in Fig. 8, the query-adaptive masking shows better forecasting performance and faster converge speed compared to dropout. Applying a gradually increasing masking probability based on the horizon predicted by the query shows slight performance improvements over using a fixed probability or combining with dropout. In contrast, using dropout alone shows noticeable differences in both convergence speed and overall performance. This demonstrates that when multiple inputs with different forecasting horizons share a single model, probabilistic masking is more beneficial for model training than dropout. ",
+        "bbox": [
+            173,
+            786,
+            826,
+            911
+        ],
+        "page_idx": 18
+    },
+    {
+        "type": "text",
+        "text": "",
+        "bbox": [
+            173,
+            90,
+            825,
+            119
+        ],
+        "page_idx": 19
+    },
+    {
+        "type": "image",
+        "img_path": "images/2a34169b6aa36f949e2dd5e2d946e39ff6e523c905f3d282079d48a12722a2e5.jpg",
+        "image_caption": [
+            "Figure 8: Comparison of performance with query-adaptive masking with two different probabilities, dropout, and using both query-adaptive masking and dropout. The results of $p = 0 . 1$ to 0.7 indicate a probability masking that is linearly increased proportionally to the horizon predicted by the query. "
+        ],
+        "image_footnote": [],
+        "bbox": [
+            181,
+            145,
+            816,
+            333
+        ],
+        "page_idx": 19
+    },
+    {
+        "type": "text",
+        "text": "C Detailed Explanation of Section 5.5 ",
+        "text_level": 1,
+        "bbox": [
+            173,
+            411,
+            503,
+            429
+        ],
+        "page_idx": 19
+    },
+    {
+        "type": "text",
+        "text": "In this section, we provide the detailed results of experiments in Section 5.5. We first restate the formulation of two independent signals used in Section 5.5 as follows: ",
+        "bbox": [
+            171,
+            443,
+            823,
+            472
+        ],
+        "page_idx": 19
+    },
+    {
+        "type": "equation",
+        "img_path": "images/98efc3833bf8a3fd34d24961a24293d1fdfc625cf3e327ac0898225a8b35ada8.jpg",
+        "text": "$$\n\\begin{array} { r l } & { \\mathbf { x } ( t ) = \\{ x _ { ( t \\mathrm { m o d } \\tau ) } \\} _ { t = 1 } ^ { \\infty } , \\quad x _ { i } \\sim \\mathcal { N } ( 0 , 1 ) \\quad ( i = 0 , 1 , \\ldots , \\tau - 1 ) , } \\\\ & { \\pmb { y } ( t ) = \\left\\{ \\begin{array} { l l } { + k } & { \\mathrm { i f } t \\equiv 0 \\quad ( \\mathrm { m o d } S ) } \\\\ { - k } & { \\mathrm { i f } t \\equiv \\frac { 1 } { 2 } S \\quad ( \\mathrm { m o d } S ) } \\end{array} \\right. , } \\end{array}\n$$",
+        "text_format": "latex",
+        "bbox": [
+            282,
+            476,
+            712,
+            535
+        ],
+        "page_idx": 19
+    },
+    {
+        "type": "text",
+        "text": "We use the model parameters as follows: the patch length is 4 without overlapping, the decoder has 1 layer, and there are 2 attention heads. The signals ${ \\bf x } ( t )$ and ${ \\mathbf { } } { \\mathbf { } } { \\mathbf { } } { \\mathbf { } } { \\mathbf { } } { \\mathbf { } } { \\mathbf { } } { \\mathbf { } } { \\mathbf { } } { \\mathbf { } } { \\mathbf { } } { \\mathbf { } } { \\mathbf { } } { \\mathbf { } } { \\mathbf { } } { \\mathbf { } } { \\mathbf { } } { \\mathbf { } } { \\mathbf { } } { \\mathbf { } } { \\mathbf { } } { \\mathbf { } } { \\mathbf { } } { \\mathbf { } } { \\mathbf { } } { \\mathbf { } } { \\mathbf { } } { \\mathbf { } } { \\mathbf { } } { \\mathbf { } } { \\mathbf { } } { \\mathbf { } } { \\mathbf { } } { \\mathbf { } } { \\mathbf { } } { \\mathbf { } } { \\mathbf { } } { \\mathbf { } } { \\mathbf { } } { \\mathbf { } } { \\mathbf { } } { \\mathbf { } } { \\mathbf { } } { \\mathbf { } } { \\mathbf { } } { \\mathbf { } } { \\mathbf { } } { \\mathbf { } } { \\mathbf { } } { \\mathbf { } } { \\mathbf { } } { \\mathbf { } } { \\mathbf { } } { \\mathbf { } } { \\mathbf { } } { \\mathbf { } } { \\mathbf { } } { \\mathbf { } } { \\mathbf { } } { \\mathbf { } } { \\mathbf { } } { \\mathbf { } } { \\mathbf { } } { \\mathbf { } } { \\mathbf { } } { \\mathbf { } } { \\mathbf { } } { \\mathbf { } } { \\mathbf { } } { \\mathbf { } } { \\mathbf { } } { \\mathbf { } } { \\mathbf { } } { \\mathbf { } } { \\mathbf { } } { \\mathbf { } } { \\mathbf { } } { \\mathbf } { \\mathbf { } } { \\mathbf { } } { \\mathbf { } \\mathbf { } } { \\mathbf { } } { \\mathbf } { \\mathbf { } } { \\mathbf } { \\mathbf { } } \\mathbf { } { \\mathbf } { } \\mathbf { } \\mathbf { } \\mathbf { } \\mathbf { } \\mathbf { }  { \\mathbf } { \\mathbf } { \\mathbf } { \\mathbf } { \\mathbf { } \\mathbf { } \\mathbf { } \\mathbf { } \\mathbf { } \\mathbf { } \\mathbf } { \\mathbf } { \\mathbf } { \\mathbf } { \\mathbf } \\mathbf { } \\mathbf { } \\mathbf { } \\mathbf \\mathbf { } \\mathbf { } \\mathbf { \\mathbf } \\mathbf$ are defined with $\\tau = 2 4$ , $S = 8$ , and $k = 5$ . The visualization of synthetic data is shown in Fig. 9. We utilize an input sequence length $L = 4 8$ and a forecasting horizon $T = 7 2$ . This setup allows us to generate time series data with distinct periodic components. ",
+        "bbox": [
+            173,
+            545,
+            826,
+            614
+        ],
+        "page_idx": 19
+    },
+    {
+        "type": "text",
+        "text": "In the main paper, Fig. 6 displays a cross-attention score map between the input patch and the output patch derived from this experiment. The left figure presents the attention score of the first attention head, illustrating the model’s ability to detect shocks within the signal. The right figure more clearly demonstrates the periodicity of the signal. Given that the patch length and stride are both set to 4, each patch will contain exactly one shock value, either -5 or $+ 5$ . This is because the shocks occur every 4 steps, alternating between positive and negative shocks. Consequently, the patch immediately preceding the current patch will contain a different shock, leading to lower attention scores due to the differing shock values. In contrast, patches that are an even number of steps before the current patch will contain the same type of shock, resulting in higher attention scores. These points are well illustrated in Fig. 6a, where the varying attention scores correspond to the presence of alternating shocks. This pattern helps to highlight the alternating shock signal within the data. ",
+        "bbox": [
+            174,
+            621,
+            825,
+            773
+        ],
+        "page_idx": 19
+    },
+    {
+        "type": "text",
+        "text": "Additionally, if there is a correlation with the series preceding 24 steps, the patches that are 6 steps or multiples of 6 steps before the current patch will exhibit high attention scores due to the periodic nature of the signal ${ \\bf x } ( t )$ . The diagonal formation of the attention scores, which accurately follows a period of 24, is clearly depicted in Fig. 6b, highlighting the model’s capability to utilize fixed-period input patches to predict future outcomes. This periodic pattern ensures that the attention mechanism effectively captures the 24-step periodicity in ${ \\bf x } ( t )$ , reflecting the model’s ability to leverage this periodic information for more accurate predictions. ",
+        "bbox": [
+            174,
+            779,
+            825,
+            877
+        ],
+        "page_idx": 19
+    },
+    {
+        "type": "text",
+        "text": "This experimental configuration provides a robust framework to evaluate how well our proposed model captures and interprets the underlying patterns in the data, specifically focusing on the alternating shock signal and the periodic nature of the normal signal. This dual emphasis on both the shock signal and the periodicity of the normal signal enhances the interpretability and predictive performance of the model, distinctly demonstrating how the model leverages periodic information to enhance prediction accuracy. ",
+        "bbox": [
+            174,
+            883,
+            821,
+            911
+        ],
+        "page_idx": 19
+    },
+    {
+        "type": "image",
+        "img_path": "images/b8aa4b82fee1e408b7d9d1d54493ae7e8746272f30a7b4cecd14ab5d756a12e0.jpg",
+        "image_caption": [
+            "Figure 9: Visualization of input signals for toy experiment. "
+        ],
+        "image_footnote": [],
+        "bbox": [
+            181,
+            94,
+            792,
+            356
+        ],
+        "page_idx": 20
+    },
+    {
+        "type": "text",
+        "text": "",
+        "bbox": [
+            174,
+            406,
+            825,
+            462
+        ],
+        "page_idx": 20
+    },
+    {
+        "type": "text",
+        "text": "To push further, we reproduce the experiment of Fig. 7 with other datasets used in forecasting tasks. We illustrate the results of the Weather, Traffic, Electricity, ETTm2, ETTh1, and ETTh2 in Figures 10, 11, 12, 13, 14, and 15, respectively. For each figure, (a) represents the forecasting results, (b) shows the cross-attention score map, and (c) and (d) illustrate the two pairs with the highest attention scores. For all figures, our attention-based explanation successfully discovers similar periodic patterns. Therefore, we believe that our model has the potential to provide a clearer understanding of the mechanisms underlying forecasting predictions. We hope that future research will continue to explore and expand upon this foundation. ",
+        "bbox": [
+            173,
+            468,
+            826,
+            579
+        ],
+        "page_idx": 20
+    },
+    {
+        "type": "image",
+        "img_path": "images/12d9c2eeee09ab95cffbf2bb99379866cff3c70d57ed4603193df3ee821e4376.jpg",
+        "image_caption": [
+            "Figure 10: Illustration of (a) forecasting result, (b) averaged cross-attention score, and (c,d) patches with the highest score on Weather. The score map is averaged from all the heads across layers. "
+        ],
+        "image_footnote": [],
+        "bbox": [
+            176,
+            604,
+            823,
+            733
+        ],
+        "page_idx": 20
+    },
+    {
+        "type": "image",
+        "img_path": "images/f601d099d38fce4542e53becd47b80088c576a824d0264ce91751ce8764ababa.jpg",
+        "image_caption": [
+            "Figure 11: Illustration of (a) forecasting result, (b) averaged cross-attention score, and (c,d) patches with the highest score on Traffic. The score map is averaged from all the heads across layers. "
+        ],
+        "image_footnote": [],
+        "bbox": [
+            178,
+            111,
+            823,
+            239
+        ],
+        "page_idx": 21
+    },
+    {
+        "type": "image",
+        "img_path": "images/72d44f5fe7816935acb07a6ab17978b308b708ddc4bf0c0049699d6615294dc3.jpg",
+        "image_caption": [
+            "Figure 12: Illustration of (a) forecasting result, (b) averaged cross-attention score, and (c,d) patches with the highest score on Electricity. The score map is averaged from all the heads across layers. "
+        ],
+        "image_footnote": [],
+        "bbox": [
+            178,
+            314,
+            823,
+            445
+        ],
+        "page_idx": 21
+    },
+    {
+        "type": "image",
+        "img_path": "images/56ee7ebdaf38451129ef4880670a9547e1c6aeb76d8ff02b6c81e1267040191a.jpg",
+        "image_caption": [
+            "Figure 13: Illustration of (a) forecasting result, (b) averaged cross-attention score, and (c,d) patches with the highest score on ETTm2. The score map is averaged from all the heads across layers. "
+        ],
+        "image_footnote": [],
+        "bbox": [
+            176,
+            523,
+            823,
+            655
+        ],
+        "page_idx": 21
+    },
+    {
+        "type": "image",
+        "img_path": "images/645835a5d25bf3e5534563c3c448b1c8f6ae92d960b56b3dc79d31da9c614614.jpg",
+        "image_caption": [
+            "Figure 14: Illustration of (a) forecasting result, (b) averaged cross-attention score, and (c,d) patches with the highest score on ETTh1. The score map is averaged from all the heads across layers. "
+        ],
+        "image_footnote": [],
+        "bbox": [
+            181,
+            729,
+            818,
+            861
+        ],
+        "page_idx": 21
+    },
+    {
+        "type": "image",
+        "img_path": "images/3a8a4dc6bc410ff8a09236fd3f214acd8aa5b77aef33bfbb345390dc894f4320.jpg",
+        "image_caption": [
+            "Figure 15: Illustration of (a) forecasting result, (b) averaged cross-attention score, and (c,d) patches with the highest score on ETTh2. The score map is averaged from all the heads across layers. "
+        ],
+        "image_footnote": [],
+        "bbox": [
+            186,
+            422,
+            813,
+            550
+        ],
+        "page_idx": 22
+    },
+    {
+        "type": "text",
+        "text": "NeurIPS Paper Checklist ",
+        "text_level": 1,
+        "bbox": [
+            174,
+            88,
+            387,
+            107
+        ],
+        "page_idx": 23
+    },
+    {
+        "type": "text",
+        "text": "The checklist is designed to encourage best practices for responsible machine learning research, addressing issues of reproducibility, transparency, research ethics, and societal impact. Do not remove the checklist: The papers not including the checklist will be desk rejected. The checklist should follow the references and follow the (optional) supplemental material. The checklist does NOT count towards the page limit. ",
+        "bbox": [
+            174,
+            121,
+            825,
+            190
+        ],
+        "page_idx": 23
+    },
+    {
+        "type": "text",
+        "text": "Please read the checklist guidelines carefully for information on how to answer these questions. For each question in the checklist: ",
+        "bbox": [
+            173,
+            195,
+            823,
+            224
+        ],
+        "page_idx": 23
+    },
+    {
+        "type": "text",
+        "text": "• You should answer [Yes] , [No] , or [NA] .   \n• [NA] means either that the question is Not Applicable for that particular paper or the relevant information is Not Available.   \n• Please provide a short (1–2 sentence) justification right after your answer (even for NA). ",
+        "bbox": [
+            217,
+            236,
+            825,
+            303
+        ],
+        "page_idx": 23
+    },
+    {
+        "type": "text",
+        "text": "The checklist answers are an integral part of your paper submission. They are visible to the reviewers, area chairs, senior area chairs, and ethics reviewers. You will be asked to also include it (after eventual revisions) with the final version of your paper, and its final version will be published with the paper. ",
+        "bbox": [
+            178,
+            314,
+            825,
+            369
+        ],
+        "page_idx": 23
+    },
+    {
+        "type": "text",
+        "text": "The reviewers of your paper will be asked to use the checklist as one of the factors in their evaluation. While \"[Yes] \" is generally preferable to \"[No] \", it is perfectly acceptable to answer \"[No] \" provided a proper justification is given (e.g., \"error bars are not reported because it would be too computationally expensive\" or \"we were unable to find the license for the dataset we used\"). In general, answering \"[No] \" or \"[NA] \" is not grounds for rejection. While the questions are phrased in a binary way, we acknowledge that the true answer is often more nuanced, so please just use your best judgment and write a justification to elaborate. All supporting evidence can appear either in the main paper or the supplemental material, provided in Appendix. If you answer [Yes] to a question, in the justification please point to the section(s) where related material for the question can be found. ",
+        "bbox": [
+            173,
+            376,
+            825,
+            501
+        ],
+        "page_idx": 23
+    },
+    {
+        "type": "text",
+        "text": "IMPORTANT, please: ",
+        "bbox": [
+            173,
+            506,
+            320,
+            521
+        ],
+        "page_idx": 23
+    },
+    {
+        "type": "text",
+        "text": "• Delete this instruction block, but keep the section heading “NeurIPS paper checklist\", • Keep the checklist subsection headings, questions/answers and guidelines below. • Do not modify the questions and only use the provided macros for your answers. ",
+        "bbox": [
+            218,
+            532,
+            825,
+            585
+        ],
+        "page_idx": 23
+    },
+    {
+        "type": "text",
+        "text": "1. Claims ",
+        "text_level": 1,
+        "bbox": [
+            214,
+            598,
+            284,
+            612
+        ],
+        "page_idx": 23
+    },
+    {
+        "type": "text",
+        "text": "Question: Do the main claims made in the abstract and introduction accurately reflect the paper’s contributions and scope? ",
+        "bbox": [
+            228,
+            617,
+            823,
+            645
+        ],
+        "page_idx": 23
+    },
+    {
+        "type": "text",
+        "text": "Answer: [Yes] ",
+        "bbox": [
+            232,
+            650,
+            328,
+            665
+        ],
+        "page_idx": 23
+    },
+    {
+        "type": "text",
+        "text": "Justification: We made the main claims in the abstract and introduction accurately reflect the paper’s contributions and scope. ",
+        "bbox": [
+            233,
+            670,
+            823,
+            698
+        ],
+        "page_idx": 23
+    },
+    {
+        "type": "text",
+        "text": "Guidelines: ",
+        "bbox": [
+            232,
+            703,
+            308,
+            717
+        ],
+        "page_idx": 23
+    },
+    {
+        "type": "text",
+        "text": "• The answer NA means that the abstract and introduction do not include the claims made in the paper.   \n• The abstract and/or introduction should clearly state the claims made, including the contributions made in the paper and important assumptions and limitations. A No or NA answer to this question will not be perceived well by the reviewers.   \n• The claims made should match theoretical and experimental results, and reflect how much the results can be expected to generalize to other settings.   \n• It is fine to include aspirational goals as motivation as long as it is clear that these goals are not attained by the paper. ",
+        "bbox": [
+            251,
+            722,
+            825,
+            854
+        ],
+        "page_idx": 23
+    },
+    {
+        "type": "text",
+        "text": "2. Limitations ",
+        "text_level": 1,
+        "bbox": [
+            214,
+            859,
+            316,
+            872
+        ],
+        "page_idx": 23
+    },
+    {
+        "type": "text",
+        "text": "Question: Does the paper discuss the limitations of the work performed by the authors? ",
+        "bbox": [
+            232,
+            877,
+            803,
+            892
+        ],
+        "page_idx": 23
+    },
+    {
+        "type": "text",
+        "text": "Answer: [Yes] ",
+        "bbox": [
+            232,
+            897,
+            328,
+            911
+        ],
+        "page_idx": 23
+    },
+    {
+        "type": "text",
+        "text": "Justification: We discuss the limitations of the work in the Conclusion. ",
+        "bbox": [
+            238,
+            92,
+            694,
+            106
+        ],
+        "page_idx": 24
+    },
+    {
+        "type": "text",
+        "text": "Guidelines: ",
+        "bbox": [
+            232,
+            111,
+            308,
+            125
+        ],
+        "page_idx": 24
+    },
+    {
+        "type": "text",
+        "text": "• The answer NA means that the paper has no limitation while the answer No means that the paper has limitations, but those are not discussed in the paper.   \n• The authors are encouraged to create a separate \"Limitations\" section in their paper.   \n• The paper should point out any strong assumptions and how robust the results are to violations of these assumptions (e.g., independence assumptions, noiseless settings, model well-specification, asymptotic approximations only holding locally). The authors should reflect on how these assumptions might be violated in practice and what the implications would be.   \nThe authors should reflect on the scope of the claims made, e.g., if the approach was only tested on a few datasets or with a few runs. In general, empirical results often depend on implicit assumptions, which should be articulated. The authors should reflect on the factors that influence the performance of the approach. For example, a facial recognition algorithm may perform poorly when image resolution is low or images are taken in low lighting. Or a speech-to-text system might not be used reliably to provide closed captions for online lectures because it fails to handle technical jargon.   \n• The authors should discuss the computational efficiency of the proposed algorithms and how they scale with dataset size.   \n• If applicable, the authors should discuss possible limitations of their approach to address problems of privacy and fairness.   \n• While the authors might fear that complete honesty about limitations might be used by reviewers as grounds for rejection, a worse outcome might be that reviewers discover limitations that aren’t acknowledged in the paper. The authors should use their best judgment and recognize that individual actions in favor of transparency play an important role in developing norms that preserve the integrity of the community. Reviewers will be specifically instructed to not penalize honesty concerning limitations. ",
+        "bbox": [
+            248,
+            128,
+            825,
+            506
+        ],
+        "page_idx": 24
+    },
+    {
+        "type": "text",
+        "text": "3. Theory Assumptions and Proofs ",
+        "text_level": 1,
+        "bbox": [
+            214,
+            511,
+            459,
+            525
+        ],
+        "page_idx": 24
+    },
+    {
+        "type": "text",
+        "text": "Question: For each theoretical result, does the paper provide the full set of assumptions and a complete (and correct) proof? ",
+        "bbox": [
+            225,
+            530,
+            823,
+            558
+        ],
+        "page_idx": 24
+    },
+    {
+        "type": "text",
+        "text": "Answer: [NA] ",
+        "bbox": [
+            232,
+            563,
+            326,
+            577
+        ],
+        "page_idx": 24
+    },
+    {
+        "type": "text",
+        "text": "Justification: The paper does not include theoretical results. ",
+        "bbox": [
+            230,
+            582,
+            620,
+            595
+        ],
+        "page_idx": 24
+    },
+    {
+        "type": "text",
+        "text": "Guidelines: ",
+        "bbox": [
+            232,
+            601,
+            308,
+            614
+        ],
+        "page_idx": 24
+    },
+    {
+        "type": "text",
+        "text": "• The answer NA means that the paper does not include theoretical results.   \n• All the theorems, formulas, and proofs in the paper should be numbered and crossreferenced.   \n• All assumptions should be clearly stated or referenced in the statement of any theorems.   \n• The proofs can either appear in the main paper or the supplemental material, but if they appear in the supplemental material, the authors are encouraged to provide a short proof sketch to provide intuition.   \nInversely, any informal proof provided in the core of the paper should be complemented by formal proofs provided in Appendix or supplemental material.   \n• Theorems and Lemmas that the proof relies upon should be properly referenced. ",
+        "bbox": [
+            251,
+            618,
+            826,
+            771
+        ],
+        "page_idx": 24
+    },
+    {
+        "type": "text",
+        "text": "4. Experimental Result Reproducibility ",
+        "text_level": 1,
+        "bbox": [
+            214,
+            775,
+            491,
+            789
+        ],
+        "page_idx": 24
+    },
+    {
+        "type": "text",
+        "text": "Question: Does the paper fully disclose all the information needed to reproduce the main experimental results of the paper to the extent that it affects the main claims and/or conclusions of the paper (regardless of whether the code and data are provided or not)? ",
+        "bbox": [
+            233,
+            794,
+            825,
+            835
+        ],
+        "page_idx": 24
+    },
+    {
+        "type": "text",
+        "text": "Answer: [Yes] ",
+        "bbox": [
+            232,
+            840,
+            328,
+            854
+        ],
+        "page_idx": 24
+    },
+    {
+        "type": "text",
+        "text": "Justification: We uploaded the source code of our model and experiments. ",
+        "bbox": [
+            232,
+            859,
+            715,
+            873
+        ],
+        "page_idx": 24
+    },
+    {
+        "type": "text",
+        "text": "Guidelines: ",
+        "bbox": [
+            232,
+            878,
+            308,
+            892
+        ],
+        "page_idx": 24
+    },
+    {
+        "type": "text",
+        "text": "• The answer NA means that the paper does not include experiments. ",
+        "bbox": [
+            250,
+            897,
+            705,
+            911
+        ],
+        "page_idx": 24
+    },
+    {
+        "type": "text",
+        "text": "• If the paper includes experiments, a No answer to this question will not be perceived well by the reviewers: Making the paper reproducible is important, regardless of whether the code and data are provided or not.   \n• If the contribution is a dataset and/or model, the authors should describe the steps taken to make their results reproducible or verifiable.   \nDepending on the contribution, reproducibility can be accomplished in various ways. For example, if the contribution is a novel architecture, describing the architecture fully might suffice, or if the contribution is a specific model and empirical evaluation, it may be necessary to either make it possible for others to replicate the model with the same dataset, or provide access to the model. In general. releasing code and data is often one good way to accomplish this, but reproducibility can also be provided via detailed instructions for how to replicate the results, access to a hosted model (e.g., in the case of a large language model), releasing of a model checkpoint, or other means that are appropriate to the research performed.   \nWhile NeurIPS does not require releasing code, the conference does require all submissions to provide some reasonable avenue for reproducibility, which may depend on the nature of the contribution. For example   \n(a) If the contribution is primarily a new algorithm, the paper should make it clear how to reproduce that algorithm.   \n(b) If the contribution is primarily a new model architecture, the paper should describe the architecture clearly and fully. (c) If the contribution is a new model (e.g., a large language model), then there should either be a way to access this model for reproducing the results or a way to reproduce the model (e.g., with an open-source dataset or instructions for how to construct the dataset). (d) We recognize that reproducibility may be tricky in some cases, in which case authors are welcome to describe the particular way they provide for reproducibility. In the case of closed-source models, it may be that access to the model is limited in some way (e.g., to registered users), but it should be possible for other researchers to have some path to reproducing or verifying the results. ",
+        "bbox": [
+            250,
+            92,
+            825,
+            522
+        ],
+        "page_idx": 25
+    },
+    {
+        "type": "text",
+        "text": "5. Open access to data and code ",
+        "text_level": 1,
+        "bbox": [
+            214,
+            529,
+            437,
+            542
+        ],
+        "page_idx": 25
+    },
+    {
+        "type": "text",
+        "text": "Question: Does the paper provide open access to the data and code, with sufficient instructions to faithfully reproduce the main experimental results, as described in supplemental material? ",
+        "bbox": [
+            232,
+            549,
+            825,
+            590
+        ],
+        "page_idx": 25
+    },
+    {
+        "type": "text",
+        "text": "Answer: [Yes] ",
+        "bbox": [
+            233,
+            597,
+            328,
+            611
+        ],
+        "page_idx": 25
+    },
+    {
+        "type": "text",
+        "text": "Justification: We uploaded the source code of our model and experiments. ",
+        "bbox": [
+            233,
+            617,
+            714,
+            631
+        ],
+        "page_idx": 25
+    },
+    {
+        "type": "text",
+        "text": "Guidelines: ",
+        "bbox": [
+            232,
+            637,
+            308,
+            651
+        ],
+        "page_idx": 25
+    },
+    {
+        "type": "text",
+        "text": "• The answer NA means that paper does not include experiments requiring code.   \n• Please see the NeurIPS code and data submission guidelines (https://nips.cc/ public/guides/CodeSubmissionPolicy) for more details.   \n• While we encourage the release of code and data, we understand that this might not be possible, so “No” is an acceptable answer. Papers cannot be rejected simply for not including code, unless this is central to the contribution (e.g., for a new open-source benchmark).   \n• The instructions should contain the exact command and environment needed to run to reproduce the results. See the NeurIPS code and data submission guidelines (https: //nips.cc/public/guides/CodeSubmissionPolicy) for more details.   \n• The authors should provide instructions on data access and preparation, including how to access the raw data, preprocessed data, intermediate data, and generated data, etc.   \n• The authors should provide scripts to reproduce all experimental results for the new proposed method and baselines. If only a subset of experiments are reproducible, they should state which ones are omitted from the script and why.   \nAt submission time, to preserve anonymity, the authors should release anonymized versions (if applicable). ",
+        "bbox": [
+            250,
+            657,
+            826,
+            912
+        ],
+        "page_idx": 25
+    },
+    {
+        "type": "text",
+        "text": "• Providing as much information as possible in supplemental material (appended to the paper) is recommended, but including URLs to data and code is permitted. ",
+        "bbox": [
+            251,
+            92,
+            823,
+            119
+        ],
+        "page_idx": 26
+    },
+    {
+        "type": "text",
+        "text": "6. Experimental Setting/Details ",
+        "text_level": 1,
+        "bbox": [
+            212,
+            125,
+            436,
+            138
+        ],
+        "page_idx": 26
+    },
+    {
+        "type": "text",
+        "text": "Question: Does the paper specify all the training and test details (e.g., data splits, hyperparameters, how they were chosen, type of optimizer, etc.) necessary to understand the results? ",
+        "bbox": [
+            233,
+            142,
+            825,
+            183
+        ],
+        "page_idx": 26
+    },
+    {
+        "type": "text",
+        "text": "Answer: [Yes] ",
+        "bbox": [
+            233,
+            189,
+            328,
+            203
+        ],
+        "page_idx": 26
+    },
+    {
+        "type": "text",
+        "text": "Justification: We specify all the training and test details (e.g., data splits, hyperparameters, how they were chosen, type of optimizer, etc.) necessary to understand the results in Appendix. ",
+        "bbox": [
+            233,
+            207,
+            825,
+            248
+        ],
+        "page_idx": 26
+    },
+    {
+        "type": "text",
+        "text": "Guidelines: ",
+        "bbox": [
+            232,
+            253,
+            310,
+            267
+        ],
+        "page_idx": 26
+    },
+    {
+        "type": "text",
+        "text": "• The answer NA means that the paper does not include experiments. • The experimental setting should be presented in the core of the paper to a level of detail that is necessary to appreciate the results and make sense of them. • The full details can be provided either with the code, in Appendix, or as supplemental material. ",
+        "bbox": [
+            251,
+            271,
+            825,
+            344
+        ],
+        "page_idx": 26
+    },
+    {
+        "type": "text",
+        "text": "7. Experiment Statistical Significance ",
+        "text_level": 1,
+        "bbox": [
+            214,
+            349,
+            477,
+            364
+        ],
+        "page_idx": 26
+    },
+    {
+        "type": "text",
+        "text": "Question: Does the paper report error bars suitably and correctly defined or other appropriate information about the statistical significance of the experiments? ",
+        "bbox": [
+            233,
+            368,
+            823,
+            396
+        ],
+        "page_idx": 26
+    },
+    {
+        "type": "text",
+        "text": "Answer: [No] ",
+        "bbox": [
+            232,
+            400,
+            325,
+            414
+        ],
+        "page_idx": 26
+    },
+    {
+        "type": "text",
+        "text": "Justification: Instead of error bars, following the numerous studies in the field of time series forecasting [14, 26], we fixed the random seed and provided the comparable experimental results in the main paper with generally accepted datasets and settings [21]. ",
+        "bbox": [
+            232,
+            419,
+            825,
+            462
+        ],
+        "page_idx": 26
+    },
+    {
+        "type": "text",
+        "text": "Guidelines: ",
+        "bbox": [
+            232,
+            465,
+            310,
+            478
+        ],
+        "page_idx": 26
+    },
+    {
+        "type": "text",
+        "text": "• The answer NA means that the paper does not include experiments.   \n• The authors should answer \"Yes\" if the results are accompanied by error bars, confidence intervals, or statistical significance tests, at least for the experiments that support the main claims of the paper.   \nThe factors of variability that the error bars are capturing should be clearly stated (for example, train/test split, initialization, random drawing of some parameter, or overall run with given experimental conditions).   \n• The method for calculating the error bars should be explained (closed form formula, call to a library function, bootstrap, etc.)   \n• The assumptions made should be given (e.g., Normally distributed errors).   \n• It should be clear whether the error bar is the standard deviation or the standard error of the mean.   \n• It is OK to report 1-sigma error bars, but one should state it. The authors should preferably report a 2-sigma error bar than state that they have a $96 \\%$ CI, if the hypothesis of Normality of errors is not verified.   \nFor asymmetric distributions, the authors should be careful not to show in tables or figures symmetric error bars that would yield results that are out of range (e.g. negative error rates).   \n• If error bars are reported in tables or plots, The authors should explain in the text how they were calculated and reference the corresponding figures or tables in the text. ",
+        "bbox": [
+            251,
+            483,
+            825,
+            777
+        ],
+        "page_idx": 26
+    },
+    {
+        "type": "text",
+        "text": "8. Experiments Compute Resources ",
+        "text_level": 1,
+        "bbox": [
+            212,
+            781,
+            465,
+            796
+        ],
+        "page_idx": 26
+    },
+    {
+        "type": "text",
+        "text": "Question: For each experiment, does the paper provide sufficient information on the computer resources (type of compute workers, memory, time of execution) needed to reproduce the experiments? ",
+        "bbox": [
+            232,
+            800,
+            825,
+            840
+        ],
+        "page_idx": 26
+    },
+    {
+        "type": "text",
+        "text": "Answer: [Yes] ",
+        "bbox": [
+            233,
+            847,
+            328,
+            861
+        ],
+        "page_idx": 26
+    },
+    {
+        "type": "text",
+        "text": "Justification: In the main paper and the Appendix, we provide sufficient information on the used computer resources. ",
+        "bbox": [
+            232,
+            864,
+            823,
+            892
+        ],
+        "page_idx": 26
+    },
+    {
+        "type": "text",
+        "text": "Guidelines: ",
+        "bbox": [
+            232,
+            897,
+            310,
+            911
+        ],
+        "page_idx": 26
+    },
+    {
+        "type": "text",
+        "text": "• The answer NA means that the paper does not include experiments.   \n• The paper should indicate the type of compute workers CPU or GPU, internal cluster, or cloud provider, including relevant memory and storage.   \n• The paper should provide the amount of compute required for each of the individual experimental runs as well as estimate the total compute.   \n• The paper should disclose whether the full research project required more compute than the experiments reported in the paper (e.g., preliminary or failed experiments that didn’t make it into the paper). ",
+        "bbox": [
+            251,
+            90,
+            825,
+            210
+        ],
+        "page_idx": 27
+    },
+    {
+        "type": "text",
+        "text": "9. Code Of Ethics ",
+        "text_level": 1,
+        "bbox": [
+            212,
+            215,
+            341,
+            229
+        ],
+        "page_idx": 27
+    },
+    {
+        "type": "text",
+        "text": "Question: Does the research conducted in the paper conform, in every respect, with the NeurIPS Code of Ethics https://neurips.cc/public/EthicsGuidelines? ",
+        "bbox": [
+            232,
+            234,
+            823,
+            262
+        ],
+        "page_idx": 27
+    },
+    {
+        "type": "text",
+        "text": "Answer: [Yes] ",
+        "bbox": [
+            232,
+            267,
+            328,
+            281
+        ],
+        "page_idx": 27
+    },
+    {
+        "type": "text",
+        "text": "Justification: We confirm that the research conducted in the paper conform, in every respect, with the NeurIPS Code of Ethics ",
+        "bbox": [
+            233,
+            286,
+            825,
+            314
+        ],
+        "page_idx": 27
+    },
+    {
+        "type": "text",
+        "text": "Guidelines: ",
+        "bbox": [
+            232,
+            320,
+            310,
+            333
+        ],
+        "page_idx": 27
+    },
+    {
+        "type": "text",
+        "text": "• The answer NA means that the authors have not reviewed the NeurIPS Code of Ethics.   \n• If the authors answer No, they should explain the special circumstances that require a deviation from the Code of Ethics.   \n• The authors should make sure to preserve anonymity (e.g., if there is a special consideration due to laws or regulations in their jurisdiction). ",
+        "bbox": [
+            251,
+            339,
+            825,
+            414
+        ],
+        "page_idx": 27
+    },
+    {
+        "type": "text",
+        "text": "10. Broader Impacts ",
+        "text_level": 1,
+        "bbox": [
+            205,
+            419,
+            354,
+            433
+        ],
+        "page_idx": 27
+    },
+    {
+        "type": "text",
+        "text": "Question: Does the paper discuss both potential positive societal impacts and negative societal impacts of the work performed? ",
+        "bbox": [
+            233,
+            438,
+            825,
+            465
+        ],
+        "page_idx": 27
+    },
+    {
+        "type": "text",
+        "text": "Answer: [NA] ",
+        "bbox": [
+            232,
+            470,
+            326,
+            484
+        ],
+        "page_idx": 27
+    },
+    {
+        "type": "text",
+        "text": "Justification: We confirm that there is no societal impact of the work performed. ",
+        "bbox": [
+            235,
+            489,
+            754,
+            503
+        ],
+        "page_idx": 27
+    },
+    {
+        "type": "text",
+        "text": "Guidelines: ",
+        "bbox": [
+            232,
+            508,
+            308,
+            522
+        ],
+        "page_idx": 27
+    },
+    {
+        "type": "text",
+        "text": "• The answer NA means that there is no societal impact of the work performed.   \n• If the authors answer NA or No, they should explain why their work has no societal impact or why the paper does not address societal impact.   \nExamples of negative societal impacts include potential malicious or unintended uses (e.g., disinformation, generating fake profiles, surveillance), fairness considerations (e.g., deployment of technologies that could make decisions that unfairly impact specific groups), privacy considerations, and security considerations.   \n• The conference expects that many papers will be foundational research and not tied to particular applications, let alone deployments. However, if there is a direct path to any negative applications, the authors should point it out. For example, it is legitimate to point out that an improvement in the quality of generative models could be used to generate deepfakes for disinformation. On the other hand, it is not needed to point out that a generic algorithm for optimizing neural networks could enable people to train models that generate Deepfakes faster.   \nThe authors should consider possible harms that could arise when the technology is being used as intended and functioning correctly, harms that could arise when the technology is being used as intended but gives incorrect results, and harms following from (intentional or unintentional) misuse of the technology.   \nIf there are negative societal impacts, the authors could also discuss possible mitigation strategies (e.g., gated release of models, providing defenses in addition to attacks, mechanisms for monitoring misuse, mechanisms to monitor how a system learns from feedback over time, improving the efficiency and accessibility of ML). ",
+        "bbox": [
+            250,
+            529,
+            825,
+            845
+        ],
+        "page_idx": 27
+    },
+    {
+        "type": "text",
+        "text": "11. Safeguards ",
+        "text_level": 1,
+        "bbox": [
+            205,
+            849,
+            313,
+            864
+        ],
+        "page_idx": 27
+    },
+    {
+        "type": "text",
+        "text": "Question: Does the paper describe safeguards that have been put in place for responsible release of data or models that have a high risk for misuse (e.g., pretrained language models, image generators, or scraped datasets)? ",
+        "bbox": [
+            233,
+            869,
+            823,
+            911
+        ],
+        "page_idx": 27
+    },
+    {
+        "type": "text",
+        "text": "Answer: [NA] ",
+        "bbox": [
+            232,
+            92,
+            328,
+            106
+        ],
+        "page_idx": 28
+    },
+    {
+        "type": "text",
+        "text": "Justification: We confirm that the paper poses no such risks. ",
+        "bbox": [
+            232,
+            111,
+            624,
+            125
+        ],
+        "page_idx": 28
+    },
+    {
+        "type": "text",
+        "text": "Guidelines: ",
+        "bbox": [
+            232,
+            130,
+            310,
+            143
+        ],
+        "page_idx": 28
+    },
+    {
+        "type": "text",
+        "text": "• The answer NA means that the paper poses no such risks.   \n• Released models that have a high risk for misuse or dual-use should be released with necessary safeguards to allow for controlled use of the model, for example by requiring that users adhere to usage guidelines or restrictions to access the model or implementing safety filters.   \n• Datasets that have been scraped from the Internet could pose safety risks. The authors should describe how they avoided releasing unsafe images.   \n• We recognize that providing effective safeguards is challenging, and many papers do not require this, but we encourage authors to take this into account and make a best faith effort. ",
+        "bbox": [
+            250,
+            148,
+            825,
+            292
+        ],
+        "page_idx": 28
+    },
+    {
+        "type": "text",
+        "text": "12. Licenses for existing assets ",
+        "text_level": 1,
+        "bbox": [
+            205,
+            299,
+            419,
+            313
+        ],
+        "page_idx": 28
+    },
+    {
+        "type": "text",
+        "text": "Question: Are the creators or original owners of assets (e.g., code, data, models), used in the paper, properly credited and are the license and terms of use explicitly mentioned and properly respected? ",
+        "bbox": [
+            235,
+            318,
+            823,
+            359
+        ],
+        "page_idx": 28
+    },
+    {
+        "type": "text",
+        "text": "Answer: [Yes] ",
+        "bbox": [
+            232,
+            364,
+            328,
+            378
+        ],
+        "page_idx": 28
+    },
+    {
+        "type": "text",
+        "text": "Justification: We confirm that we have cited the original paper that produced the code package or dataset. ",
+        "bbox": [
+            232,
+            383,
+            823,
+            411
+        ],
+        "page_idx": 28
+    },
+    {
+        "type": "text",
+        "text": "Guidelines: ",
+        "bbox": [
+            232,
+            416,
+            308,
+            430
+        ],
+        "page_idx": 28
+    },
+    {
+        "type": "text",
+        "text": "• The answer NA means that the paper does not use existing assets.   \n• The authors should cite the original paper that produced the code package or dataset.   \n• The authors should state which version of the asset is used and, if possible, include a URL.   \n• The name of the license (e.g., CC-BY 4.0) should be included for each asset.   \n• For scraped data from a particular source (e.g., website), the copyright and terms of service of that source should be provided.   \n• If assets are released, the license, copyright information, and terms of use in the package should be provided. For popular datasets, paperswithcode.com/datasets has curated licenses for some datasets. Their licensing guide can help determine the license of a dataset.   \n• For existing datasets that are re-packaged, both the original license and the license of the derived asset (if it has changed) should be provided.   \n• If this information is not available online, the authors are encouraged to reach out to the asset’s creators. ",
+        "bbox": [
+            251,
+            435,
+            825,
+            660
+        ],
+        "page_idx": 28
+    },
+    {
+        "type": "text",
+        "text": "13. New Assets ",
+        "text_level": 1,
+        "bbox": [
+            205,
+            665,
+            313,
+            679
+        ],
+        "page_idx": 28
+    },
+    {
+        "type": "text",
+        "text": "Question: Are new assets introduced in the paper well documented and is the documentation provided alongside the assets? ",
+        "bbox": [
+            232,
+            684,
+            823,
+            712
+        ],
+        "page_idx": 28
+    },
+    {
+        "type": "text",
+        "text": "Answer: [NA] ",
+        "bbox": [
+            232,
+            717,
+            328,
+            731
+        ],
+        "page_idx": 28
+    },
+    {
+        "type": "text",
+        "text": "Justification: We confirm that that the paper does not release new assets. ",
+        "bbox": [
+            233,
+            736,
+            704,
+            751
+        ],
+        "page_idx": 28
+    },
+    {
+        "type": "text",
+        "text": "Guidelines: ",
+        "bbox": [
+            232,
+            755,
+            308,
+            768
+        ],
+        "page_idx": 28
+    },
+    {
+        "type": "text",
+        "text": "• The answer NA means that the paper does not release new assets.   \n• Researchers should communicate the details of the dataset/code/model as part of their submissions via structured templates. This includes details about training, license, limitations, etc.   \n• The paper should discuss whether and how consent was obtained from people whose asset is used.   \n• At submission time, remember to anonymize your assets (if applicable). You can either create an anonymized URL or include an anonymized zip file. ",
+        "bbox": [
+            250,
+            773,
+            825,
+            892
+        ],
+        "page_idx": 28
+    },
+    {
+        "type": "text",
+        "text": "14. Crowdsourcing and Research with Human Subjects ",
+        "text_level": 1,
+        "bbox": [
+            205,
+            897,
+            596,
+            911
+        ],
+        "page_idx": 28
+    },
+    {
+        "type": "text",
+        "text": "Question: For crowdsourcing experiments and research with human subjects, does the paper include the full text of instructions given to participants and screenshots, if applicable, as well as details about compensation (if any)? ",
+        "bbox": [
+            233,
+            92,
+            825,
+            133
+        ],
+        "page_idx": 29
+    },
+    {
+        "type": "text",
+        "text": "Answer: [NA] ",
+        "bbox": [
+            232,
+            138,
+            328,
+            152
+        ],
+        "page_idx": 29
+    },
+    {
+        "type": "text",
+        "text": "Justification: We confirm that the paper does not involve crowdsourcing nor research with human subjects. ",
+        "bbox": [
+            232,
+            156,
+            823,
+            184
+        ],
+        "page_idx": 29
+    },
+    {
+        "type": "text",
+        "text": "Guidelines: ",
+        "bbox": [
+            232,
+            189,
+            308,
+            203
+        ],
+        "page_idx": 29
+    },
+    {
+        "type": "text",
+        "text": "• The answer NA means that the paper does not involve crowdsourcing nor research with human subjects.   \n• Including this information in the supplemental material is fine, but if the main contribution of the paper involves human subjects, then as much detail as possible should be included in the main paper.   \n• According to the NeurIPS Code of Ethics, workers involved in data collection, curation, or other labor should be paid at least the minimum wage in the country of the data collector. ",
+        "bbox": [
+            251,
+            208,
+            825,
+            323
+        ],
+        "page_idx": 29
+    },
+    {
+        "type": "text",
+        "text": "15. Institutional Review Board (IRB) Approvals or Equivalent for Research with Human Subjects ",
+        "text_level": 1,
+        "bbox": [
+            205,
+            328,
+            821,
+            357
+        ],
+        "page_idx": 29
+    },
+    {
+        "type": "text",
+        "text": "Question: Does the paper describe potential risks incurred by study participants, whether such risks were disclosed to the subjects, and whether Institutional Review Board (IRB) approvals (or an equivalent approval/review based on the requirements of your country or institution) were obtained? ",
+        "bbox": [
+            232,
+            361,
+            825,
+            416
+        ],
+        "page_idx": 29
+    },
+    {
+        "type": "text",
+        "text": "Answer: [NA] ",
+        "bbox": [
+            233,
+            421,
+            326,
+            435
+        ],
+        "page_idx": 29
+    },
+    {
+        "type": "text",
+        "text": "Justification: We confirm that the paper does not involve crowdsourcing nor research with human subjects. ",
+        "bbox": [
+            232,
+            440,
+            823,
+            467
+        ],
+        "page_idx": 29
+    },
+    {
+        "type": "text",
+        "text": "Guidelines: ",
+        "bbox": [
+            232,
+            473,
+            308,
+            486
+        ],
+        "page_idx": 29
+    },
+    {
+        "type": "text",
+        "text": "• The answer NA means that the paper does not involve crowdsourcing nor research with human subjects.   \n• Depending on the country in which research is conducted, IRB approval (or equivalent) may be required for any human subjects research. If you obtained IRB approval, you should clearly state this in the paper.   \n• We recognize that the procedures for this may vary significantly between institutions and locations, and we expect authors to adhere to the NeurIPS Code of Ethics and the guidelines for their institution.   \n• For initial submissions, do not include any information that would break anonymity (if applicable), such as the institution conducting the review. ",
+        "bbox": [
+            251,
+            492,
+            825,
+            637
+        ],
+        "page_idx": 29
+    }
+]

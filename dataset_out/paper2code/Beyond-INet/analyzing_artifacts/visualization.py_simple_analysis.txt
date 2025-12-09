@@ -1,0 +1,136 @@
+**Logic Analysis for `visualization.py`**
+
+---
+
+### **Purpose & Scope**
+
+This module contains functions responsible for visualizing various evaluation results, including calibration analysis, mistake confusion matrices, shape/texture bias bars, and invariance test accuracy trends. These visualizations assist in understanding model behaviors beyond raw accuracy metrics, aligning with the paper’s comprehensive analysis framework.
+
+### **Inputs & Outputs**
+
+- **Inputs:**  
+  Depending on the specific function, inputs are typically dictionaries, arrays, or tensors that contain processed metrics, data points, or results obtained from evaluation modules.
+  
+- **Outputs:**  
+  Visual plots (matplotlib figures) either displayed directly or saved to disk. No return values are expected from visualization functions; they are primarily for rendering.
+
+---
+
+### **Key Visualization Functions & Considerations**
+
+#### 1. **Plot Reliability Diagrams and Confidence Histograms**
+
+**Function Name Suggestion:** `plot_reliability_diagram_and_histogram`
+
+**Inputs:**  
+- `rel_diag`: Dictionary or data structure containing bin-wise data for a reliability diagram (bin confidence, accuracy).  
+- `conf_hist`: Histogram data for confidence levels (probability distribution per bin).
+
+**Process & Logic:**  
+- *Reliability Diagram:*  
+  - Plot bin centers vs. (predicted confidence, true accuracy).  
+  - Plot the diagonal line y=x for perfect calibration reference.  
+  - Overlay model’s reliability curve.  
+  - Use consistent axis ranges (0-1 for confidence and accuracy).  
+- *Confidence Histogram:*  
+  - Plot histogram bars for the distribution of predicted confidences across bins.  
+  - Emphasize high-confidence bins to detect over- or under-confidence patterns.
+
+**Implementation Details:**  
+- Use `matplotlib.pyplot` to generate subplots (e.g., 2x1 layout).  
+- Add labels, titles, legends.  
+- Optionally, save figures with descriptive filenames (e.g., `calibration_reliability.png`).  
+
+---
+
+#### 2. **Plot Confusion Matrices**
+
+**Function Name Suggestion:** `plot_confusion_matrix`
+
+**Inputs:**  
+- 2D confusion matrix array (N x N where N is number of classes).  
+
+**Process & Logic:**  
+- Use `matplotlib.pyplot.imshow()` with a colormap (`Blues`, `hot`, or `viridis`) for visual clarity.  
+- Add color bar for scale reference.  
+- Annotate cells with numeric counts or normalized rates, if value display is required.  
+- Set class labels on axes if available.  
+- Format axes (e.g., rotate labels) for readability.  
+
+---
+
+#### 3. **Plot Bias Bar Charts (Shape vs Texture Bias)**
+
+**Function Name Suggestion:** `plot_bias_bars`
+
+**Inputs:**  
+- Dictionary or DataFrame containing bias metrics for each model (e.g., shape bias, texture bias percentages).
+
+**Process & Logic:**  
+- Plot grouped bar charts, with models on the x-axis and bias percentages on the y-axis.  
+- Use different colors for shape bias and texture bias bars for clear comparison.  
+- Add legend, axis labels, and title.  
+- Align bars for easy comparison across models.
+
+---
+
+#### 4. **Plot Invariance Test Results (Accuracy Over Transformations)**
+
+**Function Name Suggestion:** `plot_invariance_results`
+
+**Inputs:**  
+- Dictionary mapping transformation types (scale, shift, resolution) to lists/arrays of accuracy values over specific levels (e.g., scale factors, shift pixels, resolution sizes).  
+
+**Process & Logic:**  
+- For each transformation type, generate line plots showing accuracy versus the transformation magnitude.  
+- Use distinct line styles/colors to distinguish between models or datasets.  
+- Include axes labels (`Transformation level`, `Accuracy`), legend, grid.  
+- Optionally, highlight points of key interest (e.g., when accuracy drops below a threshold).  
+- Save plot for analysis.
+
+---
+
+### **Common Details & Best Practices**
+
+- **Figure Management:**  
+  - Create figures with `plt.figure()` or `plt.subplots()`.  
+  - Close figures after saving or displaying with `plt.close()` to prevent memory leaks.  
+
+- **Consistency:**  
+  - Maintain consistent axis scales and labels across plots for comparability.  
+  - Use normalized axes where appropriate (e.g., 0-1 confidence).  
+
+- **Customization & Flexibility:**  
+  - Allow optional parameters for titles, save paths, figure size.  
+  - Include plot annotations for clarity when needed.
+
+- **Performance & Efficiency:**  
+  - For multiple subplots, organize with `subplots()` for efficiency.  
+  - Avoid redundant figure creation.  
+
+---
+
+### **Summary of Implementation Tasks**
+
+| Function                                | Inputs                                          | Core Actions                                                     | Expected Output                        |
+|-----------------------------------------|------------------------------------------------|------------------------------------------------------------------|----------------------------------------|
+| `plot_reliability_diagram_and_histogram` | rel_diag dict, conf_hist array               | Plot reliability curve + histogram                                | Reliability diagrams + histograms   |
+| `plot_confusion_matrix`                  | confusion matrix array                        | Visualize with `imshow()`, add labels and color bar              | Confusion matrix figure             |
+| `plot_bias_bars`                         | bias metrics dict/list                        | Bar chart comparison of shape vs. texture bias                   | Bias bar chart                      |
+| `plot_invariance_results`                | accuracy lists per transformation             | Line plots per transformation type                                | Invariance accuracy trend plots     |
+
+---
+
+### **Potential Data Structures**
+- Use dictionaries or pandas DataFrames for structured data (bias, invariance metrics).  
+- Use numpy arrays or tensors for raw model predictions, confidence, and confusion matrices.
+
+---
+
+### **Note on Data Privacy & Storage**
+- Save plots in designated output folders with meaningful filenames (e.g., `calibration_diagram.png`, `bias_comparison.png`).  
+- Provide options to display or save automatically, governed by function parameters.
+
+---
+
+**This logic analysis guides the functional implementation, ensuring that the visualizations reliably and clearly communicate the model behaviors as outlined in the paper.**

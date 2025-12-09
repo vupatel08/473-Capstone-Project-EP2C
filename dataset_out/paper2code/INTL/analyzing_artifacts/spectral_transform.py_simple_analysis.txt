@@ -1,0 +1,101 @@
+{
+  "file": "spectral_transform.py",
+  "overview": "This module implements the core spectral transformation logic, providing methods for covariance matrix calculation, eigendecomposition, spectral modulation (whitening, power functions, Newton iteration), eigenvalue reconstruction, and numerical stability handling. It is designed to be used during training to transform embeddings, regulate the spectrum, and support the trace loss regularization. The implementation must align precisely with the paper's methods and the specified configuration parameters, ensuring compatibility with the overall SSL framework.",
+  "classes": {
+    "SpectralTransformer": {
+      "attributes": {
+        "T": "Number of iterations T, default 4, as per config, for iterative Newton methods.",
+        "method": "Spectral modulation method: 'Newton' (for IterNorm) or 'Power' (for power law functions).",
+        "p": "Power modulation parameter in [0.45, 0.55], typically around 0.5, for spectrum modulation.",
+        "epsilon": "Small positive value for numerical stability, default 1e-5.",
+        "eig_decomposition_method": "Choosen eigendecomposition routine, e.g., torch.linalg.eigh for symmetric matrices."
+      },
+      "methods": {
+        "compute_covariance": {
+          "inputs": "embeddings tensor of shape (d, m).",
+          "outputs": "covariance matrix Sigma (d, d).",
+          "logic": "Calculate empirical covariance as: Sigma = (1/m) * Z Z^T. For stability, add epsilon * I if necessary."
+        },
+        "eig_decompose": {
+          "inputs": "covariance matrix Sigma.",
+          "outputs": "U (eigenvectors), Lambda (eigenvalues).",
+          "logic": "Perform eigen-decomposition ensuring numerical stability. Use torch.linalg.eigh for symmetric matrices."
+        },
+        "spectral_modulate": {
+          "inputs": "Lambda eigenvalues tensor, the modulation method: 'whitening', 'power', 'Newton'.",
+          "outputs": "gLambda, the modulated eigenvalues after applying g(λ).",
+          "logic": "Apply chosen spectral function: \n- For whitening: g(λ) = λ^{-0.5}\;\n- For power law: g(λ) = λ^{-p} with p close to 0.5.\n- For Newton iteration: g(λ) approximated via iterative functions (see below)."
+        },
+        "apply_iter_norm": {
+          "inputs": "covariance matrix Sigma.",
+          "outputs": "transformed embedding \(\hat{Z}\).",
+          "logic": "Use Newton's method for iterative normalization: \n- Initialize P_0=I.\n- For k in [1,T], compute: \n  P_k = (3/2)*P_{k-1} - (1/2)*P_{k-1}^3 * Sigma_N, where Sigma_N = Sigma / tr(Sigma).\n- Final approximate whitening matrix: \(\Phi_T = P_T / \sqrt{tr(Sigma)}\)."
+        },
+        "compute_eigenvalues_transform": {
+          "inputs": "eigenvalues Lambda, method='power' or 'whitening', parameter p if needed.",
+          "outputs": "gLambda.",
+          "logic": "For 'power' method, g(λ)=λ^{-p}. For 'whitening', g(λ)=λ^{-0.5}. For 'Newton', use iterative function f_T(λ / tr(Sigma))/√tr(Sigma)."
+        },
+        "reconstruct_embeddings": {
+          "inputs": "U (eigenvectors), gLambda (spectrally modulated eigenvalues), Z (original embeddings).",
+          "outputs": "transformed embeddings: \(\hat{Z} = U g(\Lambda) U^T Z\).",
+          "logic": "Matrix multiplication: \(\hat{Z} = U (diag(g(\Lambda))) U^T Z\), with g(Λ) as diagonal matrix."
+        },
+        "log_eigenvalues": {
+          "inputs": "current eigenvalues.",
+          "logic": "Optional: log or return spectrum for debugging, spectrum regularity checks."
+        }
+      }
+    }
+  },
+  "functions": {
+    "NewtonIteration": {
+      "inputs": {
+        "Sigma": "Covariance matrix.",
+        "T": "Number of iterations.",
+        "epsilon": "Stability constant."
+      },
+      "logic": "Initialize P_0=I. For k in [1,T], compute:\n P_k = (3/2) * P_{k-1} - (1/2) * P_{k-1}^3 * Sigma_N,\n where Sigma_N = Sigma / tr(Sigma). \nReturn P_T / sqrt(tr(Sigma)). This approximates Sigma^{-0.5}."
+    },
+    "spectral_function_power": {
+      "inputs": {
+        "Lambda": "Eigenvalues vector.",
+        "p": "Power parameter, e.g., 0.5.",
+        "epsilon": "for numerical stability"
+      },
+      "logic": "Apply element-wise power: λ^{-p}, with optional stability adjustments."
+    },
+    "spectral_function_whitening": {
+      "inputs": "Eigenvalues Lambda.",
+      "logic": "g(λ)=λ^{-0.5}, with numerical stability enhancement if needed."
+    }
+  },
+  "flow": [
+    "Given input embeddings Z, enforce covariance matrix Sigma via compute_covariance.",
+    "Perform eigendecomposition: U, Lambda = eig_decompose(Sigma).",
+    "Depending on selected method, compute g(λ) via spectral_modulate: whitening, power law, Newton iteration.",
+    "Reconstruct transformed embeddings \(\hat{Z}\) using apply_iter_norm (for Newton) or eigenvectors and eigenvalues.",
+    "Output the spectral-transformed embeddings for downstream loss calculations.",
+    "Optional: log spectrum metrics or eigenvalues for monitoring.",
+    "Ensure numerical stability via epsilon adjustments at eigendecomposition and iteration steps."
+  ],
+  "special notes": [
+    "Eigen-decomposition should handle near-zero eigenvalues by adding epsilon * I to Sigma if needed.",
+    "Newton iteration method is a key part of approximating whitening without explicit eigen-decomposition in iterative normalization.",
+    "For p close to 0.5, expect spectrum to be modulated towards a condition number close to 1.",
+    "Eigenvalue regularization or eigenvalue clipping may be necessary to avoid NaN or instability.",
+    "Design the methods to be compatible with batched inputs during training."
+  ],
+  "uncertainties": [
+    "Exact choice of eigenvalue regularization parameters (epsilon).",
+    "When to log spectrum for debugging purposes.",
+    "Handling ill-conditioned matrices that cause eigen-decomposition failures.",
+    "Implementation of iterative function f_T in Newton iteration — whether to include adaptive T or fixed T."
+  ],
+  "final considerations": [
+    "Careful implementation of eigen-decomposition and Newton iterations for efficiency and stability.",
+    "Shared utility functions for eigenvalue modulation, eigen-decomposition, and matrix synthesis.",
+    "Compatibility with the training pipeline: input embeddings, output transformed embeddings, and spectrum regularization.",
+    "Flexibility to switch between whitening, power law, and Newton methods via configuration parameters."
+  ]
+}

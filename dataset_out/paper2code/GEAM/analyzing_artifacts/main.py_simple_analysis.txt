@@ -1,0 +1,206 @@
+# Main.py - Logic Analysis for the Goal-aware Fragment-Based Molecular Generation Framework (GEAM)
+
+## Purpose
+The main.py script functions as the central orchestration point managing the entire molecule generation pipeline:
+- Data loading
+- Training of the FGIB fragment extractor
+- Initialization of the RL (SAC) agent
+- Iterative cycles of molecule generation:
+  - Fragment assembly via RL
+  - Molecule evaluation
+  - Genetic modification (GA)
+  - Fragment extraction and vocabulary update
+- Final output and evaluation
+
+The goal is to faithfully implement the described workflow, ensuring modularity, reproducibility, and alignment with the paper's methodology.
+
+---
+
+## 1. Initialization and Data Loading
+
+### 1.1. Dataset Loader
+- Instantiate DatasetLoader using dataset_path from config.
+- Load molecules as RDKit molecules.
+- Split data into training, validation, and test sets according to ratios (0.8/0.1/0.1).
+- Convert molecules to graph data structures compatible with torch_geometric (nodes as atom features, edges as bonds).
+- Filter out invalid molecules (e.g., sanitization failures). This is critical for clean training and extraction.
+
+### 1.2. Data Preparation
+- Store training set molecules and properties \(Y\), e.g., docking scores, QED, SA.
+- Provide utility functions to convert SMILES to graph Data objects and vice versa.
+
+---
+
+## 2. Goal-aware Fragment Extraction (FGIB) Training
+
+### 2.1. Setup
+- Instantiate FGIB class, passing:
+  - training graphs
+  - training properties \(Y\)
+  - parameters: message passes (3), fc_layers (2), IB coefficient (\(\beta=1e-5\))
+  
+### 2.2. Training
+- Train FGIB on the training data:
+  - For each epoch (total 10 as per config):
+    - Forward pass: Compute node embeddings with GNN.
+    - Fragment scoring: extract candidate fragments (via BRICS or similar).
+    - Compute IB loss as per Eq. (1) / (4): include mutual information components.
+    - Backpropagate and update.
+- After training, compute fragment scores per Eq. (6).
+- Select top-\(K\) fragments (initial: 300) based on scores.
+- Store the initial goal-aware fragment vocabulary `s`.
+
+**Note:** During training, ensure the molecule graphs are sanitized and valid, and that fragment extraction does not produce invalid molecules.
+
+---
+
+## 3. Initialize Molecule Generation Modules
+
+### 3.1. Fragment Assembly (SAC)
+- Instantiate SACPolicy:
+  - Pass hyperparameters: learning rate (1e-4), message passes (3), fc_layers (2).
+  - Initialize policy network components.
+  - Set maximum molecule size (40 atoms).
+- Prepare experience buffer (replay buffer) for RL training.
+- Initialize the starting molecule (e.g., benzene), with attachment points as per the paper.
+- Set initial state: `current molecule = benzene` graph object.
+
+### 3.2. Genetic Algorithm (GA)
+- Instantiate GAOptimizer:
+  - Population size = 100.
+  - Mutation rate = 0.1.
+- Instantiate an initial population:
+  - Use top molecules generated so far; at start, likely just benzene or a small batch of molecules from RL initialization.
+  - Convert molecules to graphs for genetic operations.
+
+---
+
+## 4. Iterative Cycle Loop
+
+Set a **loop** for a predetermined number of cycles or until convergence criteria are met (e.g., max number of molecules, target properties, resource limits).
+
+---
+
+### 4.1. Fragment Assembly (RL-based Molecule Generation)
+
+#### a. For each molecule in the current batch (or seed molecule):
+- Re-initialize environment (start from benzene or last molecule).
+- For each step until termination:
+  - Encode current molecule as a graph Data object.
+  - Compute embeddings with GCN (message passes=3).
+  - Use policy networks:
+    - Sample attachment site `a_1` (\(\pi_1\))
+    - Select fragment \(F\) from current goal vocabulary `s` (\(\pi_2\))
+    - Sample attachment site \(a_3\) on fragment (\(\pi_3\))
+  - Attach fragment to molecule:
+    - Validate chemical correctness with RDKit.
+    - Update molecule graph.
+  - Check termination condition:
+    - Molecule size ≥ 40 atoms: stop.
+- Collect final generated molecules \(G_{T}\).
+- Evaluate each molecule:
+  - Use oracle scoring (docking, QED, SA).
+  - Normalize scores based on config ranges.
+  - Compute reward \(r_T\).
+
+#### b. Save trajectories:
+- Store experiences \((s_t, a_t, r_t, s_{t+1})\) for SAC training.
+- Update the policy using SAC loss (Eq. 8), with entropy regularization.
+- Continue for sufficient episodes (e.g., until a batch or epoch closure).
+
+---
+
+### 4.2. Molecule Evaluation
+- From generated molecules:
+  - Calculate metrics:
+    - Docking score
+    - Drug-likeness (QED)
+    - Synthesis accessibility (SA)
+  - Compute combined property \(Y\).
+- Store top molecules based on \(Y\) or docking scores for further GA/selection.
+
+---
+
+### 4.3. Genetic Modification (GA)
+
+#### a. Selection:
+- From top molecules (by \(Y\) or docking), select `top-P` molecules:
+  - Use ranking based on reward or property score.
+- These serve as parents for crossover/mutation.
+
+#### b. Reproduction:
+- Generate new offspring molecules:
+  - For each parent pair:
+    - Perform crossover via `crossover()` function:
+      - Combine molecular graphs at bonds.
+    - Mutate with `mutation()` function:
+      - Randomly modify graph (add/remove atom, bond) based on mutation rate.
+    - Validate molecules (RDKit sanitization).
+- Add the offspring to the population.
+
+---
+
+### 4.4. Fragment Extraction from Offspring
+- For each offspring molecule:
+  - Convert to graph data.
+  - Use FGIB's trained model:
+    - Extract fragments with highest scores \(w_j\) as per Eq. (6).
+    - Convert subgraphs into fragment graphs.
+  - Store these fragments with scores.
+
+---
+
+### 4.5. Dynamic Vocabulary Update
+- Collect all new fragments \(S'\) from offspring.
+- Combine with previous vocabulary `s`:
+  \[
+  s \leftarrow s \cup S'
+  \]
+- If size exceeds `max_vocabulary_size` (1000):
+  - Prune to top-\(L\) fragments based on \(score(F_j)\).
+- Use updated `s` for next cycle.
+- This provides "goal-aware" and "novel" fragments, enabling exploration beyond initial set.
+
+---
+
+## 5. Loop End & Finalization
+- Terminate after a fixed number of cycles or if improvement plateaued.
+- Generate final molecules for evaluation.
+- Save or output the generated molecules, with their properties.
+
+---
+
+## 6. Final Evaluation & Visualization
+- Use evaluation.py functions:
+  - Calculate final property scores
+  - Quantify novelty, diversity (#Circles)
+  - Visualize molecules, interaction diagrams
+  - Save best molecule samples
+
+---
+
+## Additional Considerations & Notes
+- **Reproducibility:** Fix random seeds.
+- **Filtering:** Remove invalid molecules early (RDKit sanitization, valence errors).
+- **Resource Management:** For docking, use proper external calls, possibly batch process.
+- **Hyperparameters:** Hyperparameters on RL (learning rate, batch size), number of message passes, and maximum molecule size should match config.
+- **Logging:** Record progress, molecule stats, intermediate scores, hyperparameters, for experiment reproducibility.
+- **Parallelization:** For molecule evaluation and RL sampling, optimize batch processing.
+
+---
+
+# Summary
+The main.py script must:
+- Load data, prepare graphs.
+- Train FGIB to identify goal-relevant fragments.
+- Initialize a goal-aware fragment vocabulary.
+- Set up RL for assembly (SAC), genetic algorithms (GA), and molecule storage.
+- Run iterative cycles:
+  - Generate molecules via RL guided by the current vocabulary.
+  - Evaluate molecules with oracle and property calculators.
+  - Select top molecules, generate offsprings via GA.
+  - Extract new goal fragments from offsprings.
+  - Update vocabulary dynamically.
+- End with evaluation and visualization.
+
+This detailed logic guide ensures faithful, reproducible implementation aligned with the paper’s methodology, design, and experimental procedures.

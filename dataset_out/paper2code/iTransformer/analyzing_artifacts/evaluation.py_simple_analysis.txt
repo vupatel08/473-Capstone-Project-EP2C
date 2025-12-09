@@ -1,0 +1,135 @@
+# Logic Analysis for evaluation.py
+
+This evaluation.py module implements the core logic to load a trained iTransformer model, run inference on validation and test datasets, compute performance metrics (MSE and MAE), and visualize attention maps and forecasted series. The module's design must align precisely with the architecture and experimental procedures outlined in the paper.
+
+The detailed logic is organized into distinct classes and functions, emphasizing clarity, modularity, and reproducibility.
+
+---
+
+## 1. **Import Required Packages**
+
+- Use numpy, pandas, and matplotlib for data handling and visualization.
+- Use torch for tensor operations, model loading, and inference.
+- Use custom modules: utils.py (for normalization, plotting), model.py (for model architecture), dataset_loader.py (for loading datasets).
+- Use standard metrics: MSE, MAE, or implement custom functions for these.
+
+## 2. **Define the `Evaluation` Class**
+
+### a. Attributes:
+- `model`: the trained `InvertedTransformer` object.
+- `dataset`: a string indicating which dataset (“validation” or “test”).
+- `data_loader`: an instance of `DatasetLoader` corresponding to the dataset split.
+- `device`: computations device (CPU or CUDA).
+- `metrics`: list of metrics to compute, e.g., MSE, MAE.
+- `attention_maps`: boolean, whether to visualize attention maps.
+- `forecast_plots`: boolean, whether to generate forecast plot examples.
+
+### b. Methods:
+- `__init__()`: initialize with model, data loader, device, flags.
+- `load_model()`: load model checkpoint(s), ensure model is in eval mode.
+- `run_inference()`: for each batch, run model prediction, collect forecast outputs and inputs.
+- `compute_metrics()`: compare predictions with ground-truth series, compute MSE and MAE per batch and aggregate.
+- `visualize_attention()`: extract attention weights (from model layers) during inference, generate heatmaps.
+- `visualize_forecast()`: plot predicted series vs ground truth for selected samples.
+- `evaluate()`: run the inference loop, compute metrics, perform visualizations if enabled, and return the results.
+
+---
+
+## 3. **Implementation Details**
+
+### a. **Loading Datasets and Data Loader**
+- Use the same data normalization procedures as training:
+  - Variate-wise normalization to Gaussian, matching training setup.
+  - Load datasets from the paths specified in the config or arguments.
+  - Generate input sequences of length T, target sequences of length S.
+- Instantiate the dataset loader for the relevant split ("validation" or "test").
+
+### b. **Model Loading**
+- Load the trained model checkpoint:
+  - Use `torch.load()` for the saved state_dict.
+  - Transfer to the correct device.
+- Set model to evaluation mode: `model.eval()`.
+
+### c. **Inference Procedure**
+- Loop through the data loader batches:
+  - For each batch:
+    - Input shape: `(batch_size, sequence_length, variates)`
+    - Run inference:
+      - **Note:** input should be normalized (as in training).
+      - Use `with torch.no_grad()` for inference.
+      - Output shape: `(batch_size, forecast_length)` (per variate) or possibly `N x S` (depends on the final projection layer shape).
+    - Collect:
+      - Predicted series.
+      - Ground Truth.
+      - Optional: attention weights at each layer if model exposes them.
+
+### d. **Metrics Calculation**
+- For each batch:
+  - Compute `MSE` and `MAE` between predictions and true series.
+  - Accumulate sums over all batches.
+- After all batches:
+  - Calculate average metrics over entire dataset.
+
+### e. **Visualizations**
+- **Attention Maps:**
+  - If model exposes attention weights (e.g., via hooks or stored attributes), retrieve them.
+  - For each selected layer example:
+    - Plot heatmap: attention weights over variate tokens (size: variates x variates).
+- **Forecast Series:**
+  - Select representative samples.
+  - Plot predicted vs actual series.
+  - Save plots to the specified log directory or display.
+
+### f. **Output & Logging**
+- Return a dictionary with metrics (mean MSE, MAE).
+- Save figures if visualization flags are enabled.
+- Implement options for plotting multiple samples and attention heatmaps.
+
+---
+
+## 4. **Key Points & Alignment with Paper**
+
+- **Normalization:** Ensures variate normalization as per training (Gaussian normalization per variate).
+- **Attention visualization:** Since the model uses attention on variate tokens, extracting attention weights from the self-attention modules is critical. This aligns with the paper’s focus on interpretability of the correlation maps.
+- **Predictions:** The final forecast is obtained via the projection layer on the last variate tokens, as per the described architecture.
+- **Metrics:** Consistent use of MSE and MAE to evaluate forecast accuracy.
+- **Interpretability:** Visualizations should include:
+  - Attention heatmaps over variates.
+  - Series plots comparing ground truth vs forecast.
+- **Dataset handling:** Handle potential batching, padding, or variable-length sequences consistently with training.
+
+---
+
+## 5. **Technical Notes & Assumptions**
+
+- **Access to attention weights:** The model architecture in model.py must expose intermediate attention weights, typically via:
+  - Returning attention matrices from `self-attention` calls, OR
+  - Using hooks registered on attention modules.
+- **Efficiency:** For large datasets, inference should be batched efficiently, ensuring no memory leaks.
+- **Reproducibility:** Use consistent plotting styles, random seeds for visualization reproducibility if necessary.
+- **Seed & Environment Control:** Allow the script to accept seed parameters to ensure reproducibility of visualization.
+
+---
+
+## 6. **Edge Cases & Potential Clarifications**
+
+- How to handle missing data: assume datasets are preprocessed with imputation and normalization.
+- Whether position encodings are used: according to the paper, positional info is learned via series normalization, so positional embeddings are omitted.
+- How to select samples for visualization: choose randomly or follow a predefined set.
+- How to access attention weights: confirm whether the model includes mechanisms to output or store attention matrices during inference.
+
+---
+
+## Summary:
+
+The `evaluation.py` should:
+
+- Load datasets and normalize variates identically as during training.
+- Load the trained model, set to eval mode.
+- Run inference batch-wise, collect predictions, and compute performance metrics.
+- If enabled, extract and visualize attention maps indicating variate correlations.
+- Plot sample forecast series against ground truth for interpretability.
+- Return metrics summaries for reporting.
+- Be designed for reproducibility, with options for detailed analysis and visualization.
+
+This design aligns strictly with the paper’s methodology, experimental setup, and evaluation criteria, forming a basis for precise implementation.

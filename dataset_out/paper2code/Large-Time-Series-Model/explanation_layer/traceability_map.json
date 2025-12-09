@@ -1,0 +1,402 @@
+{
+  "code_to_paper": {
+    "dataset_loader.py:DatasetLoader": [
+      "Methodology",
+      "Dataset and Preprocessing",
+      "Experimental Setup"
+    ],
+    "dataset_loader.py:__init__": [
+      "The provided paper sections are not sufficient to link with the given code component. Please provide more relevant paper sections such as \"Methodology\"",
+      "\"Data Preprocessing\"",
+      "\"Experimental Setup\"",
+      "etc."
+    ],
+    "evaluation.py:Evaluation": [
+      "The paper sections are not clearly defined in the provided information. However",
+      "based on the code component description",
+      "the most relevant sections could be \"Model Evaluation\"",
+      "\"Downstream Tasks\"",
+      "and \"Timer Model Implementation\". Please provide the actual section names/titles for a more accurate analysis."
+    ],
+    "evaluation.py:__init__": [
+      "Methodology",
+      "Experiment Setup",
+      "Evaluation Metrics"
+    ],
+    "main.py:main": [
+      "The provided information is insufficient to determine the most relevant paper sections for the code component. Please provide more details about the function in the main.py file and its purpose."
+    ],
+    "model.py:DecoderLayer": [
+      "Without specific section names",
+      "it's impossible to accurately link the code component to the paper sections. However",
+      "typically",
+      "sections like \"Methodology\"",
+      "\"Implementation Details\"",
+      "\"Model Architecture\" or \"Experimental Setup\" could potentially describe the code component mentioned."
+    ],
+    "model.py:TimerTransformer": [
+      "Without specific section names",
+      "it's hard to provide an accurate answer. However",
+      "based on the code component description",
+      "the most relevant sections could be something like \"Model Architecture\"",
+      "\"Methodology\"",
+      "\"Implementation Details\". Please provide the actual section names for a more accurate match."
+    ],
+    "model.py:__init__": [
+      "Without specific section names",
+      "it's hard to provide an accurate answer. However",
+      "based on the code description",
+      "the most relevant sections could be something like \"Model Architecture\"",
+      "\"Methodology\"",
+      "and \"Implementation Details\"."
+    ],
+    "tokenization.py:is": [
+      "The provided paper sections do not seem to contain any relevant information related to the code component. Please provide more relevant paper sections."
+    ],
+    "tokenization.py:Sequence": [
+      "The provided paper sections are not sufficient to link with the given code component. Please provide more relevant paper sections."
+    ],
+    "tokenization.py:Tokenizer": [
+      "Without specific section names",
+      "it's hard to provide an accurate answer. However",
+      "based on the code component's description",
+      "the most relevant sections could be \"Data Preprocessing\"",
+      "\"Methodology\"",
+      "and \"Implementation Details\"."
+    ],
+    "tokenization.py:__init__": [
+      "The provided information is not sufficient to determine the most relevant paper sections for the given code component. Please provide more detailed paper sections related to the code."
+    ],
+    "trainer.py:from": [
+      "The provided paper sections are not sufficient to link with the given code component. Please provide more detailed sections such as \"Methodology\"",
+      "\"Model Implementation\"",
+      "\"Experiment and Results\"",
+      "etc."
+    ],
+    "trainer.py:__init__": [
+      "The code component does not provide enough information to link it to specific paper sections. Please provide more details."
+    ]
+  },
+  "paper_to_code": {
+    "Methodology": [
+      {
+        "component": "dataset_loader.py:DatasetLoader",
+        "description": "DatasetLoader handles loading, preprocessing, and partitioning datasets into training,\n    validation, and test sets. It supports multiple datasets, heterogeneity, and hierarchical\n    dataset organization for large-scale pretraining.",
+        "file": "dataset_loader.py"
+      },
+      {
+        "component": "evaluation.py:__init__",
+        "description": "Initialize the Evaluation instance.\n        \n        Args:\n            model (TimerTransformer): The pre-trained or fine-tuned model to evaluate.\n            dataset_loader: An object providing datasets and data iterators (e.g., DatasetLoader).\n            task (str): The task type: 'forecasting', 'imputation', 'anomaly_detection', 'zero_shot'.\n            task_params (dict): Task-specific parameters, e.g., dataset info, masking ratios, forecast lengths.\n            config (dict): Evaluation configuration, including metrics, thresholds, logging.",
+        "file": "evaluation.py"
+      }
+    ],
+    "Dataset and Preprocessing": [
+      {
+        "component": "dataset_loader.py:DatasetLoader",
+        "description": "DatasetLoader handles loading, preprocessing, and partitioning datasets into training,\n    validation, and test sets. It supports multiple datasets, heterogeneity, and hierarchical\n    dataset organization for large-scale pretraining.",
+        "file": "dataset_loader.py"
+      }
+    ],
+    "Experimental Setup": [
+      {
+        "component": "dataset_loader.py:DatasetLoader",
+        "description": "DatasetLoader handles loading, preprocessing, and partitioning datasets into training,\n    validation, and test sets. It supports multiple datasets, heterogeneity, and hierarchical\n    dataset organization for large-scale pretraining.",
+        "file": "dataset_loader.py"
+      }
+    ],
+    "The provided paper sections are not sufficient to link with the given code component. Please provide more relevant paper sections such as \"Methodology\"": [
+      {
+        "component": "dataset_loader.py:__init__",
+        "description": "Args:\n            dataset_paths (List[str]): List of dataset directories or file paths.\n            config (dict): Configuration dictionary with preprocessing parameters.",
+        "file": "dataset_loader.py"
+      }
+    ],
+    "\"Data Preprocessing\"": [
+      {
+        "component": "dataset_loader.py:__init__",
+        "description": "Args:\n            dataset_paths (List[str]): List of dataset directories or file paths.\n            config (dict): Configuration dictionary with preprocessing parameters.",
+        "file": "dataset_loader.py"
+      }
+    ],
+    "\"Experimental Setup\"": [
+      {
+        "component": "dataset_loader.py:__init__",
+        "description": "Args:\n            dataset_paths (List[str]): List of dataset directories or file paths.\n            config (dict): Configuration dictionary with preprocessing parameters.",
+        "file": "dataset_loader.py"
+      }
+    ],
+    "etc.": [
+      {
+        "component": "dataset_loader.py:__init__",
+        "description": "Args:\n            dataset_paths (List[str]): List of dataset directories or file paths.\n            config (dict): Configuration dictionary with preprocessing parameters.",
+        "file": "dataset_loader.py"
+      },
+      {
+        "component": "trainer.py:from",
+        "description": "Trainer manages the training loop, learning rate scheduling, checkpointing,\n    and evaluation for the Timer large time series model.",
+        "file": "trainer.py"
+      }
+    ],
+    "The paper sections are not clearly defined in the provided information. However": [
+      {
+        "component": "evaluation.py:Evaluation",
+        "description": "Evaluation class for assessing trained Timer models on multiple downstream tasks:\n    forecasting, imputation, anomaly detection, and zero-shot evaluation.",
+        "file": "evaluation.py"
+      }
+    ],
+    "based on the code component description": [
+      {
+        "component": "evaluation.py:Evaluation",
+        "description": "Evaluation class for assessing trained Timer models on multiple downstream tasks:\n    forecasting, imputation, anomaly detection, and zero-shot evaluation.",
+        "file": "evaluation.py"
+      },
+      {
+        "component": "model.py:TimerTransformer",
+        "description": "GPT-style decoder-only transformer for large time series modeling.\n    \n    Supports:\n    - Hierarchical scaling via model size and layers\n    - Autoregressive next token prediction\n    - Optional position and timestamp embeddings",
+        "file": "model.py"
+      }
+    ],
+    "the most relevant sections could be \"Model Evaluation\"": [
+      {
+        "component": "evaluation.py:Evaluation",
+        "description": "Evaluation class for assessing trained Timer models on multiple downstream tasks:\n    forecasting, imputation, anomaly detection, and zero-shot evaluation.",
+        "file": "evaluation.py"
+      }
+    ],
+    "\"Downstream Tasks\"": [
+      {
+        "component": "evaluation.py:Evaluation",
+        "description": "Evaluation class for assessing trained Timer models on multiple downstream tasks:\n    forecasting, imputation, anomaly detection, and zero-shot evaluation.",
+        "file": "evaluation.py"
+      }
+    ],
+    "and \"Timer Model Implementation\". Please provide the actual section names/titles for a more accurate analysis.": [
+      {
+        "component": "evaluation.py:Evaluation",
+        "description": "Evaluation class for assessing trained Timer models on multiple downstream tasks:\n    forecasting, imputation, anomaly detection, and zero-shot evaluation.",
+        "file": "evaluation.py"
+      }
+    ],
+    "Experiment Setup": [
+      {
+        "component": "evaluation.py:__init__",
+        "description": "Initialize the Evaluation instance.\n        \n        Args:\n            model (TimerTransformer): The pre-trained or fine-tuned model to evaluate.\n            dataset_loader: An object providing datasets and data iterators (e.g., DatasetLoader).\n            task (str): The task type: 'forecasting', 'imputation', 'anomaly_detection', 'zero_shot'.\n            task_params (dict): Task-specific parameters, e.g., dataset info, masking ratios, forecast lengths.\n            config (dict): Evaluation configuration, including metrics, thresholds, logging.",
+        "file": "evaluation.py"
+      }
+    ],
+    "Evaluation Metrics": [
+      {
+        "component": "evaluation.py:__init__",
+        "description": "Initialize the Evaluation instance.\n        \n        Args:\n            model (TimerTransformer): The pre-trained or fine-tuned model to evaluate.\n            dataset_loader: An object providing datasets and data iterators (e.g., DatasetLoader).\n            task (str): The task type: 'forecasting', 'imputation', 'anomaly_detection', 'zero_shot'.\n            task_params (dict): Task-specific parameters, e.g., dataset info, masking ratios, forecast lengths.\n            config (dict): Evaluation configuration, including metrics, thresholds, logging.",
+        "file": "evaluation.py"
+      }
+    ],
+    "The provided information is insufficient to determine the most relevant paper sections for the code component. Please provide more details about the function in the main.py file and its purpose.": [
+      {
+        "component": "main.py:main",
+        "description": "",
+        "file": "main.py"
+      }
+    ],
+    "Without specific section names": [
+      {
+        "component": "model.py:DecoderLayer",
+        "description": "Single decoder (self-attention + feedforward) layer with causal masking.",
+        "file": "model.py"
+      },
+      {
+        "component": "model.py:TimerTransformer",
+        "description": "GPT-style decoder-only transformer for large time series modeling.\n    \n    Supports:\n    - Hierarchical scaling via model size and layers\n    - Autoregressive next token prediction\n    - Optional position and timestamp embeddings",
+        "file": "model.py"
+      },
+      {
+        "component": "model.py:__init__",
+        "description": "GPT-style decoder-only transformer for large time series modeling.\n    \n    Supports:\n    - Hierarchical scaling via model size and layers\n    - Autoregressive next token prediction\n    - Optional position and timestamp embeddings",
+        "file": "model.py"
+      },
+      {
+        "component": "tokenization.py:Tokenizer",
+        "description": "Handles hierarchical segmentation, encoding, and embedding of time series data.",
+        "file": "tokenization.py"
+      }
+    ],
+    "it's impossible to accurately link the code component to the paper sections. However": [
+      {
+        "component": "model.py:DecoderLayer",
+        "description": "Single decoder (self-attention + feedforward) layer with causal masking.",
+        "file": "model.py"
+      }
+    ],
+    "typically": [
+      {
+        "component": "model.py:DecoderLayer",
+        "description": "Single decoder (self-attention + feedforward) layer with causal masking.",
+        "file": "model.py"
+      }
+    ],
+    "sections like \"Methodology\"": [
+      {
+        "component": "model.py:DecoderLayer",
+        "description": "Single decoder (self-attention + feedforward) layer with causal masking.",
+        "file": "model.py"
+      }
+    ],
+    "\"Implementation Details\"": [
+      {
+        "component": "model.py:DecoderLayer",
+        "description": "Single decoder (self-attention + feedforward) layer with causal masking.",
+        "file": "model.py"
+      }
+    ],
+    "\"Model Architecture\" or \"Experimental Setup\" could potentially describe the code component mentioned.": [
+      {
+        "component": "model.py:DecoderLayer",
+        "description": "Single decoder (self-attention + feedforward) layer with causal masking.",
+        "file": "model.py"
+      }
+    ],
+    "it's hard to provide an accurate answer. However": [
+      {
+        "component": "model.py:TimerTransformer",
+        "description": "GPT-style decoder-only transformer for large time series modeling.\n    \n    Supports:\n    - Hierarchical scaling via model size and layers\n    - Autoregressive next token prediction\n    - Optional position and timestamp embeddings",
+        "file": "model.py"
+      },
+      {
+        "component": "model.py:__init__",
+        "description": "GPT-style decoder-only transformer for large time series modeling.\n    \n    Supports:\n    - Hierarchical scaling via model size and layers\n    - Autoregressive next token prediction\n    - Optional position and timestamp embeddings",
+        "file": "model.py"
+      },
+      {
+        "component": "tokenization.py:Tokenizer",
+        "description": "Handles hierarchical segmentation, encoding, and embedding of time series data.",
+        "file": "tokenization.py"
+      }
+    ],
+    "the most relevant sections could be something like \"Model Architecture\"": [
+      {
+        "component": "model.py:TimerTransformer",
+        "description": "GPT-style decoder-only transformer for large time series modeling.\n    \n    Supports:\n    - Hierarchical scaling via model size and layers\n    - Autoregressive next token prediction\n    - Optional position and timestamp embeddings",
+        "file": "model.py"
+      },
+      {
+        "component": "model.py:__init__",
+        "description": "GPT-style decoder-only transformer for large time series modeling.\n    \n    Supports:\n    - Hierarchical scaling via model size and layers\n    - Autoregressive next token prediction\n    - Optional position and timestamp embeddings",
+        "file": "model.py"
+      }
+    ],
+    "\"Methodology\"": [
+      {
+        "component": "model.py:TimerTransformer",
+        "description": "GPT-style decoder-only transformer for large time series modeling.\n    \n    Supports:\n    - Hierarchical scaling via model size and layers\n    - Autoregressive next token prediction\n    - Optional position and timestamp embeddings",
+        "file": "model.py"
+      },
+      {
+        "component": "model.py:__init__",
+        "description": "GPT-style decoder-only transformer for large time series modeling.\n    \n    Supports:\n    - Hierarchical scaling via model size and layers\n    - Autoregressive next token prediction\n    - Optional position and timestamp embeddings",
+        "file": "model.py"
+      },
+      {
+        "component": "tokenization.py:Tokenizer",
+        "description": "Handles hierarchical segmentation, encoding, and embedding of time series data.",
+        "file": "tokenization.py"
+      }
+    ],
+    "\"Implementation Details\". Please provide the actual section names for a more accurate match.": [
+      {
+        "component": "model.py:TimerTransformer",
+        "description": "GPT-style decoder-only transformer for large time series modeling.\n    \n    Supports:\n    - Hierarchical scaling via model size and layers\n    - Autoregressive next token prediction\n    - Optional position and timestamp embeddings",
+        "file": "model.py"
+      }
+    ],
+    "based on the code description": [
+      {
+        "component": "model.py:__init__",
+        "description": "GPT-style decoder-only transformer for large time series modeling.\n    \n    Supports:\n    - Hierarchical scaling via model size and layers\n    - Autoregressive next token prediction\n    - Optional position and timestamp embeddings",
+        "file": "model.py"
+      }
+    ],
+    "and \"Implementation Details\".": [
+      {
+        "component": "model.py:__init__",
+        "description": "GPT-style decoder-only transformer for large time series modeling.\n    \n    Supports:\n    - Hierarchical scaling via model size and layers\n    - Autoregressive next token prediction\n    - Optional position and timestamp embeddings",
+        "file": "model.py"
+      },
+      {
+        "component": "tokenization.py:Tokenizer",
+        "description": "Handles hierarchical segmentation, encoding, and embedding of time series data.",
+        "file": "tokenization.py"
+      }
+    ],
+    "The provided paper sections do not seem to contain any relevant information related to the code component. Please provide more relevant paper sections.": [
+      {
+        "component": "tokenization.py:is",
+        "description": "Represents a single token extracted from a time series segment,\n    optionally with timestamp metadata.",
+        "file": "tokenization.py"
+      }
+    ],
+    "The provided paper sections are not sufficient to link with the given code component. Please provide more relevant paper sections.": [
+      {
+        "component": "tokenization.py:Sequence",
+        "description": "Represents a sequence of tokens ready for embedding and model input.",
+        "file": "tokenization.py"
+      }
+    ],
+    "based on the code component's description": [
+      {
+        "component": "tokenization.py:Tokenizer",
+        "description": "Handles hierarchical segmentation, encoding, and embedding of time series data.",
+        "file": "tokenization.py"
+      }
+    ],
+    "the most relevant sections could be \"Data Preprocessing\"": [
+      {
+        "component": "tokenization.py:Tokenizer",
+        "description": "Handles hierarchical segmentation, encoding, and embedding of time series data.",
+        "file": "tokenization.py"
+      }
+    ],
+    "The provided information is not sufficient to determine the most relevant paper sections for the given code component. Please provide more detailed paper sections related to the code.": [
+      {
+        "component": "tokenization.py:__init__",
+        "description": "Args:\n            values (np.ndarray): The feature vector of the token (shape: (S, V) or (S,))\n            token_id (int): The unique ID of this token.\n            timestamp (Optional[float]): Starting timestamp associated with this segment.",
+        "file": "tokenization.py"
+      }
+    ],
+    "The provided paper sections are not sufficient to link with the given code component. Please provide more detailed sections such as \"Methodology\"": [
+      {
+        "component": "trainer.py:from",
+        "description": "Trainer manages the training loop, learning rate scheduling, checkpointing,\n    and evaluation for the Timer large time series model.",
+        "file": "trainer.py"
+      }
+    ],
+    "\"Model Implementation\"": [
+      {
+        "component": "trainer.py:from",
+        "description": "Trainer manages the training loop, learning rate scheduling, checkpointing,\n    and evaluation for the Timer large time series model.",
+        "file": "trainer.py"
+      }
+    ],
+    "\"Experiment and Results\"": [
+      {
+        "component": "trainer.py:from",
+        "description": "Trainer manages the training loop, learning rate scheduling, checkpointing,\n    and evaluation for the Timer large time series model.",
+        "file": "trainer.py"
+      }
+    ],
+    "The code component does not provide enough information to link it to specific paper sections. Please provide more details.": [
+      {
+        "component": "trainer.py:__init__",
+        "description": "Args:\n            model (TimerTransformer): The pre-initialized or randomly initialized model.\n            train_dataset (List[torch.Tensor]): List of tokenized training sequences.\n            val_dataset (Optional[List[torch.Tensor]]): List of tokenized validation sequences.\n            config (dict): Configuration from YAML containing hyperparameters.",
+        "file": "trainer.py"
+      }
+    ]
+  },
+  "paper_sections": [
+    {
+      "section": "Abstract",
+      "text": "Yong Liu \\* 1 Haoran Zhang \\* 1 Chenyu Li \\* 1 Xiangdong Huang 1 Jianmin Wang 1 Mingsheng Long 1",
+      "ontology": "abstract"
+    }
+  ],
+  "coverage_score": 36.0
+}

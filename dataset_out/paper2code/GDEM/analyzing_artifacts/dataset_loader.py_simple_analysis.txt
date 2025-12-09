@@ -1,0 +1,74 @@
+{
+  "dataset_loader.py": [
+    "**Purpose and Role**:  
+    Implement a class DatasetLoader responsible for downloading, loading, and preprocessing datasets specified by URLs in config.yaml. It converts raw datasets into PyTorch Geometric Data objects, normalizes node features, and computes the spectral decomposition (eigenvalues and eigenvectors) of the graph Laplacian suitable for downstream eigenbasis matching in GDEM.",
+    
+    "**Dependencies**:  
+    - Python packages: torch, torch_geometric, scipy, numpy, sklearn for normalization and spectral computation.  
+    - Utilizes dataset download links from provided URLs, requiring standard HTTP requests or dataset-specific loaders.  
+    - Assumes datasets are in a standard format compatible with torch_geometric datasets or in a parseable format; if not, custom parsing is necessary.",
+    
+    "**Class Design**:  
+    class DatasetLoader  
+    - **Attributes**:
+        - dataset_paths (dict): Contains dataset URLs extracted from config.yaml.  
+        - data (torch_geometric.data.Data): Loaded dataset object.  
+        - spectrum (dict): Contains 'eigenvalues', 'eigenvectors' (both tensors).  
+        - Additional: Normalized features, adjacency matrices, split indices.  
+    - **Methods**:
+        - __init__(dataset_paths: dict): Initialize with URL paths.  
+        - download_and_load(): Fetch dataset, parse into torch_geometric Data objects, handle different dataset formats.  
+        - preprocess(): Normalize features, construct adjacency matrices, compute normalized Laplacian.  
+        - compute_spectrum(K: int): Compute eigenvalues and eigenvectors of the normalized Laplacian, returning top-K eigenvalues/vectors.  
+        - get_data(): Return dataset object with all preprocessing done.  
+        - get_spectrum(): Return eigenvalues and eigenvectors for spectral matching.  
+        - save/load methods (optional): Save preprocessed data and spectra to disk for efficiency.**,
+
+    "**Implementation Logic Steps**:
+    1. **Initialization**:
+        - Receive dataset URLs from configuration.  
+        - Set default dataset download paths, check if datasets are already downloaded or need to be fetched.  
+    2. **Downloading datasets**:
+        - If datasets are stored locally, proceed; otherwise, download from URLs (e.g., using requests or git clone if necessary).  
+        - Ensure datasets are unzipped/extracted if compressed.  
+    3. **Loading datasets**:
+        - For standard datasets (e.g., Planetoid, OGB), leverage existing torch_geometric dataset classes if compatible.  
+        - For custom datasets, implement parsers to read edge lists, features, labels, and splits.  
+        - Convert raw data into torch_geometric.data.Data objects, with attributes:
+            - x (node features tensor)  
+            - edge_index (edge list tensor)  
+            - y (labels tensor)  
+    4. **Normalization and preprocessing**:
+        - Normalize node feature matrix (e.g., row normalization or standard scaling).  
+        - Compute degree matrix D, then normalized Laplacian $\hat{\mathbf{L}} = \mathbf{I} - \mathbf{D}^{-1/2} \mathbf{A} \mathbf{D}^{-1/2}$.  
+        - Store adjacency matrix in sparse format compatible with scipy or torch.  
+    5. **Spectral decomposition**:
+        - Use scipy.sparse.linalg.eigsh to compute the smallest or largest K eigenvalues/vectors of the normalized Laplacian.  
+        - Since eigsh returns eigenvalues ordered ascending, select appropriate end(s):
+            - For capturing global structure, typically use the smallest (or largest, depending on the structure).  
+        - Store eigenvalues and eigenvectors as torch tensors for later matching.  
+        - For large graphs, ensure eigen-decomposition is feasible; consider approximate methods if performance issues arise.  
+    6. **Output**:
+        - Provide methods to retrieve:
+            - The preprocessed torch_geometric Data object with normalized features.  
+            - Eigenvalues and eigenvectors for spectral matching.  
+        - Optional: Save preprocessed data and spectral info to disk to avoid recomputation.  
+    7. **Additional Functionalities**:
+        - Support for different dataset formats if provided datasets deviate from standard torch_geometric datasets.  
+        - Handling dataset splits explicitly for training/validation/testing.  
+        - Method to re-compute spectrum if needed (e.g., after modifications).  
+    8. **Error Handling & Logging**:
+        - Log steps such as downloading, preprocessing, and eigen-decomposition.  
+        - Handle errors robustly: network errors, incompatible dataset formats, eigen-decomposition failures.  
+        - Provide informative exceptions or warnings to guide debugging.**
+
+  "**Design Decisions and Notes**":
+  - Use consistent data formats across datasets; implement adapters if datasets differ.  
+  - Store datasets and spectral info persistently for efficiency if multiple runs are needed.  
+  - Be mindful of large datasets: eigen-decomposition can be expensive; employ approximate methods or batch-wise eigen computation if necessary.  
+  - Align feature normalization with the experimental setup described in the paper to ensure reproducibility.  
+  - Maintain flexibility for dataset-specific parsing, but default to torch_geometric Dataset classes where possible.  
+  - Ensure hyperparameters like 'K' (number of eigenvectors) are configurable and dataset-dependent if needed.  
+  - Final output of this class should facilitate downstream spectral computations and synthetic graph initialization in GDEM pipeline."
+  ]
+}

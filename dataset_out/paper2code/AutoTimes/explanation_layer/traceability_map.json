@@ -1,0 +1,306 @@
+{
+  "code_to_paper": {
+    "dataset_loader.py:class": [
+      "The provided information is insufficient to determine the most relevant paper sections for the code component. Please provide more details about the code component and the paper sections."
+    ],
+    "dataset_loader.py:DataLoader": [
+      "The provided paper sections are not sufficient to link with the given code component. Please provide more relevant paper sections."
+    ],
+    "dataset_loader.py:__init__": [
+      "The paper sections are not provided in the question. Please provide the paper sections to proceed."
+    ],
+    "evaluation.py:class": [
+      "The paper sections are not clearly provided in the question. However",
+      "based on the code component",
+      "the most relevant sections could be \"Methodology\"",
+      "\"Results and Discussion\"",
+      "and \"Evaluation and Metrics\"."
+    ],
+    "evaluation.py:_load_model": [
+      "The paper sections are not provided in the question. Please provide the paper sections to proceed."
+    ],
+    "main.py:already": [
+      "The provided information is insufficient to determine the most relevant paper sections for the code component. Please provide more details about the code component and the paper sections."
+    ],
+    "main.py:set_seed": [
+      "The paper sections are not provided in the question. Please provide the paper sections to proceed."
+    ],
+    "main.py:main": [
+      "The provided information is insufficient to determine the most relevant paper sections for the code component. Please provide more details about the function in the main.py file and its purpose."
+    ],
+    "model.py:Model": [
+      "The provided paper sections are not sufficient to link with the given code component. Please provide more detailed sections of the paper."
+    ],
+    "model.py:__init__": [
+      "The provided paper sections are not sufficient to link with the given code component. Please provide more detailed sections of the paper."
+    ],
+    "prompt_builder.py:PromptBuilder": [
+      "Without more specific section names",
+      "it's hard to accurately determine the most relevant sections for this code component. However",
+      "based on the information given",
+      "the code seems to be related to the methodology or implementation details of a machine learning model",
+      "specifically a language model. Therefore",
+      "potential relevant sections could be \"Methodology\"",
+      "\"Implementation Details\"",
+      "\"Model Architecture\"",
+      "or \"Experimental Setup\". Please provide more specific section names for a more accurate analysis."
+    ],
+    "prompt_builder.py:__init__": [
+      "Without more specific paper sections",
+      "it's hard to accurately link the code component to the paper sections. However",
+      "based on the provided information",
+      "the code seems to be related to the methodology or implementation details of a machine learning model",
+      "specifically a language model. Therefore",
+      "potential relevant sections could be \"Methodology\"",
+      "\"Implementation Details\"",
+      "or \"Experimental Setup\". Please provide more specific paper sections for a more accurate analysis."
+    ],
+    "trainer.py:Hyperparameters": [
+      "The provided information is insufficient to determine the most relevant paper sections for the code component. Please provide more details about the code component and the paper sections."
+    ],
+    "trainer.py:Trainer": [
+      "The provided information is not sufficient to identify the relevant paper sections for the code component. Please provide the paper sections."
+    ],
+    "trainer.py:__init__": [
+      "The provided information is not sufficient to identify the relevant paper sections for the code component. Please provide the paper sections."
+    ],
+    "trainer.py:sequence_to_numpy_timestamps": [
+      "The provided information does not include specific paper sections related to the code component. Please provide relevant paper sections."
+    ]
+  },
+  "paper_to_code": {
+    "The provided information is insufficient to determine the most relevant paper sections for the code component. Please provide more details about the code component and the paper sections.": [
+      {
+        "component": "dataset_loader.py:class",
+        "description": "",
+        "file": "dataset_loader.py"
+      },
+      {
+        "component": "main.py:already",
+        "description": "",
+        "file": "main.py"
+      },
+      {
+        "component": "trainer.py:Hyperparameters",
+        "description": "",
+        "file": "trainer.py"
+      }
+    ],
+    "The provided paper sections are not sufficient to link with the given code component. Please provide more relevant paper sections.": [
+      {
+        "component": "dataset_loader.py:DataLoader",
+        "description": "Initialize DataLoader with dataset paths and configuration.\n        Args:\n            dataset_paths (dict): Keys are dataset identifiers, values are CSV file paths.\n            segment_size (int): Length of segments for tokenization.",
+        "file": "dataset_loader.py"
+      }
+    ],
+    "The paper sections are not provided in the question. Please provide the paper sections to proceed.": [
+      {
+        "component": "dataset_loader.py:__init__",
+        "description": "Initialize DataLoader with dataset paths and configuration.\n        Args:\n            dataset_paths (dict): Keys are dataset identifiers, values are CSV file paths.\n            segment_size (int): Length of segments for tokenization.",
+        "file": "dataset_loader.py"
+      },
+      {
+        "component": "evaluation.py:_load_model",
+        "description": "Perform inference over all samples, compute metrics, and optionally plot.\n        Returns:\n            dict: aggregated metrics (mean and std) over samples",
+        "file": "evaluation.py"
+      },
+      {
+        "component": "main.py:set_seed",
+        "description": "Set random seeds for reproducibility.",
+        "file": "main.py"
+      }
+    ],
+    "The paper sections are not clearly provided in the question. However": [
+      {
+        "component": "evaluation.py:class",
+        "description": "Perform inference over all samples, compute metrics, and optionally plot.\n        Returns:\n            dict: aggregated metrics (mean and std) over samples",
+        "file": "evaluation.py"
+      }
+    ],
+    "based on the code component": [
+      {
+        "component": "evaluation.py:class",
+        "description": "Perform inference over all samples, compute metrics, and optionally plot.\n        Returns:\n            dict: aggregated metrics (mean and std) over samples",
+        "file": "evaluation.py"
+      }
+    ],
+    "the most relevant sections could be \"Methodology\"": [
+      {
+        "component": "evaluation.py:class",
+        "description": "Perform inference over all samples, compute metrics, and optionally plot.\n        Returns:\n            dict: aggregated metrics (mean and std) over samples",
+        "file": "evaluation.py"
+      }
+    ],
+    "\"Results and Discussion\"": [
+      {
+        "component": "evaluation.py:class",
+        "description": "Perform inference over all samples, compute metrics, and optionally plot.\n        Returns:\n            dict: aggregated metrics (mean and std) over samples",
+        "file": "evaluation.py"
+      }
+    ],
+    "and \"Evaluation and Metrics\".": [
+      {
+        "component": "evaluation.py:class",
+        "description": "Perform inference over all samples, compute metrics, and optionally plot.\n        Returns:\n            dict: aggregated metrics (mean and std) over samples",
+        "file": "evaluation.py"
+      }
+    ],
+    "The provided information is insufficient to determine the most relevant paper sections for the code component. Please provide more details about the function in the main.py file and its purpose.": [
+      {
+        "component": "main.py:main",
+        "description": "",
+        "file": "main.py"
+      }
+    ],
+    "The provided paper sections are not sufficient to link with the given code component. Please provide more detailed sections of the paper.": [
+      {
+        "component": "model.py:Model",
+        "description": "Initialize the AutoTimes model with a pre-trained decoder-only language model.\n        Args:\n            pretrained_model_path (str): Name or path of the pretrained LM (e.g., 'LLaMA-7B', 'gpt2', 'facebook/opt-1.3b').\n            embedding_dim (int): Dimension of the LM token embeddings (D).\n            segment_size (int): Number of data points per segment token (S).",
+        "file": "model.py"
+      },
+      {
+        "component": "model.py:__init__",
+        "description": "Initialize the AutoTimes model with a pre-trained decoder-only language model.\n        Args:\n            pretrained_model_path (str): Name or path of the pretrained LM (e.g., 'LLaMA-7B', 'gpt2', 'facebook/opt-1.3b').\n            embedding_dim (int): Dimension of the LM token embeddings (D).\n            segment_size (int): Number of data points per segment token (S).",
+        "file": "model.py"
+      }
+    ],
+    "Without more specific section names": [
+      {
+        "component": "prompt_builder.py:PromptBuilder",
+        "description": "Initialize the PromptBuilder with tokenizer and hyperparameters.\n        Args:\n            tokenizer (PreTrainedTokenizer): Tokenizer aligned with the pre-trained LLM.\n            segment_size (int): Number of data points per segment token.\n            prompt_strategy (str): Strategy to select prompt segments ('firstF', 'lastF', 'recentSeries', 'random', 'out_series').\n            prompt_length (int): Length of the prompt in tokens (or segments), depending on strategy.\n            timestamp_format (str): Format string for textual timestamp conversion.",
+        "file": "prompt_builder.py"
+      }
+    ],
+    "it's hard to accurately determine the most relevant sections for this code component. However": [
+      {
+        "component": "prompt_builder.py:PromptBuilder",
+        "description": "Initialize the PromptBuilder with tokenizer and hyperparameters.\n        Args:\n            tokenizer (PreTrainedTokenizer): Tokenizer aligned with the pre-trained LLM.\n            segment_size (int): Number of data points per segment token.\n            prompt_strategy (str): Strategy to select prompt segments ('firstF', 'lastF', 'recentSeries', 'random', 'out_series').\n            prompt_length (int): Length of the prompt in tokens (or segments), depending on strategy.\n            timestamp_format (str): Format string for textual timestamp conversion.",
+        "file": "prompt_builder.py"
+      }
+    ],
+    "based on the information given": [
+      {
+        "component": "prompt_builder.py:PromptBuilder",
+        "description": "Initialize the PromptBuilder with tokenizer and hyperparameters.\n        Args:\n            tokenizer (PreTrainedTokenizer): Tokenizer aligned with the pre-trained LLM.\n            segment_size (int): Number of data points per segment token.\n            prompt_strategy (str): Strategy to select prompt segments ('firstF', 'lastF', 'recentSeries', 'random', 'out_series').\n            prompt_length (int): Length of the prompt in tokens (or segments), depending on strategy.\n            timestamp_format (str): Format string for textual timestamp conversion.",
+        "file": "prompt_builder.py"
+      }
+    ],
+    "the code seems to be related to the methodology or implementation details of a machine learning model": [
+      {
+        "component": "prompt_builder.py:PromptBuilder",
+        "description": "Initialize the PromptBuilder with tokenizer and hyperparameters.\n        Args:\n            tokenizer (PreTrainedTokenizer): Tokenizer aligned with the pre-trained LLM.\n            segment_size (int): Number of data points per segment token.\n            prompt_strategy (str): Strategy to select prompt segments ('firstF', 'lastF', 'recentSeries', 'random', 'out_series').\n            prompt_length (int): Length of the prompt in tokens (or segments), depending on strategy.\n            timestamp_format (str): Format string for textual timestamp conversion.",
+        "file": "prompt_builder.py"
+      },
+      {
+        "component": "prompt_builder.py:__init__",
+        "description": "Initialize the PromptBuilder with tokenizer and hyperparameters.\n        Args:\n            tokenizer (PreTrainedTokenizer): Tokenizer aligned with the pre-trained LLM.\n            segment_size (int): Number of data points per segment token.\n            prompt_strategy (str): Strategy to select prompt segments ('firstF', 'lastF', 'recentSeries', 'random', 'out_series').\n            prompt_length (int): Length of the prompt in tokens (or segments), depending on strategy.\n            timestamp_format (str): Format string for textual timestamp conversion.",
+        "file": "prompt_builder.py"
+      }
+    ],
+    "specifically a language model. Therefore": [
+      {
+        "component": "prompt_builder.py:PromptBuilder",
+        "description": "Initialize the PromptBuilder with tokenizer and hyperparameters.\n        Args:\n            tokenizer (PreTrainedTokenizer): Tokenizer aligned with the pre-trained LLM.\n            segment_size (int): Number of data points per segment token.\n            prompt_strategy (str): Strategy to select prompt segments ('firstF', 'lastF', 'recentSeries', 'random', 'out_series').\n            prompt_length (int): Length of the prompt in tokens (or segments), depending on strategy.\n            timestamp_format (str): Format string for textual timestamp conversion.",
+        "file": "prompt_builder.py"
+      },
+      {
+        "component": "prompt_builder.py:__init__",
+        "description": "Initialize the PromptBuilder with tokenizer and hyperparameters.\n        Args:\n            tokenizer (PreTrainedTokenizer): Tokenizer aligned with the pre-trained LLM.\n            segment_size (int): Number of data points per segment token.\n            prompt_strategy (str): Strategy to select prompt segments ('firstF', 'lastF', 'recentSeries', 'random', 'out_series').\n            prompt_length (int): Length of the prompt in tokens (or segments), depending on strategy.\n            timestamp_format (str): Format string for textual timestamp conversion.",
+        "file": "prompt_builder.py"
+      }
+    ],
+    "potential relevant sections could be \"Methodology\"": [
+      {
+        "component": "prompt_builder.py:PromptBuilder",
+        "description": "Initialize the PromptBuilder with tokenizer and hyperparameters.\n        Args:\n            tokenizer (PreTrainedTokenizer): Tokenizer aligned with the pre-trained LLM.\n            segment_size (int): Number of data points per segment token.\n            prompt_strategy (str): Strategy to select prompt segments ('firstF', 'lastF', 'recentSeries', 'random', 'out_series').\n            prompt_length (int): Length of the prompt in tokens (or segments), depending on strategy.\n            timestamp_format (str): Format string for textual timestamp conversion.",
+        "file": "prompt_builder.py"
+      },
+      {
+        "component": "prompt_builder.py:__init__",
+        "description": "Initialize the PromptBuilder with tokenizer and hyperparameters.\n        Args:\n            tokenizer (PreTrainedTokenizer): Tokenizer aligned with the pre-trained LLM.\n            segment_size (int): Number of data points per segment token.\n            prompt_strategy (str): Strategy to select prompt segments ('firstF', 'lastF', 'recentSeries', 'random', 'out_series').\n            prompt_length (int): Length of the prompt in tokens (or segments), depending on strategy.\n            timestamp_format (str): Format string for textual timestamp conversion.",
+        "file": "prompt_builder.py"
+      }
+    ],
+    "\"Implementation Details\"": [
+      {
+        "component": "prompt_builder.py:PromptBuilder",
+        "description": "Initialize the PromptBuilder with tokenizer and hyperparameters.\n        Args:\n            tokenizer (PreTrainedTokenizer): Tokenizer aligned with the pre-trained LLM.\n            segment_size (int): Number of data points per segment token.\n            prompt_strategy (str): Strategy to select prompt segments ('firstF', 'lastF', 'recentSeries', 'random', 'out_series').\n            prompt_length (int): Length of the prompt in tokens (or segments), depending on strategy.\n            timestamp_format (str): Format string for textual timestamp conversion.",
+        "file": "prompt_builder.py"
+      },
+      {
+        "component": "prompt_builder.py:__init__",
+        "description": "Initialize the PromptBuilder with tokenizer and hyperparameters.\n        Args:\n            tokenizer (PreTrainedTokenizer): Tokenizer aligned with the pre-trained LLM.\n            segment_size (int): Number of data points per segment token.\n            prompt_strategy (str): Strategy to select prompt segments ('firstF', 'lastF', 'recentSeries', 'random', 'out_series').\n            prompt_length (int): Length of the prompt in tokens (or segments), depending on strategy.\n            timestamp_format (str): Format string for textual timestamp conversion.",
+        "file": "prompt_builder.py"
+      }
+    ],
+    "\"Model Architecture\"": [
+      {
+        "component": "prompt_builder.py:PromptBuilder",
+        "description": "Initialize the PromptBuilder with tokenizer and hyperparameters.\n        Args:\n            tokenizer (PreTrainedTokenizer): Tokenizer aligned with the pre-trained LLM.\n            segment_size (int): Number of data points per segment token.\n            prompt_strategy (str): Strategy to select prompt segments ('firstF', 'lastF', 'recentSeries', 'random', 'out_series').\n            prompt_length (int): Length of the prompt in tokens (or segments), depending on strategy.\n            timestamp_format (str): Format string for textual timestamp conversion.",
+        "file": "prompt_builder.py"
+      }
+    ],
+    "or \"Experimental Setup\". Please provide more specific section names for a more accurate analysis.": [
+      {
+        "component": "prompt_builder.py:PromptBuilder",
+        "description": "Initialize the PromptBuilder with tokenizer and hyperparameters.\n        Args:\n            tokenizer (PreTrainedTokenizer): Tokenizer aligned with the pre-trained LLM.\n            segment_size (int): Number of data points per segment token.\n            prompt_strategy (str): Strategy to select prompt segments ('firstF', 'lastF', 'recentSeries', 'random', 'out_series').\n            prompt_length (int): Length of the prompt in tokens (or segments), depending on strategy.\n            timestamp_format (str): Format string for textual timestamp conversion.",
+        "file": "prompt_builder.py"
+      }
+    ],
+    "Without more specific paper sections": [
+      {
+        "component": "prompt_builder.py:__init__",
+        "description": "Initialize the PromptBuilder with tokenizer and hyperparameters.\n        Args:\n            tokenizer (PreTrainedTokenizer): Tokenizer aligned with the pre-trained LLM.\n            segment_size (int): Number of data points per segment token.\n            prompt_strategy (str): Strategy to select prompt segments ('firstF', 'lastF', 'recentSeries', 'random', 'out_series').\n            prompt_length (int): Length of the prompt in tokens (or segments), depending on strategy.\n            timestamp_format (str): Format string for textual timestamp conversion.",
+        "file": "prompt_builder.py"
+      }
+    ],
+    "it's hard to accurately link the code component to the paper sections. However": [
+      {
+        "component": "prompt_builder.py:__init__",
+        "description": "Initialize the PromptBuilder with tokenizer and hyperparameters.\n        Args:\n            tokenizer (PreTrainedTokenizer): Tokenizer aligned with the pre-trained LLM.\n            segment_size (int): Number of data points per segment token.\n            prompt_strategy (str): Strategy to select prompt segments ('firstF', 'lastF', 'recentSeries', 'random', 'out_series').\n            prompt_length (int): Length of the prompt in tokens (or segments), depending on strategy.\n            timestamp_format (str): Format string for textual timestamp conversion.",
+        "file": "prompt_builder.py"
+      }
+    ],
+    "based on the provided information": [
+      {
+        "component": "prompt_builder.py:__init__",
+        "description": "Initialize the PromptBuilder with tokenizer and hyperparameters.\n        Args:\n            tokenizer (PreTrainedTokenizer): Tokenizer aligned with the pre-trained LLM.\n            segment_size (int): Number of data points per segment token.\n            prompt_strategy (str): Strategy to select prompt segments ('firstF', 'lastF', 'recentSeries', 'random', 'out_series').\n            prompt_length (int): Length of the prompt in tokens (or segments), depending on strategy.\n            timestamp_format (str): Format string for textual timestamp conversion.",
+        "file": "prompt_builder.py"
+      }
+    ],
+    "or \"Experimental Setup\". Please provide more specific paper sections for a more accurate analysis.": [
+      {
+        "component": "prompt_builder.py:__init__",
+        "description": "Initialize the PromptBuilder with tokenizer and hyperparameters.\n        Args:\n            tokenizer (PreTrainedTokenizer): Tokenizer aligned with the pre-trained LLM.\n            segment_size (int): Number of data points per segment token.\n            prompt_strategy (str): Strategy to select prompt segments ('firstF', 'lastF', 'recentSeries', 'random', 'out_series').\n            prompt_length (int): Length of the prompt in tokens (or segments), depending on strategy.\n            timestamp_format (str): Format string for textual timestamp conversion.",
+        "file": "prompt_builder.py"
+      }
+    ],
+    "The provided information is not sufficient to identify the relevant paper sections for the code component. Please provide the paper sections.": [
+      {
+        "component": "trainer.py:Trainer",
+        "description": "Generate forecasts autoregressively for horizon.\n        Args:\n            init_embeds (torch.Tensor): shape (B, D)\n            prompts_texts (list): batch prompt strings for timestamp embedding\n        Returns:\n            torch.Tensor: predicted series segments, shape (horizon/segment_size, S)",
+        "file": "trainer.py"
+      },
+      {
+        "component": "trainer.py:__init__",
+        "description": "Generate forecasts autoregressively for horizon.\n        Args:\n            init_embeds (torch.Tensor): shape (B, D)\n            prompts_texts (list): batch prompt strings for timestamp embedding\n        Returns:\n            torch.Tensor: predicted series segments, shape (horizon/segment_size, S)",
+        "file": "trainer.py"
+      }
+    ],
+    "The provided information does not include specific paper sections related to the code component. Please provide relevant paper sections.": [
+      {
+        "component": "trainer.py:sequence_to_numpy_timestamps",
+        "description": "Convert sequence of timestamps (np.datetime64 or datetime) to list of strs.",
+        "file": "trainer.py"
+      }
+    ]
+  },
+  "paper_sections": [
+    {
+      "section": "Abstract",
+      "text": "Yong Liu\u2217, Guo Qin\u2217, Xiangdong Huang, Jianmin Wang, Mingsheng LongB",
+      "ontology": "abstract"
+    }
+  ],
+  "coverage_score": 25.0
+}

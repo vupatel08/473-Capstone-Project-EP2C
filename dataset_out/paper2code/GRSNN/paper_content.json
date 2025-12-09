@@ -1,0 +1,158 @@
+{
+  "title": "Temporal Spiking Neural Networks with Synaptic Delay for Graph Reasoning",
+  "abstract": "Mingqing Xiao 1 Yixin Zhu 2 Di He 1 2 Zhouchen Lin 1 2 3",
+  "authors": [],
+  "body_text": [
+    {
+      "text": "# Temporal Spiking Neural Networks with Synaptic Delay for Graph Reasoning"
+    },
+    {
+      "text": "Mingqing Xiao 1 Yixin Zhu 2 Di He 1 2 Zhouchen Lin 1 2 3"
+    },
+    {
+      "text": "# Abstract"
+    },
+    {
+      "text": "Spiking neural networks (SNNs) are investigated as biologically inspired models of neural computation, distinguished by their computational capability and energy efficiency due to precise spiking times and sparse spikes with event-driven computation. A significant question is how SNNs can emulate human-like graph-based reasoning of concepts and relations, especially leveraging the temporal domain optimally. This paper reveals that SNNs, when amalgamated with synaptic delay and temporal coding, are proficient in executing (knowledge) graph reasoning. It is elucidated that spiking time can function as an additional dimension to encode relation properties via a neuralgeneralized path formulation. Empirical results highlight the efficacy of temporal delay in relation processing and showcase exemplary performance in diverse graph reasoning tasks. The spiking model is theoretically estimated to achieve $2 0 \\times$ energy savings compared to non-spiking counterparts, deepening insights into the capabilities and potential of biologically inspired SNNs for efficient reasoning. The code is available at https://github.com/pkuxmq/GRSNN."
+    },
+    {
+      "text": "# 1. Introduction"
+    },
+    {
+      "text": "Spiking Neural Networks (SNNs), inspired by the detailed dynamics of biological neurons, are recognized as more biologically plausible models for neural computation and are distinguished as the third generation of neural network models, owing to their advanced computational capabilities derived from spiking time (Maass, 1997). Unlike traditional Artificial Neural Networks (ANNs), SNNs integrate neuronal dynamics using differential equations and leverage sparse spike trains in the temporal domain for information transition (Fig. 1a), enhancing the encoding of information in biological brains (Reinagel & Reid, 2000; Huxter et al., 2003) and exhibiting increased expressive power when incorporating delay variables (Maass, 1997). The utilization of sparse, event-based computation in SNNs facilitates energyefficient operation on neuromorphic hardware with parallel in-/near-memory computing (Davies et al., 2018; Pei et al., 2019; Rao et al., 2022), making SNNs increasingly prominent as powerful and efficient neuro-inspired models in Artificial Intelligence (AI) applications (Rueckauer et al., 2017; Shrestha & Orchard, 2018; Roy et al., 2019; Bellec et al., 2020; Stockl & Maass ¨ , 2021; Yin et al., 2021; Rao et al., 2022; Xiao et al., 2022; Li et al., 2023; Zhang et al., 2024). Despite these advancements, critical inquiries remain unresolved regarding the solution by SNNs for human-like graph-based reasoning of concepts or relations and an improved utilization of spiking time for information processing."
+    },
+    {
+      "text": "Symbolic and relational reasoning is a cornerstone of human intelligence and advanced AI capabilities (Kemp & Tenenbaum, 2008; Santoro et al., 2017; Rao et al., 2022; Nickel et al., 2015) and can often be formulated as graph reasoning with tasks like link prediction in knowledge graphs (Fig. 1b) (Nickel et al., 2015). For example, it can be evaluated by machine learning tasks of knowledge graph completion (Nickel et al., 2015) and inductive relation prediction (Yang et al., 2017; Teru et al., 2020), resembling humans’ ability to reason new relations between entities based on commonsense knowledge graphs or generalize relations to new analogous conditions. Investigating how underlying mechanisms of neural computation can realize this reasoning capability is pivotal for understanding human intelligence and advancing AI systems, as graph reasoning is important for extensive AI tasks such as knowledge graphs, recommendation systems, and drug or material design (Wang et al., 2023). While various machine learning methods, including path-based (Lao & Cohen, 2010; Yang et al., 2017; Sadeghian et al., 2019), embedding (Bordes et al., 2013; Yang et al., 2015; Sun et al., 2019), and Graph Neural Networks (GNNs) (Schlichtkrull et al., 2018; Vashishth et al., 2020; Teru et al., 2020; Zhu et al., 2021), have been proposed for graph reasoning tasks, the efficacy of bio-inspired models in achieving comparable performance remains largely unexplored. Existing attempts, such as entity embedding by spiking times of single neurons (Dold & Garrido, 2021; Dold, 2022) or in-context relational reasoning (Rao et al., 2022), have not addressed how reasoning paths can be propagated, especially with optimal utilization of temporal information at the network level, and have shown limitations in inductive generalization, interpretability, and performance in large knowledge graphs."
+    },
+    {
+      "text": "![](images/e64cc50cf19ee6ed713eb33c1e2a08c16b82b02ed27436f6504be437b58608a9.jpg)  \nFigure 1. Depiction of spiking neural networks and knowledge graph reasoning. (a) A representation of biological neural circuits, showcasing spiking neurons, their inherent dynamics, synaptic interconnections, and the propagation of temporal spike trains. (b) The process of relational reasoning of concepts, exemplified through the link prediction task in knowledge graphs."
+    },
+    {
+      "text": "Moreover, the importance of spiking time in SNNs (Maass, 1997; Reinagel & Reid, 2000; Huxter et al., 2003) and its potential in AI applications necessitate further exploration. Many previous works have primarily focused on enhancing SNNs as energy-efficient alternatives to ANNs for tasks like image classification (Rueckauer et al., 2017; Shrestha & Orchard, 2018; Xiao et al., 2022), with an emphasis on spike counts. Efforts to leverage spiking time have explored encoding information for single neurons by the time to first spike (Mostafa, 2017; Comsa et al., 2020; Dold & Garrido, 2021), the interval between spikes (Dold, 2022), or adopting different weight coefficients at different times (Stockl & ¨ Maass, 2021), and some have delved into temporal processing tasks like time series classification (Yin et al., 2021; Rao et al., 2022; Patino-Saucedo et al.˜ , 2023; Hammouamri et al., 2024). However, more systematic utilization of synaptic delay at the network level and the coding principles embedded in neuronal spike trains are areas that warrant deeper investigation for better understanding and application of SNNs in extensive AI tasks."
+    },
+    {
+      "text": "In this work, we introduce Graph Reasoning Spiking Neural Network (GRSNN), a novel method allowing SNNs to adeptly solve knowledge graph reasoning tasks by leveraging synaptic delay to encode relational information. This method enables the temporal domain of SNNs to act as an additional dimension to process edge and path properties at the network level, offering a fresh perspective on temporal information processing and coding in SNNs."
+    },
+    {
+      "text": "We consider link prediction tasks of knowledge graphs and GRSNN is proposed as a neural generalization to the path formulation of graph algorithms, drawing inspiration from existing works (Aimone et al., 2021; Zhu et al., 2021). Path formulation is important to graph reasoning due to better interpretability and inductive generalization ability (Zhu et al., 2021; Yang et al., 2017; Sadeghian et al., 2019). We generalize the thought—SNNs can provide a parallelizable and efficient solution to traditional graph path tasks—into AI applications of graph reasoning. It can serve as a neural generalization of Dijkstra’s algorithm with learnable synaptic delays representing the properties of graph edges (also coupled with synaptic weights), enabling high-performance and interpretable solutions."
+    },
+    {
+      "text": "Experiments on diverse graph prediction tasks are conducted to assess the effectiveness of GRSNN. The results underscore the advantage of synaptic delay in encoding relation information in SNNs for competitive performance, revealing a potential mechanism of spiking neurons for knowledge reasoning, and demonstrate the efficiency of GRSNN by fewer parameters and spike computation, with a theoretical estimation indicating significant energy savings compared to non-spiking counterparts. These insights enhance our understanding of the role of neuro-inspired models in graphbased reasoning tasks, central to human intelligence, and emphasize the potential of the temporal domain of SNNs in developing energy-efficient solutions for graph-based AI applications."
+    },
+    {
+      "text": "# 2. Preliminaries"
+    },
+    {
+      "text": "# 2.1. Spiking Neural Networks"
+    },
+    {
+      "text": "SNNs are brain-inspired models comprising spiking neurons that communicate through temporal spike trains. In this work, we employ the current-based Leaky Integrate and Fire (current-based LIF) spiking neuron model, which can be equivalently represented using the Spike Response Model (SRM) form. In this model, each spiking neuron maintains a membrane potential $u$ , integrating input spike trains according to the dynamics:"
+    },
+    {
+      "text": "$$\n\\tau _ { m } \\frac { d u } { d t } = - ( u ( t ) - u _ { r e s t } ) + R \\cdot I ( t ) , \\quad u ( t ) < V _ { t h } ,\n$$"
+    },
+    {
+      "text": "where $I$ is the input current, $V _ { t h }$ is the threshold, $R$ is the resistance, and $\\tau _ { m }$ is the membrane time constant. When $u$ reaches $V _ { t h }$ at time $t ^ { f }$ , a spike is emitted, and $u$ is reset to the resting potential $u \\ = \\ u _ { r e s t }$ , typically set to zero. The neuron’s output spike train is represented as $s ( t ) =$ $\\textstyle \\sum _ { t ^ { f } } \\delta ( t - t ^ { f } )$ , using the Dirac delta function."
+    },
+    {
+      "text": "Neurons are interconnected through synapses with weight and delay (axonal or synaptic delay, for simplicity, we call synaptic delay in this paper). The model for input current is given by:"
+    },
+    {
+      "text": "$$\n\\tau _ { c } \\frac { d I _ { i } } { d t } = - I _ { i } ( t ) + \\sum _ { j } w _ { i j } s _ { j } ( t - d _ { i j } ) + b _ { i } ,\n$$"
+    },
+    {
+      "text": "where $w _ { i j }$ and $d _ { i j }$ are the synaptic weight and delay from neuron $j$ to neuron $i$ , respectively, $b _ { i }$ is a bias term representing background current, and $\\tau _ { c }$ is another time constant. Given the reset mechanism, the equivalent SRM form is:"
+    },
+    {
+      "text": "$$\n\\begin{array} { c l } { { } } & { { u _ { i } ( t ) = u _ { r e s t } + \\displaystyle \\sum _ { j } w _ { i j } \\int _ { 0 } ^ { t } \\kappa ( \\tau - d _ { i j } ) s _ { j } ( t - \\tau ) \\mathrm { d } \\tau } } \\\\ { { } } & { { ~ + \\displaystyle \\int _ { 0 } ^ { t } \\nu ( \\tau ) s _ { i } ( t - \\tau ) \\mathrm { d } \\tau , } } \\end{array}\n$$"
+    },
+    {
+      "text": "with $\\kappa ( \\tau )$ being the temporal kernel function for input spikes and $\\nu ( \\tau ) \\overset {  } { = } - ( V _ { t h } \\overset { \\cdot } { - } u _ { r e s t } ) e ^ { - \\frac { \\tau } { \\tau _ { m } } }$ representing the reset kernel. Assuming $\\tau _ { c } = \\tau _ { m }$ , the input kernel becomes $\\begin{array} { r } { \\kappa ( \\tau ) = \\frac { R } { \\tau _ { m } } \\cdot \\tau e ^ { - \\frac { \\tau } { \\tau _ { m } } } } \\end{array}$ for $\\tau \\geq 0$ and $\\kappa ( \\tau ) = 0$ for $\\tau < 0$ Setting $R = e$ , the kernel simplifies to $\\begin{array} { r } { \\kappa ( \\tau ) = \\frac { \\tau } { \\tau _ { m } } e ^ { 1 - \\frac { \\tau } { \\tau _ { m } } } } \\end{array}$ which is commonly used (Shrestha & Orchard, 2018)."
+    },
+    {
+      "text": "In practice, we simulate SNNs using the discrete computational form of the current-based LIF model:"
+    },
+    {
+      "text": "$$\n\\left\\{ \\begin{array} { l l } { \\displaystyle I _ { i } [ t + 1 ] = e ^ { - \\frac { \\Delta \\tau } { \\tau _ { m } } } I _ { i } [ t ] + \\alpha \\left( \\sum _ { j } w _ { i j } s _ { j } [ t - d _ { i j } ] + b _ { i } \\right) , } \\\\ { \\displaystyle u _ { i } [ t + 1 ] = e ^ { - \\frac { \\Delta \\tau } { \\tau _ { m } } } u _ { i } [ t ] ( 1 - s _ { i } [ t ] ) + I _ { i } [ t + 1 ] , } \\\\ { \\displaystyle s _ { i } [ t + 1 ] = H ( u _ { i } \\left[ t + 1 \\right] - V _ { t h } ) , } \\end{array} \\right.\n$$"
+    },
+    {
+      "text": "where $H ( x )$ is the Heaviside step function, $s _ { i } [ t ]$ is the spike signal at discrete time step $t$ , $\\Delta \\tau$ is the discretization interval, and $\\alpha$ denote the coefficient $\\frac { e \\Delta \\tau } { \\tau _ { m } }$"
+    },
+    {
+      "text": "Utilizing the equivalent SRM formulation and surrogate derivatives for the spiking function, gradients for parameters, including $w _ { i j }$ and $d _ { i j }$ , can be computed through backpropagation over time (Shrestha & Orchard, 2018). Specifically, the non-differentiable term $\\frac { \\partial s _ { i } [ t ] } { \\partial u _ { i } [ t ] }$ is substituted by surrogate derivatives of a smooth function, such as the derivative of the sigmoid function: $\\begin{array} { r } { \\frac { \\partial s } { \\partial u } ~ = ~ \\frac { 1 } { a _ { 1 } } \\frac { e ^ { ( V _ { t h } - u ) / a _ { 1 } } } { ( 1 + e ^ { ( V _ { t h } - u ) / a _ { 1 } } ) ^ { 2 } } } \\end{array}$ , with $a _ { 1 }$ as a hyperparameter. The gradients are then calculated as $\\begin{array} { r l r } { \\frac { \\partial \\bar { \\mathcal { L } } } { \\partial w _ { i j } } } & { { } = } & { \\sum _ { t } \\frac { \\partial \\mathcal { L } } { \\partial s _ { i } [ t ] } \\frac { \\partial s _ { i } \\bar { [ t ] } } { \\partial u _ { i } [ t ] } \\frac { \\partial u _ { i } [ t ] } { \\partial w _ { i j } } } \\end{array}$ and $\\begin{array} { r l } { \\frac { \\partial \\mathcal { L } } { \\partial d _ { i j } } } & { { } = } \\end{array}$ Pt ∂L∂si[t] ∂si[t]∂ui[t] ∂ui[t]∂rij [t] , where $\\begin{array} { r } { r { \\ i j } [ t ] = \\sum _ { \\tau = 0 } ^ { t } \\kappa ( \\tau - } \\end{array}$ $d _ { i j } ) s _ { j } [ t - \\tau ]$ , and $\\begin{array} { r } { \\frac { \\partial r _ { i j } [ t ] } { \\partial d _ { i j } } = - \\sum _ { \\tau = 0 } ^ { t } \\dot { \\kappa } ( \\tau - d _ { i j } ) s _ { j } [ t - \\tau ] ( } \\end{array}$ (κ˙ denotes the derivative of the kernel $\\kappa$ ). In a discrete setting, ${ \\bf d } _ { i j }$ should be integers, and we employ the straight-throughestimator to train a quantized real-valued variable. For additional details, please refer to Appendix A. In this study, we primarily focus on parameters $w _ { i j }$ and $d _ { i j }$ , leaving the exploration of heterogeneous neurons for future work."
+    },
+    {
+      "text": "# 2.2. Link Prediction of Graphs"
+    },
+    {
+      "text": "We consider link prediction tasks of (knowledge) graphs. A knowledge graph is denoted by $\\mathcal { G } = ( \\nu , \\mathcal { E } , \\mathcal { R } )$ , with $\\nu , \\varepsilon$ , and $\\mathcal { R }$ representing the sets of graph nodes, graph edges, and relation types, respectively. We also consider homogeneous graphs $\\mathcal { G } = ( \\nu , \\mathcal { E } )$ as a special case with only one relation type. The task is to predict whether an edge of type $q$ exists between entities $x , y$ (Fig. 2a), and the common methods are to calculate or learn a pair representation $\\mathbf { h } ^ { q } ( x , y )$ for prediction, e.g., using paths between two nodes or embedding methods or GNNs, while we explore using SNNs. Many link prediction tasks are transductive, i.e., predicting new links on the training graph, and there is also the inductive setting where training and testing graphs have different entities but the same relation types."
+    },
+    {
+      "text": "# 2.3. Synaptic Delay for Traditional Graph Algorithms"
+    },
+    {
+      "text": "Some previous works show that the synaptic delay of SNNs can be leveraged to solve traditional graph tasks, providing a parallelizable and efficient neuromorphic computing solution to graph algorithms (Aimone et al., 2021). For the traditional graph single-source shortest path problem, by assigning a neuron to each graph node and configuring the delay between neurons as the graph edge weight, SNNs can parallelly simulate Dijkstra’s algorithm. An example is shown in Fig. 2e if we decode the spike train of the target neuron by the time to first spike. We will generalize the thought—delays in SNNs can represent the properties of graph edges—to graph AI reasoning tasks with neural generalization and advanced temporal coding with multiple temporal spikes for diverse paths."
+    },
+    {
+      "text": "# 3. Graph Reasoning Spiking Neural Network"
+    },
+    {
+      "text": "In this section, we introduce our graph reasoning spiking neural networks. We first introduce the overview of our model in Section 3.1. Then in Section 3.2, we demonstrate that GRSNN can be viewed as a generalized path formulation for graph reasoning. In Section 3.3, we discuss the comparison with graph neural networks. Finally, we introduce implementation details in Section 3.4."
+    },
+    {
+      "text": "# 3.1. Model Overview"
+    },
+    {
+      "text": "The outline of GRSNN is depicted in Fig. 2. Each graph node is assigned $n$ spiking neurons, representing each entity by a neuron population (Fig. 2b). Synaptic connections, corresponding to relation links between entities, are characterized by weight and delay between neuron groups (Fig. 2c). These synaptic properties, such as delay, are dependent on the graph edge relation and modulated by the query relation (task goal), allowing the integrated properties of paths to be reflected by the spiking time considering delays (Fig. 2e)."
+    },
+    {
+      "text": "![](images/55633f12851176b4be7e50944ebb4bfc5ea702a345f10cc3532566dd5324b937.jpg)  \nFigure 2. Schematic of GRSNN. (a) Illustration of the graph link prediction task. In GRSNN, (b) each graph entity node is associated with a cluster of spiking neurons, and (c) each relational edge corresponds to the synaptic connections between spiking neurons, with synaptic weight and delay. The weight can exhibit positive or negative values. The delay is contingent on the edge relation and query relation, representing the edge’s property and the neuromodulation from the task goal. (d) Visualization of GRSNN. To predict a link, a constant current, dependent on the query relation, is injected into the spiking neurons of the source node, initiating the propagation of spike trains. After a specific time interval, the spike trains emanating from the target node are decoded to predict the query relation. (e) Depiction of the temporal domain serving as an additional dimension to process the properties of edges and paths in a network with more propagation paths. In the demonstrated network under a simplified setting where each input spike triggers an output spike for neurons, a spike from the source neuron will lead to four spikes from the target neuron, whose time varies corresponding to four propagation paths with different integrated properties of edges represented by synaptic delay."
+    },
+    {
+      "text": "Unlike SNNs for traditional graph tasks, we generalize the model to allow both positive and negative synaptic weights, acting as complementary transformations to learnable synaptic delays that are viewed as an additional dimension to process graph edges and paths."
+    },
+    {
+      "text": "For the link prediction task (Fig. 2d), a constant current ${ \\bf I } ^ { q }$ is injected to the spiking neurons of the source node $x$ for a given query $q$ between nodes $x$ and $y$ , generating spike trains. The network then propagates these spikes, and a spike train ${ \\bf s } _ { y } ^ { q } ( t )$ from the target node $y$ ’s neurons is obtained after a time interval. A decoding function $D$ calculates the pair representation ${ \\bf h } ^ { q } ( x , y ) = \\cal { D } ( { \\bf s } _ { y } ^ { q } ( t ) )$ for link prediction, and we primarily utilize temporal coding $\\begin{array} { r } { D ( \\mathbf { s } _ { y } ^ { q } ( t ) ) = \\left( \\sum _ { \\tau } \\lambda ^ { \\tau } \\mathbf { s } _ { y } ^ { q } [ \\tau ] \\right) / \\left( \\sum _ { \\tau } \\lambda ^ { \\tau } \\right) } \\end{array}$ , emphasizing early spiking time. This corresponds to the decoding for various path formulations (refer to Appendix B for more details)."
+    },
+    {
+      "text": "# 3.2. GRSNN as Generalized Path Formulation"
+    },
+    {
+      "text": "GRSNN serves as a neural generalization of the path formulation for graphs, allowing for the simultaneous consideration of all paths from a source node without the separate calculation of each one. Path formulation is important to graph reasoning due to better interpretability and inductive generalization ability (Zhu et al., 2021; Yang et al., 2017; Sadeghian et al., 2019). Traditional path-based algorithms calculate the pair representation between nodes $x$ and $y$ by considering paths from $x$ to $y$ , formulated as a generalized accumulation of path representations (Zhu et al., 2021):"
+    },
+    {
+      "text": "$$\n\\mathbf { h } ^ { q } ( x , y ) = \\bigoplus _ { P \\in \\mathcal { P } _ { x y } } \\left( \\bigotimes _ { i = 1 } ^ { | P | } \\mathbf { v } ^ { q } ( e _ { i } ) \\right) ,\n$$"
+    },
+    {
+      "text": "where $\\mathcal { P } _ { x y }$ is the set of paths from $x$ to $y , e _ { i }$ is the $i$ -th edge on a path $P$ , and ${ \\bf v } ^ { q } ( e _ { i } )$ is the edge representation (e.g., the transition probability of this edge). Various methods like Katz Index (Katz, 1953), Personalized PageRank (Page et al., 1999), and Graph Distance (Liben-Nowell & Kleinberg, 2007) follow this modeling."
+    },
+    {
+      "text": "In GRSNN, spike trains propagate over time, with spikes at different times simultaneously maintaining all paths from the source node. The spike train of $y$ is:"
+    },
+    {
+      "text": "$$\n\\begin{array} { r l } & { \\mathbf { s } _ { y } ^ { q } ( t ) = f \\left( \\left\\{ \\mathbf { s } _ { z } ^ { q } ( t ) , \\mathbf { w } _ { z , y } ^ { q } , \\mathbf { d } _ { z , y } ^ { q } | z \\in \\mathcal { N } ( y ) \\right\\} \\right) } \\\\ & { \\qquad = \\cdots = \\overline { { f } } \\left( \\left\\{ \\mathbf { s } _ { x } ^ { q } ( t ) , \\{ \\mathbf { w } _ { e _ { i } } ^ { q } , \\mathbf { d } _ { e _ { i } } ^ { q } \\} _ { i = 1 } ^ { | P | } | P \\in \\mathcal { P } _ { x y } \\right\\} \\right) , } \\end{array}\n$$"
+    },
+    {
+      "text": "where $f$ is the function of spiking neurons, $\\mathbf { w } _ { z , y } ^ { q }$ and $\\mathbf { d } _ { z , y } ^ { q }$ are synaptic weights and delays between nodes $z$ and $y$ given the query relation $q , { \\mathcal { N } } ( y )$ denotes the set of neighbors of $y$ , and $\\overline { { f } }$ denotes the general composite function for all paths. In some degenerated conditions, the time of a spike is the sum of edge delays on one path, allowing a decoding function $F$ to perform a general summation over all paths represented in the spike train. We show that, with specific settings, GRSNN can solve traditional path-based methods."
+    },
+    {
+      "text": "Proposition 3.1. Katz Index, Personalized PageRank, and Graph Distance can be solved by GRSNN under specific settings."
+    },
+    {
+      "text": "The proof is detailed in Appendix B, focusing on the construction of appropriate delay and decoding functions. This proposition illustrates that GRSNN can degenerate to emulate traditional path-based algorithms. By employing parameterized synaptic delays for learnable edge representations, and additional parameters like synaptic weights for transformations in another dimension, GRSNN emerges as a neural generalization of the path formulation for graph reasoning. This sheds light on the capability of SNNs to execute neurosymbolic computation on graph paths utilizing spiking time and synaptic delay. Furthermore, GRSNN, as a generalization of path formulation, extends its important applicability to inductive settings and reasoning path interpretations, distinguishing it from entity embedding methods."
+    },
+    {
+      "text": "# 3.3. Comparison with Graph Neural Networks"
+    },
+    {
+      "text": "The introduced GRSNN bears a resemblance to the widelyused message-passing GNNs in machine learning, both propagating messages between interconnected nodes. However, notable distinctions exist."
+    },
+    {
+      "text": "First, GRSNN incorporates varied temporal synaptic delays in message passing, allowing for the encoding of relational information in spiking times with enhanced spatiotemporal processing. In contrast, GNNs uniformly propagate messages across all edges in each iteration. Second, GRSNN disseminates temporal spike trains throughout the network, as opposed to GNN’s real-valued activations. This not only facilitates the representation of multiple paths through diverse spiking times within a spike train but also promotes event-driven energy-efficient computation suitable for neuromorphic hardware. Moreover, while Zhu et al. (2021) interprets GNN as a neural counterpart to the Bellman-Ford algorithm, GRSNN is perceived as a neural generalization of Dijkstra’s algorithm. This parallel between artificial and brain-inspired neural networks in generalizing distinct classical algorithms for analogous objectives is intriguing."
+    },
+    {
+      "text": "Once the inherent differences are accounted for, GRSNN can also have a formulation analogous to GNNs. Specifically, at each discrete time step, every node (with spiking neurons) aggregates messages from neighbors. Assuming the sharing of synaptic weights across all edges, akin to GNNs, messages are represented by delayed spikes. The aggregation function then becomes a synthesis of the summation of all messages, a linear transformation, and the spike generation with neuronal dynamics of spiking neurons. Thus, for every node $z$ , the following holds:"
+    }
+  ],
+  "url": ""
+}

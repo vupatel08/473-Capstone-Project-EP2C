@@ -1,0 +1,104 @@
+## resources.py
+import torch
+import time
+from typing import Optional, Dict, Any
+
+class ResourceLogger:
+    """
+    Handles resource tracking during training epochs, including timing and GPU memory.
+    Records per-epoch resource usage metrics for analysis in CurBench.
+    """
+    def __init__(
+        self,
+        enable_time_tracking: bool = True,
+        enable_memory_tracking: bool = True
+    ):
+        self.enable_time_tracking = enable_time_tracking
+        self.enable_memory_tracking = enable_memory_tracking
+        self.epoch_logs = []  # To store logs per epoch: list of dicts
+        self.start_time = None
+        self.peak_memory_bytes = 0  # Maximum GPU memory during epoch in bytes
+
+    def start_epoch(self):
+        """
+        Call at the beginning of an epoch.
+        - Records start time if enabled.
+        - Resets GPU peak memory stats if enabled.
+        """
+        if self.enable_time_tracking:
+            self.start_time = time.perf_counter()
+        if self.enable_memory_tracking:
+            try:
+                torch.cuda.reset_peak_memory_stats()
+            except Exception:
+                # For environments without CUDA or GPU unavailable
+                pass
+        self.peak_memory_bytes = 0
+
+    def end_epoch(self, epoch_idx: int):
+        """
+        Call after epoch ends.
+        - Computes elapsed time if enabled.
+        - Records maximum GPU memory allocated during epoch if enabled.
+        - Appends resource usage info for this epoch.
+        """
+        epoch_time = None
+        max_mem_mb = None
+        # Record elapsed time
+        if self.enable_time_tracking and self.start_time is not None:
+            epoch_time = time.perf_counter() - self.start_time
+        # Record max GPU memory
+        if self.enable_memory_tracking:
+            try:
+                max_mem_bytes = torch.cuda.max_memory_allocated()
+                if max_mem_bytes > self.peak_memory_bytes:
+                    self.peak_memory_bytes = max_mem_bytes
+                max_mem_mb = max_mem_bytes / 1e6  # Convert bytes to MB
+            except Exception:
+                max_mem_mb = None  # Could happen if CUDA not available
+        # Save per-epoch resource info
+        self.epoch_logs.append({
+            'epoch': epoch_idx,
+            'time_sec': epoch_time,
+            'max_memory_MB': max_mem_mb
+        })
+
+    def get_total_time(self) -> float:
+        """
+        Return total cumulative training time across epochs if needed.
+        """
+        total_time = sum(log['time_sec'] for log in self.epoch_logs if log['time_sec'] is not None)
+        return total_time
+
+    def get_max_memory_MB(self) -> float:
+        """
+        Return maximum GPU memory used across epochs in MB.
+        """
+        return self.peak_memory_bytes / 1e6
+
+    def export_logs_as_json(self, filename: str):
+        """
+        Save recorded resource logs to a JSON file.
+        """
+        import json
+        with open(filename, 'w') as f:
+            json.dump(self.epoch_logs, f, indent=4)
+
+    def export_logs_as_csv(self, filename: str):
+        """
+        Save resource logs as CSV for easy visualization.
+        """
+        import csv
+        with open(filename, 'w', newline='') as f:
+            writer = csv.DictWriter(f, fieldnames=['epoch', 'time_sec', 'max_memory_MB'])
+            writer.writeheader()
+            for entry in self.epoch_logs:
+                writer.writerow(entry)
+
+    def reset(self):
+        """
+        Reset logs and internal states if needed.
+        """
+        self.epoch_logs = []
+        self.start_time = None
+        self.peak_memory_bytes = 0

@@ -1,0 +1,158 @@
+{
+  "title": "AsyncDiff: Parallelizing Diffusion Models by Asynchronous Denoising",
+  "abstract": "Zigeng Chen, Xinyin Ma, Gongfan Fang, Zhenxiong Tan, Xinchao Wang∗",
+  "authors": [],
+  "body_text": [
+    {
+      "text": "# AsyncDiff: Parallelizing Diffusion Models by Asynchronous Denoising"
+    },
+    {
+      "text": "Zigeng Chen, Xinyin Ma, Gongfan Fang, Zhenxiong Tan, Xinchao Wang∗"
+    },
+    {
+      "text": "National University of Singapore zigeng99@u.nus.edu, xinchao@nus.edu.sg"
+    },
+    {
+      "text": "![](images/c68689ea39f26adf92d33a8b4d5f8d602882f9c4cec4036409ca52593d08f8c7.jpg)  \nFigure 1: We introduce a new distributed acceleration paradigm that attains a $2 . 8 \\mathrm { x }$ speed-up on Stable Diffusion XL while maintaining pixel-level consistency, using four NVIDIA A5000 GPUs."
+    },
+    {
+      "text": "# Abstract"
+    },
+    {
+      "text": "Diffusion models have garnered significant interest from the community for their great generative ability across various applications. However, their typical multistep sequential-denoising nature gives rise to high cumulative latency, thereby precluding the possibilities of parallel computation. To address this, we introduce AsyncDiff, a universal and plug-and-play acceleration scheme that enables model parallelism across multiple devices. Our approach divides the cumbersome noise prediction model into multiple components, assigning each to a different device. To break the dependency chain between these components, it transforms the conventional sequential denoising into an asynchronous process by exploiting the high similarity between hidden states in consecutive diffusion steps. Consequently, each component is facilitated to compute in parallel on separate devices. The proposed strategy significantly reduces inference latency while minimally impacting the generative quality. Specifically, for the Stable Diffusion v2.1, AsyncDiff achieves a $2 . 7 \\mathbf { x }$ speedup with negligible degradation and a $4 . 0 \\mathrm { x }$ speedup with only a slight reduction of 0.38 in CLIP Score, on four NVIDIA A5000 GPUs. Our experiments also demonstrate AsyncDiff can be readily applied to video diffusion models with encouraging performances. Code is available at https://github.com/czg1225/AsyncDiff"
+    },
+    {
+      "text": "# 1 Introduction"
+    },
+    {
+      "text": "Diffusion models [13] stand out in generative modeling and have significantly advanced various fields including text-to-image [43, 41, 45, 46, 72, 78] and text-to-video generation [64, 9, 61, 21, 2], image translation [49, 56, 23], audio generation[22, 14, 44], style transfer[62, 4, 17], low-level vision tasks [47, 60, 40, 26, 8, 70, 3], image editing [19, 66, 51, 77], and 3D model generation [42, 18, 37], among others. However, their widespread application is hindered by the high latency inherent in their multi-step sequential denoising process. This issue becomes more pronounced as the complexity and size of the models increase to enhance generative quality."
+    },
+    {
+      "text": "![](images/987c581c67e24da3bae0e6561ab3975ecfecc24737debfaf557b42e4922ea937.jpg)  \nFigure 2: By preparing each component’s input beforehand, we enable parallel computation of the denoising model, which substantially reduces latency while minimally affecting quality."
+    },
+    {
+      "text": "In response to these challenges, significant research efforts are directed toward enhancing the efficiency of diffusion models. Notably, training-free acceleration methods have garnered increasing popularity due to their low cost and convenience. Numerous studies [35, 63, 76, 67, 53, 25, 33, 57, 34] improve inference speed by skipping redundant calculations in the denoising process. As computational resources grow rapidly, distributing computations across multiple devices has become a more promising approach. Recent advances [52, 24, 58] demonstrate that using distributed computing to parallelize inference effectively increases the acceleration ratio for diffusion models while maintaining acceptable generative quality. Though these methods succeed in parallelizing the diffusion models, they require iterative refining [52] or displaced patch parallelism [24], resulting in a larger number of model evaluations or low GPU utilization correspondingly."
+    },
+    {
+      "text": "Thus, we wish to propose a new parallel paradigm for diffusion, akin to the model parallelism in distributed computing [15, 38, 28, 16, 39, 65], which divides the denoising model into several components to be distributed on different GPUs. The primary challenge lies in the inherent sequential denoising process of diffusion models. Each step in this process depends on the completion of its predecessor, forming a dependency chain that impedes parallelization and significantly increases inference latency. Our approach seeks to disrupt this chain, allowing for the parallel execution of the denoising model while closely approximating the results of the sequential process."
+    },
+    {
+      "text": "In this paper, we introduce AsyncDiff, a universal, distributed acceleration paradigm that innovatively explores model parallelism in diffusion models. As shown in Fig 2, our method sequentially partitions the heavyweight denoising model $\\epsilon _ { \\theta }$ into multiple components $\\{ \\epsilon _ { \\theta } ^ { n } \\} _ { n = 1 } ^ { N }$ based on computational load, assigning each to a separate device. Our core idea lies in decoupling the dependencies between these cascaded components by leveraging the high similarity in hidden states across consecutive diffusion steps. After the initial warm-up steps, each component takes the output from the previous component’s prior step as the approximation of its original input. This transforms the traditional sequential denoising into an asynchronous process, allowing components to predict noise for different time steps in parallel. Additionally, we incorporate stride denoising to skip redundant calculations and reduce the frequency of communication between devices, further enhancing efficiency."
+    },
+    {
+      "text": "Through extensive testing across multiple base models, our method effectively distributes the computational burden across various devices, substantially boosting inference speed while maintaining quality. Specifically, with the text-to-image model Stable Diffusion v2.1 [43], our method achieves a $1 . 8 \\mathrm { x }$ speedup with only a marginal 0.01 drop in CLIP Score [11], and a $4 . 0 \\mathrm { x }$ speedup with a slight 0.38 reduction in CLIP Score on two and four NVIDIA A5000 GPUs, respectively. For video diffusion models, AnimateDiff [9] and Stable Video Diffusion [2], our approach significantly reduces latency by tens of seconds, effectively preserving video quality."
+    },
+    {
+      "text": "In summary, we present a novel distributed acceleration method for diffusion models that significantly reduces inference latency with minimal impact on generation quality. This is achieved by replacing the sequential denoising process with an asynchronous process, allowing each component of the denoising model to run independently across different devices. Extensive experiments on both image and video diffusion models strongly demonstrate the effectiveness and versatility of our method."
+    },
+    {
+      "text": "# 2 Related Works"
+    },
+    {
+      "text": "Diffusion Models. Diffusion models have attracted significant attention due to their powerful generative capabilities across various tasks. Sohl-Dickstein et al. [54] first proposed diffusion probabilistic models. Ho et al. [13] with the introduction of Denoising Diffusion Probabilistic Models (DDPM), enhancing training efficiency and generation quality. Rombach et al. [43] advanced these models by incorporating latent spaces, enabling high-resolution image generation. Despite these advancements, the high latency of the iterative denoising process remains a limitation."
+    },
+    {
+      "text": "Inference Acceleration. Training-based acceleration methods focus on reducing sampling steps [48, 71, 32, 50, 69] or optimizing model architectures [27, 80, 7, 73, 68, 6]. However, these methods incur high training costs and complexity. Training-free methods are gaining popularity due to their ease of use. Some approaches develop fast solvers for SDE or ODE to improve sampling efficiency [31, 1, 30, 74, 81]. Other works [35, 63, 76, 67, 53, 25, 33, 79] observed special characteristics of diffusion models and skipped the redundant computation within the denoising process."
+    },
+    {
+      "text": "Parallelism. The parallelism strategy presents a promising yet underexplored approach to accelerating diffusion models. ParaDiGMS [52] implements Picard iterations for parallel sampling, yet its practical speed-up ratio is modest, and it struggles to maintain consistency with original outputs. Faster Diffusion [25] introduces encoder propagation but significantly compromises quality, and its parallelization remains theoretical. Distrifusion [24] adopts patch parallelism, dividing highresolution images into sub-patches to facilitate parallel inference on each patch by reusing stale activation maps from each layer. However, this approach lacks flexibility across different data types or tasks, often encountering low resource utilization. Furthermore, its reliance on reusing per-layer activation maps greatly increases GPU memory demands thus introducing additional challenges for realistic applications. In contrast, our method uniquely implements model parallelism through asynchronous denoising, achieving substantial acceleration while maintaining a stable resource usage ratio and minimal impact on quality."
+    },
+    {
+      "text": "# 3 Methods"
+    },
+    {
+      "text": "# 3.1 Preliminary"
+    },
+    {
+      "text": "Diffusion models [13] are a dominant class of generative models that transform Gaussian noise into complex data distributions via a Markov process. The forward process is defined by:"
+    },
+    {
+      "text": "$$\nq ( x _ { t } | x _ { t - 1 } ) = N ( x _ { t } ; \\sqrt { 1 - \\beta _ { t } } x _ { t - 1 } , \\beta _ { t } I ) ,\n$$"
+    },
+    {
+      "text": "where $\\{ \\beta _ { t } \\}$ progressively increases noise until the data becomes indistinguishable from noise. The reverse process, essential for data reconstruction, involves iterative denoising:"
+    },
+    {
+      "text": "$$\np _ { \\theta } ( x _ { t - 1 } | x _ { t } ) = \\mathcal { N } ( x _ { t - 1 } ; \\mu _ { \\theta } ( x _ { t } , t ) , \\sigma _ { t } ^ { 2 } I ) ,\n$$"
+    },
+    {
+      "text": "where $\\mu _ { \\theta } ( x _ { t } , t )$ is the predicted mean and $\\sigma _ { t } ^ { 2 }$ is the variance. For DDIMs [55], the reverse update is deterministic:"
+    },
+    {
+      "text": "$$\nx _ { t - 1 } = \\sqrt { \\frac { \\alpha _ { t - 1 } } { \\alpha _ { t } } } x _ { t } + \\sqrt { 1 - \\alpha _ { t - 1 } } \\left( 1 - \\sqrt { \\frac { 1 - \\alpha _ { t } } { \\alpha _ { t - 1 } } } \\right) \\epsilon _ { \\theta } ( x _ { t } , t ) ,\n$$"
+    },
+    {
+      "text": "where $\\alpha _ { t }$ is the cumulative product of $( 1 - \\beta _ { t } )$ . These processes are computationally intensive, influencing the quality of generated samples and necessitating efficient inference methods for practical applications."
+    },
+    {
+      "text": "# 3.2 Asynchronous Diffusion Model"
+    },
+    {
+      "text": "Traditional diffusion models employ a sequential and synchronous denoising process. At each time step $t$ , the noise-prediction model $\\epsilon _ { \\theta }$ estimates the noise $\\epsilon _ { t }$ based on the noisy image $x _ { t }$ and the time embedding $t$ . The image for the next step, $x _ { t - 1 }$ , is then generated using a sampler function $S ( x _ { t } , \\epsilon _ { t } , t )$ . This process is iterative, where the generation of $\\epsilon _ { t }$ at each step is dependent on the completion of the previous denoising step, making the process slow, particularly when $\\epsilon _ { \\theta }$ is computationally intensive."
+    },
+    {
+      "text": "![](images/f1a1a61ac7329bc639b50b5b962d70b4fe69e99542ede951e1491063302a1858.jpg)  \nFigure 3: Overview of the asynchronous denoising process. The denoising model $\\epsilon _ { \\theta }$ is divided into four components $\\{ \\epsilon _ { \\theta } ^ { n } \\} _ { n = 1 } ^ { 4 }$ for clarity. Following the warm-up stage, each component’s input is prepared in advance, breaking the dependency chain and facilitating parallel processing."
+    },
+    {
+      "text": "To address the limitations of high latency in diffusion models, leveraging multiple GPUs for distributed inference is a promising solution. Existing studies primarily focus on patch parallelism [24], where the input image is divided into patches, each processed on a different GPU. While this strategy efficiently distributes computational loads, it still retains the bottleneck of sequential denoising, as each patch must undergo the complete denoising process iteratively. In contrast, our asynchronous diffusion model innovatively introduces a model parallelism strategy. By approximating the sequential denoising as an asynchronous process, this approach enables parallel inference of the noise prediction model, effectively reducing latency and breaking the constraints of sequential execution."
+    },
+    {
+      "text": "Asynchronous Denoising. Figure 3 illustrates our approach to the asynchronous denoising. For a denoising process consisting of $T$ steps, the initial $w$ steps are designated as a warm-up phase, where $w$ is significantly smaller than $T$ . During this phase, the denoising model $\\epsilon _ { \\theta }$ operates using standard sequential inference. After warm-up steps, rather than splitting the input image, we partition the denoising model $\\epsilon _ { \\theta }$ into $N$ sequential components, expressed as $\\epsilon _ { \\theta } = \\overline { { \\{ \\epsilon _ { \\theta } ^ { 1 } , \\epsilon _ { \\theta } ^ { 2 } , . . . , \\epsilon _ { \\theta } ^ { N } \\} } }$ . Each component is divided to handle a comparable computational load and assigned to a distinct device. This equitable division aims to equalize the time cost of each component to approximately $l ( \\epsilon _ { \\theta } ) / N$ , thus minimizing the overall maximum latency. In this setup, original noise prediction for $x _ { t }$ can be represented as a cascading operation through these sub-models, defined mathematically as:"
+    },
+    {
+      "text": "$$\n\\epsilon _ { t } = \\epsilon _ { \\theta } ( x _ { t } , t ) = \\epsilon _ { \\theta } ^ { N } ( \\epsilon _ { \\theta } ^ { N - 1 } ( . ~ . ~ . \\epsilon _ { \\theta } ^ { 2 } ( \\epsilon _ { \\theta } ^ { 1 } ( x _ { t } , t ) , t ) \\dots , t ) , t ) .\n$$"
+    },
+    {
+      "text": "Although each device can independently compute its assigned component, the dependency chain persists because the input for each component $\\epsilon _ { \\theta , n }$ is derived from the output from its preceding component $\\epsilon _ { \\theta , n - 1 }$ . Therefore, despite the distribution of model components across multiple devices, full parallelization is constrained by these sequential dependencies."
+    },
+    {
+      "text": "Our principal innovation is to break the dependency between cascaded components by utilizing hidden features from previous steps. Observations indicate that the hidden states of each block in the denoising model always exhibit substantial similarity across adjacent time steps. Leveraging this, each component at time step $t$ can take the output from the preceding component at time step $t - 1$ as the approximation of its original input. Specifically, the $n$ -th component $\\epsilon _ { \\theta } ^ { n } ( \\mathbf { \\Omega } , t )$ receives the output of $\\epsilon _ { \\theta } ^ { n - 1 } ( \\cdot , t - 1 )$ . This alteration allows the noise prediction for $x _ { t }$ to be represented as follows:"
+    },
+    {
+      "text": "![](images/4c8ed8c386c273adb952ee7f4d9993acc2335b4ec1699306fecae3a37cfc3d84.jpg)  \nFigure 4: Illustration of stride denoising. The model $\\epsilon _ { \\theta }$ is divided into three components $\\{ \\epsilon _ { \\theta } ^ { n } \\} _ { n = 1 } ^ { 3 }$ with a stride $S$ of 2 for clarity. Components $\\epsilon _ { \\theta } ^ { 1 }$ and $\\epsilon _ { \\theta } ^ { 2 }$ are skipped at time step . A single parallel batch results in the completion of denoising for two steps, producing $x _ { t - 1 }$ and $x _ { t - 2 }$ ."
+    },
+    {
+      "text": "$$\n\\epsilon _ { t } = \\epsilon _ { \\theta } ^ { N } ( \\epsilon _ { \\theta } ^ { N - 1 } ( \\dots \\epsilon _ { \\theta } ^ { 2 } ( \\epsilon _ { \\theta } ^ { 1 } ( x _ { t + N - 1 } , t + N - 1 ) , t + N - 2 ) \\dots , t + 1 ) , t ) .\n$$"
+    },
+    {
+      "text": "In this new framework, noise prediction $\\epsilon _ { t }$ is derived from components executed across $N$ previous time steps. This transforms the denoising process from sequential to asynchronous, as the prediction of noise $\\epsilon _ { t }$ already begins before denoising at step $t + 1$ is completed. At each time step, the $N$ components are running as parts of the noise prediction model for the next $N$ steps. Specifically, the $n$ -th component $\\epsilon _ { \\theta } ^ { n }$ , computed in parallel at time $t$ , contributes to the noise prediction for the future time step $t - N + n$ . Figure 3 depicts this asynchronous process using a U-net model with $N$ set to 4. The strong resemblance of hidden states between consecutive diffusion steps enables the asynchronous process to closely mimic the denoising results of the original sequential process."
+    },
+    {
+      "text": "Model Parallelism. By transitioning to an asynchronous denoising strategy, the dependencies among components within the same time step are eliminated. This adjustment allows each component’s input for time step $t$ to be prepared in advance, enabling the $N$ split components to be processed concurrently across multiple devices. Once computed, the outputs from each component must be stored and then broadcasted to other devices to facilitate parallel processing for subsequent time steps. In contrast, in the traditional sequential denoising process, the time cost for each step accumulates as follows:"
+    },
+    {
+      "text": "$$\n\\begin{array} { r } { C _ { s e q } ( t ) = C ( \\epsilon _ { \\theta } ^ { 1 } ) + C ( \\epsilon _ { \\theta } ^ { 2 } ) + . . . + C ( \\epsilon _ { \\theta } ^ { N } ) . } \\end{array}\n$$"
+    },
+    {
+      "text": "By adopting asynchronous denoising to enable parallel computation of each component, the cost for each time step is now given by:"
+    },
+    {
+      "text": "$$\nC _ { a s y } ( t ) = \\operatorname* { m a x } ( C ( \\epsilon _ { \\theta } ^ { 1 } ) , C ( \\epsilon _ { \\theta } ^ { 2 } ) , . . . , C ( \\epsilon _ { \\theta } ^ { N } ) ) + C ( \\mathrm { c o m m . } ) ,\n$$"
+    },
+    {
+      "text": "where $\\operatorname* { m a x } ( )$ represents taking the maximum value, and $C ( \\mathrm { c o m m . } )$ indicates the communication cost across multiple GPUs. As the model components are equally divided by computational load, their time costs are similar, allowing us to approximate the overall cost of each time step as:"
+    },
+    {
+      "text": "$$\nC _ { a s y } ( t ) \\approx \\frac { C _ { s e q } ( t ) } { N } + C ( \\mathrm { c o m m . } ) .\n$$"
+    },
+    {
+      "text": "Since the communication overhead $C ( \\mathrm { c o m m . } )$ is generally much lower than the model’s execution time, it leads to significant overall cost reductions. Moreover, increasing $N$ further reduces time costs but complicates the accurate approximation of the original denoising process."
+    },
+    {
+      "text": "Stride Denoising. While asynchronous denoising reduces latency by parallelizing the denoising model, it completes only one denoising step at a time. To enhance efficiency, we introduce stride denoising, which completes multiple denoising steps simultaneously through a single parallel computation. The diagram is illustrated in Figure 4, where we set the stride to 2 for clarity. Unlike the continuous broadcasting of hidden states at each time step, stride denoising broadcasts them every two steps. As depicted, at time step $t$ , we conduct denoising alone, and at time step $t - 1$ , we compute and broadcast the hidden states for the next parallel computation round. Consequently, the hidden states from time step $t$ are not required, allowing us to skip the calculations for $\\epsilon _ { \\theta } ^ { 1 }$ and $\\dot { \\epsilon } _ { \\theta } ^ { 2 }$ at this step. In this stride, only $\\epsilon _ { \\theta } ^ { 3 } ( \\cdot , t ) , \\epsilon _ { \\theta } ^ { 1 } ( \\cdot , t - 1 ) , \\epsilon _ { \\theta } ^ { 2 } ( \\cdot , t - 1 )$ , and $\\epsilon _ { \\theta } ^ { 3 } ( \\cdot , t - 1 )$ need computing, all receiving the previously broadcast hidden states, enabling their parallel processing. Both $\\epsilon _ { \\theta } ^ { 3 } ( \\cdot , t )$ and $\\epsilon _ { \\theta } ^ { 3 } ( \\cdot , t - 1 )$ share the same feature from $\\epsilon _ { \\theta } ^ { 2 } ( \\cdot , t + 1 )$ , so the stride should be kept small to maintain quality. Stride denoising effectively reduces both computational load and communication demands by decreasing the parallel computing rounds needed to complete the process. Compared to the significant improvements it brings in efficiency, the quality sacrifice is minimal and can be entirely compensated for by slightly increasing the warm-up steps. We also illustrate the full schematic of it in Appendix Figure 7."
+    },
+    {
+      "text": "![](images/7967d25192ce9a0d1a7c14a712ded24feb3b6023a501404725623665de377f94.jpg)  \nFigure 5: Qualitative Results. (a) Our method significantly accelerates the denoising process with minimal impact on generative quality. (b) Increasing warm-up steps achieves pixel-level consistency with the original output while maintaining a high speed-up ratio."
+    },
+    {
+      "text": "Multi-Device Communication. Parallel inference of the model necessitates efficient communication between devices, as each component $\\epsilon _ { \\theta } ^ { n }$ must access the cached hidden state from the preceding component $\\epsilon _ { \\theta } ^ { n - 1 }$ , which resides on a different device. Post each parallel computation batch, each device stores the current hidden state needed for the next parallel batch. These states, encompassing all component outputs, are then broadcast to all participating devices before the next parallel computation batch. Although each component $\\epsilon _ { \\theta } ^ { n }$ primarily uses the cached output of $\\epsilon _ { \\theta } ^ { n - 1 }$ for its input, it may require residual features [10] from other components. Therefore, it’s crucial to broadcast the stored states from every component across all devices before each round of parallel computation."
+    },
+    {
+      "text": "# 4 Experiments"
+    },
+    {
+      "text": "# 4.1 Implementation Details"
+    }
+  ],
+  "url": ""
+}

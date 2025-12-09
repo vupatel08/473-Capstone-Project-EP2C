@@ -1,0 +1,34 @@
+training:
+  learning_rate: 0.0001  # As per typical diffusion training, the paper uses an initial LR of 10^-4
+  batch_size: 8        # Standard batch size; adjust based on memory constraints
+  total_steps: 900000  # About 900K training steps as indicated
+  lr_decay_steps: [300000, 500000, 600000, 700000]  # Decay schedule at these steps
+  
+model:
+  type: UNet
+  channels: 64         # Default base channels; modify if needed
+  depth: 4             # Depth of U-Net encoder/decoder
+  use_self_attention: false  # The paper suggests ignoring self-attention layers
+  use_group_norm: false  # No group norm layers as per their architecture
+  
+schedule:
+  schedule_type: cosine  # Use cosine schedule for \theta_t as suggested
+  steps: 100             # Number of discretized steps for schedule
+  
+dataset:
+  name: CelebA-HQ
+  size: 128x128
+  mode: supervised    # Expecting paired data for training
+  training_sampling: true  # Whether to augment data with masks or noise
+  
+restoration:
+  lambda_sq: 30         # The steady variance \(\lambda^2\) over 255 range
+  schedule_steps: 100   # Number of steps for T in reverse process
+  
+evaluation:
+  metrics: [PSNR, SSIM, LPIPS, FID]
+  dataset: CelebA-HQ test set
+  
+inference:
+  steps: 100            # Number of sampling steps for reverse process
+  use_mean_ode: true    # Use the deterministic Mean-ODE for fast inference

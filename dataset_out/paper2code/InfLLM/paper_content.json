@@ -1,0 +1,158 @@
+{
+  "title": "InfLLM: Training-Free Long-Context Extrapolation for LLMs with an Efficient Context Memory",
+  "abstract": "Chaojun Xiao1∗, Pengle Zhang1∗, $\\mathbf { X } \\mathbf { u } \\ \\mathbf { H a n } ^ { 2 , 1 , 3 \\dagger }$ †, Guangxuan Xiao4, Yankai $\\mathbf { L i n } ^ { 5 }$ , Zhengyan Zhang1, Zhiyuan $\\mathbf { L i u } ^ { 1 \\dagger }$ , Maosong Sun1† 1NLP Group, DCST, IAI, BNRIST, Tsinghua University 2Quan Cheng Laboratory 3Shanghai Artificial Intelligence Laboratory 4Massachusetts Institution of Technology 5Renmin University of China xiaocj20@mails.tsinghua.edu.cn, {hanxu2022,liuzy}@tsinghua.edu.cn",
+  "authors": [],
+  "body_text": [
+    {
+      "text": "# InfLLM: Training-Free Long-Context Extrapolation for LLMs with an Efficient Context Memory"
+    },
+    {
+      "text": "Chaojun Xiao1∗, Pengle Zhang1∗, $\\mathbf { X } \\mathbf { u } \\ \\mathbf { H a n } ^ { 2 , 1 , 3 \\dagger }$ †, Guangxuan Xiao4, Yankai $\\mathbf { L i n } ^ { 5 }$ , Zhengyan Zhang1, Zhiyuan $\\mathbf { L i u } ^ { 1 \\dagger }$ , Maosong Sun1† 1NLP Group, DCST, IAI, BNRIST, Tsinghua University 2Quan Cheng Laboratory 3Shanghai Artificial Intelligence Laboratory 4Massachusetts Institution of Technology 5Renmin University of China xiaocj20@mails.tsinghua.edu.cn, {hanxu2022,liuzy}@tsinghua.edu.cn"
+    },
+    {
+      "text": "# Abstract"
+    },
+    {
+      "text": "Large language models (LLMs) have emerged as a cornerstone in real-world applications with lengthy streaming inputs (e.g., LLM-driven agents). However, existing LLMs, pre-trained on sequences with a restricted maximum length, cannot process longer sequences due to the out-of-domain and distraction issues. Common solutions often involve continual pre-training on longer sequences, which will introduce expensive computational overhead and uncontrollable change in model capabilities. In this paper, we unveil the intrinsic capacity of LLMs for understanding extremely long sequences without any fine-tuning. To this end, we introduce a training-free memory-based method, InfLLM. Specifically, InfLLM stores distant contexts into additional memory units and employs an efficient mechanism to lookup token-relevant units for attention computation. Thereby, InfLLM allows LLMs to efficiently process long sequences with a limited context window and well capture long-distance dependencies. Without any training, InfLLM enables LLMs that are pre-trained on sequences consisting of a few thousand tokens to achieve comparable performance with competitive baselines that continually train these LLMs on long sequences. Even when the sequence length is scaled to 1, 024K, InfLLM still effectively captures long-distance dependencies. Our code can be found at https://github.com/thunlp/InfLLM."
+    },
+    {
+      "text": "# 1 Introduction"
+    },
+    {
+      "text": "Recently, large language models (LLMs) have achieved profound accomplishments in various tasks (Brown et al., 2020; Bommasani et al., 2021; Han et al., 2021; Touvron et al., 2023; Meta, 2024). Their ability to follow complex instructions shed light on the realization of artificial general intelligence (OpenAI, 2023; Ouyang et al., 2022). With the blooming of LLM-driven applications, such as agent construction (Park et al., 2023; Qian et al., 2023; Wang et al., 2024a) and embodied robotics (Driess et al., 2023; Liang et al., 2023), enhancing the capability of LLMs to process streaming long sequences become increasingly crucial. For instance, LLM-driven agents are required to process information continuously received from external environments based on all their historical memories, necessitating a robust capability for handling long streaming sequences."
+    },
+    {
+      "text": "Due to limitations caused by unseen lengthy inputs (Han et al., 2023) and distracting noisy contexts (Liu et al., 2023; Tworkowski et al., 2023), most LLMs, pre-trained on sequences consisting of only a few thousand tokens, cannot process longer sequences (Press et al., 2022; Zhao et al., 2023)."
+    },
+    {
+      "text": "Common solutions usually involve continually training LLMs on longer sequences but further result in substantial costs and require large-scale high-quality long-sequence datasets (Xiong et al., 2023; Li et al., 2023). And the continual training process on longer sequences may weaken the performance of LLMs on short contexts (Ding et al., 2024). In view of this, improving the length generalizability of LLMs without further training receives extensive attention, trying to make LLMs trained on short sequences directly applicable to long sequences."
+    },
+    {
+      "text": "In this paper, we propose a training-free memory-based approach, named InfLLM, for streamingly processing extremely long sequences with limited computational costs. Specifically, InfLLM incorporate the sliding window attention (Xiao et al., 2023; Han et al., 2023) with an efficient context memory, where each token only attends to local contexts and relevant contexts from the memory. Considering the sparsity of attention score matrices, processing each token typically requires only a small portion of its contexts (Zhang et al., 2023b), and the remaining irrelevant contexts act as noise, leading to attention distraction issues (Tworkowski et al., 2023). We thus construct an external memory containing distant context information. Only relevant information within the memory is selected for each computation step, and other irrelevant noises are ignored. Owing to this, LLMs can understand whole long sequences using a finite-size window and avoid noisy contexts."
+    },
+    {
+      "text": "The vast amount of noisy context tokens in long sequences poses significant challenges to effective and efficient memory lookup. To address these challenges, we design a block-level context memory mechanism. Specifically, InfLLM organizes past key-value vectors into blocks, each containing a continuous token sequence. Within each block, the semantically most significant tokens that receive the highest attention scores are selected as the unit representation for subsequent relevance computation in memory lookup. This design offers two primary benefits: (1) Effective Lookup: The coherent semantics of each block can more effectively fulfill the requirements for relevant information retrieval compared to single tokens. The selection of unit representations minimizes the interference of unimportant tokens in relevance computation, enhancing the overall hit rate of memory lookup. (2) Efficient Lookup: The block-level memory unit eliminates the need for per-token relevance computation, significantly reducing computational costs. Moreover, block-level units ensure contiguous memory access, thus minimizing memory loading costs and enhancing computational efficiency. Furthermore, considering the infrequent usage of most units, InfLLM offloads all units on CPU memory and dynamically retains the frequently used units on GPU memory, significantly reducing GPU memory usage. Notably, the block-level memory mechanism in InfLLM does not involve any additional training, and can be directly applied to any LLMs."
+    },
+    {
+      "text": "To evaluate the effectiveness of InfLLM, we employ Mistral-7B-inst-v0.2 (Jiang et al., 2023) and Llama-3-8B-Instruct (Meta, 2024) as base models, which are pre-trained on the sequences containing no more than 32K and 8K tokens. We use two widely-used benchmarks, $\\infty$ -Bench (Zhang et al., 2023a) and Longbench (Bai et al., 2023), for evaluation. Especially, the average sequence length in $\\infty$ -Bench exceeds 100K tokens, which is challenging for most existing LLMs. Compared to typical methods that continually train LLMs on longer sequences, the experimental results demonstrate that InfLLM enables the LLMs pre-trained on the sequences containing a few thousand tokens to achieve comparable performance without any additional training. Moreover, we examine InfLLM on the sequences containing 1, 024K tokens, and InfLLM can still effectively capture long-distance dependencies, demonstrating the potential of InfLLM in scenarios involving long streaming inputs."
+    },
+    {
+      "text": "# 2 Related Work"
+    },
+    {
+      "text": "Enabling LLMs to process long sequences has been extensively studied (Dong et al., 2023; Tay et al., 2023; Huang et al., 2023) and can generally be categorized into two main approaches: context length extrapolation and efficient context computation. The former aims to enable LLMs trained on short sequences to process much longer sequences. The latter focuses on enhancing the computational efficiency of attention layers, allowing efficient pre-training LLMs from scratch to process longer sequences. Although the focus of this paper is context length extrapolation, we also detailedly introduce efficient context computation. We also present the relevant works for memory-based models."
+    },
+    {
+      "text": "Context Length Extrapolation. Due to the high computational and memory requirements, the training of LLMs is often restricted to short sequences. Directly applying LLMs to long sequences will suffer from out-of-domain and distraction challenges caused by lengthy and noisy inputs (Han et al., 2023; Tworkowski et al., 2023). Consequently, context length extrapolation has garnered attention as a method to improve the sequence length for LLMs without incurring additional training. The earliest approaches involve designing new relative positional encoding mechanisms during pre-training (Press et al., 2022; Sun et al., 2023). Subsequent studies mainly focus on the widely-used rotary position embedding (RoPE) (Su et al., 2021), and propose to achieve length extrapolation by downscaling or reusing the original position indices (Chen et al., 2023b; Peng et al., 2023; Chen et al., 2023a; Jin et al., 2024; An et al., 2024). These works can alleviate the out-of-domain issue from the unseen length, but can not alleviate the distraction challenge of noisy contexts. To address this, Xiao et al. (2023) and Han et al. (2023) employ the sliding window attention mechanism and directly discard all distant contexts to streamingly read extremely long sequences. However, as these models overlook information from distant tokens, they can not capture the long-distance dependencies for long-text understanding. In this paper, InfLLM utilizes the sliding window attention mechanism, and additionally constructs an efficient context memory to provide LLMs with relevant context information, enabling LLMs to effectively read and understand extremely long sequences."
+    },
+    {
+      "text": "Efficient Context Computation. The quadratic computational complexity of the attention layers is a primary factor limiting the lengthy sequence-processing capabilities of LLMs. Thus, numerous scholars have endeavored to design efficient attention mechanisms, including the utilization of sparse attention (Zaheer et al., 2020; Beltagy et al., 2020; Child et al., 2019; Ainslie et al., 2020; Zhao et al., 2019), approximating attention computations using kernel functions (Kitaev et al., 2020; Wang et al., 2020; Katharopoulos et al., 2020), and replacing the attention layer with linear-complexity state-space models (Gu et al., 2022; Gu & Dao, 2023). These approaches necessitate a modification in the model architecture, requiring retraining the models. Simultaneously, many researchers enhance the inference efficiency by evicting useless key-value vectors to reduce computation (Zhang et al., 2023b; Li et al., 2024; Ge et al., 2023). These methods can not extrapolate the context window of LLMs without further training due to out-of-domain issues caused by unseen positions. Recently, some researchers begin to explore the intrinsic sparse attention patterns of long-context LLMs and discard the redundant attention computation for acceleration (Jiang et al., 2024)."
+    },
+    {
+      "text": "Memory-based Models. Memory networks have been studied for decades, which are proven effective in providing models with additional knowledge and information storage capabilities (Graves et al., 2014; Weston et al., 2015; Sukhbaatar et al., 2015; Miller et al., 2016). With the success of pretrained models, memory layers have also been gradually applied in the training processes of recurrent transformer layers, enabling models to process long sequences recursively (Dai et al., 2019; Rae et al., 2020; Khandelwal et al., 2020; Wu et al., 2022; Bertsch et al., 2023; Munkhdalai et al., 2024). These works split sequences into segments, encoding each segment individually, and use memory to store context information from preceding segments. While these approaches are similar in concept to InfLLM, they involve modifications to the model architecture and requires further training the whole model. Besides, most existing memory-based methods focus on token-level memory units (Wu et al., 2022; Bertsch et al., 2023), which require a lot of time to build retrieval indexes for large-scale tokens in each input long sequence. Some methods also adopt block-level memory (Mohtashami & Jaggi, 2023; Tworkowski et al., 2023), these methods highlight the process of training effective block representations with long sequence data. In contrast, we aim to explore the inherent characteristics of LLMs, and propose a training-free memory module for long-text understanding."
+    },
+    {
+      "text": "# 3 Methodology"
+    },
+    {
+      "text": "As shown in Figure 1, InfLLM builds a training-free context memory to efficiently provide highlyrelevant contexts for each token, endowing the sliding window attention mechanism with the ability to capture long-distance dependencies."
+    },
+    {
+      "text": "# 3.1 Overall Framework"
+    },
+    {
+      "text": "The main restrictions for improving the length generalizability of LLMs come from the out-of-domain and distraction issues caused by the lengthy and noisy contexts. To address these, following previous works (Xiao et al., 2023; Han et al., 2023), we adopt the sliding window attention mechanism, which only considers local tokens for each step. Additionally, we construct an extra context memory module to provide relevant context information to capture long-distance dependencies."
+    },
+    {
+      "text": "![](images/e2b7865ef953ca33c0b3a3a1b1f1c07f61222e3e46bd6bbc5356da5d8130766a.jpg)  \nFigure 1: The illustration of InfLLM. Here, the current tokens refer to tokens that need to be encoded in the current computation step. The past key-value vectors can be divided into the initial tokens, evicted tokens, and local tokens, arranged the furthest to the nearest relative to the current tokens. For each computation step, the context window consists of the initial tokens, relevant memory units, and local tokens."
+    },
+    {
+      "text": "Specifically, we denote the long input sequence as $s = \\{ t _ { i } \\} _ { i = 1 } ^ { l }$ . Due to the limited GPU memory, instead of encoding the whole $s$ at once, we encode the input sequence $s$ chunk-by-chunk and generate the output token-by-token. For each computation step, the inputs consist of past key-value vectors $\\mathbf { P } = \\{ ( \\mathbf { k } _ { j } , \\mathbf { v } _ { j } ) \\} _ { j = 1 } ^ { l _ { P } }$ and current tokens $\\mathbf { X } = \\{ \\mathbf { t } _ { i + l _ { P } } \\} _ { i = 1 } ^ { l _ { X } }$ . For encoding steps, $l _ { X }$ equals the chunk size, and for decoding steps, $l _ { X }$ equals one."
+    },
+    {
+      "text": "According to the distances from current tokens, we can divide $\\mathbf { P }$ into three groups: initial tokens, $\\mathbf { I } = \\mathbf { P } _ { [ 1 : l _ { I } ] }$ , evicted tokens, $\\mathbf { E } = \\mathbf { P } _ { [ l _ { I } + 1 : l _ { P } - l _ { L } ] }$ , and local tokens, $\\mathbf { L } = \\mathbf { P } _ { [ l _ { P } - l _ { L } + 1 : l _ { P } ] }$ , arranged from the furthest to the nearest relative to the current tokens. Here, $l _ { P } , l _ { I }$ , $\\boldsymbol { l } _ { \\dot { \\boldsymbol { L } } }$ refer to the length of past key-value vectors, initial tokens, and the local window size. All evicted tokens, $\\mathbf { E }$ , are stored in the context memory, consisting of multiple memory units. For each step, InfLLM concatenates the initial tokens, relevant memories units from context memory, and local tokens to form the current key-value cache, $\\mathbf { C } = \\operatorname { C o n c a t } ( \\mathbf { I } , f ( \\mathbf { X } , \\mathbf { E } ) , \\mathbf { L } )$ . $f ( \\cdot )$ refers to the lookup operation of context memory. The attention output is calculated as:"
+    },
+    {
+      "text": "$$\n\\mathbf { O } = \\mathrm { A t t n } \\left[ \\mathbf { Q } \\mathbf { X } , \\mathrm { C o n c a t } ( \\mathbf { C } _ { k } , \\mathbf { K } \\mathbf { X } ) , \\mathrm { C o n c a t } ( \\mathbf { C } _ { v } , \\mathbf { V } \\mathbf { X } ) \\right] .\n$$"
+    },
+    {
+      "text": "Here, $\\mathbf { Q } , \\mathbf { K }$ , and $\\mathbf { V }$ are parameters in attention layers, $\\mathbf { C } _ { k }$ and $\\mathbf { C } _ { v }$ refer to the key and value vectors in $\\mathbf { C }$ . If $f ( \\cdot )$ always returns empty sets, InfLLM is degenerated into LM-Infinite (Han et al., 2023) and Streaming-LLM (Xiao et al., 2023), which directly discards distant contexts."
+    },
+    {
+      "text": "# 3.2 Context Memory"
+    },
+    {
+      "text": "Previous findings indicate that the attention score matrices of LLMs are sparse, and we can generate the same outputs with only a small portion of key-value vectors preserved (Zhang et al., 2023b). Inspired by this, we design a context memory to efficiently look up relevant contexts from large-scale evicted tokens and ignore irrelevant ones to save computational costs. The most intuitive way is to construct a memory consisting of token-level memory units for every past key-value vectors, and every attention head separately, which would result in massive memory units, unacceptable computation, and non-contiguous memory access costs. Thus, considering the local semantic coherence of long sequences, we split the past key-value vectors into blocks, each serving as a memory unit, and conduct memory lookup at the block level to reduce the costs while preserving the performance."
+    },
+    {
+      "text": "In this subsection, we will introduce the details of the block-level memory units. Then we present the method to assign positional embeddings for selected relevant memory units and cache management for the context memory."
+    },
+    {
+      "text": "Block-Level Memory Units. Block-level memory units can save computation costs compared to token-level ones. It also poses new challenges for unit representations, which are supposed to contain the semantics of the entire unit for effective relevance score computation and be memory-efficient for context length scalability. Traditional methods usually involve training an additional encoder to project a given unit into a low-dimension vector. Inspired by the token redundancy in hidden states (Goyal et al., 2020; Dai et al., 2020), we select several representative tokens from the entail blocks as the unit representation. For the $m$ -th token, we define the representative score as:"
+    },
+    {
+      "text": "$$\nr _ { m } = \\frac { 1 } { l _ { L } } \\sum _ { j = 1 } ^ { l _ { L } } \\mathbf { q } _ { m + j } \\cdot \\mathbf { k } _ { m } ,\n$$"
+    },
+    {
+      "text": "where $\\mathbf { q } _ { m + j }$ is the query vector for $( m + j )$ -th token and $\\mathbf { k } _ { m }$ is the key vector $m$ -th token. Intuitively, $r _ { m }$ represents the significance of the $m$ -th token in its corresponding local window, indicating the extent of its influence on other tokens within the local window. The computation of representative scores requires no additional parameters."
+    },
+    {
+      "text": "Formally, given the evicted tokens, $\\mathbf { E }$ , we split it into several memory units, each containing $l _ { b s }$ tokens. For each unit, the $r _ { k }$ tokens with the highest representative scores are selected as representative tokens. Generally, $r _ { k }$ is a small positive integer. Let us denote a memory unit as $\\mathbf { B } = \\{ ( \\bar { \\mathbf { k } } _ { j } ^ { B } , \\mathbf { v } _ { j } ^ { B } ) \\} _ { j = 1 } ^ { l _ { b s } }$ , and the representative tokens of this unit as $R ( \\mathbf { B } ) = \\{ ( \\mathbf { k } _ { b _ { j } } ^ { B } , \\mathbf { v } _ { b _ { j } } ^ { B } ) \\} _ { j = 1 } ^ { r _ { k } }$ ."
+    },
+    {
+      "text": "For the memory lookup phrase, only $k _ { m }$ units with the highest relevance scores are loaded for the current attention computation. We calculate the relevance score between $\\mathbf { B }$ and current tokens $\\mathbf { X }$ as:"
+    },
+    {
+      "text": "$$\n\\sin ( \\mathbf { X } , \\mathbf { B } ) = \\sum _ { i = 1 } ^ { l _ { X } } \\sum _ { j = 1 } ^ { r _ { k } } \\mathbf { q } _ { i + l _ { P } } \\cdot \\mathbf { k } _ { b _ { j } } ^ { B } .\n$$"
+    },
+    {
+      "text": "Notably, the representative tokens selection is a training-free method to obtain the unit representations. Here, we can also train an additional encoder to generate more expressive unit representations, which we leave for future work."
+    },
+    {
+      "text": "Positional Encoding. Existing LLM training usually employs a finite number of positional encodings, which encounter out-of-domain distribution challenges when directly applied to longer sequence processing (Han et al., 2023). Besides, in InfLLM, the current key-value cache is composed of some discontinuous text blocks, and directly assigning continuous positional encodings to them would also lead to mismatch issues and confuse the model. Therefore, inspired by previous works (Raffel et al., 2020; Su, 2023), we assign all tokens beyond the local window size with the same positional encodings. Specifically, the distance between tokens in context memory units and current tokens is set as $l _ { L }$ ."
+    },
+    {
+      "text": "Cache Management. To enable LLMs to process extremely long sequence streams while capturing the semantic relevance contained in the long contexts, we need to retain all memory units and look up them at each computation step. Considering the infrequent usage of most units, we employ an offloading mechanism, storing most memory units in CPU memory and only preserving the representative tokens and memory units needed in current steps in GPU memory. Additionally, given the semantic coherence of long sequences, where adjacent tokens often require similar memory units, we allocate a cache space in GPU memory, managed using a least recently used strategy. This approach allows for efficient encoding of extremely long sequences using limited GPU memory. From the observation, our offloading mechanism enables InfLLM to process sequences consisting of 100K tokens with only 26G VRAM. Besides, the miss rate of our GPU cache is quite low, which means the offloading mechanism does not introduce significant time overhead in memory loading while saving GPU memory usage. The details can be found in the Appendix."
+    },
+    {
+      "text": "Furthermore, for extremely long sequences, the representative tokens of each unit can also be offloaded to the CPU memory, constructing an efficient $\\mathbf { k }$ -nearest-neighbor index, and thereby further reducing computational complexity."
+    },
+    {
+      "text": "# 4 Experiments"
+    },
+    {
+      "text": "# 4.1 Settings"
+    },
+    {
+      "text": "Datasets. We adopt representative tasks in a widely-used long document benchmark, $\\infty$ - Bench (Zhang et al., 2023a) for evaluation. We adopt the English datasets for evaluation as the base models are mainly pre-trained on English corpus. The datasets in $\\infty$ -Bench cover diverse tasks including question answering, summarization, context retrieval, and mathematic computing. The average length for $\\infty$ -Bench is 145.1K. The $9 5 \\%$ quantile for sequence lengths is 214K, which is far beyond the maximum length of the base models. Detailed statistics and task descriptions of these datasets are listed in the Appendix. Besides, we also conduct an evaluation on LongBench (Bai et al., 2023). The results for LongBench can be found in the Appendix."
+    },
+    {
+      "text": "Table 1: The results of InfLLM and baseline models on $\\infty$ -Bench. The $9 5 \\%$ quantile for text lengths in $\\infty$ -Bench is 214K. The context window size for sliding window models refers to the local window size, and for InfLLM refers to “local window size $^ +$ selected memory size”."
+    },
+    {
+      "text": "<table><tr><td></td><td>Window</td><td>Streaming</td><td>R.PK</td><td>R.Num</td><td>R.KV</td><td>Choice</td><td>QA</td><td>Sum</td><td>Math.F</td><td>Avg.</td></tr><tr><td colspan=\"9\">Mistral-based Models (7B)</td><td></td></tr><tr><td>Mistral</td><td>32K</td><td></td><td>28.8</td><td>28.8</td><td>14.8</td><td>44.5</td><td>12.9</td><td>25.9</td><td>20.6</td><td>25.2</td></tr><tr><td>NTK</td><td>128K</td><td></td><td>100.0</td><td>86.8</td><td>19.2</td><td>40.2</td><td>16.9</td><td>20.3</td><td>26.9</td><td>44.3</td></tr><tr><td>SelfExtend</td><td>128K</td><td></td><td>100.0</td><td>100.0</td><td>15.6</td><td>42.8</td><td>17.3</td><td>18.8</td><td>19.1</td><td>44.8</td></tr><tr><td>Infinite</td><td>32K</td><td>×××&gt;</td><td>28.8</td><td>28.8</td><td>0.4</td><td>42.8</td><td>11.4</td><td>22.5</td><td>16.3</td><td>21.6</td></tr><tr><td>Streaming</td><td>32K</td><td>✓</td><td>28.8</td><td>28.5</td><td>0.2</td><td>42.4</td><td>11.5</td><td>22.1</td><td>16.9</td><td>21.5</td></tr><tr><td>H20</td><td>32K</td><td>✓</td><td>8.6</td><td>4.8</td><td>2.6</td><td>48.0</td><td>15.6</td><td>24.4</td><td>26.9</td><td>18.7</td></tr><tr><td>InfLLM</td><td>16K</td><td>✓</td><td>100.0</td><td>96.1</td><td>96.8</td><td>43.7</td><td>15.7</td><td>25.8</td><td>25.7</td><td>57.7</td></tr><tr><td colspan=\"9\">Llama-3-based Models (8B)</td><td></td></tr><tr><td>Llama-3</td><td>8K</td><td></td><td>8.5</td><td>7.8</td><td>6.2</td><td>44.1</td><td>15.5</td><td>24.7</td><td>21.7</td><td>18.4</td></tr><tr><td>NTK</td><td>128K</td><td>×</td><td>0.0</td><td>0.0</td><td>0.0</td><td>0.0</td><td>0.4</td><td>6.4</td><td>2.6</td><td>1.3</td></tr><tr><td>SelfExtend</td><td>128K</td><td>X</td><td>100.0</td><td>100.0</td><td>0.2</td><td>19.7</td><td>8.6</td><td>14.7</td><td>22.6</td><td>38.0</td></tr><tr><td>Infinite</td><td>8K</td><td>✓</td><td>6.8</td><td>7.6</td><td>0.2</td><td>41.5</td><td>14.6</td><td>20.8</td><td>20.6</td><td>16.0</td></tr><tr><td>Streaming</td><td>8K</td><td>✓</td><td>8.5</td><td>8.3</td><td>0.4</td><td>40.6</td><td>14.3</td><td>20.4</td><td>21.4</td><td>16.3</td></tr><tr><td>H2O</td><td>8K</td><td>✓</td><td>2.5</td><td>2.4</td><td>0.0</td><td>0.0</td><td>0.7</td><td>2.8</td><td>6.0</td><td>2.1</td></tr><tr><td>InfLLM</td><td>8K</td><td>✓</td><td>100.0</td><td>99.0</td><td>5.0</td><td>43.7</td><td>19.5</td><td>24.3</td><td>23.7</td><td>45.0</td></tr></table>"
+    },
+    {
+      "text": "Baseline Models. To verify the effectiveness of our proposed method, we compare InfLLM with the following competitive baseline models: (1) Original models: we present the performance of the original LLMs without context length extrapolation. (2) Position downscaling and resuing: NTKaware scaled RoPE (NTK) (LocalLLaMA, 2023) designs a nonlinear interpolation method, which basically changes the rotation base of RoPE. SelfExtend reuse the position ids across neighboring tokens, which makes the extended relative positions in the scope of the training context window. (3) Sliding window: these methods apply the sliding window mechanism to discard distant contexts, including LM-Infinite (Infinite) (Han et al., 2023) and StreamingLLM (Stream) (Xiao et al., 2023). Therefore, for each attention computation step, the input length does not exceed the context window. (5) Key-value eviction: KV eviction methods aim to discard useless key-value vectors during long sequence processing and thus are usually used to reduce the computation complexity. We present the results of a widely-used key-value eviction method, H2O (Zhang et al., 2023b). The key-value eviction method cannot generalize to longer sequences due to the unseen position embeddings and is expected to achieve unsatisfactory performance."
+    },
+    {
+      "text": "Here, InfLLM and the models with the sliding window mechanism can be used to process extremely long streaming inputs. For NTK and SelfExtend, we extend the context window to 128K, which enables LLMs to process most instances in $\\infty$ -Bench."
+    },
+    {
+      "text": "# 4.2 Implementation Details"
+    },
+    {
+      "text": "In this paper, we aim to enable LLMs trained with limited sequence length to read and understand extremely long sequences without further training. We adopt Mistral-7B-Instruct-v0.2 (Jiang et al., 2023) and Llama-3-8B-Instruct (Meta, 2024) as our base models. The maximum length of Mistral7B-Instruct-v0.2 and Llama-3-8B-Instruct is 32K and 8K, respectively."
+    },
+    {
+      "text": "For our model, we set the encoding chunk size as 512, and the memory unit size for past key-value vectors, ${ l } _ { b s }$ , as 128. The number of representative tokens, $r _ { k }$ , is set as 4. For both Mistral-based and Llama-3-based InfLLM, we set the local window size as 4K. For Mistral-based InfLLM, we load 96 relevant memory units for each step, and for Llama-3-based InfLLM, we load 32 relevant memory units. The number of initial tokens is set as 128 for LM-Infinite, StreamingLLM, and InfLLM to cover the system prompts and task descriptions. We adopt FlashAttention (Dao, 2023) to accelerate experiments for all baseline models. Please refer to the Appendix for more details."
+    },
+    {
+      "text": "Table 2: The comparison between InfLLM and models with continual pre-training, Llama-3-8BInstruct-Gradient-1048k (Llama-1M). InfLLM can achieve comparable performance with Llama-1M with less computation consumption and memory usage."
+    },
+    {
+      "text": "<table><tr><td></td><td>Train-Free</td><td>R.PK</td><td>R.Num</td><td>R.KV</td><td>Choice</td><td>QA</td><td>Sum</td><td>Math.F</td><td>VRAM</td><td>Time</td></tr><tr><td>Llama-1M</td><td>✗</td><td>100.0</td><td>99.8</td><td>23.2</td><td>51.5</td><td>13.6</td><td>18.5</td><td>18.3</td><td>76.6G</td><td>40.4s</td></tr><tr><td>InfLLM</td><td></td><td>100.0</td><td>99.0</td><td>5.0</td><td>43.7</td><td>19.5</td><td>24.3</td><td>23.7</td><td>26.3G</td><td>26.7s</td></tr><tr><td>Llama-1M+InfLLM</td><td>X</td><td>100.0</td><td>100.0</td><td>55.8</td><td>39.3</td><td>20.3</td><td>17.1</td><td>31.4</td><td>26.3G</td><td>26.7s</td></tr></table>"
+    }
+  ],
+  "url": ""
+}

@@ -1,0 +1,124 @@
+### Logic Analysis for `dataset_loader.py`
+
+#### 1. **Purpose and Responsibilities**
+- The `DatasetLoader` class centralizes the process of ingesting, parsing, preprocessing, and organizing various time series datasets for pretraining, fine-tuning, or evaluation.
+- It handles multiple datasets specified via configuration, whether they are small or large-scale, univariate or multivariate, regular or irregular.
+- It integrates with `tokenization.py` to convert raw series into tokenized sequences suitable for the language modeling paradigm.
+- Supports hierarchical dataset categorization to enable incremental complexity assessments.
+
+#### 2. **Initialization Parameters**
+- Inputs:
+  - `dataset_paths`: List of dataset directories or files, as provided in the configuration.
+  - `config`: Dictionary containing dataset-specific, split ratio, and other preprocessing parameters.
+- Main attributes:
+  - Stores raw data references.
+  - Maintains processed datasets split into training, validation, and test subsets.
+  - Will manage internal data structures like Pandas DataFrames or NumPy arrays for each dataset.
+
+#### 3. **Dataset Reading**
+- For each dataset:
+  - Read data files from the specified path.
+    - Expected formats: CSV, Parquet, or custom formats.
+  - Identify key components:
+    - Timestamps (if available).
+    - Variate data (single or multivariate series).
+    - Metadata like frequency, original source, and data size.
+- Handle irregular or multi-rate sampling if timestamps are present.
+- Address missing values:
+  - Apply linear interpolation as indicated.
+  - For irregular data, consider resampling if needed, or store as-is if the model supports it.
+- For datasets with multiple series:
+  - Store each series separately.
+  - Compute statistical indicators (stationarity, forecastability) if needed for dataset cataloging.
+  - Maintain series metadata.
+
+#### 4. **Data Filtering & Hierarchical Partitioning**
+- Use dataset and statistical metadata (e.g., ADF statistic, forecastability):
+  - Filter high-quality datasets (as per criteria, e.g., ADF > -15, forecastability > threshold).
+  - Organize datasets into hierarchical levels: UTSD-1G, 2G, 4G, 12G.
+  - For each hierarchy level:
+    - Select datasets and series that fit the complexity profile.
+    - Ensure class diversity and pattern richness.
+- Maintain a structure (e.g., dictionary) that reflects hierarchy:
+  - Keys: hierarchy labels (small, medium, large).
+  - Values: associated dataset series.
+
+#### 5. **Series Storage & Preprocessing**
+- Split each raw series into training/validation/test:
+  - Use ratio (train: 80%, validation: 20%) as per configuration.
+  - If timestamps are available, split chronologically unless task-specific shuffling is required.
+- Normalize series:
+  - Compute normalization statistics (mean, std) on the training split.
+  - Apply same normalization to entire series.
+- Store normalized series, with associated metadata.
+
+#### 6. **Hierarchical Tokenization**
+- Once raw series are loaded:
+  - For each series:
+    - Use `tokenization.py`'s `Tokenizer` for hierarchical segmentation:
+      - Level 1: segment length 96 (e.g., for forecasting)
+      - Level 2: segment length 672
+      - Level 3: segment length 1440
+    - Buffer and split the series into overlapping or non-overlapping tokens.
+    - For irregular sampling or heterogenous features, incorporate timestamp embeddings or auxiliary features.
+  - Accumulate tokens into datasets suitable for batching.
+- Support for large-scale datasets:
+  - Load data lazily or batch-wise.
+  - Optionally, implement file streaming or memory-mapped methods for 12GB datasets to prevent memory overload.
+
+#### 7. **Data Output & Structures**
+- Final outputs:
+  - Processed training, validation, and test sets, each consisting of sequences of tokens or NumPy arrays.
+  - Each sequence contains:
+    - List/array of tokens (e.g., float vectors).
+    - Associated timestamps or segment metadata.
+- Data structures:
+  - Custom container objects or dictionaries:
+    - Example: `dataset_dict = { 'train': List[Sequence], 'val': ..., 'test': ... }`
+  - For large data, consider generators or custom Dataset classes compatible with PyTorch DataLoader:
+    - Indexing, batching, shuffling features.
+ 
+#### 8. **Integration with Tokenization (`tokenization.py`)**
+- Use `Tokenizer` class to convert raw series:
+  - Call `tokenize_series(series)` to get a sequence of tokens.
+  - Call `convert_to_unified_sequence()` for hierarchical multi-series data.
+- Maintain consistency:
+  - Use same tokenization parameters as during pretraining.
+  - When generating sequences, ensure matching length and token IDs.
+
+#### 9. **Handling Heterogeneity & Irregularities**
+- Datasets with irregular temporal spacing or multivariate configurations:
+  - Use timestamps as auxiliary embeddings within sequence tokens.
+  - Normalize features consistently.
+  - Maintain flexibility to input variable sequence length or patterns.
+- For heterogenous datasets:
+  - Store dataset-specific metadata (e.g., frequency, variate types).
+  - Use dataset labels for conditional further processing or hierarchical grouping.
+
+#### 10. **Additional Considerations**
+- Reproducibility:
+  - Set consistent random seeds for splitting, sampling.
+  - Maintain deterministic data splits.
+- Logging:
+  - Record dataset loading status, sample counts, statistical indicators.
+- Output:
+  - Save preprocessed datasets or internal data cache for reuse.
+  - Generate logs or summaries for dataset statistics, sizes, and hierarchy levels for debugging.
+
+---
+
+### Summary
+- **Core functions**:
+  - Read datasets → standardize format → apply filtering → split into train/val/test.
+  - Normalize series via statistics computed on training splits.
+  - Pass raw series to `tokenization.py` for segmentation into hierarchical tokens.
+  - Create dataset containers, possibly as PyTorch `Dataset` subclasses.
+- **Design**:
+  - Modular: data loading, normalization, tokenization, storage.
+  - Hierarchical: datasets organized by complexity, source, and size.
+  - Efficient: lazy loading and file streaming for large datasets.
+- **Quality control and reproducibility**:
+  - Use consistent splits and normalization.
+  - Record dataset stats and transformation logs.
+
+This comprehensive analysis ensures that the `dataset_loader.py` implementation will directly support the experimental protocol, dataset heterogeneity, and hierarchical dataset management as described in the paper.

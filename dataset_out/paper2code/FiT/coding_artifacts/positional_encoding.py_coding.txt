@@ -1,0 +1,238 @@
+```python
+## positional_encoding.py
+
+import math
+import torch
+import torch.nn as nn
+from typing import Tuple
+
+class Decoupled2DRoPE:
+    """
+    Implements decoupled 2D rotary position embeddings with support for resolution
+    extrapolation methods: NTK-aware, YaRN, or direct.
+    """
+
+    def __init__(
+        self,
+        d_dim: int = 768,
+        base_b: float = 10000.0,
+        method: str = 'NTK',
+        alpha: float = 1.0,
+        beta: float = 1.5,
+        max_resolution: Tuple[int, int] = (256, 256),
+        device: torch.device = torch.device('cpu')
+    ):
+        """
+        Initialize the 2D RoPE module.
+
+        Args:
+            d_dim (int): Dimension of token feature vectors, must be divisible by 4.
+            base_b (float): Rotary base frequency, default 10000.
+            method (str): Interpolation method: 'NTK', 'YaRN', or 'direct'.
+            alpha (float): Ramp function parameter for YaRN.
+            beta (float): Ramp function parameter for YaRN.
+            max_resolution (Tuple[int, int]): Max training resolution (H, W).
+            device (torch.device): Device to store buffers.
+        """
+        self.d_dim = d_dim
+        self.b = base_b
+        self.method = method
+        self.alpha = alpha
+        self.beta = beta
+        self.max_height, self.max_width = max_resolution
+        self.device = device
+
+        assert d_dim % 4 == 0, "Dimension of features must be divisible by 4."
+
+        # Precompute rotary frequencies for training resolution
+        self.theta_h_base, self.theta_w_base = self._initialize_bases()
+
+    def _initialize_bases(self):
+        """
+        Initializes the rotary bases for height and width at training resolution.
+        """
+        # For each dimension d in [1, D/2], compute its rotary frequency
+        half_dim = self.d_dim // 2
+        d = torch.arange(1, half_dim + 1, device=self.device).float()
+
+        # Standard rotary base
+        theta_d = self.b ** (-2 * d / self.d_dim)  # shape: [D/2]
+        # For decoupled 2D, split into height and width bases (they are same initially)
+        return theta_d, theta_d.clone()
+
+    def scale_bases(self, s_h: float, s_w: float):
+        """
+        Scale rotary bases according to resolution scale for inference.
+
+        Args:
+            s_h (float): scale factor for height.
+            s_w (float): scale factor for width.
+        """
+        # For NTK-aware or direct scaling, we update the bases
+        self.b_h = self._scale_base(s_h)
+        self.b_w = self._scale_base(s_w)
+
+        # Update rotary frequencies for h and w
+        self.theta_h, self.theta_w = self._generate_bases(self.b_h, self.b_w)
+
+    def _scale_base(self, s: float) -> float:
+        """
+        Scale base rotary frequency based on scale factor s and formula.
+
+        Args:
+            s (float): scale factor (>=1).
+
+        Returns:
+            float: scaled rotary base.
+        """
+        return self.b * (s ** (self.d_dim / (self.d_dim - 2)))
+
+    def _generate_bases(self, b_h: float, b_w: float):
+        """
+        Generate rotary frequencies for height and width based on scaled bases.
+
+        Args:
+            b_h (float): rotary base for height.
+            b_w (float): rotary base for width.
+
+        Returns:
+            Tuple[Tensor, Tensor]: rotary frequencies for height and width.
+        """
+        half_dim = self.d_dim // 2
+        d = torch.arange(1, half_dim + 1, device=self.device).float()
+
+        theta_h = b_h ** (-2 * d / self.d_dim)
+        theta_w = b_w ** (-2 * d / self.d_dim)
+        return theta_h, theta_w
+
+    def compute_rotary_frequencies(self, scale_h: float, scale_w: float, resolution: Tuple[int, int]):
+        """
+        Compute rotary frequencies (scaled) given resolution scales based on method.
+
+        Args:
+            scale_h (float): scale factor for height.
+            scale_w (float): scale factor for width.
+            resolution (Tuple[int, int]): (H_test, W_test).
+
+        Updates:
+            self.theta_h, self.theta_w: rotary frequencies for h and w.
+        """
+        if self.method.lower() == 'ntk':
+            # NTK-aware: scale the bases directly
+            self.scale_bases(scale_h, scale_w)
+        elif self.method.lower() == 'yarN':
+            # YaRN: interpolate rotary frequencies
+            self.theta_h, self.theta_w = self._generate_bases(self.b, self.b)  # start from base
+            # Then interpolate via gamma(r(d))
+            self.theta_h, self.theta_w = self._interpolate_yarn(self.theta_h, self.theta_w, scale_h, scale_w)
+        elif self.method.lower() == 'direct':
+            # Direct: no scaling
+            self.theta_h, self.theta_w = self._generate_bases(self.b, self.b)
+        else:
+            raise ValueError(f"Unknown method {self.method}. Use 'NTK' or 'YaRN' or 'direct'.")
+
+    def _interpolate_yarn(self, theta_h: torch.Tensor, theta_w: torch.Tensor, s_h: float, s_w: float):
+        """
+        Apply YaRN interpolation to rotary frequencies.
+
+        Args:
+            theta_h (Tensor): original rotary frequencies for height.
+            theta_w (Tensor): original rotary frequencies for width.
+            s_h (float): height scale.
+            s_w (float): width scale.
+
+        Returns:
+            Tuple[Tensor, Tensor]: interpolated rotary frequencies.
+        """
+        # Calculate r(d) for each dimension
+        r_d_h = s_h * self.max_height / self.max_resolution[0]
+        r_d_w = s_w * self.max_width / self.max_resolution[1]
+
+        # Compute ramp coefficients for each (d)
+        gamma_h = self._compute_gamma(r_d_h)
+        gamma_w = self._compute_gamma(r_d_w)
+
+        # Interpolate rotary frequencies
+        theta_h_interp = (1 - gamma_h) * (theta_h / s_h) + gamma_h * theta_h
+        theta_w_interp = (1 - gamma_w) * (theta_w / s_w) + gamma_w * theta_w
+
+        return theta_h_interp, theta_w_interp
+
+    def _compute_gamma(self, r: torch.Tensor):
+        """
+        Compute gamma(r) based on parameters α, β, as in the ramp function.
+
+        Args:
+            r (Tensor): scale ratio.
+
+        Returns:
+            Tensor: gamma(r) values between 0 and 1.
+        """
+        gamma = torch.zeros_like(r)
+        gamma = torch.where(r < self.alpha, torch.zeros_like(r), gamma)
+        gamma = torch.where(r > self.beta, torch.ones_like(r), gamma)
+        mask = (r >= self.alpha) & (r <= self.beta)
+        gamma[mask] = (r[mask] - self.alpha) / (self.beta - self.alpha)
+        return gamma
+
+    def get_rotary_encoding(self, positions: Tuple[torch.Tensor, torch.Tensor], token_indices: torch.Tensor):
+        """
+        Given position tensors and token indices, compute the rotary encodings.
+
+        Args:
+            positions (Tuple[Tensor, Tensor]): (w_positions, h_positions), each of shape [num_tokens].
+            token_indices (Tensor): token index positions, shape: [num_tokens].
+
+        Returns:
+            Tuple[Tensor, Tensor]: sine and cosine components for rotary application, shape [num_tokens, D/2].
+        """
+        w_pos, h_pos = positions
+
+        # Generate rotary frequencies if not already scaled for current resolution
+        # Assumes `self.theta_h`, `self.theta_w` are set via `compute_rotary_frequencies`.
+        # For each token, compute the rotary component
+        # Expand to match token positions
+        cos_h, sin_h = self._compute_cos_sin(h_pos, self.theta_h)
+        cos_w, sin_w = self._compute_cos_sin(w_pos, self.theta_w)
+
+        # Return combined as tuple for use in attention
+        return (cos_h, sin_h, cos_w, sin_w)
+
+    def _compute_cos_sin(self, positions: torch.Tensor, thetas: torch.Tensor):
+        """
+        Compute cosine and sine for rotary application.
+
+        Args:
+            positions (Tensor): positions w or h, shape: [num_tokens].
+            thetas (Tensor): rotary frequency tensor, shape: [D/2].
+
+        Returns:
+            Tuple[Tensor, Tensor]: cos, sin tensors, shape: [num_tokens, D/2].
+        """
+        # positions shape: [num_tokens]
+        # thetas shape: [D/2]
+        # Compute outer product for positions and frequencies
+        phase = torch.outer(positions.float(), torch.log(thetas)).exp()
+        # phase shape: [num_tokens, D/2]
+        cos = phase.cos()
+        sin = phase.sin()
+        return cos, sin
+
+    def get_full_positional_embedding(self, w_pos: torch.Tensor, h_pos: torch.Tensor):
+        """
+        Returns combined per-token decoupled rotary encodings for (w, h) positions.
+        To be used in attention modules.
+
+        Args:
+            w_pos (Tensor): width positions for each token, shape: [num_tokens].
+            h_pos (Tensor): height positions for each token, shape: [num_tokens].
+
+        Returns:
+            Tensor: concatenated rotary encodings, shape: [num_tokens, D].
+        """
+        cos_h, sin_h, cos_w, sin_w = self.get_rotary_encoding((w_pos, h_pos), torch.arange(w_pos.shape[0], device=w_pos.device))
+        # Here, the encoding for each token is the concatenation of sine and cosine components
+        # To form a single tensor, concatenate along feature dimension
+        rotary_encoding = torch.cat([cos_h, sin_h, cos_w, sin_w], dim=1)  # shape: [num_tokens, D]
+        return rotary_encoding
+```

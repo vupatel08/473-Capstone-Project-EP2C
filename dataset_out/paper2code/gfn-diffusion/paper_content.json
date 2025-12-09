@@ -1,0 +1,158 @@
+{
+  "title": "Improved off-policy training of diffusion samplers",
+  "abstract": "Marcin Sendera Mila, Université de Montréal Jagiellonian University",
+  "authors": [],
+  "body_text": [
+    {
+      "text": "# Improved off-policy training of diffusion samplers"
+    },
+    {
+      "text": "Marcin Sendera Mila, Université de Montréal Jagiellonian University"
+    },
+    {
+      "text": "Minsu Kim Mila, Université de Montréal KAIST"
+    },
+    {
+      "text": "Sarthak Mittal Mila, Université de Montréal"
+    },
+    {
+      "text": "Pablo Lemos Mila, Université de Montréal Ciela Institute Dreamfold"
+    },
+    {
+      "text": "Luca Scimeca Mila, Université de Montréal"
+    },
+    {
+      "text": "Jarrid Rector-Brooks Mila, Université de Montréal Dreamfold"
+    },
+    {
+      "text": "Alexandre Adam Mila, Université de Montréal Ciela Institute"
+    },
+    {
+      "text": "Yoshua Bengio Mila, Université de Montréal CIFAR"
+    },
+    {
+      "text": "Nikolay Malkin Mila, Université de Montréal University of Edinburgh"
+    },
+    {
+      "text": "{marcin.sendera,...,nikolay.malkin}@mila.quebec"
+    },
+    {
+      "text": "# Abstract"
+    },
+    {
+      "text": "We study the problem of training diffusion models to sample from a distribution with a given unnormalized density or energy function. We benchmark several diffusion-structured inference methods, including simulation-based variational approaches and off-policy methods (continuous generative flow networks). Our results shed light on the relative advantages of existing algorithms while bringing into question some claims from past work. We also propose a novel exploration strategy for off-policy methods, based on local search in the target space with the use of a replay buffer, and show that it improves the quality of samples on a variety of target distributions. Our code for the sampling methods and benchmarks studied is made public at (link) as a base for future work on diffusion models for amortized inference."
+    },
+    {
+      "text": "# 1 Introduction"
+    },
+    {
+      "text": "Approximating and sampling from complex multivariate distributions is a fundamental problem in probabilistic deep learning [e.g., 27, 35, 26, 48, 57] and in scientific applications [3, 52, 38, 1, 32]. The problem of drawing samples from a distribution given only an unnormalized probability density or energy is particularly challenging in high-dimensional spaces and when the distribution of interest has many separated modes [5]. Sampling methods based on Markov chain Monte Carlo (MCMC) – such as Metropolis-adjusted Langevin [MALA; 24, 65, 64] and Hamiltonian MC [HMC; 20, 31] – may be slow to mix between modes and have a high cost per sample. While variants such as sequential MC [SMC; 25, 13, 16] and nested sampling [69, 10, 43] have better mode coverage, their cost may grow prohibitively with the dimensionality of the problem. This motivates the use of amortized variational inference, i.e., fitting parametric models that sample the target distribution."
+    },
+    {
+      "text": "Diffusion models, continuous-time stochastic processes that gradually evolve a simple distribution to a complex target, are powerful density estimators with proven mode-mixing properties [15]; as such, they have been widely used in the setting of generative models learned from data [70, 72, 28, 50, 66]. However, the problem of training diffusion models to sample from a distribution with a given blackbox density or energy function has attracted less attention. Recent work has drawn connections between diffusion (learning the denoising process) and stochastic control (learning the Föllmer drift [21]), leading to approaches such as the path integral sampler [PIS; 88], denoising diffusion sampler [DDS; 78], and time-reversed diffusion sampler [DIS; 8]; such approaches were recently unified by [63] and [79]. Another line of work [42, 86] is based on continuous generative flow networks (GFlowNets), which are deep reinforcement learning algorithms adapted to variational inference that offer stable off-policy training and thus flexible exploration [46]."
+    },
+    {
+      "text": "Despite the advances in sampling methods and attempts to unify them theoretically [63, 79], the field suffers from some failures in benchmarking and reproducibility, with the works differing in the choice of model architectures, using unstated hyperparameters, and even disagreeing in their definitions of the same target densities (see $\\ S _ { \\mathrm { B } . 1 }$ ). The first main contribution of this paper is a unified library for diffusion-structured samplers. The library has a focus on off-policy methods (continuous GFlowNets) but also includes simulation-based variational objectives such as PIS. Using this codebase, we are able to benchmark methods from past work under comparable conditions and confirm claims about exploration strategies and desirable inductive biases, while calling into question other claims on robustness and sample efficiency. Our library also includes several new modeling and training techniques, and we provide preliminary evidence of their utility in possible future work (§5.3)."
+    },
+    {
+      "text": "Our second contribution is a study of methods for improving exploration and credit assignment – the propagation of learning signals from the target density to the parameters of earlier sampling steps – in diffusion-structured samplers (§4). First, our results (§5.2) suggest that the technique of utilizing partial trajectory information [44, 55], as done in the diffusion setting by [86], offers little benefit, and a higher training cost, over on-policy [88] or off-policy [42] trajectory-based optimization. Second, we examine the utility of a gradient-based variant which parametrizes the denoising distribution as a correction to a Langevin process [88]. We show that this inductive bias is also beneficial in the offpolicy (GFlowNet) setting despite higher computational cost. Finally, motivated by recent approaches in discrete sampling, we propose an efficient exploration technique based on local search in the target space with the use of a replay buffer, which improves sample quality across various target distributions."
+    },
+    {
+      "text": "# 2 Prior work"
+    },
+    {
+      "text": "Amortized variational inference approaches use a parametric model $q _ { \\theta }$ to approximate a given target density $p _ { \\mathrm { t a r g e t } }$ , typically through stochastic optimization [30, 58, 2]. Notably, explicit density models like autoregressive models and normalizing flows have been extensively utilized in density estimation [60, 19, 81, 22, 51]. However, these models impose structural constraints, thereby limiting their expressive power [14, 23, 87]. The adoption of diffusion processes in generative models has stimulated a renewed interest in hierarchical models as density estimators [80, 28, 76]. Approaches like PIS [88] leverage stochastic optimal control for sampling from unnormalized densities, albeit still struggling with scalability in high-dimensional spaces."
+    },
+    {
+      "text": "Generative flow networks, originally defined in the discrete case by [6, 7], view hierarchical sampling (i.e., stepwise generation) as a sequential decision-making process and represent a synthesis of reinforcement learning and variational inference approaches [46, 90, 73, 18], expanding from specific scientific domains [e.g., 36, 4, 89] to amortized inference over a broader array of latent structures [e.g., 77, 34]. Their ability to efficiently navigate trajectory spaces via off-policy exploration has been crucial, yet they encounter challenges in training dynamics, such as credit assignment and exploration efficiency [45, 44, 55, 59, 68, 39, 37]. These challenges have repercussions in the scalability of these methods in more complex scenarios, which this paper addresses in the continuous case."
+    },
+    {
+      "text": "# 3 Setting: Diffusion-structured sampling"
+    },
+    {
+      "text": "Let $\\mathcal { E } : \\mathbb { R } ^ { d }  \\mathbb { R }$ be a differentiable energy function and define $R ( \\mathbf { x } ) = \\exp ( - \\mathcal { E } ( \\mathbf { x } ) )$ , the reward or unnormalized target density. Assuming the integral $\\begin{array} { r } { Z : = \\int _ { \\mathbb { R } ^ { d } } R ( \\mathbf { x } ) d \\mathbf { x } } \\end{array}$ exists, $\\varepsilon$ defines a Boltzmann density $p _ { \\mathrm { t a r g e t } } ( \\mathbf { x } ) = R ( \\mathbf { x } ) / Z$ on $\\mathbb { R } ^ { d }$ . We are interested in the problems of sampling from $p _ { \\mathrm { t a r g e t } }$ and approximating the partition function $Z$ given access only to $\\varepsilon$ and possibly to its gradient $\\nabla \\mathcal { E }$ ."
+    },
+    {
+      "text": "We describe two closely related perspectives on this problem: via neural SDEs and stochastic control (§3.1) and via continuous generative flow networks (§3.2)."
+    },
+    {
+      "text": "# 3.1 Euler-Maruyama hierarchical samplers"
+    },
+    {
+      "text": "Generative modeling with SDEs. Diffusion models assume a continuous-time generative process given by a neural stochastic differential equation [SDE; 75, 54, 67]:"
+    },
+    {
+      "text": "$$\nd \\mathbf { x } _ { t } = u ( \\mathbf { x } _ { t } , t ; \\theta ) d t + g ( \\mathbf { x } _ { t } , t ; \\theta ) d \\mathbf { w } _ { t } ,\n$$"
+    },
+    {
+      "text": "where $\\mathbf { X } _ { 0 }$ follows a fixed tractable distribution $\\mu _ { 0 }$ (such as a Gaussian or a point mass). The initial distribution $\\mu _ { 0 }$ and the stochastic dynamics specified by (1) induce marginal densities $p _ { t }$ on $\\mathbb { R } ^ { d }$ for each $t > 0$ . The functions $u$ and $g$ have learnable parameters that we wish to optimize, using some objective, so as to make the terminal density $p _ { 1 }$ close to $p _ { \\mathrm { t a r g e t } }$ . Samples can be drawn from $p _ { 1 }$ by sampling $\\mathbf { X } _ { 0 } \\sim \\mu _ { 0 }$ and simulating the SDE (1) to time $t = 1$ ."
+    },
+    {
+      "text": "The SDE driving $\\mu _ { 0 }$ to $p _ { \\mathrm { t a r g e t } }$ is not unique. However, if one fixes a reverse-time SDE, or noising process, that pushes $p _ { \\mathrm { t a r g e t } }$ at $t = 1$ to $\\mu _ { 0 }$ at $t = 0$ , then its reverse, the forward SDE (1), is uniquely determined under mild conditions and is called the denoising process. For usual choices of the noising process, there are stochastic regression objectives for learning the drift $u$ of the denoising process given samples from $p _ { \\mathrm { t a r g e t } }$ , and the diffusion rate $g$ is available in closed form [28, 72]."
+    },
+    {
+      "text": "Time discretization. In practice, the integration of the SDE (1) is approximated by a discrete-time scheme, the simplest of which is Euler-Maruyama integration. The process (1) is replaced by a discrete-time Markov chain ${ \\bf x } _ { 0 } \\to { \\bf x } _ { \\Delta t } \\to { \\bf x } _ { 2 \\Delta t } \\to \\cdot \\cdot \\cdot \\to { \\bf x } _ { 1 }$ , where $\\begin{array} { r } { \\Delta t { } = \\frac { 1 } { T } } \\end{array}$ is the time increment and and $T$ is the number of steps:"
+    },
+    {
+      "text": "$$\n\\begin{array} { r } { \\mathbf { x } _ { 0 } \\sim \\mu _ { 0 } , \\quad \\mathbf { x } _ { t + \\Delta t } = \\mathbf { x } _ { t } + u ( \\mathbf { x } _ { t } , t ; \\theta ) \\Delta t + g ( \\mathbf { x } _ { t } , t ; \\theta ) \\sqrt { \\Delta t } \\mathbf { z } _ { t } \\quad \\mathbf { z } _ { t } \\sim \\mathcal { N } ( \\mathbf { 0 } , \\mathbf { I } _ { d } ) . } \\end{array}\n$$"
+    },
+    {
+      "text": "The density of the transition kernel from $\\mathbf { X } _ { t }$ to $\\mathbf { X } _ { t + \\Delta t }$ can explicitly be written as"
+    },
+    {
+      "text": "$$\np _ { F } ( \\mathbf { x } _ { t + \\Delta t } \\mid \\mathbf { x } _ { t } ) = \\mathcal { N } ( \\mathbf { x } _ { t + \\Delta t } ; \\mathbf { x } _ { t } + u ( \\mathbf { x } _ { t } , t ; \\boldsymbol { \\theta } ) \\Delta t , g ( \\mathbf { x } _ { t } , t ; \\boldsymbol { \\theta } ) ^ { 2 } \\Delta t \\mathbf { I } _ { d } ) ,\n$$"
+    },
+    {
+      "text": "where $p _ { F }$ denotes the transition density of the discretized forward SDE. This density defines a joint distribution over trajectories starting at $\\mathbf { X } _ { 0 }$ :"
+    },
+    {
+      "text": "$$\np _ { F } ( \\mathbf { x } _ { \\Delta t } , \\dots , \\mathbf { x } _ { 1 } \\mid \\mathbf { x } _ { 0 } ) = \\prod _ { i = 0 } ^ { T - 1 } p _ { F } ( \\mathbf { x } _ { ( i + 1 ) \\Delta t } \\mid \\mathbf { x } _ { i \\Delta t } ) .\n$$"
+    },
+    {
+      "text": "Similarly, a discrete-time reverse process $\\mathbf { x } _ { 1 } \\to \\mathbf { x } _ { 1 - \\Delta t } \\to \\mathbf { x } _ { 1 - 2 \\Delta t } \\to \\cdot \\cdot \\cdot \\to \\mathbf { x } _ { 0 }$ with transition densities $p _ { B } ( \\mathbf { x } _ { t - \\Delta t } \\mid \\mathbf { x } _ { t } )$ defines a joint distribution1 via"
+    },
+    {
+      "text": "$$\np _ { B } ( \\mathbf { x } _ { 0 } , \\ldots , \\mathbf { x } _ { 1 - \\Delta t } \\mid \\mathbf { x } _ { 1 } ) = \\prod _ { t = 1 } ^ { T } p _ { B } ( \\mathbf { x } _ { ( i - 1 ) \\Delta t } \\mid \\mathbf { x } _ { i \\Delta t } ) .\n$$"
+    },
+    {
+      "text": "If the forward and backward processes (starting from $\\mu _ { 0 }$ and $p _ { \\mathrm { t a r g e t } }$ , respectively) are reverses of each other, then they define the same distribution over trajectories, $i . e .$ , for all ${ \\bf x } _ { 0 } \\to { \\bf x } _ { \\Delta t } \\to \\cdot \\cdot \\cdot \\to { \\bf x } _ { 1 }$ ,"
+    },
+    {
+      "text": "$$\n\\mu _ { 0 } ( { \\bf x } _ { 0 } ) p _ { F } ( { \\bf x } _ { \\Delta t } , \\ldots , { \\bf x } _ { 1 } \\mid { \\bf x } _ { 0 } ) = p _ { \\mathrm { t a r g e t } } ( { \\bf x } _ { 1 } ) p _ { B } ( { \\bf x } _ { 0 } , \\ldots , { \\bf x } _ { 1 - \\Delta t } \\mid { \\bf x } _ { 1 } ) .\n$$"
+    },
+    {
+      "text": "In particular, the marginal densities of $\\mathbf { X } _ { 1 }$ under the forward and backward processes are then equal to $p _ { \\mathrm { t a r g e t } }$ , and the forward process can be used to sample the target distribution."
+    },
+    {
+      "text": "Because the reverse of a process with Gaussian increments is, in general, not itself Gaussian, (6) can be enforced only approximately, but the discrepancy vanishes as $\\Delta t \\to 0$ (i.e., increments are infinitesimally Gaussian), an application of the central limit theorem that is key to stochastic calculus [54]."
+    },
+    {
+      "text": "SDE learning as hierarchical variational inference. The problem of learning the parameters $\\theta$ of the forward process so as to enforce (6) is one of hierarchical variational inference. The backward process transforms $\\mathbf { X } _ { 1 }$ into $\\mathbf { X } _ { 0 }$ via a sequence of latent variables $\\mathbf { X } _ { 1 - \\Delta t } , \\ldots . . . , \\mathbf { X } _ { 0 }$ , and the forward process aims to match the posterior distribution over these variables and thus to approximately enforce (6)."
+    },
+    {
+      "text": "In the setting of diffusion models learned from data, where one has samples from $p _ { \\mathrm { t a r g e t } }$ , one can optimize the forward process by minimizing the KL divergence $D _ { \\mathrm { K L } } ( p _ { \\mathrm { t a r g e t } } \\cdot p _ { B } \\lVert \\mu _ { 0 } \\cdot \\dot { p _ { F } } )$ between the distribution over trajectories given by the reverse process and that given by the forward process."
+    },
+    {
+      "text": "This is equivalent to the typical training of diffusion models, which optimizes a variational bound on the data log-likelihood (see [71]). However, in the setting of an intractable density $p _ { \\mathrm { t a r g e t } }$ , unbiased estimators of this divergence are not available. Instead, one can optimize the reverse KL:2"
+    },
+    {
+      "text": "$$\n\\begin{array} { l } { { \\displaystyle { \\cal D } _ { \\mathrm { K L } } \\left( \\mu _ { 0 } \\cdot p _ { F } \\| p _ { \\mathrm { t a r g e t } } \\cdot p _ { B } \\right) } \\ ~ } \\\\ { { \\displaystyle = \\int \\log \\frac { \\mu _ { 0 } ( { \\bf x } _ { 0 } ) p _ { F } ( { \\bf x } _ { \\Delta t } , \\ldots , { \\bf x } _ { 1 } \\mid { \\bf x } _ { 0 } ) } { p _ { \\mathrm { t a r g e t } } ( { \\bf x } _ { 1 } ) p _ { B } ( { \\bf x } _ { 0 } , \\ldots , { \\bf x } _ { 1 - \\Delta t } \\mid { \\bf x } _ { 1 } ) } d \\mu _ { 0 } ( { \\bf x } _ { 0 } ) p _ { F } ( { \\bf x } _ { \\Delta t } , \\ldots , { \\bf x } _ { 1 } \\mid { \\bf x } _ { 0 } ) ~ d { \\bf x } _ { \\Delta t } \\ldots d { \\bf x } _ { 1 } . } } \\end{array}\n$$"
+    },
+    {
+      "text": "Various estimators of this objective are available. For instance, the path integral sampler objective [PIS; 88] uses the reparametrization trick to express (7) as an expectation over noise variables $\\mathbf { z } _ { t }$ that participate in the hierarchical sampling of $\\mathbf { X } _ { \\Delta t } , \\ldots . \\ldots , \\mathbf { X } _ { 1 }$ , yielding an unbiased gradient estimator, but one that requires backpropagation into the simulation of the forward process. The related denoising diffusion sampler [DDS; 78] applies the same principle in a different integration scheme."
+    },
+    {
+      "text": "# 3.2 Euler-Maruyama samplers as GFlowNets"
+    },
+    {
+      "text": "Continuous generative flow networks (GFlowNets) [42] express the problem of enforcing (6) as a reinforcement learning task. In this section, we summarize this interpretation, its connection to neural SDEs, the associated learning objectives, and their relative advantages and disadvantages."
+    },
+    {
+      "text": "The connection between generative flow networks and diffusion models or SDEs was first made informally by [46] in the distribution-matching setting and by [84] in the maximum-likelihood setting, while the theoretical foundations for continuous GFlowNets were later laid down by [42]."
+    },
+    {
+      "text": "State and action space. To formulate sampling as a sequential decision-making problem, one must define the spaces of states and actions. In the case of sampling by $T$ -step Euler-Maruyama integration, assuming $\\mu _ { 0 }$ is a point mass at 0, the state space is"
+    }
+  ],
+  "url": ""
+}

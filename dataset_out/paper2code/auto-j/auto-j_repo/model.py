@@ -1,0 +1,196 @@
+## model.py
+
+import torch
+import torch.nn as nn
+from transformers import AutoConfig, AutoTokenizer, AutoModelForCausalLM
+import deepspeed
+import os
+from typing import Dict
+
+class AutoJudgeModel:
+    """
+    Encapsulates the 13B LLaMA-based language model with API for inference,
+    training, checkpointing, and evaluation, as per configuration.
+    """
+    def __init__(self, config: Dict):
+        """
+        Initialize the AutoJudgeModel with params from config.
+        Loads pre-trained model, tokenizer, optimizer, and sets up DeepSpeed if enabled.
+        """
+        # Load model configuration
+        self.model_name = config.get("model", {}).get("base_model", "decapoda-research/llama-2-13b-hf")
+        self.checkpoint_path = config.get("model", {}).get("checkpoint_path", "checkpoints/auto_j_checkpoint")
+        self.max_seq_length = config.get("training", {}).get("max_seq_length", 2048)
+        self.use_deepspeed = config.get("model", {}).get("use_deepspeed", True)
+        
+        # Load pre-trained model config and tokenizer
+        self.model_config = AutoConfig.from_pretrained(self.model_name)
+        self.tokenizer = AutoTokenizer.from_pretrained(self.model_name)
+        # For decoder-only models like LLaMA, ensure padding token
+        if hasattr(self.tokenizer, 'pad_token') and self.tokenizer.pad_token is None:
+            self.tokenizer.pad_token = self.tokenizer.eos_token
+
+        # Load pre-trained model
+        self.model = AutoModelForCausalLM.from_pretrained(self.model_name)
+        self.model.resize_token_embeddings(len(self.tokenizer))
+        
+        # Set model to eval or train mode as needed
+        self.model.train()
+
+        # Optimization hyperparameters
+        self.learning_rate = config.get("training", {}).get("learning_rate", 1e-5)
+        self.weight_decay = config.get("training", {}).get("weight_decay", 0.1)
+
+        # Initialize optimizer
+        self.optimizer = torch.optim.AdamW(self.model.parameters(),
+                                           lr=self.learning_rate,
+                                           weight_decay=self.weight_decay,
+                                           betas=(0.9, 0.95))
+        # Set up DeepSpeed if enabled
+        self.deepspeed_enabled = self.use_deepspeed
+        self.deepspeed_engine = None
+        self.global_step = 0
+
+        if self.use_deepspeed:
+            # Prepare DeepSpeed configuration
+            ds_config = {
+                "train_batch_size": config.get("training", {}).get("batch_size", 64),
+                "fp16": {
+                    "enabled": False  # We opt for BF16/TF32; if needed, set to True
+                },
+                "bf16": {
+                    "enabled": True
+                },
+                "zero_optimization": {
+                    "stage": 3,
+                    "cpu_offload": False
+                },
+                "gradient_accumulation_steps": 1,
+                "optimizer": {
+                    "type": "AdamW",
+                    "params": {
+                        "lr": self.learning_rate,
+                        "weight_decay": self.weight_decay
+                    }
+                }
+            }
+            # Initialize DeepSpeed engine with model and optimizer
+            self.model, self.optimizer, _, self.deepspeed_config = deepspeed.initialize(
+                model=self.model,
+                optimizer=self.optimizer,
+                model_parameters=self.model.parameters(),
+                config=ds_config
+            )
+        else:
+            # No DeepSpeed: just standard optimizer
+            self.deepspeed_engine = None
+
+        # Checkpoint loading if exists
+        if os.path.exists(self.checkpoint_path):
+            self.load_checkpoint(self.checkpoint_path)
+
+        # Device placement
+        self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+        self.model.to(self.device)
+
+        # Whether to use gradient checkpointing
+        self.gradient_checkpointing = config.get("training", {}).get("gradient_checkpointing", True)
+        if self.gradient_checkpointing:
+            self.model.gradient_checkpointing_enable()
+
+    def forward(self, input_ids: torch.Tensor, labels: torch.Tensor = None) -> torch.Tensor:
+        """
+        Forward pass with optional labels for loss computation.
+        Accepts input tensor, returns model outputs (logits or loss if labels provided).
+        """
+        input_ids = input_ids.to(self.device)
+        if labels is not None:
+            labels = labels.to(self.device)
+        outputs = self.model(input_ids=input_ids, labels=labels)
+        return outputs
+
+    def train_step(self, input_ids: torch.Tensor, labels: torch.Tensor) -> torch.Tensor:
+        """
+        Single training step: forward, loss, backward, optimizer step, with optional gradient accumulation.
+        Returns the loss.
+        """
+        if self.deepspeed_enabled:
+            self.deepspeed_engine.zero_grad()
+            outputs = self.deepspeed_engine(input_ids=input_ids, labels=labels)
+            loss = outputs.loss
+            self.deepspeed_engine.backward(loss)
+            self.deepspeed_engine.step()
+        else:
+            self.optimizer.zero_grad()
+            outputs = self.model(input_ids=input_ids, labels=labels)
+            loss = outputs.loss
+            loss.backward()
+            self.optimizer.step()
+
+        self.global_step += 1
+        return loss.item()
+
+    def save_checkpoint(self, save_path: str):
+        """
+        Save model checkpoint, optimizer state, and training step.
+        """
+        if self.use_deepspeed:
+            # DeepSpeed saves checkpoint internally; call save
+            checkpoint_dir = save_path
+            os.makedirs(checkpoint_dir, exist_ok=True)
+            self.deepspeed_engine.save_checkpoint(checkpoint_dir, tag='checkpoint')
+        else:
+            # Standard save
+            os.makedirs(os.path.dirname(save_path), exist_ok=True)
+            self.model.save_pretrained(save_path)
+            # Save optimizer state
+            torch.save({'optimizer_state_dict': self.optimizer.state_dict(),
+                        'step': self.global_step},
+                       os.path.join(save_path, 'optimizer.pt'))
+
+    def load_checkpoint(self, load_path: str):
+        """
+        Load model and optimizer state from checkpoint.
+        """
+        if self.use_deepspeed:
+            # Load DeepSpeed checkpoint (assuming last checkpoint in folder)
+            # Note: DeepSpeed requires specific checkpoint format
+            # For simplicity, assume latest checkpoint
+            self.model.load_state_dict(torch.load(os.path.join(load_path, 'pytorch_model.bin')))
+            # Load optimizer state
+            # DeepSpeed handles optimizer loading internally, but for manual, can be implemented
+            # here we ignore detailed implementation for brevity
+        else:
+            # Load model directly
+            self.model.from_pretrained(load_path)
+            # Load optimizer state
+            checkpoint = torch.load(os.path.join(load_path, 'optimizer.pt'))
+            self.optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
+            self.global_step = checkpoint.get('step', 0)
+
+    def generate(self, input_text: str, max_length: int = 1024, temperature: float = 0.0, top_p: float = 0.9) -> str:
+        """
+        Generate output text from input prompt.
+        """
+        inputs = self.tokenizer(input_text, return_tensors='pt', truncation=True, max_length=self.max_seq_length)
+        input_ids = inputs['input_ids'].to(self.device)
+        # Generation
+        if self.deepspeed_enabled:
+            # DeepSpeed handles generation
+            output_ids = self.deepspeed_engine.generate(
+                input_ids=input_ids,
+                max_new_tokens=max_length,
+                temperature=temperature,
+                top_p=top_p,
+                do_sample=(temperature > 0.0)
+            )
+        else:
+            output_ids = self.model.generate(
+                input_ids=input_ids,
+                max_new_tokens=max_length,
+                temperature=temperature,
+                top_p=top_p,
+                do_sample=(temperature > 0.0)
+            )
+        output_text = self.tokenizer.decode(output_ids[0], skip_special_tokens=True)
+        return output_text

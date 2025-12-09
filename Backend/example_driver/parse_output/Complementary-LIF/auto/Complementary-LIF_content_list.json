@@ -1,0 +1,3516 @@
+[
+    {
+        "type": "text",
+        "text": "CLIF: Complementary Leaky Integrate-and-Fire Neuron for Spiking Neural Networks ",
+        "text_level": 1,
+        "bbox": [
+            199,
+            109,
+            776,
+            155
+        ],
+        "page_idx": 0
+    },
+    {
+        "type": "text",
+        "text": "Yulong Huang \\* 1 Xiaopeng Lin \\* 1 Hongwei Ren 1 Haotian $\\mathbf { F u } ^ { 1 }$ Yue Zhou 1 Zunchang Liu 1 Biao Pan 2 Bojun Cheng 1 ",
+        "bbox": [
+            153,
+            199,
+            813,
+            229
+        ],
+        "page_idx": 0
+    },
+    {
+        "type": "text",
+        "text": "Abstract ",
+        "text_level": 1,
+        "bbox": [
+            245,
+            257,
+            318,
+            273
+        ],
+        "page_idx": 0
+    },
+    {
+        "type": "text",
+        "text": "1. Introduction ",
+        "text_level": 1,
+        "bbox": [
+            501,
+            257,
+            627,
+            273
+        ],
+        "page_idx": 0
+    },
+    {
+        "type": "text",
+        "text": "Spiking neural networks (SNNs) are promising brain-inspired energy-efficient models. Compared to conventional deep Artificial Neural Networks (ANNs), SNNs exhibit superior efficiency and capability to process temporal information. However, it remains a challenge to train SNNs due to their undifferentiable spiking mechanism. The surrogate gradients method is commonly used to train SNNs, but often comes with an accuracy disadvantage over ANNs counterpart. We link the degraded accuracy to the vanishing of gradient on the temporal dimension through the analytical and experimental study of the training process of Leaky Integrate-and-Fire (LIF) Neuron-based SNNs. Moreover, we propose the Complementary Leaky Integrate-and-Fire (CLIF) Neuron. CLIF creates extra paths to facilitate the backpropagation in computing temporal gradient while keeping binary output. CLIF is hyperparameter-free and features broad applicability. Extensive experiments on a variety of datasets demonstrate CLIF’s clear performance advantage over other neuron models. Furthermore, the CLIF’s performance even slightly surpasses superior ANNs with identical network structure and training conditions. The code is available at https://github.com/HuuYuLong/ComplementaryLIF. ",
+        "bbox": [
+            120,
+            308,
+            441,
+            744
+        ],
+        "page_idx": 0
+    },
+    {
+        "type": "text",
+        "text": "Spiking Neural Networks (SNNs) (Maass, 1997) have captivated the attention of both academic and industrial communities in recent years (Tavanaei et al., 2019; Roy et al., 2019; Mehonic & Kenyon, 2022; Schuman et al., 2022). Drawing inspiration from the biological neuron, SNNs adopt the spiking neuron, like the leaky integrate and fire (LIF) model, utilizing spike-based communication for information transmission (Teeter et al., 2018). This fundamental characteristic equips SNNs with the capacity to effectively process information across both temporal and spatial dimensions, excelling in areas of low latency and low power consumption (Schuman et al., 2022). Compared to conventional deep Artificial Neural Networks (ANNs), SNNs exhibit superior efficiency and capability to process temporal information, presenting significant implementation potential in edge device applications for real-time applications (Roy et al., 2019; Mehonic & Kenyon, 2022; Shen et al., 2024). ",
+        "bbox": [
+            501,
+            284,
+            885,
+            539
+        ],
+        "page_idx": 0
+    },
+    {
+        "type": "text",
+        "text": "Despite the advantages of SNNs, the training of SNNs presents a substantial challenge due to the inherently undifferentiable spiking mechanism. Many scholars have intensively explored this problem, three mainstream training methods have been proposed: the bio-inspired training method (Kheradpisheh et al., 2018), the ANN-to-SNN conversion method (Deng & Gu, 2020) and the surrogate gradient (SG) method (Li et al., 2021a; Wang et al., 2022b; Jiang et al., 2023). The bio-inspired training method bypasses undifferentiable problems by calculating the gradients with respect to the spike time (Zhang et al., 2018; Dong et al., 2023). The ANN-to-SNN method utilizes pre-trained ANN models to approximate the ReLU function with the spike neuron model (Li et al., 2021a; Jiang et al., 2023). The SG method uses surrogate gradients to approximate the gradients of non-differentiable spike functions during backpropagation (Neftci et al., 2019). This method solves the problem of non-differentiable spike functions, facilitating the direct trainable ability of SNNs (Xu et al., 2023). ",
+        "bbox": [
+            501,
+            549,
+            885,
+            833
+        ],
+        "page_idx": 0
+    },
+    {
+        "type": "text",
+        "text": "Each method is attractive in certain aspects but also process certain limitations. SG and ANN-to-SNN methods provide great applicability across various neural network architectures, such as spike-driven MLP (Li et al., 2022), ",
+        "bbox": [
+            500,
+            843,
+            885,
+            902
+        ],
+        "page_idx": 0
+    },
+    {
+        "type": "image",
+        "img_path": "images/6195d94fee8b9438b70ea9feb6113728dec4340ffdd75a7305fdcab6450a2e15.jpg",
+        "image_caption": [
+            "Figure 1. (a) Illustration of the LIF neuron model with forward propagation data flow (b) Illustration of the CLIF neuron model with forward propagation data flow (c) Illustration of the LIF’s gradient error ∂L∂ul[t] flow during BPTT. Each path is represented by an arrow. Lighter color in the arrow indicates more decay of gradient error. (d) Illustration of the CLIF’s gradient error flow during BPTT. Compared to (c), the additional temporal gradient error is highlighted in red. "
+        ],
+        "image_footnote": [],
+        "bbox": [
+            199,
+            94,
+            828,
+            409
+        ],
+        "page_idx": 1
+    },
+    {
+        "type": "text",
+        "text": "SRNN (Zhang & Li, 2021), SCNN (Fang et al., 2021a) and Transformer backbone (Zhou et al., 2022; Yao et al., 2024). In contrast, bio-inspired training is challenging to be effectively applied to deeper network configurations (Kheradpisheh et al., 2018). SG can reach satisfactory performance within limited timestep, whereas ANN-to-SNN requires a large number of timestep and more spikes to achieve comparable accuracy to the network trained by the SG method (Deng et al., 2020). As such, SG-based SNNs are more attractive in edge scenarios where the inference power is critical (Roy et al., 2019). Nevertheless, the SG method necessitates the use of inaccurate approximations for computing the gradients, leading to imprecise gradient update values and thus diminishing accuracy (Wang et al., 2023). ",
+        "bbox": [
+            89,
+            518,
+            473,
+            729
+        ],
+        "page_idx": 1
+    },
+    {
+        "type": "text",
+        "text": "In this study, we rethink the SNN training process and introduce complementary leaky integrate and fire (CLIF) neuron. The LIF and CLIF neuron model is illustrated in Figure.1(a) and (b). We introduce a complementary membrane potential $( m [ t ] )$ in CLIF neuron. The complementary potential captures and maintains information related to the decay of the membrane potential. CLIF creates extra paths to facilitate the data flow in temporal gradient computation, as intuitively seen in Figure.1 (c) and (d). Our experiments demonstrate that for SNNs with vanilla LIF neurons, employing a limited number of temporal gradients can yield comparable accuracy to those achieved by using gradients across much more temporal steps. Our theoretical analysis reveals such limitation is linked to the vanishing of certain temporal gradients. Experiments show CLIF can boost the SNN performance significantly in both static images and dynamic event streams. Impressively, even with moderate timestep to keep SNN’s low power advantage, CLIF-based SNN achieves comparable or even superior performance to ANN counterpart with identical network structure and training conditions. Our main contributions are: ",
+        "bbox": [
+            89,
+            738,
+            473,
+            904
+        ],
+        "page_idx": 1
+    },
+    {
+        "type": "text",
+        "text": "",
+        "bbox": [
+            501,
+            518,
+            885,
+            669
+        ],
+        "page_idx": 1
+    },
+    {
+        "type": "text",
+        "text": "• We propose the CLIF neuron model to efficiently and accurately extract temporal gradients. The model has zero hyper-parameters and can interchange with LIF neuron in many mainstream SNNs. • We demonstrate that CLIF effectively boosts the SNN performance by simply replacing LIF with CLIF. For different SNNs architectures like spiking VGG and Resnet, up to $2 \\%$ accuracy improvement is observed. • We conduct extensive experiments and discover that even with moderate timestep to keep the low power advantage, CLIF-based SNNs achieve comparable performance to ANNs with identical network structure and training conditions. ",
+        "bbox": [
+            516,
+            688,
+            885,
+            905
+        ],
+        "page_idx": 1
+    },
+    {
+        "type": "text",
+        "text": "2. Related Work ",
+        "text_level": 1,
+        "bbox": [
+            89,
+            83,
+            225,
+            99
+        ],
+        "page_idx": 2
+    },
+    {
+        "type": "text",
+        "text": "In SG method, gradients of non-differentiable spike functions are approximated by some surrogate gradients during backpropagation, this method enables SNNs to be trained directly by BPTT (Werbos, 1990). However, the inaccurate approximations for computing the gradients cause imprecise gradient update (Wang et al., 2023), and degradation in accuracy. Moreover, as the BPTT method requires iteration of recursive computation over timestep, the training cost grows substantially over large timestep (Wu et al., 2018). ",
+        "bbox": [
+            89,
+            109,
+            473,
+            244
+        ],
+        "page_idx": 2
+    },
+    {
+        "type": "text",
+        "text": "To improve the accuracy of the SG method, many efforts have been made. Some studies have advanced the surrogate functions. ASGL method (Wang et al., 2023) introduced an adaptive smoothing gradient to reduce gradient noise. LocalZO (Mukhoty et al., 2023) proposed the zeroth-order method to estimate the gradients for neuron. SML method (Deng et al., 2023) introduces ANNs module to reduce the gradient noise accumulation when training. Alternatively, enhanced neuron dynamics could also yield in higher SNNs accuracy. For example, PLIF (Fang et al., 2021b), LTMD (Wang et al., 2022a) and GLIF (Yao et al., 2022) introduced learnability in membrane potential, neuron threshold, and different channels, respectively. Nevertheless, even with those efforts, there is still a performance gap between SNNs and ANNs when implemented with identical network architecture. To enhance the training efficiency, several efficient training methods have been proposed. For instance, e-prop (Bellec et al., 2020) entirely discards the temporal gradients, and only uses the gradients of spatial dimension for training. SLTT (Meng et al., 2023) also discards the gradient of the temporal dimension, but randomly chooses a few gradient paths along the spatial dimension. Surprisingly, even after discarding the gradients in the temporal dimension, these methods still obtain comparable performance to the original BPTT approach. We investigate further such counterintuitive phenomena through experiments and conclude the temporal gradient decays too rapidly over multiple timesteps. Details about this observation are given in methods. ",
+        "bbox": [
+            89,
+            252,
+            473,
+            674
+        ],
+        "page_idx": 2
+    },
+    {
+        "type": "text",
+        "text": "To tackle the rapid temporal gradient decay in SNNs, (Lotfi Rezaabad & Vishwanath, 2020) and (Xu et al., 2024) proposed spiking LSTM and spiking ConvLSTM in respectively. Spiking (Conv)LSTM inherits LSTM’s advantage and avoids rapid temporal gradient decay. However, Spiking (Conv)LSTM comes with a significant number of training parameters compared to LIF within each neuron, complicating the network structuring and increasing training effort. Moreover, Spiking (Conv)LSTM restricts the neuron from the critical operation of decay and reset. (Dampfhoffer et al., 2022a; 2023) proposed spikeGRU preserves the reset process of spike neuron. The SpikeGRU also inherits the gating mechanism of GRU to avoid fast temporal gradient decay, and still keep the number of training parameters. ",
+        "bbox": [
+            89,
+            683,
+            473,
+            893
+        ],
+        "page_idx": 2
+    },
+    {
+        "type": "text",
+        "text": "(Fang et al., 2024) increased the parallel connection with trainable parameters between the spiking neurons to learn the long-term dependencies. However, this method also restricts the neuron from reset operation and increases the computation complexity. As such, both methods lose the generosity of SNNs and dilute the high efficiency and low power consumption advantage of SNNs. ",
+        "bbox": [
+            501,
+            85,
+            883,
+            190
+        ],
+        "page_idx": 2
+    },
+    {
+        "type": "text",
+        "text": "In parallel, several bio-inspired models have been developed, transitioning from biological concepts to neuronal model implementations, with the goal of addressing longterm dependency learning issues. For example, the AHP neuron (Rao et al., 2022) inspired by after-hyperpolarizing currents, the TC-LIF model (Zhang et al., 2024) inspired by the Prinsky-Rinzel pyramidal neuron and the ELM model (Spieler et al., 2023) inspired by the cortical neuron. However, few works demonstrate the potential to apply bioinspired neuron models on large and complex networks. In summary, the methods to improve the temporal gradients not only add significant training complexity but also cannot be generalized to various network backbones. ",
+        "bbox": [
+            501,
+            198,
+            885,
+            393
+        ],
+        "page_idx": 2
+    },
+    {
+        "type": "text",
+        "text": "3. Preliminary ",
+        "text_level": 1,
+        "bbox": [
+            501,
+            412,
+            620,
+            430
+        ],
+        "page_idx": 2
+    },
+    {
+        "type": "text",
+        "text": "The specific notations used in this paper are described in the Appendix.A. ",
+        "bbox": [
+            500,
+            440,
+            883,
+            469
+        ],
+        "page_idx": 2
+    },
+    {
+        "type": "text",
+        "text": "3.1. SNN Neuron Model ",
+        "text_level": 1,
+        "bbox": [
+            501,
+            487,
+            668,
+            501
+        ],
+        "page_idx": 2
+    },
+    {
+        "type": "text",
+        "text": "In the field of SNNs, the most common neuron model is the Leaky Integrate-and-Fire (LIF) model with iterative expression, as detailed in (Wu et al., 2018). At each time step $t$ , the neurons in the $l$ -th layer integrate the postsynaptic current $c ^ { l } [ t ]$ with their previous membrane potential $\\boldsymbol { \\mathbf { \\mathit { u } } } ^ { \\bar { l } } [ t - 1 ]$ , the mathematical expression is illustrated in Eq.(1): ",
+        "bbox": [
+            500,
+            511,
+            885,
+            601
+        ],
+        "page_idx": 2
+    },
+    {
+        "type": "equation",
+        "img_path": "images/03c45d9c5ba8062fa8be2ff2e463c0efd0aa11b97f5eae1761dd4a08381de53a.jpg",
+        "text": "$$\n{ \\pmb u } ^ { l } [ t ] = ( 1 - \\frac { 1 } { \\tau } ) { \\pmb u } ^ { l } [ t - 1 ] + c ^ { l } [ t ] ,\n$$",
+        "text_format": "latex",
+        "bbox": [
+            581,
+            604,
+            802,
+            635
+        ],
+        "page_idx": 2
+    },
+    {
+        "type": "text",
+        "text": "where $\\tau$ is the membrane time constant. $\\tau > 1$ as the discrete step size is 1. The postsynaptic current $c ^ { l } [ t ] =$ $\\mathbf { \\Delta } W ^ { l } * s ^ { l - 1 } [ t ]$ is calculated as the product of weights $\\boldsymbol { W } ^ { l }$ and spikes from the preceding layer $s ^ { l - 1 } [ t ]$ , simulating synaptic functionality, with $^ *$ indicating either a fully connect or convolution’s synaptic operation. ",
+        "bbox": [
+            500,
+            638,
+            885,
+            729
+        ],
+        "page_idx": 2
+    },
+    {
+        "type": "text",
+        "text": "Neurons will generate spikes $s ^ { l } [ t ]$ by Heaviside function when membrane potential ${ \\pmb u } ^ { l } [ t ]$ exceeds the threshold $V _ { \\mathrm { t h } }$ as shown in Eq.(2): ",
+        "bbox": [
+            500,
+            736,
+            885,
+            782
+        ],
+        "page_idx": 2
+    },
+    {
+        "type": "equation",
+        "img_path": "images/cfb96d557682562683e016ec57787af65219944265a04c411c636bde14518526.jpg",
+        "text": "$$\n\\begin{array} { r } { \\pmb { s } ^ { l } [ t ] = \\Theta ( \\pmb { u } ^ { l } [ t ] - V _ { \\mathrm { t h } } ) = \\left\\{ \\begin{array} { l l } { 1 , } & { \\mathrm { i f } ~ \\pmb { u } ^ { l } [ t ] \\geq V _ { \\mathrm { t h } } } \\\\ { 0 , } & { \\mathrm { o t h e r w i s e } } \\end{array} \\right. . } \\end{array}\n$$",
+        "text_format": "latex",
+        "bbox": [
+            534,
+            786,
+            849,
+            829
+        ],
+        "page_idx": 2
+    },
+    {
+        "type": "text",
+        "text": "After the spike, the neuron will reset its membrane potential. Two ways are prominent in Eq.(3): ",
+        "bbox": [
+            500,
+            833,
+            885,
+            863
+        ],
+        "page_idx": 2
+    },
+    {
+        "type": "equation",
+        "img_path": "images/eab526f84c16e7aaa273836f3b00ab3be73b10d35f2b4a956323a13fc71975b3.jpg",
+        "text": "$$\n\\begin{array} { r } { \\pmb { u } ^ { l } [ t ] = \\left\\{ \\pmb { u } ^ { l } [ t ] - V _ { \\mathrm { t h } } \\pmb { s } ^ { l } [ t ] , \\right. \\left. \\begin{array} { l l } { \\mathrm { s o f t r e s e t } } \\\\ { \\pmb { u } ^ { l } [ t ] \\odot \\left( 1 - \\pmb { s } ^ { l } [ t ] \\right) , } \\end{array} \\right. \\left. \\begin{array} { l l } { \\mathrm { h a r d r e s e t } } \\end{array} . \\right. } \\end{array}\n$$",
+        "text_format": "latex",
+        "bbox": [
+            547,
+            867,
+            836,
+            910
+        ],
+        "page_idx": 2
+    },
+    {
+        "type": "text",
+        "text": "In this work, we chose the soft reset process because it will keep more temporal information (Meng et al., 2023). ",
+        "bbox": [
+            88,
+            85,
+            472,
+            114
+        ],
+        "page_idx": 3
+    },
+    {
+        "type": "text",
+        "text": "3.2. SNN Training with Surrogate Gradient ",
+        "text_level": 1,
+        "bbox": [
+            89,
+            131,
+            392,
+            147
+        ],
+        "page_idx": 3
+    },
+    {
+        "type": "text",
+        "text": "In the SG method, gradients are computed through BPTT (Wu et al., 2018). This involves considering the temporal dimension, where the gradients at $l$ -th layer for all timestep $T$ are calculated as Eq.(4): ",
+        "bbox": [
+            88,
+            155,
+            473,
+            215
+        ],
+        "page_idx": 3
+    },
+    {
+        "type": "equation",
+        "img_path": "images/52d3375d1ac5f5ced6b5f27c71490d982a4aabd4ff6dce7d49ddd84c1d28bc18.jpg",
+        "text": "$$\n\\nabla _ { \\mathbf { W } ^ { l } } \\mathcal { L } = \\sum _ { t = 1 } ^ { T } \\frac { \\partial \\mathcal { L } } { \\partial \\mathbf { \\Psi } ^ { l } [ t ] } \\frac { \\partial \\mathbf { \\Psi } ^ { a ^ { l } } [ t ] } { \\partial \\mathbf { W } ^ { l } } , l = \\mathrm { L } , \\mathrm { L } - 1 , \\cdots , 1 ,\n$$",
+        "text_format": "latex",
+        "bbox": [
+            106,
+            220,
+            436,
+            265
+        ],
+        "page_idx": 3
+    },
+    {
+        "type": "text",
+        "text": "where $\\mathcal { L }$ represents the loss function. We define the $\\frac { \\partial \\mathcal { L } } { \\partial \\pmb { u } ^ { l } [ t ] }$ as the gradient error in this paper, the gradient error can be evaluated recursively: ",
+        "bbox": [
+            88,
+            271,
+            473,
+            319
+        ],
+        "page_idx": 3
+    },
+    {
+        "type": "equation",
+        "img_path": "images/cc704cc75b54144101cc11310980218dfdfb6c3ea9c53624b3f3ae8a631ea62c.jpg",
+        "text": "$$\n\\frac { \\partial \\mathcal { L } } { \\partial \\pmb { u } ^ { l } [ t ] } = \\frac { \\partial \\mathcal { L } } { \\partial \\pmb { s } ^ { l } [ t ] } \\frac { \\partial \\pmb { s } ^ { l } [ t ] } { \\partial \\pmb { u } ^ { l } [ t ] } + \\sum _ { t ^ { \\prime } = t + 1 } ^ { T } \\frac { \\partial \\mathcal { L } } { \\partial \\pmb { s } ^ { l } [ t ^ { \\prime } ] } \\frac { \\partial \\pmb { s } ^ { l } [ t ^ { \\prime } ] } { \\partial \\pmb { u } ^ { l } [ t ^ { \\prime } ] } \\prod _ { t ^ { \\prime \\prime } = 1 } ^ { t ^ { \\prime } - t } \\epsilon ^ { l } [ t ^ { \\prime } - t ^ { \\prime \\prime } ] ,\n$$",
+        "text_format": "latex",
+        "bbox": [
+            88,
+            327,
+            493,
+            371
+        ],
+        "page_idx": 3
+    },
+    {
+        "type": "text",
+        "text": "where the $\\epsilon ^ { l } [ t ]$ for LIF model can be defined as follows in Eq.(6): ",
+        "bbox": [
+            88,
+            391,
+            473,
+            421
+        ],
+        "page_idx": 3
+    },
+    {
+        "type": "equation",
+        "img_path": "images/b4367f84903dcda1bad3e0f843b545b57e044ca3eb052262dd9ea2eb78ab0413.jpg",
+        "text": "$$\n\\epsilon ^ { l } [ t ] \\equiv \\frac { \\partial \\mathbf { { \\boldsymbol { u } } } ^ { l } [ t + 1 ] } { \\partial \\mathbf { { \\boldsymbol { u } } } ^ { l } [ t ] } + \\frac { \\partial \\mathbf { { \\boldsymbol { u } } } ^ { l } [ t + 1 ] } { \\partial \\mathbf { { \\boldsymbol { s } } } ^ { l } [ t ] } \\frac { \\partial \\mathbf { { \\boldsymbol { s } } } ^ { l } [ t ] } { \\partial \\mathbf { { \\boldsymbol { u } } } ^ { l } [ t ] } .\n$$",
+        "text_format": "latex",
+        "bbox": [
+            147,
+            426,
+            415,
+            463
+        ],
+        "page_idx": 3
+    },
+    {
+        "type": "text",
+        "text": "In particular, for different layers, we have Eq.(7): ",
+        "bbox": [
+            88,
+            476,
+            411,
+            491
+        ],
+        "page_idx": 3
+    },
+    {
+        "type": "equation",
+        "img_path": "images/83c42378290f36a5ea33c76620d6c559c9e55bde57e99c4bd074e8b1e0aadaeb.jpg",
+        "text": "$$\n\\frac { \\partial \\mathcal { L } } { \\partial s ^ { l } [ t ] } = \\left\\{ \\begin{array} { l l } { \\frac { \\partial \\mathcal { L } } { \\partial s ^ { l } [ t ] } } & { \\mathrm { ~ i f ~ } l = \\mathrm { L } } \\\\ { \\frac { \\partial \\mathcal { L } } { \\partial u ^ { l + 1 } [ t ] } \\frac { \\partial u ^ { l + 1 } [ t ] } { \\partial s ^ { l } [ t ] } } & { \\mathrm { ~ i f ~ } l = \\mathrm { L } - 1 , \\cdots , 1 } \\end{array} , \\right.\n$$",
+        "text_format": "latex",
+        "bbox": [
+            102,
+            497,
+            439,
+            541
+        ],
+        "page_idx": 3
+    },
+    {
+        "type": "text",
+        "text": "where the $\\begin{array} { r c l } { \\frac { \\partial \\pmb { u } ^ { l + 1 } [ t ] } { \\partial \\pmb { s } ^ { l } [ t ] } } & { = } & { ( \\pmb { W } ^ { l + 1 } ) ^ { \\top } } \\end{array}$ . The detailed derivations can be found in the Appendix.B. In addition, the non-differentiable problem is solved by approximating $\\begin{array} { r } { \\frac { \\partial \\pmb { s } ^ { l } [ t ] } { \\partial \\pmb { u } ^ { l } [ t ] } \\approx \\mathbb { H } \\left( \\pmb { u } ^ { l } [ t ] \\right) } \\end{array}$ with the surrogate function $\\mathbb { H } ( \\cdot )$ (Neftci et al., 2019). In this work, we chose the rectangle function (Wu et al., 2019; Su et al., 2023): ",
+        "bbox": [
+            88,
+            549,
+            473,
+            648
+        ],
+        "page_idx": 3
+    },
+    {
+        "type": "equation",
+        "img_path": "images/d170916c9230a60d6303fbc9d8e51fcc9dbd649de87a77b967c3db4d1b123a91.jpg",
+        "text": "$$\n\\frac { \\partial s ^ { l } [ t ] } { \\partial \\pmb { u } ^ { l } [ t ] } \\approx \\mathbb { H } \\left( \\pmb { u } ^ { l } [ t ] \\right) = \\frac { 1 } { \\alpha } \\mathbb { 1 } \\left( \\left| \\pmb { u } ^ { l } [ t ] - V _ { \\mathrm { t h } } \\right| < \\frac { \\alpha } { 2 } \\right) ,\n$$",
+        "text_format": "latex",
+        "bbox": [
+            107,
+            655,
+            434,
+            690
+        ],
+        "page_idx": 3
+    },
+    {
+        "type": "text",
+        "text": "where $\\mathbb { 1 } ( \\cdot )$ served as the indicator function. Following (Meng et al., 2023), the hyperparameter $\\alpha$ is set to $V _ { \\mathrm { t h } }$ In this case, Eq.(6) can be rewritten as: ",
+        "bbox": [
+            88,
+            696,
+            473,
+            741
+        ],
+        "page_idx": 3
+    },
+    {
+        "type": "equation",
+        "img_path": "images/4052b2e77697eb1f777516a3ffbe59dc114d7e812ee3474e8ec8a5d6bac432ee.jpg",
+        "text": "$$\n\\epsilon ^ { l } [ t ] = \\gamma \\left( 1 - V _ { \\mathrm { t h } } \\mathbb { H } \\left( \\boldsymbol { u } ^ { l } [ t ] \\right) \\right)\n$$",
+        "text_format": "latex",
+        "bbox": [
+            184,
+            747,
+            377,
+            768
+        ],
+        "page_idx": 3
+    },
+    {
+        "type": "text",
+        "text": "where $\\begin{array} { r } { \\gamma \\triangleq 1 - \\frac { 1 } { \\tau } } \\end{array}$ , resulting $\\gamma \\in ( 0 , 1 )$ . ",
+        "bbox": [
+            89,
+            775,
+            343,
+            792
+        ],
+        "page_idx": 3
+    },
+    {
+        "type": "text",
+        "text": "4. Method ",
+        "text_level": 1,
+        "bbox": [
+            88,
+            810,
+            176,
+            827
+        ],
+        "page_idx": 3
+    },
+    {
+        "type": "text",
+        "text": "4.1. Limitation of LIF-based SNN with SG ",
+        "text_level": 1,
+        "bbox": [
+            89,
+            837,
+            383,
+            852
+        ],
+        "page_idx": 3
+    },
+    {
+        "type": "text",
+        "text": "We investigate the limitation of SG training method with LIF-based SNN through both experimental and theoretical analysis. ",
+        "bbox": [
+            88,
+            859,
+            472,
+            905
+        ],
+        "page_idx": 3
+    },
+    {
+        "type": "text",
+        "text": "Experimental Observation: To investigate the relationship between temporal parameters and training performance, we conduct two experiments on LIF-based SNNs using the BPTT method. Our experimental setup utilizes a simple convolutional 5-layer SNN model, suitable to conduct analysis with multiple runs with various parameters. ",
+        "bbox": [
+            500,
+            85,
+            885,
+            175
+        ],
+        "page_idx": 3
+    },
+    {
+        "type": "text",
+        "text": "In the first experiment, we introduce variable $k \\in [ 1 , T ]$ When calculating the error in the backpropagation, the gradients from further timestep beyond $\\mathbf { k }$ are discarded $( [ k + 1 , T ] )$ . Figure.5 in Appendix C. highlight the backpropagation example with $k = 2$ . ",
+        "bbox": [
+            500,
+            183,
+            885,
+            258
+        ],
+        "page_idx": 3
+    },
+    {
+        "type": "text",
+        "text": "Figure.2(a) demonstrates how the network accuracy is influenced by time constant $( \\tau )$ and BPTT timestep $( k )$ . It appears that the gradient from further timestep could not contribute to the backpropagation training process, as increasing $k$ above 2 does not substantially enhance the accuracy. We repeat this experiment on a few different datasets with different network backbones, all leading to the same conclusion. Experiment results from other datasets are given in Appendix C. ",
+        "bbox": [
+            500,
+            265,
+            885,
+            401
+        ],
+        "page_idx": 3
+    },
+    {
+        "type": "text",
+        "text": "Figure.2(b) plots the classification accuracy over increasing timestep for both vanilla LIF and our proposed CLIF. The average and standard error are calculated from the results using 4 different random seeds. The accuracy of the vanilla LIF peaks at $T = 3 2$ and then declines as the number of timesteps increases. This indicates the temporal gradient from LIF over larger timestep cannot be properly processed. In contrast, the CLIF model demonstrates a sustained improvement of performance over increasing timestep, showcasing CLIF’s effectiveness in learning over longer timestep. ",
+        "bbox": [
+            500,
+            409,
+            885,
+            560
+        ],
+        "page_idx": 3
+    },
+    {
+        "type": "image",
+        "img_path": "images/fe2b93ac906bc6ec0c7c1be0ba73f29febfbad78c31689eea00c368e3476a6c9.jpg",
+        "image_caption": [
+            "Figure 2. The performance of LIF based a 5-layer SNN for CIFAR10 dataset: (a) The accuracy is influenced by time constant $( \\tau )$ and BPTT timestep $( k )$ (detaching all gradients from $k + 1$ to T during training). We set the timestep to 6. (b) Accuracy over increasing timestep for both vanilla LIF and our proposed CLIF. "
+        ],
+        "image_footnote": [],
+        "bbox": [
+            513,
+            595,
+            867,
+            728
+        ],
+        "page_idx": 3
+    },
+    {
+        "type": "text",
+        "text": "Theoretical Analysis: Figure.2 reveals LIF’s limitation of exploiting temporal information over a long period. This phenomenon is further investigated analytically. We separate the gradients into spatial $\\mathcal { P } ^ { l } [ t ]$ component and temporal component $\\sum T ^ { l } [ t ]$ , as shown in ",
+        "bbox": [
+            500,
+            845,
+            885,
+            905
+        ],
+        "page_idx": 3
+    },
+    {
+        "type": "text",
+        "text": "",
+        "bbox": [
+            88,
+            83,
+            305,
+            101
+        ],
+        "page_idx": 4
+    },
+    {
+        "type": "equation",
+        "img_path": "images/9efcf7ded042ad92c9d7c0d21a7e7be506ba2ddcb66309b8d0f6f2f61960762f.jpg",
+        "text": "$$\n\\frac { \\partial \\mathcal { L } } { \\partial \\mathbf { \\boldsymbol { u } } ^ { l } [ t ] } = \\mathcal { P } ^ { l } [ t ] + \\sum _ { t ^ { \\prime } = t + 1 } ^ { T } \\mathcal { T } ^ { l } [ t , t ^ { \\prime } ] ,\n$$",
+        "text_format": "latex",
+        "bbox": [
+            169,
+            104,
+            390,
+            148
+        ],
+        "page_idx": 4
+    },
+    {
+        "type": "text",
+        "text": "where $\\mathcal { P } ^ { l } [ t ]$ and $\\mathcal { T } ^ { l } [ t , t ^ { \\prime } ]$ can be further expanded as: ",
+        "bbox": [
+            88,
+            155,
+            431,
+            170
+        ],
+        "page_idx": 4
+    },
+    {
+        "type": "equation",
+        "img_path": "images/22d90155d0b7673d7488568a2e24c36c2d6edd674e12989965cd239d282d3cda.jpg",
+        "text": "$$\n\\mathcal { P } ^ { l } [ t ] = \\frac { \\partial \\mathcal { L } } { \\partial \\pmb { s } ^ { l } [ t ] } \\frac { \\partial \\pmb { s } ^ { l } [ t ] } { \\partial \\pmb { u } ^ { l } [ t ] } ,\n$$",
+        "text_format": "latex",
+        "bbox": [
+            205,
+            175,
+            354,
+            210
+        ],
+        "page_idx": 4
+    },
+    {
+        "type": "equation",
+        "img_path": "images/6f9e29104d0c370629be2317cdf9b2c993c045e098651bc4e32cfa3eb9e004b9.jpg",
+        "text": "$$\n\\mathcal { T } ^ { l } [ t , t ^ { \\prime } ] = \\frac { \\partial \\mathcal { L } } { \\partial s ^ { l } [ t ^ { \\prime } ] } \\frac { \\partial s ^ { l } [ t ^ { \\prime } ] } { \\partial { \\pmb u } ^ { l } [ t ^ { \\prime } ] } \\prod _ { t ^ { \\prime \\prime } = 1 } ^ { t ^ { \\prime } - t } \\epsilon ^ { l } [ t ^ { \\prime } - t ^ { \\prime \\prime } ] ,\n$$",
+        "text_format": "latex",
+        "bbox": [
+            142,
+            212,
+            418,
+            256
+        ],
+        "page_idx": 4
+    },
+    {
+        "type": "text",
+        "text": "where the $t ^ { \\prime } \\in [ t { + } 1 , T ]$ . By substituting Eq.(9) into Eq.(12), we obtain: ",
+        "bbox": [
+            88,
+            260,
+            473,
+            290
+        ],
+        "page_idx": 4
+    },
+    {
+        "type": "equation",
+        "img_path": "images/193a85a32d718333bdc394feb1f40c7ea047960f1e15bb9ac164d6a42a2f346e.jpg",
+        "text": "$$\n\\frac { \\partial \\mathcal { L } } { \\partial s ^ { l } [ t ^ { \\prime } ] } \\frac { \\partial s ^ { l } [ t ^ { \\prime } ] } { \\partial { \\pmb u } ^ { l } [ t ^ { \\prime } ] } \\underbrace { \\gamma ^ { ( t ^ { \\prime } - t ) } } _ { \\mathrm { P a r t I } } \\prod _ { t ^ { \\prime \\prime } = 1 } ^ { t ^ { \\prime } - t } \\underbrace { \\left( 1 - V _ { \\mathrm { t h } } \\mathbb { H } \\left( { \\pmb u } ^ { l } [ t ^ { \\prime } - t ^ { \\prime \\prime } ] \\right) \\right) } _ { \\mathrm { P a r t I I } } .\n$$",
+        "text_format": "latex",
+        "bbox": [
+            102,
+            292,
+            457,
+            343
+        ],
+        "page_idx": 4
+    },
+    {
+        "type": "text",
+        "text": "The temporal gradient error is a production of two parts. For Part I, When the difference between $t ^ { \\prime }$ and $t$ is substantial, Part I gets very close to zero. The $\\gamma$ is defined as $1 { - } \\frac { 1 } { \\tau }$ , $t$ denotes the time constant $\\in \\ [ 1 , + \\mathrm { i n f } )$ . Typically, $\\gamma$ is between 0.09 and 0.5. For example, in (Meng et al., 2023; Deng et al., 2021; Xiao et al., 2022) they set $\\tau = 1 . 1$ , 1.3, 1.5, 2.0. For large $t ^ { \\prime } - t$ , $\\gamma ^ { ( t ^ { \\prime } - t ) }$ could barely contribute to the $\\epsilon$ . This could explain our observation in Figure.2(a). ",
+        "bbox": [
+            88,
+            362,
+            475,
+            483
+        ],
+        "page_idx": 4
+    },
+    {
+        "type": "text",
+        "text": "Part II can be expressed as: ",
+        "bbox": [
+            89,
+            491,
+            274,
+            505
+        ],
+        "page_idx": 4
+    },
+    {
+        "type": "equation",
+        "img_path": "images/b6ae6abe05685d4e204912ed53d31c7a5fa3b50aa532d9f09a4ce2392b8e1974.jpg",
+        "text": "$$\n\\begin{array} { r } { 1 - V _ { \\mathrm { t h } } \\mathbb { H } \\left( \\pmb { u } ^ { l } [ t ] \\right) = \\left\\{ \\begin{array} { l l } { 0 } & { \\mathrm { ~ i f ~ } \\frac { 1 } { 2 } V _ { \\mathrm { t h } } < \\pmb { u } ^ { l } [ t ] < \\frac { 3 } { 2 } V _ { \\mathrm { t h } } } \\\\ { 1 } & { \\mathrm { ~ o t h e r w i s e } } \\end{array} \\right. . } \\end{array}\n$$",
+        "text_format": "latex",
+        "bbox": [
+            96,
+            510,
+            439,
+            553
+        ],
+        "page_idx": 4
+    },
+    {
+        "type": "text",
+        "text": "More in-depth discussions and proofs of this equation are available in the Appendix.D. From Eq.(14), it can be seen part II has binary values of 0 or 1. More specifically, as long as the neuron fires at least once within the temporal range of $( t + 1 , T )$ , part $\\mathrm { I I } = 0$ and the corresponding temporal gradient error will vanish and cannot contribute to the backpropagation training process. This is an unavoidable issue in vanilla-LIF models. ",
+        "bbox": [
+            88,
+            563,
+            473,
+            684
+        ],
+        "page_idx": 4
+    },
+    {
+        "type": "text",
+        "text": "The vanishing of part II is also demonstrated experimentally. For example, in the special case with timestep $T = 2$ , part I equal to $\\gamma$ we could examine the influence of part II and the experiment results are given in Section.5.1. ",
+        "bbox": [
+            88,
+            691,
+            475,
+            752
+        ],
+        "page_idx": 4
+    },
+    {
+        "type": "text",
+        "text": "To summarize, Eq.(12) demonstrates the temporal gradient vanishing due to the vanishing $\\epsilon$ in two folds: the multiplication of gamma at large $t ^ { \\prime } - t$ and the neuron spike between $t ^ { \\prime }$ and $t$ . We define this as the temporal gradient vanishing problem persists with the vanilla-LIF model. ",
+        "bbox": [
+            88,
+            760,
+            473,
+            835
+        ],
+        "page_idx": 4
+    },
+    {
+        "type": "text",
+        "text": "4.2. The Design of Complementary LIF Model ",
+        "text_level": 1,
+        "bbox": [
+            88,
+            852,
+            413,
+            867
+        ],
+        "page_idx": 4
+    },
+    {
+        "type": "text",
+        "text": "To address the temporal gradient errors vanishing problem, we design the Complementary LIF (CLIF) model inspired by biological principles (See detailed in Appendix.E). Besides membrane potential, we introduce another state, termed ”Complementary potential”. To maintain the efficiency advantage of SNN as well as the broad applicability of our neuron model, our model contains no learnable parameters. ",
+        "bbox": [
+            88,
+            876,
+            473,
+            905
+        ],
+        "page_idx": 4
+    },
+    {
+        "type": "text",
+        "text": "",
+        "bbox": [
+            500,
+            84,
+            885,
+            174
+        ],
+        "page_idx": 4
+    },
+    {
+        "type": "text",
+        "text": "Decay of Complementary membrane potential: Between each timestep, the membrane potential is decayed by $\\scriptstyle { \\frac { 1 } { \\tau } } u ^ { l } [ t ]$ We design our Complementary potential to compensate for the membrane potential decay as follows: ",
+        "bbox": [
+            500,
+            183,
+            885,
+            242
+        ],
+        "page_idx": 4
+    },
+    {
+        "type": "equation",
+        "img_path": "images/5348bb52f619faaab2ea532722ae81a2dec1b45c33cc76cc787fa46d94551e7c.jpg",
+        "text": "$$\nm ^ { l } [ t ] = m ^ { l } [ t - 1 ] \\odot \\sigma \\left( \\frac { 1 } { \\tau } { \\boldsymbol u } ^ { l } [ t ] \\right) .\n$$",
+        "text_format": "latex",
+        "bbox": [
+            575,
+            253,
+            810,
+            289
+        ],
+        "page_idx": 4
+    },
+    {
+        "type": "text",
+        "text": "We choose the Sigmoid function as $\\sigma$ , As $\\sigma \\in ( 0 , 1 )$ and the Complementary potential also decays. Nevertheless, the more the membrane potential decays, the less the Complementary potential decays. This design aims to preserve the decayed portion of the membrane potential into Complementary membrane potential. ",
+        "bbox": [
+            500,
+            306,
+            885,
+            397
+        ],
+        "page_idx": 4
+    },
+    {
+        "type": "text",
+        "text": "Increase of Complementary membrane potential: Within each timestep, the Complementary membrane potential is increased by firing ",
+        "bbox": [
+            500,
+            405,
+            885,
+            450
+        ],
+        "page_idx": 4
+    },
+    {
+        "type": "equation",
+        "img_path": "images/6a066b6132bbee698ba2050644ffa3eac14bcd70181f1bd6cde625a58ddd9261.jpg",
+        "text": "$$\n\\begin{array} { r } { \\pmb { m } ^ { l } [ t ] = \\pmb { m } ^ { l } [ t ] + s ^ { l } [ t ] . } \\end{array}\n$$",
+        "text_format": "latex",
+        "bbox": [
+            616,
+            460,
+            769,
+            479
+        ],
+        "page_idx": 4
+    },
+    {
+        "type": "text",
+        "text": "If the neuron has fired recently, the membrane potential $m ^ { l } [ t ]$ gets larger. ",
+        "bbox": [
+            500,
+            498,
+            885,
+            529
+        ],
+        "page_idx": 4
+    },
+    {
+        "type": "text",
+        "text": "Redesign Reset process: We revisit the Vanilla LIF model as defined by equation Eq.(1)-(3), focusing particularly on LIF’s reset process: ",
+        "bbox": [
+            500,
+            536,
+            885,
+            582
+        ],
+        "page_idx": 4
+    },
+    {
+        "type": "equation",
+        "img_path": "images/ab484147eb9e0a1bb2637f4b4e76cc67b2cb9762ea239b1c5677d34a5da57896.jpg",
+        "text": "$$\n\\begin{array} { r } { \\pmb { u } ^ { l } [ t ] = \\pmb { u } ^ { l } [ t ] - \\pmb { s } ^ { l } [ t ] \\odot V _ { \\mathrm { t h } } . } \\end{array}\n$$",
+        "text_format": "latex",
+        "bbox": [
+            599,
+            592,
+            784,
+            611
+        ],
+        "page_idx": 4
+    },
+    {
+        "type": "text",
+        "text": "The redesigned reset process is given in Eq.(18). Compared to the soft reset in Eq.(17), each time the neuron fires, the membrane potential is subtracted by another term $\\sigma ( m ^ { l } [ t ] )$ related to the Complementary potential: ",
+        "bbox": [
+            500,
+            630,
+            885,
+            690
+        ],
+        "page_idx": 4
+    },
+    {
+        "type": "equation",
+        "img_path": "images/f4d92d2067a5b2a8be9693923d2893fee173d0498e40538b80a56772b32f83b7.jpg",
+        "text": "$$\n\\begin{array} { r } { \\pmb { u } ^ { l } [ t ] = \\pmb { u } ^ { l } [ t ] - \\pmb { s } ^ { l } [ t ] \\odot \\left( V _ { \\mathrm { t h } } + \\sigma ( \\pmb { m } ^ { l } [ t ] ) \\right) . } \\end{array}\n$$",
+        "text_format": "latex",
+        "bbox": [
+            552,
+            700,
+            833,
+            720
+        ],
+        "page_idx": 4
+    },
+    {
+        "type": "text",
+        "text": "If the neuron fires recently, the membrane potential $m ^ { l } [ t ]$ gets larger, and the membrane potential ${ \\pmb u } ^ { l } [ t ]$ will be subtracted more, suppressing the neuron’s firing rate. This mechanism achieves spike frequency adaptation, similar to the hyper-polarization process in real biological neurons (McCORMICK & Pape, 1990; Sanchez-Vives & McCormick, 2000). However, unlike classic spike frequency adaptation mechanisms, the adaptation of CLIF depends not only on recently firing activity but also on the recent membrane potential. This means that CLIF can capture more temporal information. ",
+        "bbox": [
+            501,
+            738,
+            885,
+            905
+        ],
+        "page_idx": 4
+    },
+    {
+        "type": "table",
+        "img_path": "images/a2ee5ee816d2110161f27aa24fe53e6c5aafa259d3003ebcb949f73bdf9ef035.jpg",
+        "table_caption": [
+            "Algorithm 1 Core function for CLIF model "
+        ],
+        "table_footnote": [],
+        "table_body": "<table><tr><td>Input: Input c, Current Time Step t, time constant T,</td></tr><tr><td>threshold Vth Output: Spike s if t = 0 then</td></tr><tr><td>Initial upre and mpre with all zero end if</td></tr><tr><td>u = (1 − 1 )upre + c leaky &amp; integrate s = Θ(u − Vth) fire</td></tr><tr><td>m = mpre  σ (1u) + s</td></tr><tr><td>upre = u − s  (Vth + σ(m)) reset</td></tr><tr><td>mpre = m Return s spike output</td></tr></table>",
+        "bbox": [
+            88,
+            92,
+            475,
+            287
+        ],
+        "page_idx": 5
+    },
+    {
+        "type": "text",
+        "text": "Summarizing the above principles, the CLIF model can be derived as following: ",
+        "bbox": [
+            86,
+            329,
+            472,
+            359
+        ],
+        "page_idx": 5
+    },
+    {
+        "type": "equation",
+        "img_path": "images/03ec9d32b45f8571a99538740742a2ef177463b3077601e2a53b81a5403155e6.jpg",
+        "text": "$$\n\\left\\{ \\begin{array} { l l } { \\displaystyle u ^ { l } [ t ] = ( 1 - \\frac { 1 } { \\tau } ) u ^ { l } [ t - 1 ] + c ^ { l } [ t ] , } \\\\ { \\displaystyle s ^ { l } [ t ] = \\Theta ( \\pmb { u } ^ { l } [ t ] - V _ { \\mathrm { t h } } ) , } \\\\ { \\displaystyle m ^ { l } [ t ] = m ^ { l } [ t - 1 ] \\odot \\sigma \\left( \\frac { 1 } { \\tau } \\pmb { u } ^ { l } [ t ] \\right) + s ^ { l } [ t ] , } \\\\ { \\displaystyle u ^ { l } [ t ] = \\pmb { u } ^ { l } [ t ] - s ^ { l } [ t ] \\odot \\left( V _ { \\mathrm { t h } } + \\sigma ( m ^ { l } [ t ] ) \\right) . } \\end{array} \\right.\n$$",
+        "text_format": "latex",
+        "bbox": [
+            116,
+            386,
+            415,
+            494
+        ],
+        "page_idx": 5
+    },
+    {
+        "type": "text",
+        "text": "The pseudo-code for the CLIF model is shown in Algorithm.1. The simplicity of CLIF is reflected in the fact that we only add two lines of code to LIF neuron model. ",
+        "bbox": [
+            88,
+            517,
+            473,
+            564
+        ],
+        "page_idx": 5
+    },
+    {
+        "type": "text",
+        "text": "4.3. Dynamic and Theoretical Analysis ",
+        "text_level": 1,
+        "bbox": [
+            89,
+            580,
+            359,
+            595
+        ],
+        "page_idx": 5
+    },
+    {
+        "type": "text",
+        "text": "To validate the effectiveness of the CLIF model, we examine the CLIF model through both case studies and theoretical analysis. ",
+        "bbox": [
+            88,
+            603,
+            473,
+            648
+        ],
+        "page_idx": 5
+    },
+    {
+        "type": "text",
+        "text": "In the case study, we explore the dynamic properties of both LIF and CLIF models. CLIF features spike frequency adaptation and exhibits a lower firing rate compared to the LIF neuron. This phenomenon is similar to the refractory period or hyperpolarization in the biological neuron (SanchezVives & McCormick, 2000). More specifically, when the input spikes get dense, the complementary potential gets high, the reset process gets more substantial, as shown in Eq.(18). The more detailed dynamic analysis are illustrated in the Appendix.F. ",
+        "bbox": [
+            88,
+            656,
+            473,
+            808
+        ],
+        "page_idx": 5
+    },
+    {
+        "type": "text",
+        "text": "In the theoretical Analysis, we separate the gradient error into spatial and temporal components in Eq.(20). The details of this derivation are given in Appendix.G). This separation demonstrates that CLIF not only contains all temporal gradients in LIF but also contains extra temporal gradient terms. We believe these additional temporal terms contribute to the improved performance of CLIF. ",
+        "bbox": [
+            88,
+            814,
+            473,
+            905
+        ],
+        "page_idx": 5
+    },
+    {
+        "type": "text",
+        "text": "",
+        "bbox": [
+            500,
+            84,
+            710,
+            99
+        ],
+        "page_idx": 5
+    },
+    {
+        "type": "equation",
+        "img_path": "images/fbad0e098dc49fd4588aa500e94561fc216c609c244283ef7d62fb2d0f4bad63.jpg",
+        "text": "$$\n\\begin{array} { r l r } {  { \\frac { \\partial \\mathcal { L } } { \\partial \\boldsymbol { u } ^ { l } [ t ] } = \\mathcal { P } _ { \\mathrm { M } } ^ { l } [ t ] + \\sum _ { t ^ { \\prime } = t + 1 } ^ { T } \\mathcal { T } _ { \\mathrm { M 1 } } ^ { l } [ t , t ^ { \\prime } ] } } \\\\ & { } & { + ( \\sum _ { t ^ { \\prime } = t + 1 } ^ { T } \\mathcal { T } _ { \\mathrm { M 2 } } ^ { l } [ t , t ^ { \\prime } ] ) \\boldsymbol { \\psi } ^ { l } [ t ] , } \\end{array}\n$$",
+        "text_format": "latex",
+        "bbox": [
+            532,
+            111,
+            826,
+            203
+        ],
+        "page_idx": 5
+    },
+    {
+        "type": "text",
+        "text": "where $\\mathcal { P } _ { \\mathrm { M } } ^ { l } [ t ]$ and $\\mathcal { T } _ { \\mathrm { M } } ^ { l } [ t ]$ presents the Spatial and Temporal parts of CLIF’s Gradient Errors in respectively. Meanwhile, the M1 and M2 indicate that the Temporal term is divided into two parts. ",
+        "bbox": [
+            500,
+            213,
+            885,
+            275
+        ],
+        "page_idx": 5
+    },
+    {
+        "type": "text",
+        "text": "Firstly, the spatial term of CLIF’s gradient errors $\\mathcal { P } _ { \\mathrm { M } } ^ { l } [ t ]$ in Eq.(20) is identical to the counterpart in LIF neuron in Eq.(11). The detailed derivation and proof are given in Appendix.G. ",
+        "bbox": [
+            500,
+            281,
+            885,
+            343
+        ],
+        "page_idx": 5
+    },
+    {
+        "type": "text",
+        "text": "Secondly, for the temporal term of CLIF’s gradient errors, the first temporal part $\\mathcal { T } _ { \\mathrm { M 1 } } ^ { l } [ t , t ^ { \\prime } ]$ expands as: ",
+        "bbox": [
+            500,
+            349,
+            885,
+            381
+        ],
+        "page_idx": 5
+    },
+    {
+        "type": "equation",
+        "img_path": "images/44c46973931b95b0687cad8aa5acb36fefc88c43f77b190f0c19e91467b4ac31.jpg",
+        "text": "$$\n\\mathcal { T } _ { \\mathrm { M 1 } } ^ { l } = \\bigg ( \\frac { \\partial \\mathcal { L } } { \\partial s ^ { l } [ t ^ { \\prime } ] } \\frac { \\partial s ^ { l } [ t ^ { \\prime } ] } { \\partial { \\pmb { u } } ^ { l } [ t ^ { \\prime } ] } + \\frac { \\partial \\mathcal { L } } { \\partial m ^ { l } [ t ^ { \\prime } ] } \\psi ^ { l } [ t ^ { \\prime } ] \\bigg ) \\prod _ { t ^ { \\prime \\prime } = 1 } ^ { t ^ { \\prime } - t } \\xi ^ { l } [ t ^ { \\prime } - t ^ { \\prime \\prime } ] ,\n$$",
+        "text_format": "latex",
+        "bbox": [
+            498,
+            392,
+            888,
+            438
+        ],
+        "page_idx": 5
+    },
+    {
+        "type": "text",
+        "text": "where the $\\pmb { \\xi } ^ { l } [ t ]$ is defined as: ",
+        "bbox": [
+            500,
+            449,
+            686,
+            465
+        ],
+        "page_idx": 5
+    },
+    {
+        "type": "equation",
+        "img_path": "images/1312608e33d14879430e210554cd89b4cd0100c89837b8af5839cfe6f2751143.jpg",
+        "text": "$$\n\\pmb { \\xi } ^ { l } [ t ] = \\mathbf { \\epsilon } ^ { l } [ t ] + \\frac { \\partial \\pmb { u } ^ { l } [ t + 1 ] } { \\partial \\pmb { m } ^ { l } [ t ] } \\pmb { \\psi } ^ { l } [ t ] ,\n$$",
+        "text_format": "latex",
+        "bbox": [
+            578,
+            476,
+            787,
+            512
+        ],
+        "page_idx": 5
+    },
+    {
+        "type": "text",
+        "text": "this term can be simplified to a product involving the constant term $\\gamma$ , the same as Eq.(13). The issue discussed in Part I of Section.4.1, regarding the vanishing of temporal gradients, also applies here. Where $\\psi ^ { l } [ t ]$ is non-negative (see Appendix.G). $\\psi ^ { l } [ t ]$ is defined as: ",
+        "bbox": [
+            500,
+            522,
+            885,
+            598
+        ],
+        "page_idx": 5
+    },
+    {
+        "type": "equation",
+        "img_path": "images/2acc4b46ad763f7c94378c47db452d02ce34f283b0e19bc037af498e9331a141.jpg",
+        "text": "$$\n{ \\boldsymbol { \\psi } } ^ { l } [ t ] \\equiv { \\frac { \\partial { \\boldsymbol { m } } ^ { l } [ t ] } { \\partial { \\boldsymbol { u } } ^ { l } [ t ] } } + { \\frac { \\partial { \\boldsymbol { m } } ^ { l } [ t ] } { \\partial { \\boldsymbol { s } } ^ { l } [ t ] } } { \\frac { \\partial { \\boldsymbol { s } } ^ { l } [ t ] } { \\partial { \\boldsymbol { u } } ^ { l } [ t ] } } .\n$$",
+        "text_format": "latex",
+        "bbox": [
+            578,
+            609,
+            807,
+            646
+        ],
+        "page_idx": 5
+    },
+    {
+        "type": "text",
+        "text": "Finally, for the other temporal item of CLIF’s gradient errors, $\\mathcal { T } _ { \\mathrm { M 2 } } ^ { l } [ t , t ^ { \\prime } ]$ , can be expressed as: ",
+        "bbox": [
+            500,
+            664,
+            887,
+            694
+        ],
+        "page_idx": 5
+    },
+    {
+        "type": "equation",
+        "img_path": "images/08f37490948ad9be766aad5202f0a844279c7c03b9dd0b344dc22d4d8ed91d18.jpg",
+        "text": "$$\n\\mathcal { T } _ { \\mathrm { M 2 } } ^ { l } [ t , t ^ { \\prime } ] = \\frac { \\partial \\mathcal { L } } { \\partial \\pmb { u } ^ { l } [ t ^ { \\prime } ] } \\frac { \\partial \\pmb { u } ^ { l } [ t ^ { \\prime } ] } { \\partial \\pmb { m } ^ { l } [ t ^ { \\prime } - 1 ] } \\prod _ { t ^ { \\prime \\prime } = 2 } ^ { t ^ { \\prime } - t } \\pmb { \\rho } ^ { l } [ t ^ { \\prime } - t ^ { \\prime \\prime } ] .\n$$",
+        "text_format": "latex",
+        "bbox": [
+            509,
+            707,
+            833,
+            751
+        ],
+        "page_idx": 5
+    },
+    {
+        "type": "text",
+        "text": "This term indicates that additional Temporal Gradient Errors components are generated. We believe this additional part contributes to the performance improvements. As $\\mathcal { T } _ { \\mathrm { M 2 } } ^ { l }$ does not decay as fast as $\\Pi \\xi$ over timestep, this phenomenon could be observed in dynamic analysis in the Appendix.F. Therefore, this item of gradient errors contributes to compensate for the vanishing of temporal gradients in LIF, leading to a further reduction in the loss. This assertion is also verifiable in Figure.3(a) in the Experiment. ",
+        "bbox": [
+            500,
+            768,
+            885,
+            905
+        ],
+        "page_idx": 5
+    },
+    {
+        "type": "table",
+        "img_path": "images/4220921f10de97d60bfe8a20d99897591b2d90748103af4543fd6178b93777c4.jpg",
+        "table_caption": [
+            "Table 1. Comparing the state-of-the-art methods on static image datasets. The asterisk $( * )$ indicates the utilization of data augmentation strategies, including auto-augmentation and/or CutMix, our implementation directly following (Fang et al., 2024). The implemented ReLU-based ANN shares identical structures and hyper-parameters with SNN. "
+        ],
+        "table_footnote": [],
+        "table_body": "<table><tr><td>Dataset</td><td>Method</td><td>Spiking Network</td><td>Neuron Model</td><td>Timestep</td><td>Accuracy(%)</td></tr><tr><td rowspan=\"10\">CA-RAO</td><td>ANN/ANN*</td><td>ResNet-18</td><td>ReLU</td><td>1</td><td>95.62 / 96.65</td></tr><tr><td>Dspike (Li et al., 2021b) NIPS PLIF (Fang et al., 2021)</td><td>Modified ResNet-18</td><td>LIF</td><td>6</td><td>93.50</td></tr><tr><td>DSR (Meng et al., 2022)CVPR</td><td>PLIF Net</td><td>PLIF</td><td>6</td><td>94.25</td></tr><tr><td></td><td>RreAct-ResNet-18</td><td>LIF</td><td>20</td><td>95.40</td></tr><tr><td>GLIF (Yao et al., 2022)NIPS</td><td>ResNet-18</td><td>GLIF</td><td>6</td><td>94.88</td></tr><tr><td>KLIF (Jiang &amp; Zhang, 2023) ArXiv</td><td>Modified PLIF Net</td><td>KLIF</td><td>10</td><td>92.52</td></tr><tr><td>PSN* (a t l. 2</td><td>Modified PLIF Net</td><td>PSN</td><td>4</td><td>95.32</td></tr><tr><td>SML (Deng et al., 2023)ICL</td><td>ResNet-18</td><td>LIF</td><td>6</td><td>95.12</td></tr><tr><td>ASGL* (Wang et al., 202) CL</td><td>ResNet-18</td><td>LIF</td><td>4</td><td>95.35</td></tr><tr><td>Ours / Ours*</td><td>ResNet-18</td><td>CLIF</td><td>4</td><td>94.89 / 96.01</td></tr><tr><td rowspan=\"8\">CTA-RAD</td><td></td><td></td><td></td><td>6 8</td><td>95.41 / 96.45 95.68 / 96.69</td></tr><tr><td>ANN /ANN</td><td>ResNet-18</td><td>ReLU</td><td>1</td><td>78.14 / 80.89</td></tr><tr><td>Dspike (Li et al., 2021b)&#x27;NIPS</td><td>Modified ResNet-18</td><td>LIF</td><td>6</td><td>74.24</td></tr><tr><td>DSR (Meng et al., 2022)CVPR</td><td>RreAct-ResNet-18</td><td>LIF</td><td>20</td><td>78.50</td></tr><tr><td>GLIF (Yao et al., 2022)NIPS</td><td>ResNet-18</td><td>GLIF</td><td>6</td><td>77.28</td></tr><tr><td>SML (Deng et al., 2023)CML</td><td>ResNet-18</td><td>LIF</td><td>6</td><td>78.00</td></tr><tr><td>ASGL* (Wang et al., 2023) C</td><td>ResNet-18</td><td>LIF</td><td>4</td><td>77.74</td></tr><tr><td>Ours / Ours*</td><td></td><td></td><td>4</td><td>77.00 / 79.69</td></tr><tr><td rowspan=\"5\"></td><td></td><td>ResNet-18</td><td>CLIF</td><td>6</td><td>78.36 / 80.58</td></tr><tr><td>ANN</td><td>VGG-13</td><td>ReLU</td><td>8</td><td>78.99 / 80.89</td></tr><tr><td>Online LTL (Yang et al., 2022) NIPS</td><td>VGG-13</td><td>LIF</td><td>1 6</td><td>59.77 55.37</td></tr><tr><td>Joint A-SNN (Guo et al., 2023)Patern Recognit</td><td>VGG-16</td><td>LIF</td><td>4</td><td>55.39</td></tr><tr><td>ASGL (Wang et al., 2023) )C</td><td>VGG-13</td><td>LIF</td><td>8</td><td>56.81</td></tr><tr><td>Ti-n</td><td>Ours</td><td>VGG-13</td><td>CLIF</td><td>4 6</td><td>63.16 64.13</td></tr></table>",
+        "bbox": [
+            98,
+            140,
+            875,
+            593
+        ],
+        "page_idx": 6
+    },
+    {
+        "type": "text",
+        "text": "5. Experiment ",
+        "text_level": 1,
+        "bbox": [
+            88,
+            622,
+            209,
+            640
+        ],
+        "page_idx": 6
+    },
+    {
+        "type": "text",
+        "text": "To validate the effectiveness of the proposed CLIF neuron, we conduct a set of ablation studies. These studies are designed to evaluate the underlying principles of the CLIF model, to examine the effect of various timestep, and to conduct comparative analyses between the CLIF model and other neuron models. Following the ablation study, we extend our experiments to cover a diverse range of data types, including static image datasets and neuromorphic eventbased datasets. Details on the experimental implementation are provided in the Appendix.I. ",
+        "bbox": [
+            89,
+            648,
+            473,
+            799
+        ],
+        "page_idx": 6
+    },
+    {
+        "type": "text",
+        "text": "5.1. Ablation and Analysis ",
+        "text_level": 1,
+        "bbox": [
+            89,
+            816,
+            272,
+            830
+        ],
+        "page_idx": 6
+    },
+    {
+        "type": "text",
+        "text": "We conduct two experiments to compare LIF and CLIF: the loss of CLIF versus LIF via training epochs, and the accuracy of CLIF versus LIF via timestep. For a fair comparison, except for the control variable, the same optimizer setting, random seed, architecture, loss function, weight initialization and all hyperparameters are employed. ",
+        "bbox": [
+            88,
+            840,
+            473,
+            900
+        ],
+        "page_idx": 6
+    },
+    {
+        "type": "text",
+        "text": "",
+        "bbox": [
+            500,
+            625,
+            885,
+            654
+        ],
+        "page_idx": 6
+    },
+    {
+        "type": "text",
+        "text": "Exchange of Neuron Models In the first ablation study, we use the Spiking Resnet18 with 6 timestep by BPTT training. The training of the network begins with LIF neuron and later transitions to CLIF neurons at a designated epoch. As shown in Figure.3(a), a few epochs after Exchange to CLIF, the loss decreases significantly compared to LIF. Moreover, the decay of loss over training epochs is much faster when training with CLIF than LIF. ",
+        "bbox": [
+            501,
+            661,
+            885,
+            781
+        ],
+        "page_idx": 6
+    },
+    {
+        "type": "text",
+        "text": "We extend the loss comparison to various tasks and network backbones (see Appendix.H). In all experiments, CLIF neuron’s loss converges faster than LIF’s, the converged loss is also lower. As such, one can conclude that CLIF neurons are more effective in capturing error information both precisely and efficiently, suggesting the higher training accuracy and efficiency of CLIF. ",
+        "bbox": [
+            501,
+            790,
+            885,
+            895
+        ],
+        "page_idx": 6
+    },
+    {
+        "type": "table",
+        "img_path": "images/8bc865dcd67d46d4ecd0ccbf18f9d16746c2ef7910de8e453113085a3eede00f.jpg",
+        "table_caption": [
+            "Table 2. Comparing the SOTA neuronal models by using neuromorphic datasets. The footnote in the table indicates implementation directly in open source code by only modifying neurons: 1(Yao et al., 2024), 2(Fang et al., 2024) with data augmentation. ’T’ denotes the number of the timestep employed. "
+        ],
+        "table_footnote": [],
+        "table_body": "<table><tr><td>Dataset</td><td>Method</td><td>Spiking Network</td><td>Neuron Model</td><td>T</td><td>Accuracy(%)</td></tr><tr><td rowspan=\"5\">DVS-Gesture</td><td>PLIF (Fang et al., 2021b)&#x27;ccv</td><td>PLIF Net</td><td>PLIF</td><td>20</td><td>97.57</td></tr><tr><td>KLIF (Jiang &amp; Zhang, 2023) ArXiv</td><td>Modified PLIF Net</td><td>KLIF</td><td>12</td><td>94.10</td></tr><tr><td rowspan=\"3\">Ours</td><td rowspan=\"2\">Spiking-Vgg11</td><td>LIF</td><td rowspan=\"2\">20</td><td>97.57</td></tr><tr><td>CLIF</td><td></td><td>97.92</td></tr><tr><td rowspan=\"2\">Spike-Driven-Transformer1</td><td>LIF CLIF</td><td rowspan=\"2\">16</td><td>98.26 99.31</td></tr><tr><td rowspan=\"6\"></td><td>PLIF (Fang et al., 2021b) </td><td>PLIF Net</td><td>PIF</td><td>20</td></tr><tr><td>KLIF (Jiang &amp; Zhang, 2023) ArXiv</td><td>Modified PLIF Net</td><td>KLIF</td><td>15</td><td>74.80 70.90</td></tr><tr><td>GLIF (Yao et al., 2022) NIP</td><td>7B-wideNet</td><td>GLIF</td><td>16</td><td>78.10</td></tr><tr><td>PSN (Fang et al., 2024)NIPS</td><td>VGGSNN</td><td>PSN</td><td>10</td><td>85.90</td></tr><tr><td></td><td>Spiking-Vgg11</td><td>LIF</td><td>16</td><td>78.05</td></tr><tr><td>Ours</td><td>VGGSNN2</td><td>CLIF LIF CLIF</td><td>10</td><td>79.00 84.90</td></tr></table>",
+        "bbox": [
+            96,
+            140,
+            877,
+            383
+        ],
+        "page_idx": 7
+    },
+    {
+        "type": "image",
+        "img_path": "images/62245f665aaf9a946ab5f6936e4e4b8f877e43fd3090dda40de6e6d77366ce73.jpg",
+        "image_caption": [
+            "Figure 3. (a) Loss function vs epochs. Each color presents a case of either LIF, CLIF, or exchanging from LIF to CLIF at a given epoch during training. (b) Comparison of the accuracy of LIF and CLIF at various timestep. Both experiments are evaluated on the CIFAR10 task with Spiking ResNet-18. "
+        ],
+        "image_footnote": [],
+        "bbox": [
+            102,
+            420,
+            455,
+            550
+        ],
+        "page_idx": 7
+    },
+    {
+        "type": "text",
+        "text": "Temporal Ablation To demonstrate CLIF’s efficacy in capturing temporal gradient errors over longer period, we verify the performance comparison between CLIF and LIF with various timestep. The ablation study is conducted in CIFAR10 task with Resnet-18 as the backbone network. The results are illustrated in Figure.3(b). When the timestep is 1, CLIF and LIF cannot make any temporal gradient over membrane potential and yield identical accuracy of $9 2 . 7 \\%$ (not shown in the figure). At higher timestep, CLIF always outperforms LIF neuron in accuracy. Specifically, at the timestep of 2 the vanilla LIF model encounters the problem of temporal gradient vanishing, as detailed in Part II of the theoretical analysis (Section 4.1). Remarkably, even with just two timestep, the performance of CLIF is already significantly better than LIF, this also verifies that CLIF can better capture the temporal gradient error information. ",
+        "bbox": [
+            88,
+            664,
+            473,
+            905
+        ],
+        "page_idx": 7
+    },
+    {
+        "type": "image",
+        "img_path": "images/345cb5f2b9cb0cd677d3092eadf86a9e1f7e16989d001efc685aa88240ff3edf.jpg",
+        "image_caption": [
+            "Figure 4. Comparative accuracy of Spiking ResNet-18. Panels (a) CIFAR10 using 8 timestep (b) CIFAR100 using 6 timestep with different neuron. "
+        ],
+        "image_footnote": [],
+        "bbox": [
+            514,
+            419,
+            862,
+            555
+        ],
+        "page_idx": 7
+    },
+    {
+        "type": "text",
+        "text": "5.2. Comparison and Quantitative analysis ",
+        "text_level": 1,
+        "bbox": [
+            501,
+            648,
+            797,
+            662
+        ],
+        "page_idx": 7
+    },
+    {
+        "type": "text",
+        "text": "We conduct two sets of comparison experiments to ascertain the effectiveness of CLIF: comparison with Different Neurons, and comparison with SOTA methods. ",
+        "bbox": [
+            500,
+            672,
+            885,
+            715
+        ],
+        "page_idx": 7
+    },
+    {
+        "type": "text",
+        "text": "Comparison with Different Neuron In order to verify whether CLIF is more effective than existing methods, we self-implement and compare vanilla-LIF (Wu et al., 2018), PLIF (Fang et al., 2021b), KLIF (Jiang & Zhang, 2023) and GLIF (Yao et al., 2022). Except for the neuron models, all other experimental conditions are kept identical, including the backbone architecture, random seeds and hyperparameters. CLIF exhibits superior performance over other neuron benchmarks in the CIFAR10 and CIFAR100 datasets, as shown in Figure.4(a) and (b). PLIF and GLIF include additional training parameters, so additional hyperparameters tuning and more training epochs are required to converge. ",
+        "bbox": [
+            501,
+            724,
+            885,
+            905
+        ],
+        "page_idx": 7
+    },
+    {
+        "type": "text",
+        "text": "Moreover, CLIF can achieve slightly better performance with ReLU-based ANNs. ",
+        "bbox": [
+            88,
+            85,
+            472,
+            113
+        ],
+        "page_idx": 8
+    },
+    {
+        "type": "text",
+        "text": "Comparison with SOTA methods We compare our approach with state-of-the-art methods in two categories of datasets: static dataset (CIFAR10/100 and Tiny-ImageNet), as summarized in Table.1 and neuromorphic dataset (DVSGesture and CIFAR10-DVS), as summarized in Table.2. We not only explore the diversity of datasets but also the diversity in network backbone, including ResNet, VGG and Transformer. We also compare the fire rate and energy consumption of LIF, CLIF and ReLU. In short, CLIF has lower fire rate and similar energy consumption as LIF. Detailed statistics of fire rate and power consumption are described in the Appendix.J. ",
+        "bbox": [
+            89,
+            123,
+            473,
+            303
+        ],
+        "page_idx": 8
+    },
+    {
+        "type": "text",
+        "text": "Static Image Datasets Table.1, reveals that CLIF always outperforms its LIF counterpart and surpasses all other SNNs neuron models within the same network backbone. CLIF achieves $9 6 . 6 9 \\%$ accuracy on CIFAR-10 and $8 0 . 8 9 \\%$ on CIFAR-100 datasets, not only outperforming other SNN models but also slightly outperforming ReLU-based ANNs counterpart. In Tiny-ImageNet, CLIF achieves $6 4 . 1 3 \\%$ accuracy with 6 timestep, significantly better than the other SNNs and ANN within the same network backbone. These results demonstrate CLIF’s competitiveness with existing neuron models. ",
+        "bbox": [
+            89,
+            311,
+            473,
+            476
+        ],
+        "page_idx": 8
+    },
+    {
+        "type": "text",
+        "text": "Neuromorphic Datasets To validate that our method can handle spatio-temporal error backpropagation properly, we conduct experiments on different neuromorphic datasets of DVS-Gesture (Amir et al., 2017) and DVSCIFAR10 (Li et al., 2017). The results are summarized in Table 3. For DVS Gesture, CLIF accuracy is $9 7 . 9 2 \\%$ with SpikingVGG11 as backbone and $9 9 . 3 1 \\%$ with Spike-Driven Transformer (Yao et al., 2024) as the backbone, surpassing LIF based model by $0 . 3 5 \\%$ and $1 . 0 5 \\%$ , respectively. On the DVSCIFAR10 dataset, CLIF accuracy is $7 9 . 0 0 \\%$ with Spiking-VGG11 as the backbone and $8 6 . 1 0 \\%$ with VGGSNN as the backbone, surpassing LIF based model by $0 . 9 5 \\%$ and $1 . 2 0 \\%$ , respectively. It is worth noting that CLIF features the highest accuracy of $8 6 . 1 0 \\%$ in all methods in this dataset. This is achieved by simply replacing the neuron model with CLIF in the network architecture. ",
+        "bbox": [
+            89,
+            486,
+            473,
+            726
+        ],
+        "page_idx": 8
+    },
+    {
+        "type": "text",
+        "text": "achieves comparable performance with ANNs with identical architecture and hyperparameters. Furthermore, the CLIF model is characterized by its generalizability and versatility, it can apply to various backbones, and it’s interchangeable with vanilla LIF neuron. Nevertheless, due to the mathematical complexity of the CLIF’s neuron equations, a more thorough analysis of the temporal gradient errors and the neuron’s dynamic behavior remains to be performed in the future. ",
+        "bbox": [
+            501,
+            85,
+            885,
+            219
+        ],
+        "page_idx": 8
+    },
+    {
+        "type": "text",
+        "text": "Acknowledgments ",
+        "text_level": 1,
+        "bbox": [
+            501,
+            239,
+            655,
+            257
+        ],
+        "page_idx": 8
+    },
+    {
+        "type": "text",
+        "text": "This work was supported in part by The Hong Kong University of Science and Technology (Guangzhou) Joint Funding Program under Grant 2023A03J0154 and Grant 2023A03J0013, as well as from the Young Scientists Fund of the National Natural Science Foundation of China (Grant 62305278). ",
+        "bbox": [
+            501,
+            267,
+            885,
+            356
+        ],
+        "page_idx": 8
+    },
+    {
+        "type": "text",
+        "text": "Impact Statement ",
+        "text_level": 1,
+        "bbox": [
+            501,
+            376,
+            650,
+            392
+        ],
+        "page_idx": 8
+    },
+    {
+        "type": "text",
+        "text": "This work was supported in part by the Young Scientists Fund of the National Natural Science Foundation of China (Grant 62305278), by the Guangzhou Municipal Science and Technology Project under Grant 2023A03J0013 and Grant 2024A04J4535. ",
+        "bbox": [
+            501,
+            402,
+            885,
+            477
+        ],
+        "page_idx": 8
+    },
+    {
+        "type": "text",
+        "text": "References ",
+        "text_level": 1,
+        "bbox": [
+            501,
+            497,
+            593,
+            513
+        ],
+        "page_idx": 8
+    },
+    {
+        "type": "text",
+        "text": "Amir, A., Taba, B., Berg, D., Melano, T., McKinstry, J., Di Nolfo, C., Nayak, T., Andreopoulos, A., Garreau, G., Mendoza, M., et al. A low power, fully event-based gesture recognition system. In Proceedings of the IEEE conference on computer vision and pattern recognition, pp. 7243–7252, 2017.   \nBellec, G., Scherr, F., Subramoney, A., Hajek, E., Salaj, D., Legenstein, R., and Maass, W. A solution to the learning dilemma for recurrent networks of spiking neurons. Nature communications, 11(1):3625, 2020.   \nBenda, J. and Herz, A. V. A universal model for spikefrequency adaptation. Neural computation, 15(11):2523– 2564, 2003.   \nCubuk, E. D., Zoph, B., Mane, D., Vasudevan, V., and Le, Q. V. Autoaugment: Learning augmentation strategies from data. In Proceedings of the IEEE/CVF conference on computer vision and pattern recognition, pp. 113–123, 2019.   \nDampfhoffer, M., Mesquida, T., Valentian, A., and Anghel, L. Investigating current-based and gating approaches for accurate and energy-efficient spiking recurrent neural networks. In International Conference on Artificial Neural Networks, pp. 359–370. Springer, 2022a. ",
+        "bbox": [
+            500,
+            521,
+            887,
+            906
+        ],
+        "page_idx": 8
+    },
+    {
+        "type": "text",
+        "text": "6. Conclusion ",
+        "text_level": 1,
+        "bbox": [
+            89,
+            746,
+            202,
+            762
+        ],
+        "page_idx": 8
+    },
+    {
+        "type": "text",
+        "text": "In this work, we investigate the vanishing of temporal gradient effort and propose the CLIF model with richer temporal gradient. CLIF features Complementary membrane potential on top of the conventional membrane potential and creates extra paths in temporal gradient computation while keeping binary output. CLIF shows experimentally clear performance advantage over other neuron models in various tasks with different network backbones. Moreover, CLIF ",
+        "bbox": [
+            89,
+            772,
+            473,
+            891
+        ],
+        "page_idx": 8
+    },
+    {
+        "type": "text",
+        "text": "Dampfhoffer, M., Mesquida, T., Valentian, A., and Anghel, L. Are snns really more energy-efficient than anns? an in-depth hardware-aware study. IEEE Transactions on Emerging Topics in Computational Intelligence, 7(3):731– 741, 2022b. ",
+        "bbox": [
+            88,
+            85,
+            473,
+            160
+        ],
+        "page_idx": 9
+    },
+    {
+        "type": "text",
+        "text": "Dampfhoffer, M., Mesquida, T., Hardy, E., Valentian, A., and Anghel, L. Leveraging sparsity with spiking recurrent neural networks for energy-efficient keyword spotting. In ICASSP 2023-2023 IEEE International Conference on Acoustics, Speech and Signal Processing (ICASSP), pp. 1–5. IEEE, 2023. ",
+        "bbox": [
+            88,
+            170,
+            473,
+            260
+        ],
+        "page_idx": 9
+    },
+    {
+        "type": "text",
+        "text": "Deng, L., Wu, Y., Hu, X., Liang, L., Ding, Y., Li, G., Zhao, G., Li, P., and Xie, Y. Rethinking the performance comparison between snns and anns. Neural networks, 121: 294–307, 2020. ",
+        "bbox": [
+            86,
+            270,
+            475,
+            329
+        ],
+        "page_idx": 9
+    },
+    {
+        "type": "text",
+        "text": "Deng, S. and Gu, S. Optimal conversion of conventional artificial neural networks to spiking neural networks. In International Conference on Learning Representations, 2020. ",
+        "bbox": [
+            86,
+            340,
+            473,
+            400
+        ],
+        "page_idx": 9
+    },
+    {
+        "type": "text",
+        "text": "Deng, S., Li, Y., Zhang, S., and Gu, S. Temporal efficient training of spiking neural network via gradient reweighting. In International Conference on Learning Representations, 2021. ",
+        "bbox": [
+            86,
+            410,
+            475,
+            469
+        ],
+        "page_idx": 9
+    },
+    {
+        "type": "text",
+        "text": "Deng, S., Lin, H., Li, Y., and Gu, S. Surrogate module learning: Reduce the gradient error accumulation in training spiking neural networks. In International Conference on Machine Learning, pp. 7645–7657. PMLR, 2023. ",
+        "bbox": [
+            86,
+            481,
+            473,
+            540
+        ],
+        "page_idx": 9
+    },
+    {
+        "type": "text",
+        "text": "DeVries, T. and Taylor, G. W. Improved regularization of convolutional neural networks with cutout. arXiv preprint arXiv:1708.04552, 2017. ",
+        "bbox": [
+            86,
+            550,
+            473,
+            594
+        ],
+        "page_idx": 9
+    },
+    {
+        "type": "text",
+        "text": "Dong, Y., Zhao, D., Li, Y., and Zeng, Y. An unsupervised stdp-based spiking neural network inspired by biologically plausible learning rules and connections. Neural Networks, 2023. ",
+        "bbox": [
+            86,
+            604,
+            473,
+            665
+        ],
+        "page_idx": 9
+    },
+    {
+        "type": "text",
+        "text": "Fang, W., Yu, Z., Chen, Y., Huang, T., Masquelier, T., and Tian, Y. Deep residual learning in spiking neural networks. Advances in Neural Information Processing Systems, 34:21056–21069, 2021a. ",
+        "bbox": [
+            86,
+            675,
+            475,
+            734
+        ],
+        "page_idx": 9
+    },
+    {
+        "type": "text",
+        "text": "Fang, W., Yu, Z., Chen, Y., Masquelier, T., Huang, T., and Tian, Y. Incorporating learnable membrane time constant to enhance learning of spiking neural networks. In Proceedings of the IEEE/CVF international conference on computer vision, pp. 2661–2671, 2021b. ",
+        "bbox": [
+            88,
+            744,
+            473,
+            820
+        ],
+        "page_idx": 9
+    },
+    {
+        "type": "text",
+        "text": "Fang, W., Chen, Y., Ding, J., Yu, Z., Masquelier, T., Chen, D., Huang, L., Zhou, H., Li, G., and Tian, Y. Spikingjelly: An open-source machine learning infrastructure platform for spike-based intelligence. Science Advances, 9(40): eadi1480, 2023. ",
+        "bbox": [
+            88,
+            829,
+            475,
+            905
+        ],
+        "page_idx": 9
+    },
+    {
+        "type": "text",
+        "text": "Fang, W., Yu, Z., Zhou, Z., Chen, D., Chen, Y., Ma, Z., Masquelier, T., and Tian, Y. Parallel spiking neurons with high efficiency and ability to learn long-term dependencies. Advances in Neural Information Processing Systems, 36, 2024. ",
+        "bbox": [
+            500,
+            85,
+            885,
+            160
+        ],
+        "page_idx": 9
+    },
+    {
+        "type": "text",
+        "text": "Guo, Y., Peng, W., Chen, Y., Zhang, L., Liu, X., Huang, X., and Ma, Z. Joint a-snn: Joint training of artificial and spiking neural networks via self-distillation and weight factorization. Pattern Recognition, 142:109639, 2023. ",
+        "bbox": [
+            500,
+            172,
+            885,
+            233
+        ],
+        "page_idx": 9
+    },
+    {
+        "type": "text",
+        "text": "Han, S., Pool, J., Tran, J., and Dally, W. Learning both weights and connections for efficient neural network. Advances in neural information processing systems, 28, 2015. ",
+        "bbox": [
+            498,
+            246,
+            885,
+            306
+        ],
+        "page_idx": 9
+    },
+    {
+        "type": "text",
+        "text": "Jiang, C. and Zhang, Y. Klif: An optimized spiking neuron unit for tuning surrogate gradient slope and membrane potential. arXiv preprint arXiv:2302.09238, 2023. ",
+        "bbox": [
+            500,
+            320,
+            885,
+            364
+        ],
+        "page_idx": 9
+    },
+    {
+        "type": "text",
+        "text": "Jiang, H., Anumasa, S., De Masi, G., Xiong, H., and Gu, B. A unified optimization framework of ann-snn conversion: towards optimal mapping from activation values to firing rates. In International Conference on Machine Learning, pp. 14945–14974. PMLR, 2023. ",
+        "bbox": [
+            500,
+            377,
+            887,
+            453
+        ],
+        "page_idx": 9
+    },
+    {
+        "type": "text",
+        "text": "Kheradpisheh, S. R., Ganjtabesh, M., Thorpe, S. J., and Masquelier, T. Stdp-based spiking deep convolutional neural networks for object recognition. Neural Networks, 99:56–67, 2018. ",
+        "bbox": [
+            500,
+            467,
+            885,
+            525
+        ],
+        "page_idx": 9
+    },
+    {
+        "type": "text",
+        "text": "Klausberger, T. and Somogyi, P. Neuronal diversity and temporal dynamics: the unity of hippocampal circuit operations. Science, 321(5885):53–57, 2008. ",
+        "bbox": [
+            500,
+            540,
+            885,
+            584
+        ],
+        "page_idx": 9
+    },
+    {
+        "type": "text",
+        "text": "Krizhevsky, A., Hinton, G., et al. Learning multiple layers of features from tiny images. 2009. ",
+        "bbox": [
+            500,
+            598,
+            883,
+            627
+        ],
+        "page_idx": 9
+    },
+    {
+        "type": "text",
+        "text": "Lemaire, E., Cordone, L., Castagnetti, A., Novac, P.-E., Courtois, J., and Miramond, B. An analytical estimation of spiking neural networks energy efficiency. In International Conference on Neural Information Processing, pp. 574–587. Springer, 2022. ",
+        "bbox": [
+            500,
+            641,
+            885,
+            715
+        ],
+        "page_idx": 9
+    },
+    {
+        "type": "text",
+        "text": "Letinic, K., Zoncu, R., and Rakic, P. Origin of gabaergic neurons in the human neocortex. Nature, 417(6889): 645–649, 2002. ",
+        "bbox": [
+            498,
+            729,
+            885,
+            773
+        ],
+        "page_idx": 9
+    },
+    {
+        "type": "text",
+        "text": "Li, H., Liu, H., Ji, X., Li, G., and Shi, L. Cifar10-dvs: an event-stream dataset for object classification. Frontiers in neuroscience, 11:309, 2017. ",
+        "bbox": [
+            498,
+            787,
+            885,
+            832
+        ],
+        "page_idx": 9
+    },
+    {
+        "type": "text",
+        "text": "Li, W., Chen, H., Guo, J., Zhang, Z., and Wang, Y. Braininspired multilayer perceptron with spiking neurons. In Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition, pp. 783–793, 2022. ",
+        "bbox": [
+            500,
+            845,
+            885,
+            905
+        ],
+        "page_idx": 9
+    },
+    {
+        "type": "text",
+        "text": "Li, Y., Deng, S., Dong, X., Gong, R., and Gu, S. A free lunch from ann: Towards efficient, accurate spiking neural networks calibration. In International conference on machine learning, pp. 6316–6325. PMLR, 2021a. ",
+        "bbox": [
+            86,
+            85,
+            473,
+            145
+        ],
+        "page_idx": 10
+    },
+    {
+        "type": "text",
+        "text": "Li, Y., Guo, Y., Zhang, S., Deng, S., Hai, Y., and Gu, S. Differentiable spike: Rethinking gradient-descent for training spiking neural networks. Advances in Neural Information Processing Systems, 34:23426–23439, 2021b. ",
+        "bbox": [
+            86,
+            157,
+            475,
+            218
+        ],
+        "page_idx": 10
+    },
+    {
+        "type": "text",
+        "text": "Lotfi Rezaabad, A. and Vishwanath, S. Long short-term memory spiking networks and their applications. In International Conference on Neuromorphic Systems 2020, pp. 1–9, 2020. ",
+        "bbox": [
+            86,
+            231,
+            475,
+            291
+        ],
+        "page_idx": 10
+    },
+    {
+        "type": "text",
+        "text": "Maass, W. Networks of spiking neurons: the third generation of neural network models. Neural networks, 10(9): 1659–1671, 1997. ",
+        "bbox": [
+            88,
+            304,
+            475,
+            348
+        ],
+        "page_idx": 10
+    },
+    {
+        "type": "text",
+        "text": "McCORMICK, D. A. and Pape, H.-C. Properties of a hyperpolarization-activated cation current and its role in rhythmic oscillation in thalamic relay neurones. The Journal of physiology, 431(1):291–318, 1990. ",
+        "bbox": [
+            86,
+            362,
+            473,
+            422
+        ],
+        "page_idx": 10
+    },
+    {
+        "type": "text",
+        "text": "Mehonic, A. and Kenyon, A. J. Brain-inspired computing needs a master plan. Nature, 604(7905):255–260, 2022. ",
+        "bbox": [
+            88,
+            435,
+            473,
+            464
+        ],
+        "page_idx": 10
+    },
+    {
+        "type": "text",
+        "text": "Meng, Q., Xiao, M., Yan, S., Wang, Y., Lin, Z., and Luo, Z.- Q. Training high-performance low-latency spiking neural networks by differentiation on spike representation. In Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition, pp. 12444–12453, 2022. ",
+        "bbox": [
+            88,
+            477,
+            473,
+            553
+        ],
+        "page_idx": 10
+    },
+    {
+        "type": "text",
+        "text": "Meng, Q., Xiao, M., Yan, S., Wang, Y., Lin, Z., and Luo, Z.- Q. Towards memory-and time-efficient backpropagation for training spiking neural networks. In Proceedings of the IEEE/CVF International Conference on Computer Vision, pp. 6166–6176, 2023. ",
+        "bbox": [
+            88,
+            565,
+            475,
+            641
+        ],
+        "page_idx": 10
+    },
+    {
+        "type": "text",
+        "text": "Mukhoty, B., Bojkovic, V., de Vazelhes, W., Zhao, X., De Masi, G., Xiong, H., and Gu, B. Direct training of snn using local zeroth order method. In Thirty-seventh Conference on Neural Information Processing Systems, 2023. ",
+        "bbox": [
+            88,
+            654,
+            475,
+            729
+        ],
+        "page_idx": 10
+    },
+    {
+        "type": "text",
+        "text": "Neftci, E. O., Mostafa, H., and Zenke, F. Surrogate gradient learning in spiking neural networks: Bringing the power of gradient-based optimization to spiking neural networks. IEEE Signal Processing Magazine, 36(6):51–63, 2019. ",
+        "bbox": [
+            86,
+            742,
+            475,
+            803
+        ],
+        "page_idx": 10
+    },
+    {
+        "type": "text",
+        "text": "Rankin, C. H., Abrams, T., Barry, R. J., Bhatnagar, S., Clayton, D. F., Colombo, J., Coppola, G., Geyer, M. A., Glanzman, D. L., Marsland, S., et al. Habituation revisited: an updated and revised description of the behavioral characteristics of habituation. Neurobiology of learning and memory, 92(2):135–138, 2009. ",
+        "bbox": [
+            89,
+            814,
+            475,
+            905
+        ],
+        "page_idx": 10
+    },
+    {
+        "type": "text",
+        "text": "Rao, A., Plank, P., Wild, A., and Maass, W. A long shortterm memory for ai applications in spike-based neuromorphic hardware. Nature Machine Intelligence, 4(5): 467–479, 2022. ",
+        "bbox": [
+            500,
+            85,
+            885,
+            145
+        ],
+        "page_idx": 10
+    },
+    {
+        "type": "text",
+        "text": "Rathi, N. and Roy, K. Diet-snn: A low-latency spiking neural network with direct input encoding and leakage and threshold optimization. IEEE Transactions on Neural Networks and Learning Systems, 2021. ",
+        "bbox": [
+            500,
+            155,
+            885,
+            214
+        ],
+        "page_idx": 10
+    },
+    {
+        "type": "text",
+        "text": "Roy, K., Jaiswal, A., and Panda, P. Towards spike-based machine intelligence with neuromorphic computing. Nature, 575(7784):607–617, 2019. ",
+        "bbox": [
+            498,
+            223,
+            885,
+            267
+        ],
+        "page_idx": 10
+    },
+    {
+        "type": "text",
+        "text": "Sanchez-Vives, M. V. and McCormick, D. A. Cellular and network mechanisms of rhythmic recurrent activity in neocortex. Nature neuroscience, 3(10):1027–1034, 2000. ",
+        "bbox": [
+            500,
+            276,
+            885,
+            321
+        ],
+        "page_idx": 10
+    },
+    {
+        "type": "text",
+        "text": "Schuman, C. D., Kulkarni, S. R., Parsa, M., Mitchell, J. P., Date, P., and Kay, B. Opportunities for neuromorphic computing algorithms and applications. Nature Computational Science, 2(1):10–19, 2022. ",
+        "bbox": [
+            500,
+            330,
+            885,
+            391
+        ],
+        "page_idx": 10
+    },
+    {
+        "type": "text",
+        "text": "Shen, J., Ni, W., Xu, Q., and Tang, H. Efficient spiking neural networks with sparse selective activation for continual learning. In Proceedings of the AAAI Conference on Artificial Intelligence, volume 38, pp. 611–619, 2024. ",
+        "bbox": [
+            500,
+            400,
+            885,
+            460
+        ],
+        "page_idx": 10
+    },
+    {
+        "type": "text",
+        "text": "Spieler, A., Rahaman, N., Martius, G., Scholkopf, B., and ¨ Levina, A. The expressive leaky memory neuron: an efficient and expressive phenomenological neuron model can solve long-horizon tasks. In The Twelfth International Conference on Learning Representations, 2023. ",
+        "bbox": [
+            500,
+            469,
+            885,
+            545
+        ],
+        "page_idx": 10
+    },
+    {
+        "type": "text",
+        "text": "Su, Q., Chou, Y., Hu, Y., Li, J., Mei, S., Zhang, Z., and Li, G. Deep directly-trained spiking neural networks for object detection. In Proceedings of the IEEE/CVF International Conference on Computer Vision, pp. 6555–6565, 2023. ",
+        "bbox": [
+            500,
+            553,
+            885,
+            614
+        ],
+        "page_idx": 10
+    },
+    {
+        "type": "text",
+        "text": "Tavanaei, A., Ghodrati, M., Kheradpisheh, S. R., Masquelier, T., and Maida, A. Deep learning in spiking neural networks. Neural networks, 111:47–63, 2019. ",
+        "bbox": [
+            500,
+            622,
+            885,
+            667
+        ],
+        "page_idx": 10
+    },
+    {
+        "type": "text",
+        "text": "Teeter, C., Iyer, R., Menon, V., Gouwens, N., Feng, D., Berg, J., Szafer, A., Cain, N., Zeng, H., Hawrylycz, M., et al. Generalized leaky integrate-and-fire models classify multiple neuron types. Nature communications, 9(1):709, 2018. ",
+        "bbox": [
+            501,
+            676,
+            885,
+            751
+        ],
+        "page_idx": 10
+    },
+    {
+        "type": "text",
+        "text": "Wang, S., Cheng, T. H., and Lim, M.-H. Ltmd: Learning improvement of spiking neural networks with learnable thresholding neurons and moderate dropout. Advances in Neural Information Processing Systems, 35:28350– 28362, 2022a. ",
+        "bbox": [
+            500,
+            761,
+            885,
+            835
+        ],
+        "page_idx": 10
+    },
+    {
+        "type": "text",
+        "text": "Wang, Y., Zhang, M., Chen, Y., and Qu, H. Signed neuron with memory: Towards simple, accurate and highefficient ann-snn conversion. In International Joint Conference on Artificial Intelligence, 2022b. ",
+        "bbox": [
+            500,
+            845,
+            885,
+            905
+        ],
+        "page_idx": 10
+    },
+    {
+        "type": "text",
+        "text": "Wang, Z., Jiang, R., Lian, S., Yan, R., and Tang, H. Adaptive smoothing gradient learning for spiking neural networks. In International Conference on Machine Learning, pp. 35798–35816. PMLR, 2023. ",
+        "bbox": [
+            88,
+            85,
+            475,
+            145
+        ],
+        "page_idx": 11
+    },
+    {
+        "type": "text",
+        "text": "Werbos, P. J. Backpropagation through time: what it does and how to do it. Proceedings of the IEEE, 78(10):1550– 1560, 1990. ",
+        "bbox": [
+            88,
+            154,
+            475,
+            198
+        ],
+        "page_idx": 11
+    },
+    {
+        "type": "text",
+        "text": "Wu, Y., Deng, L., Li, G., Zhu, J., and Shi, L. Spatiotemporal backpropagation for training high-performance spiking neural networks. Frontiers in neuroscience, 12: 331, 2018. ",
+        "bbox": [
+            86,
+            208,
+            475,
+            267
+        ],
+        "page_idx": 11
+    },
+    {
+        "type": "text",
+        "text": "Wu, Y., Deng, L., Li, G., Zhu, J., Xie, Y., and Shi, L. Direct training for spiking neural networks: Faster, larger, better. In Proceedings of the AAAI conference on artificial intelligence, volume 33, pp. 1311–1318, 2019. ",
+        "bbox": [
+            88,
+            276,
+            475,
+            337
+        ],
+        "page_idx": 11
+    },
+    {
+        "type": "text",
+        "text": "Xiao, M., Meng, Q., Zhang, Z., He, D., and Lin, Z. Online training through time for spiking neural networks. Advances in Neural Information Processing Systems, 35: 20717–20730, 2022. ",
+        "bbox": [
+            86,
+            345,
+            475,
+            406
+        ],
+        "page_idx": 11
+    },
+    {
+        "type": "text",
+        "text": "Xu, Q., Li, Y., Shen, J., Liu, J. K., Tang, H., and Pan, G. Constructing deep spiking neural networks from artificial neural networks with knowledge distillation. In Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition, pp. 7886–7895, 2023. ",
+        "bbox": [
+            86,
+            415,
+            475,
+            491
+        ],
+        "page_idx": 11
+    },
+    {
+        "type": "text",
+        "text": "Xu, Q., Gao, Y., Shen, J., Li, Y., Ran, X., Tang, H., and Pan, G. Enhancing adaptive history reserving by spiking convolutional block attention module in recurrent neural networks. Advances in Neural Information Processing Systems, 36, 2024. ",
+        "bbox": [
+            88,
+            500,
+            473,
+            574
+        ],
+        "page_idx": 11
+    },
+    {
+        "type": "text",
+        "text": "Yang, Q., Wu, J., Zhang, M., Chua, Y., Wang, X., and Li, H. Training spiking neural networks with local tandem learning. Advances in Neural Information Processing Systems, 35:12662–12676, 2022. ",
+        "bbox": [
+            86,
+            583,
+            475,
+            643
+        ],
+        "page_idx": 11
+    },
+    {
+        "type": "text",
+        "text": "Yao, M., Hu, J., Zhou, Z., Yuan, L., Tian, Y., Xu, B., and Li, G. Spike-driven transformer. Advances in Neural Information Processing Systems, 36, 2024. ",
+        "bbox": [
+            88,
+            652,
+            473,
+            698
+        ],
+        "page_idx": 11
+    },
+    {
+        "type": "text",
+        "text": "Yao, X., Li, F., Mo, Z., and Cheng, J. Glif: A unified gated leaky integrate-and-fire neuron for spiking neural networks. Advances in Neural Information Processing Systems, 35:32160–32171, 2022. ",
+        "bbox": [
+            88,
+            707,
+            473,
+            767
+        ],
+        "page_idx": 11
+    },
+    {
+        "type": "text",
+        "text": "Zenke, F. and Ganguli, S. Superspike: Supervised learning in multilayer spiking neural networks. Neural computation, 30(6):1514–1541, 2018. ",
+        "bbox": [
+            88,
+            776,
+            473,
+            821
+        ],
+        "page_idx": 11
+    },
+    {
+        "type": "text",
+        "text": "Zhang, S., Yang, Q., Ma, C., Wu, J., Li, H., and Tan, K. C. Tc-lif: A two-compartment spiking neuron model for long-term sequential modelling. In Proceedings of the AAAI Conference on Artificial Intelligence, volume 38, pp. 16838–16847, 2024. ",
+        "bbox": [
+            88,
+            830,
+            475,
+            905
+        ],
+        "page_idx": 11
+    },
+    {
+        "type": "text",
+        "text": "Zhang, T., Zeng, Y., Zhao, D., and Xu, B. Brain-inspired balanced tuning for spiking neural networks. In IJCAI, volume 7, pp. 1653–1659. Stockholm, 2018. ",
+        "bbox": [
+            500,
+            85,
+            885,
+            130
+        ],
+        "page_idx": 11
+    },
+    {
+        "type": "text",
+        "text": "Zhang, W. and Li, P. Skip-connected self-recurrent spiking neural networks with joint intrinsic parameter and synaptic weight training. Neural computation, 33(7): 1886–1913, 2021. ",
+        "bbox": [
+            500,
+            140,
+            885,
+            199
+        ],
+        "page_idx": 11
+    },
+    {
+        "type": "text",
+        "text": "Zhou, Z., Zhu, Y., He, C., Wang, Y., Shuicheng, Y., Tian, Y., and Yuan, L. Spikformer: When spiking neural network meets transformer. In The Eleventh International Conference on Learning Representations, 2022. ",
+        "bbox": [
+            498,
+            210,
+            885,
+            271
+        ],
+        "page_idx": 11
+    },
+    {
+        "type": "text",
+        "text": "A. Notation in the Paper ",
+        "text_level": 1,
+        "bbox": [
+            89,
+            82,
+            295,
+            101
+        ],
+        "page_idx": 12
+    },
+    {
+        "type": "text",
+        "text": "Throughout the paper and this Appendix, we use the following notations, which mainly follow this work(Wang et al., 2023). We follow the conventions representing vectors and matrices with bold italic letters and bold capital letters respectively, such as $\\pmb { s }$ and $W$ . For this symbol $W ^ { \\top }$ represents transposing the matrix. For a function $f ( \\pmb { x } ) : \\mathbb { R } ^ { d _ { 1 } }  \\mathbb { R } ^ { d _ { 2 } }$ , we use $\\nabla _ { \\pmb { x } } f$ instead of ∂f t o represent the $1 ^ { \\mathrm { t h } }$ derivative gradients of $f$ with respect to the variable $x$ in the absence of ambiguity. For two vectors $\\mathbf { \\pmb { u } _ { 1 } }$ and $\\mathbf { \\delta } \\mathbf { u } _ { 2 }$ , we use $\\mathbf { \\pmb { u } _ { 1 } } \\odot \\mathbf { \\pmb { u } _ { 2 } }$ to represent the element-wise product. ",
+        "bbox": [
+            88,
+            108,
+            887,
+            185
+        ],
+        "page_idx": 12
+    },
+    {
+        "type": "text",
+        "text": "B. LIF-Based BPTT with Surrogate Gradient ",
+        "text_level": 1,
+        "bbox": [
+            88,
+            203,
+            470,
+            222
+        ],
+        "page_idx": 12
+    },
+    {
+        "type": "text",
+        "text": "This section is mainly referenced from (Wu et al., 2018; Meng et al., 2023). Firstly, we recall the LIF model Eq.(1) - (3). We then rewrite the LIF model with soft reset mechanism: ",
+        "bbox": [
+            93,
+            229,
+            887,
+            261
+        ],
+        "page_idx": 12
+    },
+    {
+        "type": "equation",
+        "img_path": "images/eff88c0c4e419d3ea855c5e16da4d31ca9c20e8537c0f355247a9becb6a60425.jpg",
+        "text": "$$\n{ \\pmb u } ^ { l } [ t ] = ( 1 - \\frac { 1 } { \\tau } ) \\left( { \\pmb u } ^ { l } [ t - 1 ] - V _ { \\mathrm { t h } } { \\pmb s } ^ { l } [ t - 1 ] \\right) + { \\pmb W } ^ { l } { \\pmb s } ^ { l - 1 } [ t ] ,\n$$",
+        "text_format": "latex",
+        "bbox": [
+            295,
+            296,
+            676,
+            327
+        ],
+        "page_idx": 12
+    },
+    {
+        "type": "equation",
+        "img_path": "images/077502996530361c9c0f3b24bbc14f47d54da1032b01979c24e8213a6120ff21.jpg",
+        "text": "$$\ns ^ { l } [ t ] = \\Theta ( \\pmb { u } ^ { l } [ t ] - V _ { \\mathrm { t h } } ) = \\left\\{ \\begin{array} { l l } { 1 , } & { \\mathrm { i f } ~ \\pmb { u } ^ { l } [ t ] \\geq V _ { \\mathrm { t h } } } \\\\ { 0 , } & { \\mathrm { o t h e r w i s e } } \\end{array} \\right.\n$$",
+        "text_format": "latex",
+        "bbox": [
+            333,
+            382,
+            638,
+            425
+        ],
+        "page_idx": 12
+    },
+    {
+        "type": "text",
+        "text": "$\\gamma$ is defined as $\\begin{array} { r } { \\gamma \\equiv 1 - \\frac { 1 } { \\tau } } \\end{array}$ , then we recall the gradient in Eq.(4)-(6): ",
+        "bbox": [
+            88,
+            457,
+            531,
+            474
+        ],
+        "page_idx": 12
+    },
+    {
+        "type": "equation",
+        "img_path": "images/ca329e698d97dcc289979587dba210c49f455d4c8d2ff0cdbc8118293ff5cee3.jpg",
+        "text": "$$\n\\nabla _ { \\mathbf { } W ^ { l } } \\mathcal { L } = \\sum _ { t = 1 } ^ { T } \\frac { \\partial \\mathcal { L } } { \\partial \\mathbf { } \\mathbf { } u ^ { l } [ t ] } \\frac { \\partial \\mathbf { } u ^ { l } [ t ] } { \\partial \\mathbf { } W ^ { l } } , l = \\mathrm { L } , \\mathrm { L } - 1 , \\cdots , 1 ,\n$$",
+        "text_format": "latex",
+        "bbox": [
+            321,
+            497,
+            650,
+            541
+        ],
+        "page_idx": 12
+    },
+    {
+        "type": "text",
+        "text": "where $\\mathcal { L }$ represents the loss function. For the left part we recursively evaluate: ",
+        "bbox": [
+            86,
+            563,
+            598,
+            579
+        ],
+        "page_idx": 12
+    },
+    {
+        "type": "equation",
+        "img_path": "images/a4ec810fdd007d77ce3097274b172054f9f1662f6a9d3fd3656d399b920969a7.jpg",
+        "text": "$$\n\\frac { \\partial \\mathcal { L } } { \\partial \\pmb { u } ^ { l } [ t ] } = \\frac { \\partial \\mathcal { L } } { \\partial \\pmb { s } ^ { l } [ t ] } \\frac { \\partial \\pmb { s } ^ { l } [ t ] } { \\partial \\pmb { u } ^ { l } [ t ] } + \\frac { \\partial \\mathcal { L } } { \\partial \\pmb { u } ^ { l } [ t + 1 ] } \\pmb { \\epsilon } ^ { l } [ t ] ,\n$$",
+        "text_format": "latex",
+        "bbox": [
+            346,
+            601,
+            625,
+            637
+        ],
+        "page_idx": 12
+    },
+    {
+        "type": "text",
+        "text": "where $\\epsilon ^ { l } [ t ]$ for LIF model can be defined as follows: ",
+        "bbox": [
+            88,
+            660,
+            431,
+            676
+        ],
+        "page_idx": 12
+    },
+    {
+        "type": "equation",
+        "img_path": "images/48de74840cb196cbd532e8510b67f191759c9644cd55a54b468ed46c7f7a3e88.jpg",
+        "text": "$$\n\\epsilon ^ { l } [ t ] \\equiv \\frac { \\partial \\mathbf { { \\boldsymbol { u } } } ^ { l } [ t + 1 ] } { \\partial \\mathbf { { \\boldsymbol { u } } } ^ { l } [ t ] } + \\frac { \\partial \\mathbf { { \\boldsymbol { u } } } ^ { l } [ t + 1 ] } { \\partial \\mathbf { { \\boldsymbol { s } } } ^ { l } [ t ] } \\frac { \\partial \\mathbf { { \\boldsymbol { s } } } ^ { l } [ t ] } { \\partial \\mathbf { { \\boldsymbol { u } } } ^ { l } [ t ] } ,\n$$",
+        "text_format": "latex",
+        "bbox": [
+            352,
+            699,
+            619,
+            733
+        ],
+        "page_idx": 12
+    },
+    {
+        "type": "text",
+        "text": "Proof of the Eq.(5) and Eq.(7). ",
+        "bbox": [
+            88,
+            763,
+            290,
+            780
+        ],
+        "page_idx": 12
+    },
+    {
+        "type": "text",
+        "text": "Proof. Firstly, we only consider the effect of the temporal dimension in Eq.(28). When $t = T$ , where Eq.(28) deduce as: ",
+        "bbox": [
+            93,
+            835,
+            874,
+            853
+        ],
+        "page_idx": 12
+    },
+    {
+        "type": "equation",
+        "img_path": "images/50d10e0078f7352f7190eb894ec7d6c1b594bb368d4b672a146773db6f13735f.jpg",
+        "text": "$$\n\\frac { \\partial \\mathcal { L } } { \\partial \\mathbf { \\boldsymbol { u } } ^ { l } [ T ] } = \\frac { \\partial \\mathcal { L } } { \\partial \\mathbf { \\boldsymbol { s } } ^ { l } [ T ] } \\frac { \\partial \\mathbf { \\boldsymbol { s } } ^ { l } [ T ] } { \\partial \\mathbf { \\boldsymbol { u } } ^ { l } [ T ] } .\n$$",
+        "text_format": "latex",
+        "bbox": [
+            398,
+            875,
+            576,
+            910
+        ],
+        "page_idx": 12
+    },
+    {
+        "type": "text",
+        "text": "When $1 \\leq t < T$ , with the chain rule, the Eq.(28) can be further calculated recursively: ",
+        "bbox": [
+            88,
+            84,
+            658,
+            101
+        ],
+        "page_idx": 13
+    },
+    {
+        "type": "equation",
+        "img_path": "images/88785a9c0213e2f0aaf0ccd59a5e4cee6f89e30c30b6e9a65c5018ce65ecd968.jpg",
+        "text": "$$\n\\begin{array} { r l } { \\frac { \\partial \\mathcal { L } } { \\partial \\kappa } \\frac { \\partial \\mathcal { L } } { | \\partial \\kappa | | } - \\frac { \\partial \\mathcal { L } } { \\partial \\kappa ^ { \\prime } | | \\partial \\kappa ^ { \\prime } | | } + \\frac { \\partial \\mathcal { L } } { \\partial \\kappa | \\left( t + 1 \\right) } \\epsilon _ { [ \\downarrow ] } ^ { \\prime } } & { } \\\\ { - \\frac { \\partial \\mathcal { L } } { \\partial \\kappa ^ { \\prime } | | \\partial \\kappa ^ { \\prime } | | } \\frac { \\partial \\mathcal { L } } { | \\partial \\kappa ^ { \\prime } | | } + \\left( \\frac { \\partial \\mathcal { L } } { \\partial \\kappa ^ { \\prime } [ \\varepsilon + 1 ] } \\frac { \\partial \\kappa ^ { \\prime } [ t + 1 ] } { \\partial \\kappa ^ { \\prime } [ \\varepsilon + 1 ] } + \\frac { \\partial \\mathcal { L } } { \\partial \\kappa ^ { \\prime } [ \\varepsilon + 2 ] } \\epsilon ^ { \\prime } | t + 1 ] \\right) \\epsilon ^ { \\prime } | | } & { } \\\\ { - \\frac { \\partial \\mathcal { L } } { \\partial \\kappa | \\partial \\kappa ^ { \\prime } | | } \\frac { \\partial \\mathcal { L } } { | \\partial \\kappa ^ { \\prime } | | } + \\frac { \\partial \\mathcal { L } } { \\partial \\kappa | \\left( t + 1 \\right) } \\frac { \\partial \\epsilon ^ { \\prime } | \\partial \\kappa | } { \\partial \\kappa ^ { \\prime } | \\left( t + 1 \\right) } } & { = \\frac { \\partial \\mathcal { L } } { | \\partial \\kappa ^ { \\prime } | | \\partial \\kappa | } \\epsilon _ { [ \\downarrow ] } ^ { \\prime } } & { } \\\\  - \\frac { \\partial \\mathcal { L } } { \\partial \\kappa ^ { \\prime } | | \\partial \\kappa ^ { \\prime } | | } \\frac { \\partial \\mathcal { L } } { | \\partial \\kappa ^ { \\prime } | | } + \\frac { \\partial \\mathcal { L } } { \\partial \\kappa | \\left( t + 1 \\right) } \\frac { \\partial \\epsilon ^ { \\prime } | \\partial \\kappa | } { \\partial \\kappa ^ { \\prime } | \\left( t + 1 \\right) } \\epsilon _ { [ \\downarrow ] } ^ { \\prime } + \\frac { \\partial \\mathcal { L } } { \\partial \\kappa ^ { \\prime } | \\left( t + 2 \\right) } \\epsilon ^ { \\prime }  \\end{array}\n$$$$\n\\begin{array} { r l } & { - \\frac { \\partial C } { \\partial \\varphi ^ { k } [ \\frac { \\partial } { \\partial u ^ { k } } ] } \\frac { \\partial ^ { k } [ \\xi ] } { \\partial u ^ { k } ( \\xi ) } + \\frac { \\partial \\mathcal { L } } { \\partial \\varphi ^ { k } ( \\xi + 1 ) } \\frac { \\partial ^ { k } [ \\xi + 1 ] } { \\partial u ^ { k } [ \\xi + 1 ] } \\mathrm { t } [ \\mathrm { t } ] + \\frac { \\partial C } { \\partial u ^ { k } [ \\xi + 2 ] } \\mathrm { t } ^ { k } [ \\mathrm { t } ] } \\\\ & { - \\frac { \\partial C } { \\partial \\varphi ^ { k } [ \\xi ] } \\frac { \\partial ^ { k } [ \\xi ] } { \\partial u ^ { k } [ \\xi ] } + \\frac { \\partial \\mathcal { L } } { \\partial \\varphi ^ { k } ( \\xi + 1 ) } \\frac { \\partial ^ { k } [ \\xi + 1 ] } { \\partial u ^ { k } [ \\xi + 1 ] } \\mathrm { t } ^ { k } [ \\mathrm { t } ] + \\left[ \\frac { \\partial C } { \\partial \\varphi ^ { k } [ \\xi + 2 ] } \\frac { \\partial \\sin ^ { k } [ \\xi + 2 ] } { \\partial u ^ { k } [ \\xi + 2 ] } + \\frac { \\partial C } { \\partial u ^ { k } [ \\xi + 3 ] } \\right] } \\\\ & { - \\frac { \\partial C } { \\partial \\varphi ^ { k } [ \\xi ] } \\frac { \\partial ^ { k } [ \\xi ] } { \\partial u ^ { k } [ \\xi ] } + \\frac { \\partial \\mathcal { L } } { \\partial \\varphi ^ { k } ( \\xi + 1 ) } \\frac { \\partial ^ { k } [ \\xi + 1 ] } { \\partial u ^ { k } [ \\xi + 1 ] } \\mathrm { t } ^ { k } [ \\mathrm { t } ] - \\frac { \\partial C } { \\partial \\varphi ^ { k } [ \\xi ] } \\frac { \\partial \\sin [ \\xi + 2 ] } { \\partial u ^ { k } [ \\xi + 2 ] } \\mathrm { t } ^ { k } [ \\mathrm { t } ] } \\\\ &  - \\frac { \\partial \\mathcal { L } } { \\partial \\varphi ^ { k } [ \\xi ] } \\frac { \\partial ^ { k } [ \\xi ] } { \\partial u ^ { k } [ \\xi ] } + \\frac { \\partial \\mathcal { L } }  \\partial \\varphi ^ { k } ( \\xi + 1 ) \\end{array}\n$$",
+        "text_format": "latex",
+        "bbox": [
+            101,
+            103,
+            751,
+            353
+        ],
+        "page_idx": 13
+    },
+    {
+        "type": "text",
+        "text": "after iterative expansion, we can inductively summarize the Eq.(30) and (31) to obtain this formula Eq.(32): ",
+        "bbox": [
+            84,
+            459,
+            794,
+            477
+        ],
+        "page_idx": 13
+    },
+    {
+        "type": "equation",
+        "img_path": "images/5c7adc57af58e77853b23c35e48f9faa68777478b4b0d70d365ef0c5c5821679.jpg",
+        "text": "$$\n\\frac { \\partial \\mathcal { L } } { \\partial u ^ { l } [ t ] } = \\frac { \\partial \\mathcal { L } } { \\partial s ^ { l } [ t ] } \\frac { \\partial s ^ { l } [ t ] } { \\partial { u } ^ { l } [ t ] } + \\sum _ { t ^ { \\prime } = t + 1 } ^ { T } \\frac { \\partial \\mathcal { L } } { \\partial s ^ { l } [ t ^ { \\prime } ] } \\frac { \\partial s ^ { l } [ t ^ { \\prime } ] } { \\partial { u } ^ { l } [ t ^ { \\prime } ] } \\prod _ { t ^ { \\prime \\prime } = 1 } ^ { t ^ { \\prime } - t } \\epsilon ^ { l } [ t ^ { \\prime } - t ^ { \\prime \\prime } ] .\n$$",
+        "text_format": "latex",
+        "bbox": [
+            276,
+            481,
+            697,
+            526
+        ],
+        "page_idx": 13
+    },
+    {
+        "type": "text",
+        "text": "Secondly, under the $t \\in [ 1 , T ]$ situation, we consider the different layer. For last layer, we substitute $l = L$ into Eq.(32) as: ",
+        "bbox": [
+            93,
+            537,
+            882,
+            555
+        ],
+        "page_idx": 13
+    },
+    {
+        "type": "equation",
+        "img_path": "images/43c08e792d0282022d45a66e174c3f624551fdbf676093cfd6689a71f70e555e.jpg",
+        "text": "$$\n\\frac { \\partial \\mathcal { L } } { \\partial u ^ { L } [ t ] } = \\frac { \\partial \\mathcal { L } } { \\partial s ^ { L } [ t ] } \\frac { \\partial s ^ { L } [ t ] } { \\partial u ^ { L } [ t ] } + \\sum _ { t ^ { \\prime } = t + 1 } ^ { T } \\frac { \\partial \\mathcal { L } } { \\partial s ^ { L } [ t ^ { \\prime } ] } \\frac { \\partial s ^ { L } [ t ^ { \\prime } ] } { \\partial u ^ { L } [ t ^ { \\prime } ] } \\prod _ { t ^ { \\prime \\prime } = 1 } ^ { t ^ { \\prime } - t } \\epsilon ^ { L } [ t ^ { \\prime } - t ^ { \\prime \\prime } ] .\n$$",
+        "text_format": "latex",
+        "bbox": [
+            261,
+            559,
+            712,
+            604
+        ],
+        "page_idx": 13
+    },
+    {
+        "type": "text",
+        "text": "For the intermediate layer $l = L - 1 , . . . , 1$ , according to the chain rule, the $\\frac { \\partial \\mathcal { L } } { \\partial \\pmb { u } ^ { l } [ t ] }$ can be obtained from the previous layer $\\frac { \\partial \\mathcal { L } } { \\partial \\pmb { u } ^ { l + 1 } [ t ] }$ , the Eq.(32) can be shown in: ",
+        "bbox": [
+            88,
+            617,
+            890,
+            654
+        ],
+        "page_idx": 13
+    },
+    {
+        "type": "equation",
+        "img_path": "images/fe043616eb3eacbc30c6e681186686be6595d3a2cacc4a4614d8ba85fda812dd.jpg",
+        "text": "$$\n\\begin{array} { c } { \\displaystyle \\frac { \\partial \\mathcal { L } } { \\partial \\boldsymbol { u } ^ { l } [ t ] } = \\frac { \\partial \\mathcal { L } } { \\partial \\boldsymbol { u } ^ { l + 1 } [ t ] } \\frac { \\partial \\boldsymbol { u } ^ { l + 1 } [ t ] } { \\partial \\boldsymbol { s } ^ { l } [ t ] } \\frac { \\partial \\boldsymbol { s } ^ { l } [ t ] } { \\partial \\boldsymbol { u } ^ { l } [ t ] } } \\\\ { \\displaystyle + \\sum _ { t ^ { \\prime } = t + 1 } ^ { T } \\frac { \\partial \\mathcal { L } } { \\partial \\boldsymbol { u } ^ { l + 1 } [ t ^ { \\prime } ] } \\frac { \\partial \\boldsymbol { u } ^ { l + 1 } [ t ^ { \\prime } ] } { \\partial \\boldsymbol { s } ^ { l } [ t ^ { \\prime } ] } \\frac { \\partial \\boldsymbol { s } ^ { l } [ t ^ { \\prime } ] } { \\partial \\boldsymbol { u } ^ { l } [ t ^ { \\prime } ] } \\prod _ { t ^ { \\prime \\prime } = 1 } ^ { t ^ { \\prime } - t } \\epsilon ^ { l } [ t ^ { \\prime } - t ^ { \\prime \\prime } ] . } \\end{array}\n$$",
+        "text_format": "latex",
+        "bbox": [
+            279,
+            661,
+            694,
+            746
+        ],
+        "page_idx": 13
+    },
+    {
+        "type": "text",
+        "text": "Finally, combining Eq.(32)-(34), we conclude the following equations: ",
+        "bbox": [
+            86,
+            756,
+            552,
+            772
+        ],
+        "page_idx": 13
+    },
+    {
+        "type": "equation",
+        "img_path": "images/79fa7314251b4a8e6ef33e4c11d07975a2269ae4820dcb68eece42ca2baedad4.jpg",
+        "text": "$$\n\\frac { \\partial \\mathcal { L } } { \\partial \\pmb { u } ^ { l } [ t ] } = \\frac { \\partial \\mathcal { L } } { \\partial \\pmb { s } ^ { l } [ t ] } \\frac { \\partial \\pmb { s } ^ { l } [ t ] } { \\partial \\pmb { u } ^ { l } [ t ] } + \\sum _ { t ^ { \\prime } = t + 1 } ^ { T } \\frac { \\partial \\mathcal { L } } { \\partial \\pmb { s } ^ { l } [ t ^ { \\prime } ] } \\frac { \\partial \\pmb { s } ^ { l } [ t ^ { \\prime } ] ] } { \\partial \\pmb { u } ^ { l } [ t ^ { \\prime } ] } \\prod _ { t ^ { \\prime \\prime } = 1 } ^ { t ^ { \\prime } - t } \\pmb { \\epsilon } ^ { l } [ t ^ { \\prime } - t ^ { \\prime \\prime } ] ,\n$$",
+        "text_format": "latex",
+        "bbox": [
+            274,
+            776,
+            699,
+            821
+        ],
+        "page_idx": 13
+    },
+    {
+        "type": "text",
+        "text": "where ",
+        "bbox": [
+            88,
+            827,
+            130,
+            840
+        ],
+        "page_idx": 13
+    },
+    {
+        "type": "equation",
+        "img_path": "images/0eec34c9eb5c796ea20a547a4d6869a905b854ad8d5fb64de66775fd32902698.jpg",
+        "text": "$$\n\\frac { \\partial \\mathcal { L } } { \\partial s ^ { l } [ t ] } = \\left\\{ \\begin{array} { l l } { \\frac { \\partial \\mathcal { L } } { \\partial s ^ { L } [ t ] } } & { \\mathrm { ~ i f ~ } l = \\mathrm { L } } \\\\ { \\frac { \\partial \\mathcal { L } } { \\partial u ^ { l + 1 } [ t ] } \\frac { \\partial u ^ { l + 1 } [ t ] } { \\partial s ^ { l } [ t ] } } & { \\mathrm { ~ i f ~ } l = \\mathrm { L } - 1 , \\cdots , 1 } \\end{array} , \\right.\n$$",
+        "text_format": "latex",
+        "bbox": [
+            316,
+            837,
+            655,
+            881
+        ],
+        "page_idx": 13
+    },
+    {
+        "type": "text",
+        "text": "The Eq.(35) and Eq.(36) is the same as Eq.(5) and Eq.(7). ",
+        "bbox": [
+            86,
+            882,
+            465,
+            898
+        ],
+        "page_idx": 13
+    },
+    {
+        "type": "text",
+        "text": "C. The Details of Experimental Observation ",
+        "text_level": 1,
+        "bbox": [
+            89,
+            82,
+            459,
+            101
+        ],
+        "page_idx": 14
+    },
+    {
+        "type": "text",
+        "text": "The network accuracy is influenced by the time constant $( \\tau )$ and BPTT timestep $( k )$ . Besides the 5-layer NN in Figure.6, we also evaluate CIFFAR10 with Spiking ResNet18 and DVSGesture with Spiking VGG11. Similar to 5layer SNN, the gradient from further timestep could not contribute to the backpropagation training process, as increasing $k$ above 3 does not substantially enhance the accuracy. The training settings are shown in Table.4: ",
+        "bbox": [
+            88,
+            109,
+            887,
+            170
+        ],
+        "page_idx": 14
+    },
+    {
+        "type": "image",
+        "img_path": "images/dae721b08996a5d825c11905961f1ee37b12f4940f83ab500a96794ec01268cf.jpg",
+        "image_caption": [
+            "Figure 5. Illustration of the LIF neuron based SNN’s gradient error flow during BPTT. In this example ${ \\bf k } { = } 2$ : only the backpropagation from the first two timestep is considered (illustrated by the two red dashed arrows), and backpropagation along further timestep is discarded. "
+        ],
+        "image_footnote": [],
+        "bbox": [
+            334,
+            193,
+            638,
+            348
+        ],
+        "page_idx": 14
+    },
+    {
+        "type": "image",
+        "img_path": "images/a905fb2d6d85798bd99a7dd29ba32419e6473f1f43c14f678d54dad4bef7feda.jpg",
+        "image_caption": [
+            "Figure 6. Performance of LIF with BPTT training, varying $\\tau$ and $k$ (detach all gradients except $0 \\sim k$ ), on (a) CIFAR10 / ResNet18 (Timestep $= 6$ ) and (b) DVS Gesture / $\\mathrm { V g g 1 1 }$ (Timestep $= 2 0$ ). The detailed results as shown in Table.C, and the experiment hyperparameter as shown in Table.4. "
+        ],
+        "image_footnote": [],
+        "bbox": [
+            176,
+            422,
+            789,
+            636
+        ],
+        "page_idx": 14
+    },
+    {
+        "type": "table",
+        "img_path": "images/e684842a0496265309d7a394be846274ba8c0bb76a320409bcdf830cccf92120.jpg",
+        "table_caption": [
+            "Table 3. Left table is the CIFAR10 accuracy performance $( \\% )$ , Right table is the DVS Gesture accuracy performance $( \\% )$ . The random seeds are uniformly fixed across all instances. "
+        ],
+        "table_footnote": [],
+        "table_body": "<table><tr><td>τ k</td><td>1.1</td><td>1.3</td><td>1.5</td><td>1.8</td><td>2</td><td>τ k</td><td>1.1</td><td>1.3</td><td>1.5</td><td>1.8</td><td>2</td></tr><tr><td>1</td><td>92.89</td><td>90.34</td><td>87.27</td><td>82.77</td><td>80.71</td><td>1</td><td>96.88</td><td>97.22</td><td>95.83</td><td>95.49</td><td>96.53</td></tr><tr><td>2</td><td>93.86</td><td>93.91</td><td>92.82</td><td>91.09</td><td>89.07</td><td>4</td><td>97.57</td><td>97.92</td><td>97.22</td><td>96.53</td><td>96.53</td></tr><tr><td>3</td><td>94.24</td><td>94.36</td><td>94.12</td><td>93.31</td><td>93.01</td><td>8</td><td>97.57</td><td>97.57</td><td>97.22</td><td>97.57</td><td>97.22</td></tr><tr><td>4</td><td>94.45</td><td>94.61</td><td>94.64</td><td>94.09</td><td>93.43</td><td>12</td><td>97.22</td><td>97.57</td><td>97.22</td><td>97.22</td><td>97.57</td></tr><tr><td>5</td><td>94.73</td><td>94.69</td><td>94.7</td><td>94.23</td><td>94.06</td><td>16</td><td>97.57</td><td>97.57</td><td>97.92</td><td>97.22</td><td>97.57</td></tr><tr><td>6</td><td>94.80</td><td>94.86</td><td>94.94</td><td>94.36</td><td>93.73</td><td>20</td><td>97.57</td><td>97.57</td><td>97.92</td><td>97.57</td><td>97.22</td></tr></table>",
+        "bbox": [
+            142,
+            752,
+            830,
+            890
+        ],
+        "page_idx": 14
+    },
+    {
+        "type": "table",
+        "img_path": "images/ca9b913010c67945a0347b5e611a807f6f1de451834166ce7bfedc8d364b1dcc.jpg",
+        "table_caption": [
+            "Table 4. Training Parameters "
+        ],
+        "table_footnote": [],
+        "table_body": "<table><tr><td>Parameter Datasets</td><td>CIFAR10</td><td>DVS Gesture</td></tr><tr><td>Networks</td><td>Spiking ResNet18</td><td>Spiking Vgg11</td></tr><tr><td>Time Steps (T)</td><td>6</td><td>20</td></tr><tr><td>Epochs (e)</td><td>200</td><td>300</td></tr><tr><td>Batch Size (bs)</td><td>128</td><td>16</td></tr><tr><td>Optimizer</td><td>SGD</td><td>SGD</td></tr><tr><td>Learning Rate (lr)</td><td>0.1</td><td>0.1</td></tr><tr><td>Weight Decay (wd)</td><td>5 × 10-5</td><td>5 × 10−4</td></tr><tr><td>Dropout Rate</td><td>0.0</td><td>0.4</td></tr></table>",
+        "bbox": [
+            281,
+            107,
+            691,
+            257
+        ],
+        "page_idx": 15
+    },
+    {
+        "type": "text",
+        "text": "D. Detailed Discussion on Temporal Gradient Errors ",
+        "text_level": 1,
+        "bbox": [
+            88,
+            281,
+            529,
+            300
+        ],
+        "page_idx": 15
+    },
+    {
+        "type": "text",
+        "text": "Eq.(9) can be substituted into formula Eq.(12) yields: ",
+        "bbox": [
+            88,
+            308,
+            439,
+            324
+        ],
+        "page_idx": 15
+    },
+    {
+        "type": "equation",
+        "img_path": "images/eaec567243af74af43b0bc9080bf97e0980993393a71e75b23c9d1442e7e1f40.jpg",
+        "text": "$$\n\\mathcal { T } ^ { l } [ t , t ^ { \\prime } ] = \\frac { \\partial \\mathcal { L } } { \\partial s ^ { l } [ t ^ { \\prime } ] } \\frac { \\partial s ^ { l } [ t ^ { \\prime } ] } { \\partial u ^ { l } [ t ^ { \\prime } ] } \\underbrace { \\gamma ^ { ( t ^ { \\prime } - t ) } } _ { \\mathrm { P a r t I } } \\prod _ { t ^ { \\prime \\prime } = 1 } ^ { t ^ { \\prime } - t } \\underbrace { \\left( 1 - V _ { \\mathrm { t h } } \\mathbb { H } \\left( u ^ { l } [ t ^ { \\prime } - t ^ { \\prime \\prime } ] \\right) \\right) } _ { \\mathrm { P a r t I } } ,\n$$",
+        "text_format": "latex",
+        "bbox": [
+            272,
+            334,
+            699,
+            385
+        ],
+        "page_idx": 15
+    },
+    {
+        "type": "text",
+        "text": "In this case, the $\\epsilon$ still converges to 0 after continuous multiplication. The detailed proof is shown below. ",
+        "bbox": [
+            88,
+            401,
+            771,
+            417
+        ],
+        "page_idx": 15
+    },
+    {
+        "type": "text",
+        "text": "We construct the function $\\begin{array} { r } { f _ { \\epsilon } ( n ) = \\prod _ { t = 1 } ^ { n } \\epsilon ^ { l } [ t ] , n = 1 , 2 , . . . _ { ! } } \\end{array}$ , to proof $\\begin{array} { r } { \\operatorname* { l i m } _ { n \\to + \\infty } f _ { \\epsilon } ( n ) = 0 } \\end{array}$ . ",
+        "bbox": [
+            91,
+            422,
+            684,
+            441
+        ],
+        "page_idx": 15
+    },
+    {
+        "type": "text",
+        "text": "Proof. ",
+        "bbox": [
+            88,
+            457,
+            130,
+            470
+        ],
+        "page_idx": 15
+    },
+    {
+        "type": "equation",
+        "img_path": "images/9c38a608848f1cd25378672916ae4a84d8e0b0c324519d644ddb81574424a0aa.jpg",
+        "text": "$$\n\\begin{array} { l } { \\displaystyle \\underset { n \\to + \\infty } { \\operatorname* { l i m } } f _ { \\epsilon } ( n ) = \\displaystyle \\operatorname* { l i m } _ { n \\to + \\infty } \\prod _ { t = 1 } ^ { n } \\epsilon ^ { l } [ t ] } \\\\ { \\displaystyle \\ = \\underset { n \\to + \\infty } { \\operatorname* { l i m } } \\prod _ { t = 1 } ^ { n } \\gamma \\left( 1 - s ^ { l } [ t ] \\odot \\mathbb { H } \\left( u ^ { l } [ t ] \\right) \\right) } \\\\ { \\displaystyle \\ = \\underset { n \\to + \\infty } { \\operatorname* { l i m } } \\gamma ^ { n } \\prod _ { t = 1 } ^ { n } \\left( 1 - s ^ { l } [ t ] \\odot \\mathbb { H } \\left( u ^ { l } [ t ] \\right) \\right) } \\\\ { \\displaystyle \\ = 0 } \\end{array}\n$$",
+        "text_format": "latex",
+        "bbox": [
+            308,
+            469,
+            661,
+            614
+        ],
+        "page_idx": 15
+    },
+    {
+        "type": "text",
+        "text": "where the $\\gamma$ is a constant and $0 < \\gamma < 1$ , resulting $\\scriptstyle \\operatorname* { l i m } _ { n \\to + \\infty } \\gamma ^ { n } = 0$ . ",
+        "bbox": [
+            88,
+            619,
+            544,
+            636
+        ],
+        "page_idx": 15
+    },
+    {
+        "type": "equation",
+        "img_path": "images/fbdf83b20368dc88ef3799095f552e23841e3ff1471d137c4687024621db5810.jpg",
+        "text": "$$\n\\begin{array} { r } { 1 - V _ { \\mathrm { t h } } \\mathbb { H } ( \\mathbf { u } ^ { l } \\left[ t \\right] ) = \\left\\{ \\begin{array} { l l } { 1 - \\frac { V _ { \\mathrm { t h } } } { \\alpha } , } & { \\mathrm { i f ~ } V _ { \\mathrm { t h } } - \\frac { \\alpha } { 2 } \\leq u ^ { l } [ t ] \\leq V _ { \\mathrm { t h } } + \\frac { \\alpha } { 2 } } \\\\ { 1 , } & { \\mathrm { o t h e r w i s e } } \\end{array} \\right. . } \\end{array}\n$$",
+        "text_format": "latex",
+        "bbox": [
+            272,
+            661,
+            700,
+            704
+        ],
+        "page_idx": 15
+    },
+    {
+        "type": "text",
+        "text": "In Part II, we further deduce as shown in Eq.(39), drawing from Eq.(6). The second term also tends toward zero, influenced by the hyperparameter $\\alpha$ . To prevent spatial gradient explosion, $\\alpha$ is typically set to be larger than or equal to $V _ { \\mathrm { t h } }$ (Wu et al., 2019). When $\\alpha > V _ { \\mathrm { t h } }$ , the result is $\\begin{array} { r } { 0 < \\bar { 1 } - \\frac { V _ { \\mathrm { t h } } } { \\alpha } < \\bar { 1 } } \\end{array}$ , which causes the temporal gradients to converge to zero more quickly due to the continuous product. However, many studies retain the default value of $\\alpha = V _ { \\mathrm { t h } } = 1$ (Deng et al., 2021). When $\\alpha = V _ { \\mathrm { t h } }$ , if the membrane potential is within the range of $\\begin{array} { r } { ( V _ { \\mathrm { t h } } - \\frac { \\alpha } { 2 } , V _ { \\mathrm { t h } } + \\frac { \\alpha } { 2 } ) } \\end{array}$ , then $\\begin{array} { r } { 1 - \\frac { V _ { \\mathrm { t h } } } { \\alpha } } \\end{array}$ equals. In other words, if a spike is generated (or $u \\approx V _ { \\mathrm { t h } } ,$ ) once within the range of $( t + 1 , T )$ , the temporal gradient will be 0 in such cases. This signifies a pervasive challenge with temporal gradients in the vanilla LIF model, persisting even with short timestep. ",
+        "bbox": [
+            88,
+            708,
+            887,
+            815
+        ],
+        "page_idx": 15
+    },
+    {
+        "type": "text",
+        "text": "E. Detailed Discussion on Inspired Biological Principles ",
+        "text_level": 1,
+        "bbox": [
+            89,
+            833,
+            553,
+            852
+        ],
+        "page_idx": 15
+    },
+    {
+        "type": "text",
+        "text": "The design inspiration for CLIF neurons primarily comes from the adaptive learning characteristics observed in the biological nervous system, particularly the mechanisms of neural adaptability and dynamic regulation of membrane potential (Benda & Herz, 2003). In biology, neurons adjust their electrophysiological properties to adapt to different environmental stimuli. This capability is crucial for the effective processing of information by neurons, preventing excessive excitability (Klausberger & Somogyi, 2008; Rankin et al., 2009). A key biological mechanism is regulation through the activity of GABAergic neurons, which release GABA onto the postsynaptic membrane of the target neuron, leading to hyperpolarization and inhibition of excessive action potential production (Letinic et al., 2002). ",
+        "bbox": [
+            88,
+            859,
+            887,
+            906
+        ],
+        "page_idx": 15
+    },
+    {
+        "type": "text",
+        "text": "",
+        "bbox": [
+            88,
+            84,
+            885,
+            145
+        ],
+        "page_idx": 16
+    },
+    {
+        "type": "text",
+        "text": "The CLIF model simulates this hyperpolarization process and the regulation of action potential generation by resetting a greater amount of membrane potential after each firing, attempting to replicate this type of adaptive regulation characteristic of biological neurons in a computational model. ",
+        "bbox": [
+            88,
+            152,
+            885,
+            198
+        ],
+        "page_idx": 16
+    },
+    {
+        "type": "text",
+        "text": "F. Dynamic Analysis of CLIF neuron ",
+        "text_level": 1,
+        "bbox": [
+            89,
+            217,
+            397,
+            234
+        ],
+        "page_idx": 16
+    },
+    {
+        "type": "text",
+        "text": "In this section, we first discuss the firing dynamic behavior of the CLIF, and then we discuss the auto-correlation for the membrane potential. Finally, we discuss the dynamic difference between the CLIF and the current-based, adaptive threshold model. ",
+        "bbox": [
+            88,
+            243,
+            887,
+            287
+        ],
+        "page_idx": 16
+    },
+    {
+        "type": "text",
+        "text": "Firstly, we analyze the fire rate and auto-correlation of CLIF according to the same Poisson random input. The firing dynamic behavior under the different timestep for the single CLIF neuron is shown in Figure.7. We can find that compared with LIF neurons, CLIF neuron has extra refractory periods resulting lower fire rate. ",
+        "bbox": [
+            88,
+            296,
+            885,
+            342
+        ],
+        "page_idx": 16
+    },
+    {
+        "type": "image",
+        "img_path": "images/e97a72f4808b5cbbad4df7b19088e4fa53667437bdb640c995853f526a60d701.jpg",
+        "image_caption": [
+            "Figure 7. The dynamic behavior of a single LIF and CLIF neuron at different timestep. "
+        ],
+        "image_footnote": [],
+        "bbox": [
+            171,
+            369,
+            799,
+            553
+        ],
+        "page_idx": 16
+    },
+    {
+        "type": "text",
+        "text": "Secondly, we calculate the auto-correlation function using $\\begin{array} { r } { R _ { x } [ k ] = { \\frac { 1 } { N } } \\sum _ { n = 0 } ^ { N - 1 } x [ n ] \\cdot x [ n - k ] } \\end{array}$ . The results are shown in We can observe that the auto-correlation value of the complementary membrane potential decays slower, and its period is longer. This suggests that CLIF can capture more and longer correlations in the temporal dimension than LIF. ",
+        "bbox": [
+            86,
+            598,
+            887,
+            662
+        ],
+        "page_idx": 16
+    },
+    {
+        "type": "image",
+        "img_path": "images/24e5c6bc293a2539591736c887b5bc6c23a516b8d1bb6f2068aabf5e4f1e8937.jpg",
+        "image_caption": [
+            "Figure 8. The autocorrelation of a single LIF and CLIF neuron at different timestep. "
+        ],
+        "image_footnote": [],
+        "bbox": [
+            171,
+            689,
+            799,
+            872
+        ],
+        "page_idx": 16
+    },
+    {
+        "type": "text",
+        "text": "Finally, CLIF shares more similarities to the Adaptive Threshold model (Bellec et al., 2020) than to the Current-Base model (Zenke & Ganguli, 2018). As for synaptic input current for both CLIF and adaptive threshold model take the form of $W s [ t ]$ , different from current-base model $\\begin{array} { r } { \\dot { I _ { \\mathrm { s y n } } } [ t ] = \\frac { 1 } { \\tau } I _ { \\mathrm { s y n } } [ t - 1 ] + W s [ t ] } \\end{array}$ , adaptive threshold model uses a latent variable to adjust the neurons’ firing thresholds, whereas CLIF uses a latent variable (the complementary membrane potential) to adjust neurons reset strength. ",
+        "bbox": [
+            88,
+            83,
+            885,
+            161
+        ],
+        "page_idx": 17
+    },
+    {
+        "type": "text",
+        "text": "G. The Gradients of CLIF Neuron ",
+        "text_level": 1,
+        "bbox": [
+            89,
+            178,
+            377,
+            196
+        ],
+        "page_idx": 17
+    },
+    {
+        "type": "text",
+        "text": "The CLIF model can be rewritten as: ",
+        "bbox": [
+            88,
+            205,
+            331,
+            220
+        ],
+        "page_idx": 17
+    },
+    {
+        "type": "equation",
+        "img_path": "images/5d4659d222a03ca0c642c75e9dade3d0a06219297f2c7e34096e1766cd702c92.jpg",
+        "text": "$$\n\\begin{array} { c } { { \\pmb u ^ { l } [ t ] = \\gamma \\left( \\pmb u ^ { l } [ t - 1 ] - \\pmb s ^ { l } [ t - 1 ] \\odot \\left( V _ { \\mathrm { t h } } + \\sigma ( \\pmb m ^ { l } [ t - 1 ] ) \\right) \\right) + W ^ { l } s ^ { l - 1 } [ t ] } } \\\\ { { \\pmb s ^ { l } [ t ] = \\Theta ( \\pmb u ^ { l } [ t ] - V _ { \\mathrm { t h } } ) } } \\\\ { { \\pmb m ^ { l } [ t ] = \\pmb m ^ { l } [ t - 1 ] \\odot \\sigma \\left( \\frac { 1 } { \\tau } \\pmb u ^ { l } [ t ] \\right) + \\pmb s ^ { l } [ t ] } } \\end{array}\n$$",
+        "text_format": "latex",
+        "bbox": [
+            248,
+            228,
+            723,
+            309
+        ],
+        "page_idx": 17
+    },
+    {
+        "type": "text",
+        "text": "where defined $\\begin{array} { r } { \\gamma \\equiv 1 - \\frac { 1 } { \\tau } } \\end{array}$ , then the gradients at $l$ layer is calculated as: ",
+        "bbox": [
+            88,
+            318,
+            549,
+            335
+        ],
+        "page_idx": 17
+    },
+    {
+        "type": "equation",
+        "img_path": "images/42c437ecfdfe8c4d2e2bc8bd40d1bc529bc847f210831ececb59ce1fe24cf2ac.jpg",
+        "text": "$$\n\\nabla _ { \\mathbf { } W ^ { l } } \\mathcal { L } = \\sum _ { t = 1 } ^ { T } \\frac { \\partial \\mathcal { L } } { \\partial \\mathbf { } \\mathbf { } u ^ { l } [ t ] } \\frac { \\partial \\mathbf { } u ^ { l } [ t ] } { \\partial \\mathbf { } W ^ { l } } , l = \\mathrm { L } , \\mathrm { L } - 1 , \\cdots , 1 .\n$$",
+        "text_format": "latex",
+        "bbox": [
+            321,
+            344,
+            651,
+            388
+        ],
+        "page_idx": 17
+    },
+    {
+        "type": "text",
+        "text": "Where the right part could be deduced as: ",
+        "bbox": [
+            88,
+            397,
+            362,
+            412
+        ],
+        "page_idx": 17
+    },
+    {
+        "type": "equation",
+        "img_path": "images/d10ad73089078038181fff65709a3874ed1a1a2942267af802ad87bb1ab61568.jpg",
+        "text": "$$\n\\frac { \\partial { \\pmb u } ^ { l } [ t ] } { \\partial { \\pmb W } ^ { l } } = { \\pmb s } ^ { l - 1 } [ t ]\n$$",
+        "text_format": "latex",
+        "bbox": [
+            429,
+            410,
+            544,
+            444
+        ],
+        "page_idx": 17
+    },
+    {
+        "type": "text",
+        "text": "For the left part, we recursively evaluate: ",
+        "bbox": [
+            88,
+            457,
+            356,
+            472
+        ],
+        "page_idx": 17
+    },
+    {
+        "type": "equation",
+        "img_path": "images/823bca4f883ab5abd5dec2d109fb178b040fc49a23390397193c2f98de30f1b7.jpg",
+        "text": "$$\n\\frac { \\partial \\mathcal { L } } { \\partial u ^ { l } [ t ] } = \\frac { \\partial \\mathcal { L } } { \\partial s ^ { l } [ t ] } \\frac { \\partial s ^ { l } [ t ] } { \\partial u ^ { l } [ t ] } + \\frac { \\partial \\mathcal { L } } { \\partial u ^ { l } [ t + 1 ] } \\left( \\epsilon ^ { l } [ t ] + \\frac { \\partial u ^ { l } [ t + 1 ] } { \\partial m ^ { l } [ t ] } \\psi ^ { l } [ t ] \\right) _ { , } + \\quad \\quad \\quad \\frac { \\partial \\mathcal { L } } { \\partial m ^ { l } [ t ] } \\psi ^ { l } [ t ] ,\n$$",
+        "text_format": "latex",
+        "bbox": [
+            174,
+            481,
+            751,
+            518
+        ],
+        "page_idx": 17
+    },
+    {
+        "type": "text",
+        "text": "| {z }Temporal Gradients of Complementary ",
+        "bbox": [
+            617,
+            523,
+            799,
+            535
+        ],
+        "page_idx": 17
+    },
+    {
+        "type": "text",
+        "text": "The eligibility, this terminology mainly refers to e-prop (Bellec et al., 2020), STBP (Wu et al., 2018). From the LIF model, the equation can be deduced as: ",
+        "bbox": [
+            89,
+            553,
+            887,
+            582
+        ],
+        "page_idx": 17
+    },
+    {
+        "type": "equation",
+        "img_path": "images/b64145ae3ef13aa6fc625bdb577f8e47362da3809731923f20eb83e6223ec64e.jpg",
+        "text": "$$\n\\epsilon ^ { l } [ t ] \\equiv \\frac { \\partial { \\pmb u } ^ { l } [ t + 1 ] } { \\partial { \\pmb u } ^ { l } [ t ] } + \\frac { \\partial { \\pmb u } ^ { l } [ t + 1 ] } { \\partial { \\pmb s } ^ { l } [ t ] } \\frac { \\partial { \\pmb s } ^ { l } [ t ] } { \\partial { \\pmb u } ^ { l } [ t ] }\n$$",
+        "text_format": "latex",
+        "bbox": [
+            354,
+            580,
+            619,
+            616
+        ],
+        "page_idx": 17
+    },
+    {
+        "type": "text",
+        "text": "The Complementary will also introduce the $\\psi ^ { l } [ t ]$ : ",
+        "bbox": [
+            88,
+            631,
+            416,
+            647
+        ],
+        "page_idx": 17
+    },
+    {
+        "type": "equation",
+        "img_path": "images/7890a149aa32507db9c7275e02c2ab9d43e2f9abcf6dd0d3d2ef25a0c6f416c1.jpg",
+        "text": "$$\n\\begin{array} { r l } & { \\psi ^ { l } [ t ] \\equiv \\underbrace { \\partial m ^ { l } [ t ] } _ { \\geq 0 } + \\underbrace { \\partial m ^ { l } [ t ] } _ { \\geq s ^ { l } [ t ] } \\frac { \\partial s ^ { l } [ t ] } { \\partial { u ^ { l } } [ t ] } } \\\\ & { \\qquad = \\underbrace { \\frac { 1 } { \\tau } m ^ { l } [ t - 1 ] } _ { \\geq 0 } \\odot \\underbrace { \\sigma ^ { \\prime } \\left( \\frac { 1 } { \\tau } { u ^ { l } [ t ] } \\right) } _ { \\in ( 0 , 1 ) } + \\underbrace { { \\mathbb H } \\left( { u ^ { l } [ t ] } \\right) } _ { \\geq 0 } } \\end{array}\n$$",
+        "text_format": "latex",
+        "bbox": [
+            326,
+            656,
+            647,
+            748
+        ],
+        "page_idx": 17
+    },
+    {
+        "type": "text",
+        "text": "Besides, the Complementary gradient line will introduce the recursively part: ",
+        "bbox": [
+            88,
+            763,
+            593,
+            780
+        ],
+        "page_idx": 17
+    },
+    {
+        "type": "equation",
+        "img_path": "images/d95cb60eee07511e4643cdb8a57ba478e46800b1cc568887d43044a72816af80.jpg",
+        "text": "$$\n\\frac { \\partial \\mathcal { L } } { \\partial m ^ { l } [ t ] } = \\frac { \\partial \\mathcal { L } } { \\partial \\boldsymbol { u } ^ { l } [ t + 1 ] } \\frac { \\partial \\boldsymbol { u } ^ { l } [ t + 1 ] } { \\partial \\boldsymbol { m } ^ { l } [ t ] } + \\frac { \\partial \\mathcal { L } } { \\partial \\boldsymbol { m } ^ { l } [ t + 1 ] } \\left( \\frac { \\partial \\boldsymbol { m } ^ { l } [ t + 1 ] } { \\partial \\boldsymbol { m } ^ { l } [ t ] } + \\psi ^ { l } [ t + 1 ] \\frac { \\partial \\boldsymbol { u } ^ { l } [ t + 1 ] } { \\partial \\boldsymbol { m } ^ { l } [ t ] } \\right)\n$$",
+        "text_format": "latex",
+        "bbox": [
+            197,
+            789,
+            774,
+            825
+        ],
+        "page_idx": 17
+    },
+    {
+        "type": "text",
+        "text": "To better understand the eligibility in Eq.45 and Eq.48, we can refer to the following Figure.9: ",
+        "bbox": [
+            86,
+            84,
+            702,
+            101
+        ],
+        "page_idx": 18
+    },
+    {
+        "type": "image",
+        "img_path": "images/7d58415b994b3a87b5b1b1adec958bf0a05651e53e1e09fdb3eb0f3765dcea24.jpg",
+        "image_caption": [
+            "Figure 9. The abstract expression of (a) forward dependency and (b) backward eligibility trace for CLIF neuron. "
+        ],
+        "image_footnote": [],
+        "bbox": [
+            302,
+            130,
+            638,
+            273
+        ],
+        "page_idx": 18
+    },
+    {
+        "type": "text",
+        "text": "Merging the Eq.45 and Eq.48 as matrix computing process: ",
+        "bbox": [
+            86,
+            347,
+            478,
+            363
+        ],
+        "page_idx": 18
+    },
+    {
+        "type": "equation",
+        "img_path": "images/7dde132f8a404e3793f87cfb2d871b0e4c3061451643242c01e0590e857840f1.jpg",
+        "text": "$$\n\\begin{array} { r l } { \\cdot } & { - \\psi ^ { l } [ t ] \\Bigg ] ~ \\left[ \\frac { \\partial \\mathcal { L } } { \\partial u ^ { l } [ t ] } \\right] ~ = ~ \\left[ \\epsilon ^ { l } [ t ] + \\frac { \\partial u ^ { l } [ t + 1 ] } { \\partial m ^ { l } [ t ] } \\psi ^ { l } [ t ] \\right. ~ 0 } \\\\ { \\left. ~ 0 ~ \\right. ~ } & { \\left. 1 ~ \\right] ~ \\left[ \\frac { \\partial \\mathcal { L } } { \\partial m ^ { l } [ t ] } \\right] ~ = ~ \\left[ \\epsilon ^ { l } [ t ] + \\frac { \\partial u ^ { l } [ t + 1 ] } { \\partial m ^ { l } [ t ] } \\frac { \\partial m ^ { l } [ t + 1 ] } { \\partial m ^ { l } [ t ] } + \\psi ^ { l } [ t + 1 ] \\frac { \\partial u ^ { l } [ t + 1 ] } { \\partial m ^ { l } [ t ] } \\right] ~ \\left[ \\frac { \\partial \\mathcal { L } } { \\partial m ^ { l } [ t + 1 ] } \\right] ~ + ~ \\left[ \\frac { \\partial \\mathcal { L } } { \\partial s } \\right] ~ \\psi ^ { l } [ t ] ~ \\psi ^ { l } [ t ] ~ \\psi ^ { l } ( t + 1 ) ~ } \\end{array}\n$$",
+        "text_format": "latex",
+        "bbox": [
+            116,
+            383,
+            772,
+            434
+        ],
+        "page_idx": 18
+    },
+    {
+        "type": "text",
+        "text": "where the blue part is the original gradient of the LIF neuron, and the other parts are introduced by Complementary. ",
+        "bbox": [
+            91,
+            455,
+            841,
+            470
+        ],
+        "page_idx": 18
+    },
+    {
+        "type": "text",
+        "text": "Firstly, we first recursively expand the Eq.48: ",
+        "bbox": [
+            88,
+            478,
+            387,
+            493
+        ],
+        "page_idx": 18
+    },
+    {
+        "type": "equation",
+        "img_path": "images/4920b40df3efedb7d9f78f5bbfdb8d9ca4c60f27ad532ee458f0b8d3f5aa63cc.jpg",
+        "text": "$$\n\\begin{array} { r l } & { \\quad \\frac { \\partial C } { \\partial \\alpha } \\frac { \\partial \\alpha ^ { [ i ] } ( t + 1 ) } { \\partial \\alpha ^ { [ i ] } } + \\underbrace { \\frac { \\partial C } { \\partial \\alpha ^ { [ i ] } } } _ { \\partial \\alpha ^ { [ j ] } } \\frac { \\partial \\alpha ^ { [ j ] } ( t + 2 ) } { \\partial \\alpha ^ { [ i ] } ( t + 1 ) } - \\underbrace { \\frac { \\partial C } { \\partial \\alpha ^ { [ j ] } } \\frac { \\partial ^ { j } [ k _ { + } ] } { \\partial \\alpha ^ { [ j ] } } } _ { \\le \\alpha \\alpha ^ { [ i ] } ( t + 1 ) } \\rho ^ { j [ j ] } } \\\\ &  - \\underbrace { \\beta C } _ { \\partial \\alpha ^ { [ j ] } } \\frac { \\partial \\alpha ^ { [ i ] } [ t + 1 ] } { \\partial \\alpha ^ { [ j ] } [ t ] ! } + \\underbrace { \\frac { \\partial C } { \\partial \\alpha ^ { [ j ] } } \\frac { \\partial \\alpha ^ { [ i ] } [ t + 2 ] } { \\partial \\alpha ^ { [ j ] } [ t ] ! } + \\frac { \\partial ^ { [ j ] } C } { \\partial \\alpha ^ { [ j ] } [ t ] ! } + \\underbrace { \\frac { \\partial C } { \\partial \\alpha ^ { [ j ] } } \\frac { \\partial ^ { j } [ k _ { + } ] } { \\partial \\alpha ^ { [ j ] } } } _ { \\le \\alpha ^ { [ j ] } \\alpha ^ { [ i ] } + 1 } \\rho ^ { j [ j ] } } \\\\ &  \\qquad - \\underbrace { \\beta C } _ { \\partial \\alpha ^ { [ i ] } ( t + 1 ) } \\frac { \\partial \\alpha ^ { [ i ] } [ t + 1 ] } { \\partial \\alpha ^ { [ j ] } [ t ] ! } + \\underbrace  \\frac { \\partial C } { \\partial \\alpha ^ { [ j ] } } \\frac { \\partial \\alpha ^ { [ i ] } [ t + 2 ] } { \\partial \\alpha ^ { [ j ] } [ t ] ! } + \\underbrace { \\frac { \\partial C } { \\partial \\alpha ^ { [ j ] } } \\frac { \\partial \\alpha ^ { [ i ] } [ t + 3 ] } { \\partial \\alpha ^ { [ j ] } [ t ] ! } } _ { \\le \\alpha ^ { [ j ] } ( t + 1 ) } \\rho ^ { j [ j ] } [ 1 \\ + 1 ] \\rho ^  \\end{array}\n$$",
+        "text_format": "latex",
+        "bbox": [
+            150,
+            555,
+            816,
+            820
+        ],
+        "page_idx": 18
+    },
+    {
+        "type": "text",
+        "text": "By mathematical induction, we can deduce that: ",
+        "bbox": [
+            88,
+            827,
+            405,
+            842
+        ],
+        "page_idx": 18
+    },
+    {
+        "type": "equation",
+        "img_path": "images/53cfcec05483f95136c6f4131b89919b249ef8e139f7857aff00331ebcee0ed6.jpg",
+        "text": "$$\n\\frac { \\partial \\mathcal { L } } { \\partial \\boldsymbol { m } ^ { l } [ t ] } = \\sum _ { t ^ { \\prime } = t + 1 } ^ { T } \\frac { \\partial \\mathcal { L } } { \\partial \\boldsymbol { u } ^ { l } [ t ^ { \\prime } ] } \\frac { \\partial \\boldsymbol { u } ^ { l } [ t ^ { \\prime } ] } { \\partial \\boldsymbol { m } ^ { l } [ t ^ { \\prime } - 1 ] } \\prod _ { t ^ { \\prime \\prime } = 2 } ^ { t ^ { \\prime } - t } \\rho ^ { l } [ t ^ { \\prime } - t ^ { \\prime \\prime } ]\n$$",
+        "text_format": "latex",
+        "bbox": [
+            310,
+            864,
+            663,
+            910
+        ],
+        "page_idx": 18
+    },
+    {
+        "type": "text",
+        "text": "Secondly, we recursively expand the Eq.(45): ",
+        "bbox": [
+            89,
+            84,
+            385,
+            99
+        ],
+        "page_idx": 19
+    },
+    {
+        "type": "equation",
+        "img_path": "images/a00c8ddfba1a29545f28a953c04c089fa3acb1dad29bf6e647065509ab4d35b8.jpg",
+        "text": "$$\n\\begin{array} { r l } & { \\frac { \\partial \\mathcal { L } } { \\partial \\boldsymbol { u } ^ { \\prime } [ \\boldsymbol { t } ] } = \\underbrace { \\frac { \\partial \\mathcal { L } } { \\partial s ^ { L } [ \\boldsymbol { t } ] } \\frac { \\partial s ^ { L } [ \\boldsymbol { t } ] } { \\partial \\boldsymbol { u } ^ { L } [ \\boldsymbol { t } ] } } _ { S y \\mathrm { a n i a l } \\downarrow \\mathrm { ( } \\pi \\mathrm { f } \\mathrm { f l } \\mathrm { e } \\mathrm { i } \\mathrm { e n t } \\mathrm { ( } \\boldsymbol { t } ^ { \\prime } \\mathrm { I } + 1 \\mathrm { \\Gamma } ( \\epsilon ^ { \\prime } [ \\boldsymbol { t } | \\boldsymbol { t } ] + \\frac { \\partial \\boldsymbol { u } ^ { \\prime } [ \\boldsymbol { t } + 1 ] } { \\partial m ^ { L } [ \\boldsymbol { t } ] } \\psi ^ { \\prime } [ \\boldsymbol { t } ] ) } + \\underbrace { \\frac { \\partial \\mathcal { L } } { \\partial m ^ { L } [ \\boldsymbol { t } ] } \\psi ^ { \\prime } [ \\boldsymbol { t } ] } _ { \\tau \\mathrm { r e m e a l i c } \\mathrm { f l } \\mathrm { e n t } \\mathrm { r e m e a r s t a n y } } } \\\\ & { \\quad = \\frac { \\partial \\mathcal { L } } { \\partial s ^ { L } [ \\boldsymbol { t } ] } \\frac { \\partial s ^ { L } [ \\boldsymbol { t } ] } { \\partial \\boldsymbol { u } ^ { L } [ \\boldsymbol { t } ] } + \\underbrace { \\frac { \\partial \\mathcal { L } } { \\partial \\boldsymbol { u } ^ { \\prime } [ \\boldsymbol { t } ] } ( \\epsilon ^ { L } [ \\boldsymbol { t } | \\boldsymbol { t } ] + \\frac { \\partial \\boldsymbol { u } ^ { \\prime } [ \\boldsymbol { t } + 1 ] } { \\partial m ^ { L } [ \\boldsymbol { t } ] } \\psi ^ { \\prime } [ \\boldsymbol { t } ] ) } _ { \\mathrm { c y n a m s t } } + \\frac { \\partial \\mathcal { L } } { \\partial m ^ { L } [ \\boldsymbol { t } ] } \\psi ^ { \\prime } [ \\boldsymbol { t } ] } \\\\ &  \\quad \\quad - \\frac { \\partial \\mathcal { L } } { \\partial s ^ { L } [ \\boldsymbol { t } ] } \\frac { \\partial s ^ { L } [ \\boldsymbol { t } ] } { \\partial \\boldsymbol { u } ^ { L } [ \\boldsymbol { t } ] } + ( \\frac { \\partial \\mathcal { L } } \\end{array}\n$$",
+        "text_format": "latex",
+        "bbox": [
+            94,
+            109,
+            795,
+            304
+        ],
+        "page_idx": 19
+    },
+    {
+        "type": "equation",
+        "img_path": "images/0441bf55f57bb58147bd3387d032b21066a8e8aba4db7f358e3238728751306e.jpg",
+        "text": "$$\n\\begin{array} { r l } & { \\mathcal { D } \\overline { { u } } \\overline { { u } } [ \\overline { { t } } ] + \\frac { \\partial \\overline { { u } } [ \\Gamma ] } { \\partial \\overline { { u } } [ \\Gamma ] } \\{ \\begin{array} { l } { c \\overline { { u } } [ \\bar { t } ] + \\frac { \\partial \\overline { { u } } [ \\Gamma ] } { \\partial \\overline { { u } } [ \\Gamma ] } \\overline { { { \\epsilon } } } [ \\bar { t } ] \\} + \\overline { { \\partial \\overline { { u } } [ \\Gamma ] } } \\overline { { { \\epsilon } } } [ \\bar { t } ] } \\\\ { \\mathcal { D } \\overline { { u } } [ \\bar { t } ] } \\end{array} } \\\\ & { \\mathcal { D } \\delta \\overline { { c } } [ \\overline { { t } } ] + ( \\begin{array} { l } { \\partial \\overline { { u } } [ \\bar { t } ] + \\frac { \\partial \\overline { { u } } [ \\Gamma ] } { \\partial \\mathcal { E } } [ \\bar { t } ] + 1 } \\\\ { \\partial \\overline { { u } } [ \\Gamma ] + 1 } \\end{array} ) \\delta \\overline { { c } } [ \\bar { t } ] + \\frac { \\partial \\overline { { c } } [ \\bar { t } ] } { \\partial \\overline { { u } } [ \\Gamma ] } \\{ \\begin{array} { l } { \\partial \\overline { { u } } [ \\bar { t } ] + \\partial \\overline { { c } } [ \\bar { t } ] } \\\\ { \\partial \\overline { { u } } [ \\Gamma ] + \\partial \\overline { { c } } [ \\bar { t } ] } \\end{array} \\} \\delta \\overline { { c } } [ \\bar { t } ] + \\frac { \\partial \\overline { { c } } [ \\bar { t } ] } { \\partial \\overline { { u } } [ \\Gamma ] } } \\\\ &  \\mathcal { D } \\delta \\overline { { c } } [ \\overline { { t } } ] + \\frac { \\partial \\overline { { c } } [ \\Gamma ] } { \\partial \\overline { { u } } [ \\Gamma ] } \\{ \\begin{array} { l }  c \\overline { { u } } [ \\bar { t } ] + \\frac { \\partial \\overline { { c } } [ \\Gamma ] } { \\partial \\overline { { u } } [ \\Gamma ] } \\{ \\begin{array} { l }  c \\overline { { u } } [ \\bar { t } ] + \\overline { { c } } [  \\end{array} \\end{array} \\end{array}\n$$",
+        "text_format": "latex",
+        "bbox": [
+            142,
+            179,
+            861,
+            489
+        ],
+        "page_idx": 19
+    },
+    {
+        "type": "text",
+        "text": "Note that similar items in Eq.(52) can be merged as: ",
+        "bbox": [
+            88,
+            506,
+            431,
+            521
+        ],
+        "page_idx": 19
+    },
+    {
+        "type": "equation",
+        "img_path": "images/9b18030d13b18d3be39deef988ee871f5d8e11cb982f49b61153b95efdc45756.jpg",
+        "text": "$$\n\\begin{array} { r l } & { \\quad \\frac { \\partial C } { \\partial \\alpha ^ { \\prime } } \\frac { \\partial \\xi ^ { \\prime } [ \\xi ] } { \\partial \\alpha ^ { \\prime } \\Gamma ( \\frac { \\partial \\xi } { \\partial \\xi } ) } + \\frac { \\partial C } { \\partial \\alpha ^ { \\prime } \\Gamma ( \\frac { \\partial \\xi } { \\partial \\xi } ) } \\psi _ { 1 } ^ { * } \\dag +  \\frac { \\partial C } { \\partial \\alpha ^ { \\prime } \\Gamma ( 1 + | \\alpha | ^ { 2 } | \\Gamma ( \\frac { \\partial \\xi } { \\partial \\xi } ) \\Gamma ( \\frac { \\partial \\xi } { \\partial \\xi } ) \\Gamma ( \\frac { \\partial \\xi } { \\partial \\xi } ) } + \\frac { \\partial C } { \\partial \\alpha ^ { \\prime } \\Gamma ( \\frac { \\partial \\xi } { \\partial \\xi } ) } \\psi _ { 1 } ^ { * } | - \\psi _ { 1 } ^ { * } |  \\xi ^ { \\prime } |  } \\\\ & { \\quad + \\cdots ( \\frac { \\partial C } { \\partial \\alpha ^ { \\prime } \\Gamma ( \\frac { \\partial \\xi } { \\partial \\xi } ) } \\frac { \\partial \\xi } { \\partial \\alpha ^ { \\prime } \\Gamma ( \\frac { \\partial \\xi } { \\partial \\xi } ) } + \\frac { \\partial C } { \\partial \\alpha ^ { \\prime } \\Gamma ( \\frac { \\partial \\xi } { \\partial \\xi } ) } \\psi _ { 1 } ^ { * } | \\Gamma ) \\xi ^ { \\prime } | \\Gamma - 1 \\xi ^ { \\prime } - 2 | \\xi - 5 | \\xi - 1 | \\xi ^ { \\prime } | \\xi | } \\\\ &  \\quad - \\frac { \\partial C } { \\partial \\alpha ^ { \\prime } \\Gamma ( \\frac { \\partial \\xi } { \\partial \\xi } ) } \\frac { \\partial \\xi } { \\partial \\alpha ^ { \\prime } \\Gamma ( \\frac { \\partial \\xi } { \\partial \\xi } ) } \\frac { \\partial \\xi } { \\partial \\alpha ^ { \\prime } \\Gamma ( \\frac { \\partial \\xi } { \\partial \\xi } ) } \\frac { \\partial \\xi } { \\partial \\alpha ^ { \\prime } \\Gamma ( \\frac { \\partial \\xi } { \\partial \\xi } ) } [ \\ \\end{array}\n$$",
+        "text_format": "latex",
+        "bbox": [
+            138,
+            531,
+            795,
+            830
+        ],
+        "page_idx": 19
+    },
+    {
+        "type": "text",
+        "text": "Here again, the gradient of the original LIF neuron is plotted in blue. We can intuitively see that the temporal gradient contributions from the Complementary component are more significant than those from LIF. Even in the worst case all of $\\Pi \\pmb { \\xi }  0$ , $\\frac { \\partial \\mathcal { L } } { \\partial m ^ { l } [ t ] }$ also provides the sum of all temporal gradients as shown in Figure.(51), like shortcut at temporal dimension. ",
+        "bbox": [
+            86,
+            842,
+            887,
+            904
+        ],
+        "page_idx": 19
+    },
+    {
+        "type": "text",
+        "text": "H. The Loss Comparing between LIF and CLIF ",
+        "text_level": 1,
+        "bbox": [
+            88,
+            82,
+            491,
+            101
+        ],
+        "page_idx": 20
+    },
+    {
+        "type": "text",
+        "text": "Following Figure.3 we extend the loss comparison to various tasks and network backbones. The results are shown in Figure.10, CLIF neuron’s loss converges faster than LIF’s, the converged loss is also lower. This tendency demonstrates the advantage of the CLIF neuron model. ",
+        "bbox": [
+            88,
+            109,
+            887,
+            155
+        ],
+        "page_idx": 20
+    },
+    {
+        "type": "image",
+        "img_path": "images/2376b7b2adb9badd99711d7850ca4c20d8cc7cb59ff1db057f1113756ec9f7a2.jpg",
+        "image_caption": [
+            "Figure 10. Testing loss curves of the training process of LIF-based and CLIF-based for each tasks. "
+        ],
+        "image_footnote": [],
+        "bbox": [
+            104,
+            196,
+            872,
+            314
+        ],
+        "page_idx": 20
+    },
+    {
+        "type": "text",
+        "text": "I. Experiment Description and Dataset Pre-processing ",
+        "text_level": 1,
+        "bbox": [
+            88,
+            372,
+            540,
+            390
+        ],
+        "page_idx": 20
+    },
+    {
+        "type": "text",
+        "text": "Unless otherwise specified or for the purpose of comparative experiments, the experiments in this paper adhere to the following settings and data preprocessing: all our self-implementations use Rectangle surrogate functions with $\\alpha = V _ { \\mathrm { t h } } = 1$ , and the decay constant $\\tau$ is set to 2.0. All random seed settings are 2022. For all loss functions, we use the TET (Deng et al., 2021) with a 0.05 loss lambda, as implemented in (Meng et al., 2023). The following are the detailed default setups and dataset descriptions. ",
+        "bbox": [
+            88,
+            398,
+            887,
+            474
+        ],
+        "page_idx": 20
+    },
+    {
+        "type": "table",
+        "img_path": "images/ad24bc31ddd219e9f7aebf5340b70d942563baff7de9a3515ce1528455355101.jpg",
+        "table_caption": [
+            "Table 5. Training hyperparameters "
+        ],
+        "table_footnote": [],
+        "table_body": "<table><tr><td>Dataset</td><td>Optimizer</td><td>Weight Dacay</td><td>Batch Size</td><td>Epoch</td><td>Learning Rate</td></tr><tr><td>CIFAR10</td><td>SGD</td><td>5e-5</td><td>128</td><td>200</td><td>0.1</td></tr><tr><td>CIFAR100</td><td>SGD</td><td>5e-4</td><td>128</td><td>200</td><td>0.1</td></tr><tr><td>Tiny ImageNet</td><td>SGD</td><td>5e-4</td><td>256</td><td>300</td><td>0.1</td></tr><tr><td>DVSCIFAR10</td><td>SGD</td><td>5e-4</td><td>128</td><td>300</td><td>0.05</td></tr><tr><td>DVSGesture</td><td>SGD</td><td>5e-4</td><td>16</td><td>300</td><td>0.1</td></tr></table>",
+        "bbox": [
+            196,
+            515,
+            777,
+            646
+        ],
+        "page_idx": 20
+    },
+    {
+        "type": "text",
+        "text": "CIFAR-10/100 The CIFAR-10 and CIFAR-100 datasets (Krizhevsky et al., 2009) contain $6 0 { , } 0 0 0 \\ 3 2 { \\times } 3 2$ color images in 10 and 100 different classes respectively, with each dataset comprising 50,000 training samples and 10,000 testing samples. We normalize the image data to ensure that input images have zero mean and unit variance. For data preprocessing, we directly follow this work (Meng et al., 2023). We apply random cropping with padding of 4 pixels on each border of the image, random horizontal flipping, and cutout (DeVries & Taylor, 2017). Direct encoding (Rathi & Roy, 2021) is employed to encode the image pixels into time series, wherein pixel values are applied repeatedly to the input layer at each timestep. For the CIFAR classification task, we use Spiking-Resnet18 as the backbone. ",
+        "bbox": [
+            88,
+            662,
+            887,
+            770
+        ],
+        "page_idx": 20
+    },
+    {
+        "type": "text",
+        "text": "Tiny-ImageNet Tiny-ImageNet contains 200 categories and $1 0 0 , 0 0 0 6 4 \\times 6 4$ colored images for training, which is a more challenging static image dataset than CIFAR datasets. To augment Tiny-ImageNet datasets, we take the same AutoAugment (Cubuk et al., 2019) as used in this work (Wang et al., 2023), but we do not adopt Cutout (DeVries & Taylor, 2017). For the Tiny-ImageNet classification task, we use Spiking-VGG13 as the backbone. ",
+        "bbox": [
+            88,
+            776,
+            885,
+            838
+        ],
+        "page_idx": 20
+    },
+    {
+        "type": "text",
+        "text": "DVSCIFAR10 The DVS-CIFAR10 dataset (Li et al., 2017) is a neuromorphic dataset converted from CIFAR-10 using a DVS camera. It contains 10,000 event-based images with pixel dimensions expanded to $1 2 8 \\times 1 2 8$ . The event-to-frame integration is handled with the SpikingJelly (Fang et al., 2023) framework. We do not apply any data augmentation for DVSCIFAR10 and the Spiking-VGG11 is used as the backbone to compare the performance. ",
+        "bbox": [
+            88,
+            844,
+            885,
+            905
+        ],
+        "page_idx": 20
+    },
+    {
+        "type": "text",
+        "text": "DVSGesture The DVS128 Gesture dataset (Amir et al., 2017) is a challenging neuromorphic dataset that records 11 gestures performed by 29 different participants under three lighting conditions. The dataset comprises 1,342 samples with an average duration of $6 . 5 \\pm 1 . 7$ s and all samples are split into a training set (1208 samples) and a test set (134 samples). We follow the method described in (Fang et al., 2021b) to integrate the events into frames. The event-to-frame integration is handled with the SpikingJelly (Fang et al., 2023) framework. We do not applied any data augmentation for DVSGesture and the Spiking-VGG11 is used as the backbone to compare the performance. ",
+        "bbox": [
+            88,
+            84,
+            885,
+            175
+        ],
+        "page_idx": 21
+    },
+    {
+        "type": "text",
+        "text": "J. Evaluation of Fire Rate and Energy Consumption ",
+        "text_level": 1,
+        "bbox": [
+            88,
+            194,
+            526,
+            212
+        ],
+        "page_idx": 21
+    },
+    {
+        "type": "text",
+        "text": "We calculate the fire rate as well as the energy efficiency of all models for five tasks. As shown in Figure.11, the average fire rate of the CLIF model is lower than that of the LIF model. This lower fire rate results in fewer synaptic operations, as evidenced in Table.6. ",
+        "bbox": [
+            88,
+            220,
+            887,
+            265
+        ],
+        "page_idx": 21
+    },
+    {
+        "type": "image",
+        "img_path": "images/38daf73c80d83ada669ff0fa097ebe4ea8cffdcb1c22a85f186ca04da724b483.jpg",
+        "image_caption": [
+            "Figure 11. The fire rate statistics after training of LIF-based and CLIF-based for each tasks. "
+        ],
+        "image_footnote": [],
+        "bbox": [
+            101,
+            282,
+            869,
+            398
+        ],
+        "page_idx": 21
+    },
+    {
+        "type": "text",
+        "text": "For the evaluation of energy consumption, we follow the convention of the neuromorphic computing community by counting the total synaptic operations (SOP) to estimate the computation overhead of SNN models and compare it to the energy consumption of the ANN counterpart, as done in (Zhou et al., 2022; Yao et al., 2024). Specifically, the SOP with MAC presented in ANNs is constant given a specified structure. However, the SOP in SNN varies with spike sparsity. For SNNs, since the input is binary, the synaptic operation is mostly accumulation (ACs) instead of multiply and accumulation (MACs). ACs is defined as ",
+        "bbox": [
+            88,
+            445,
+            887,
+            535
+        ],
+        "page_idx": 21
+    },
+    {
+        "type": "equation",
+        "img_path": "images/b2b9a0d201e4a9316c0ab95bf197007a5ec24c2f6838ea34bdfb869d7b80a9b4.jpg",
+        "text": "$$\nA C _ { s } = \\sum _ { t = 1 } ^ { T } \\sum _ { l = 1 } ^ { L - 1 } \\sum _ { i = 1 } ^ { N ^ { l } } f _ { i } ^ { l } s _ { i } ^ { l } [ t ]\n$$",
+        "text_format": "latex",
+        "bbox": [
+            397,
+            531,
+            576,
+            578
+        ],
+        "page_idx": 21
+    },
+    {
+        "type": "text",
+        "text": "where fan-out $f _ { i } ^ { l }$ is the number of outgoing connections to the subsequent layer, and $N ^ { l }$ is the neuron number of the $l$ -th layer. For ANNs, the similar synaptic operation MACs with more expensive multiply-accumulate is defined as: ",
+        "bbox": [
+            91,
+            583,
+            893,
+            614
+        ],
+        "page_idx": 21
+    },
+    {
+        "type": "equation",
+        "img_path": "images/bfe9938e93446a7146d504db988233362d184ba5a5774719c414157c7237279b.jpg",
+        "text": "$$\nM A C _ { s } = \\sum _ { l = 1 } ^ { L - 1 } \\sum _ { i = 1 } ^ { N ^ { l } } f _ { i } ^ { l }\n$$",
+        "text_format": "latex",
+        "bbox": [
+            415,
+            623,
+            558,
+            671
+        ],
+        "page_idx": 21
+    },
+    {
+        "type": "text",
+        "text": "Here, we select all the testing datasets and estimate the average SOP for SNNs. Meanwhile, we measure 32-bit floating-point ACs by $0 . 9 \\mathrm { p J }$ per operation and 32-bit floating-point MAC by $4 . 6 \\mathrm { p J }$ per operation, as done in (Han et al., 2015). All the results are summarized in the Table.6, SNN has a significant energy consumption advantage over ANNs. Notably, the ACs operation of CLIF are considerably less than those of LIF, attributable to the lower fire rate. In contrast, the MAC operations of CLIF exceed those of LIF due to the increased number of floating-point operations, a result of the Complementary component introduced in CLIF. The final results indicate that CLIF achieves comparable performance to ANNs models while maintaining similar total energy efficiency to LIF. ",
+        "bbox": [
+            88,
+            679,
+            885,
+            785
+        ],
+        "page_idx": 21
+    },
+    {
+        "type": "table",
+        "img_path": "images/aa6aba735a574e92bbf3c844c0bd20b134e583be12b826f83c6d1aa227b4c9de.jpg",
+        "table_caption": [
+            "Table 6. The energy consumption of synaptic operation for different tasks with the whole testing datasets. "
+        ],
+        "table_footnote": [],
+        "table_body": "<table><tr><td></td><td>Neuron</td><td>T</td><td>Parameters(M)</td><td>ACs (M)</td><td>MACs (M)</td><td>SOP Energy (μJ)</td></tr><tr><td rowspan=\"3\">CIFAR10 (ResNet18)</td><td>ReLU</td><td>1</td><td>11.2</td><td>0</td><td>557.65</td><td>2565.19</td></tr><tr><td>CLIF</td><td>6</td><td>11.2</td><td>68.66</td><td>5.12</td><td>85.346</td></tr><tr><td>LIF</td><td>6</td><td>11.2</td><td>84.86</td><td>2.89</td><td>89.668</td></tr><tr><td rowspan=\"3\">CIFAR100 (ResNet18)</td><td>ReLU</td><td>1</td><td>11.2</td><td>0</td><td>557.7</td><td>2565.42</td></tr><tr><td>CLIF</td><td>6</td><td>11.2</td><td>55.58</td><td>5.16</td><td>73.758</td></tr><tr><td>LIF</td><td>6</td><td>11.2</td><td>60.28</td><td>2.93</td><td>67.73</td></tr><tr><td rowspan=\"3\">Tiny ImageNet (VGG13)</td><td>ReLU</td><td>1</td><td>14.4</td><td>0</td><td>922.56</td><td>4243.776</td></tr><tr><td>CLIF</td><td>6</td><td>14.4</td><td>102.1</td><td>282.83</td><td>1392.908</td></tr><tr><td>LIF</td><td>6</td><td>14.4</td><td>135.25</td><td>278.84</td><td>1404.389</td></tr><tr><td rowspan=\"2\">DVSGesture (VGG11)</td><td>CLIF</td><td>20</td><td>9.5</td><td>19.16</td><td>1090</td><td>5031.244</td></tr><tr><td>LIF</td><td>20</td><td>9.5</td><td>25.09</td><td>1080</td><td>4990.581</td></tr><tr><td rowspan=\"2\">DVSCIFAR10 (VGG11)</td><td>CLIF</td><td>10</td><td>9.5</td><td>12.02</td><td>153.87</td><td>718.62</td></tr><tr><td>LIF</td><td>10</td><td>9.5</td><td>14.65</td><td>152.5</td><td>714.685</td></tr></table>",
+        "bbox": [
+            140,
+            108,
+            833,
+            359
+        ],
+        "page_idx": 22
+    },
+    {
+        "type": "text",
+        "text": "To comprehensively and fairly evaluate the energy consumption (Dampfhoffer et al., 2022b), we recalculated and analyzed the energy consumption of the proposed CLIF neuron in more detail in Table 7. We considered memory read and write operations, as well as the data addressing process, as done in (Lemaire et al., 2022). As shown in Table 7, the memory accesses are actually the dominant factor in energy consumption for SNN. Although the hidden states of LIF and CLIF contribute significantly to the read and write energy consumption of the membrane potential, the sparsity of spikes also greatly reduces the parameters and synaptic operations. Therefore, the energy consumption of LIF and CLIF is still much lower than that of ANN. The detailed computing process can be found in the open-source code. ",
+        "bbox": [
+            88,
+            383,
+            885,
+            491
+        ],
+        "page_idx": 22
+    },
+    {
+        "type": "table",
+        "img_path": "images/3dff552856de3165f8b2336e08c1f5e8e8352d67c75524c350b298bb12b30f7f.jpg",
+        "table_caption": [
+            "Table 7. The total energy consumption for different tasks. The neuron and time step are the same as those in Table 6. "
+        ],
+        "table_footnote": [],
+        "table_body": "<table><tr><td rowspan=\"2\"></td><td colspan=\"3\">Mem. Read &amp; Write</td><td rowspan=\"2\">Synaptic &amp; Neuron Op. (mJ)</td><td rowspan=\"2\">Addr. (μJ)</td><td rowspan=\"2\">Total (mJ)</td></tr><tr><td>Membrane Potential (mJ)</td><td>Parameters (mJ)</td><td>In / Out (mJ)</td></tr><tr><td rowspan=\"3\">CIFAR10</td><td>0</td><td>54.9688</td><td>54.9357</td><td>1.7573</td><td>0.1145</td><td>111.6619</td></tr><tr><td>22.9987</td><td>11.4994</td><td>0.0013</td><td>0.0190</td><td>12.1394</td><td>34.5304</td></tr><tr><td>55.5172</td><td>9.2529</td><td>0.0007</td><td>0.0389</td><td>19.5184</td><td>64.8293</td></tr><tr><td rowspan=\"3\">CIFAR100</td><td>0</td><td>54.9735</td><td>54.9357</td><td>1.7574</td><td>0.1145</td><td>111.6667</td></tr><tr><td>16.8666</td><td>8.4337</td><td>0.0004</td><td>0.0171</td><td>8.8427</td><td>25.3267</td></tr><tr><td>46.8265</td><td>7.8048</td><td>0.0004</td><td>0.0380</td><td>16.4053</td><td>54.6861</td></tr><tr><td rowspan=\"3\">TinyImagenet</td><td>0</td><td>91.9065</td><td>91.3834</td><td>2.9379</td><td>0.1686</td><td>186.2279</td></tr><tr><td>37.7700</td><td>18.9076</td><td>0.0050</td><td>1.1754</td><td>19.8379</td><td>57.8778</td></tr><tr><td>84.8900</td><td>14.1756</td><td>0.0028</td><td>1.0986</td><td>29.7983</td><td>100.1968</td></tr><tr><td rowspan=\"2\">DVSCIFAR10</td><td>5.7398</td><td>2.8701</td><td>0.0003</td><td>0.0212</td><td>2.9340</td><td>8.6343</td></tr><tr><td>14.0891</td><td>2.3484</td><td>0.0002</td><td>0.0451</td><td>4.7976</td><td>16.4876</td></tr><tr><td rowspan=\"2\">DVSGesture</td><td>13.9212</td><td>6.9606</td><td>0.0003</td><td>0.1682</td><td>7.0728</td><td>21.0574</td></tr><tr><td>38.3082</td><td>6.3848</td><td>0.0003</td><td>0.4794</td><td>12.9767</td><td>45.1856</td></tr></table>",
+        "bbox": [
+            93,
+            529,
+            879,
+            810
+        ],
+        "page_idx": 22
+    },
+    {
+        "type": "text",
+        "text": "In addition, it is feasible to train a model using CLIF and subsequently deploy it or inference with LIF. We take pre-trained models of CLIF and LIF (Resnet18 with $\\mathrm { T } { = } 6$ ) to perform inference on the CIFAR10 and CIFAR100 tasks. To compensate for CLIF’s enhanced reset process, we employ a hard reset with a bias as a hyperparameter. As can be seen in Table, this approach leads to an inference accuracy that surpasses that of a model directly trained with LIF. ",
+        "bbox": [
+            88,
+            84,
+            883,
+            145
+        ],
+        "page_idx": 23
+    },
+    {
+        "type": "table",
+        "img_path": "images/e8877d20e6b343604a291049438d32bb6472ef8426e686be1aab509df424f1b9.jpg",
+        "table_caption": [
+            "Table 8. Directly convert the pre-trained CLIF/LIF model to an LIF neuron for inference. "
+        ],
+        "table_footnote": [],
+        "table_body": "<table><tr><td rowspan=1 colspan=1>CIFAR10</td><td rowspan=1 colspan=1>Soft Reset Hard Reset</td></tr><tr><td rowspan=1 colspan=1>Reset Value</td><td rowspan=1 colspan=1>None          0        -0.02    -0.04    -0.06     -0.08     -0.1</td></tr><tr><td rowspan=1 colspan=1>CLIF pretrained (95.41%)</td><td rowspan=1 colspan=1>92.95 %    93.41 %   94.18 % 94.54 % 95.08 % 94.84 % 94.72 %</td></tr><tr><td rowspan=1 colspan=1>LIF pretrained (94.51%)</td><td rowspan=1 colspan=1>94.51 %    84.05 %   76.68 % 66.08 % 52.16 %  38.00 % 27.04 %</td></tr><tr><td rowspan=1 colspan=1>CIFAR100</td><td rowspan=1 colspan=1>Soft Reset Hard Reset</td></tr><tr><td rowspan=1 colspan=1>Reset Value</td><td rowspan=1 colspan=1>None          0        -0.02    -0.04    -0.06    -0.08     -0.1</td></tr><tr><td rowspan=1 colspan=1>CLIF pretrained (78.36 %)</td><td rowspan=1 colspan=1>68.72 %    73.04 %   74.64 % 76.63 % 76.55 % 77.00 % 76.54 %</td></tr><tr><td rowspan=1 colspan=1>LIF pretrained (76.23 %)</td><td rowspan=1 colspan=1>76.23 %    47.74 %   37.04 % 27.56 % 19.83 % 13.22 %  8.77 %</td></tr></table>",
+        "bbox": [
+            88,
+            183,
+            864,
+            358
+        ],
+        "page_idx": 23
+    }
+]

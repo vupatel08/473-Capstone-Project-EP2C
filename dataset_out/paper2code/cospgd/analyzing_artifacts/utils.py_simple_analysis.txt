@@ -1,0 +1,150 @@
+# Utility Functions for CosPGD Attack Implementation
+
+This module provides essential utility functions to support the implementation of the CosPGD adversarial attack framework, dataset handling, model inference, and evaluation metrics. The functions are designed to be modular, efficient, and compatible with the deep learning framework (PyTorch). The core functionalities include tensor clipping, cosine similarity computation, normalization, reproducibility helpers, and plotting utilities.
+
+---
+
+## 1. Reproducibility Helper
+
+### Function: `set_seed(seed: int) -> None`
+- **Purpose:** Ensure deterministic behavior across experiments by setting random seeds.
+- **Inputs:** Integer seed value (from config.yaml `training.seed` or general).
+- **Implementation:**
+  - Set Python's `random.seed`.
+  - Set `torch.manual_seed`.
+  - Set `torch.cuda.manual_seed_all`.
+  - Enable deterministic algorithms via `torch.backends.cudnn.deterministic = True`.
+  - Disable benchmark to ensure reproducibility: `torch.backends.cudnn.benchmark = False`.
+- **Usage:** Call at the start of main script.
+
+---
+
+## 2. Tensor Operations
+
+### Function: `clip_tensor(x: torch.Tensor, epsilon: float, x_clean: torch.Tensor, norm_type: str='l_infinity') -> torch.Tensor`
+- **Purpose:** Clip adversarial tensor `x` to be within the \(\ell_\infty\) or \(\ell_2\) ball centered at `x_clean`.
+- **Inputs:**
+  - `x`: current tensor (adv example).
+  - `epsilon`: maximum allowed perturbation.
+  - `x_clean`: original clean input tensor.
+  - `norm_type`: `'l_infinity'` (default) or `'l_2'`.
+- **Implementation:**
+  - For `l_infinity`, clip each element: `torch.clamp(x, x_clean - epsilon, x_clean + epsilon)`.
+  - For `l_2`, normalize the difference norm, project onto \(\epsilon\)-sphere, then add back to `x_clean`.
+- **Output:** Tensor clipped within the specified norm ball.
+
+### Function: `normalize_tensor(x: torch.Tensor, method: str='softmax') -> torch.Tensor`
+- **Purpose:** Apply normalization to a tensor, typically the model outputs, to produce probability distributions.
+- **Inputs:**
+  - `x`: raw predictions (logits).
+  - `method`: `'softmax'` (default), could include `'identity'` or other methods if necessary.
+- **Implementation:**
+  - For `'softmax'`: apply `torch.nn.functional.softmax(x, dim=1)` across class/channel dimension.
+  - For `'identity'`: return `x` directly.
+  - Extendable for other normalization functions if needed.
+
+---
+
+## 3. Cosine Similarity Computation
+
+### Function: `compute_cosine_similarity(pred: torch.Tensor, target: torch.Tensor) -> torch.Tensor`
+- **Purpose:** Calculate per-pixel cosine similarity between normalized prediction and target vectors.
+- **Inputs:**
+  - `pred`: normalized model prediction tensor (\(\psi(f_\theta(X))\)), shape `[batch, classes, H, W]`.
+  - `target`: target tensor (`Y`), shape `[batch, classes, H, W]`.
+- **Implementation:**
+  - Compute dot product: `torch.sum(pred * target, dim=1)` over class dimension.
+  - Compute norms: `torch.norm(pred, p=2, dim=1)` and `torch.norm(target, p=2, dim=1)`.
+  - Avoid division by zero with small epsilon inside norms.
+  - Compute cosine similarity: `(dot_product + eps) / (norm_pred * norm_target + eps)`.
+- **Output:** Tensor of shape `[batch, H, W]`, per pixel cosine similarity in range [-1,1].
+
+### Function: `cosine_similarity_per_pixel(pred_logits: torch.Tensor, target: torch.Tensor) -> torch.Tensor`
+- **Purpose:** Integrated function that handles softmax normalization and computes per-pixel cosine similarity over whole batch.
+- **Implementation:**
+  - Apply `normalize_tensor` with `'softmax'` on `pred_logits`.
+  - Use `compute_cosine_similarity`.
+- **Note:** Can be used within the attack to scale pixel-wise losses.
+
+---
+
+## 4. Loss Functions
+
+### Function: `pixelwise_loss(pred: torch.Tensor, target: torch.Tensor, loss_type: str='cross_entropy') -> torch.Tensor`
+- **Purpose:** Compute pixel-wise loss suitable for pixel classification or regression.
+- **Inputs:**
+  - `pred`: raw logits or predicted outputs, shape `[batch, classes, H, W]` or `[batch, 1, H, W]`.
+  - `target`: ground truth labels, shape `[batch, H, W]` for class labels or `[batch, 1, H, W]` for regression.
+  - `loss_type`: `'cross_entropy'` or `'mse'`.
+- **Implementation:**
+  - For `'cross_entropy'`: use `torch.nn.functional.cross_entropy`, with `reduction='none'` to get per-pixel losses.
+  - For regression: `torch.nn.functional.mse_loss` with `reduction='none'`.
+- **Output:** Tensor `[batch, H, W]` of pixel-wise losses.
+
+### Function: `scaling_loss(pred: torch.Tensor, target: torch.Tensor, ...) -> torch.Tensor`
+- **Purpose:** Calculate the scaled pixel loss using cosine similarity as per the CosPGD formulation.
+- **Implementation:**
+  - Compute normalization (`psi`) with softmax.
+  - Compute cosine similarity per pixel.
+  - Calculate pixelwise loss (`cross_entropy`, `MSE`, etc.).
+  - Weight the pixelwise loss by the cosine similarity (or \(1 - \cos\) for targeted case).
+  - Return the scaled loss tensor for gradient backpropagation.
+
+---
+
+## 5. Visualization & Plotting
+
+### Function: `plot_metrics(metrics: dict, title: str='Metrics over Attack Iterations') -> None`
+- **Purpose:** Plot evaluation metrics (IoU, accuracy, EPE, PSNR, SSIM) over attack iterations.
+- **Implementation:**
+  - Use `matplotlib`.
+  - For each metric, plot mean with shaded region of standard deviation if available.
+  - Label axes, add legend, title.
+
+### Function: `save_image_batch(images: torch.Tensor, filename: str) -> None`
+- **Purpose:** Save a batch of images or adversarial examples for qualitative analysis.
+- **Implementation:**
+  - Convert tensors to numpy arrays.
+  - Use `PIL.Image` or `matplotlib.pyplot` to save images.
+- **Note:** Ensure pixel range normalization to [0, 255] before saving.
+
+---
+
+## 6. Miscellaneous Helpers
+
+### Function: `compute_pixelwise_angle(pred: torch.Tensor, target: torch.Tensor) -> torch.Tensor`
+- **Purpose:** Helper to compute the angle between prediction vectors and targets if needed for diagnosis.
+- **Implementation:**
+  - Use `torch.acos` of cosine similarity; optional for debugging.
+
+### Function: `log_progress(current_step: int, total_steps: int, logs: dict) -> None`
+- **Purpose:** Log progress and current metrics to console or file during attack or evaluation.
+
+---
+
+## 7. Summary of Functions and Usage
+
+| Function | Purpose | Inputs | Outputs | Notes |
+|------------|--------------|------------------|--------------|--------------|
+| `set_seed()` | Ensure reproducibility | seed: int | None | Set random seeds across frameworks |
+| `clip_tensor()` | Clip to epsilon ball | x, epsilon, x_clean, norm_type | clipped tensor | Essential in each attack iteration |
+| `normalize_tensor()` | Normalize model output | x, method | normalized tensor | Used for \(\psi\) function |
+| `compute_cosine_similarity()` | Compute per-pixel cosine similarity | pred, target | [batch, H, W] tensor | Core for scaling loss |
+| `pixelwise_loss()` | Calculate pixel loss | pred, target, loss_type | [batch, H, W] tensor | Cross entropy or MSE |
+| `scaling_loss()` | Scale pixel loss with cosine similarity | pred, target, ... | scaled loss tensor | Used as attack objective |
+| `plot_metrics()` | Plot attack progress | metrics dict | None | For analysis |
+| `save_image_batch()` | Save images for analysis | images tensor | image files | Visualize attack effects |
+
+---
+
+## Final Notes:
+
+- Ensure compatibility with the dataset formats:
+  - Semantic segmentation labels as class indices or one-hot.
+  - Optical flow fields as 2D vector maps.
+  - Restored images normalized to [0,1].
+
+- Handle batch sizes and device placement appropriately.
+- Consistent naming conventions and parameter units (e.g., epsilon, step size).
+
+This logic analysis provides a comprehensive specification of utility functions needed to implement CosPGD and associated evaluation, structured for clear, modular, and scalable code development.

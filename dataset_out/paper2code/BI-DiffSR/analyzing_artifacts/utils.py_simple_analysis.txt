@@ -1,0 +1,30 @@
+{
+  "Logic Analysis": [
+    "Module Purpose: utils.py will contain utility functions that are shared across different parts of the project—such as functions for binarization, activation distribution visualization, dataset augmentation, and metric calculations. These utilities facilitate consistent implementation and ease the development process.",
+    "1. Binarization Helpers:",
+    "  - Sign Function: Implement a function to perform binarization of activations and weights using the sign function. It should return +1 for input >= 0, and -1 for input < 0. This function will be used during forward passes of binarized modules.",
+    "  - STE (Straight-Through Estimator): Implement a custom autograd function that passes gradients unchanged during backpropagation through the sign function, necessary for training the binarized network.",
+    "  - Weight Scaling: Provide a method for scaling full-precision weights by their mean absolute value, as described in the paper, to obtain binary weights. This can be implemented via a function that takes a weight tensor, computes the scale, and applies the sign and scale operations.",
+    "2. Activation Distribution Visualization:",
+    "  - Plotting Function: Include a function to visualize activation distributions at different timesteps across the diffusion process, matching the style shown in Fig. 4 of the paper. This might generate histograms or probability density plots.",
+    "  - Data collection: A utility to extract intermediate feature maps or activations from network layers, especially the skip connections, to analyze their distribution changes over diffusion steps.",
+    "3. Dataset Augmentation Methods:",
+    "  - Random Cropping: A method to crop 64x64 patches from HR images for training, ensuring randomness each epoch.",
+    "  - Flips and Rotations: Functions to randomly flip images horizontally, rotate images by 90°, 180°, or 270° based on configuration, for data augmentation.",
+    "  - Compose Augmentation: A function that applies the above transformations in sequence, controlled by the configuration parameters.",
+    "4. Metric Calculation Wrappers:",
+    "  - PSNR calculation: Implement a function that computes PSNR between predicted and ground-truth images, typically on the luminance channel. Use scipy or numpy functions for MSE and then derive PSNR.",
+    "  - SSIM calculation: Use torchvision or scikit-image library functions to compute SSIM between images. Wrap into a function for easy calls.",
+    "  - LPIPS calculation: Wrap calls to the pre-trained LPIPS model (imported from the 'lpips' package). A function should receive two images and output the perceptual LPIPS score.",
+    "5. Additional Utilities:",
+    "  - Positional Encoding for Timesteps: Implement a function that generates sinusoidal positional encodings for diffusion timesteps, similar to Transformer sinusoidal embeddings, as used for timestep embedding in the model.",
+    "  - Helper for Tensor conversions and type consistency: Functions to convert images, features, or metrics between numpy arrays and torch tensors with proper dimension handling.",
+    "6. Implementation Notes:",
+    "  - Make sure that functions are compatible with CUDA tensors where applicable.",
+    "  - Maintain consistency for image normalization—assuming images are in [0,1] or [0,255], conversions should be clear and documented.",
+    "  - Include error handling for input shape validation and missing dependencies.",
+    "7. Documentation and Style:",
+    "  - Each function should have clear docstrings explaining its purpose, input parameters, output, and any important details.",
+    "  - Follow consistent coding standards for readability and maintainability."
+  ]
+}

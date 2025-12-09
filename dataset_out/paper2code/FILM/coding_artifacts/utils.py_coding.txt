@@ -1,0 +1,360 @@
+```python
+## utils.py
+
+import os
+import json
+import pickle
+import random
+import re
+import numpy as np
+from typing import List, Tuple, Dict, Optional
+from tqdm import tqdm
+from transformers import PreTrainedTokenizer
+
+import openai
+
+# Load configuration values from config.yaml
+import yaml
+
+# Load configuration
+with open('config.yaml', 'r') as f:
+    CONFIG = yaml.safe_load(f)
+
+# Set default parameters from CONFIG
+LONG_CONTEXT_MIN_LEN = CONFIG['long_context'].get('min_length', 4000)  # 4K tokens
+LONG_CONTEXT_MAX_LEN = CONFIG['long_context'].get('max_length', 32000)  # 32K tokens
+LENGTH_DISTRIBUTION = CONFIG['long_context'].get('length_distribution', [4000, 8000, 16000, 32000])
+DATASET_SIZE = int(CONFIG['dataset'].get('size', 1_100_000))
+BATCH_SIZE = CONFIG['dataset'].get('batch_size', 128)
+TOTAL_STEPS = CONFIG['dataset'].get('steps_per_epoch', 14000)
+MODEL_NAME = CONFIG['model'].get('name', 'mistral-7b-instruct-v0.2')
+ROPE_BASE_DEFAULT = float(CONFIG['model'].get('rope_base', 1e6))
+USE_SLIDING_WINDOW = CONFIG['evaluation'].get('use_sliding_window', True)
+SLIDING_WINDOW_SIZE = CONFIG['evaluation'].get('sliding_window_size', 4096)
+
+# Initialize tokenizer for the model
+from transformers import AutoTokenizer
+tokenizer = AutoTokenizer.from_pretrained(MODEL_NAME, use_fast=True)
+
+# Ensure tokenizer has padding token
+if tokenizer.pad_token is None:
+    tokenizer.pad_token = tokenizer.eos_token
+
+# ===================== Utility Functions =====================
+
+def generate_prompt(template: str, segment: str, instruction_type: str, additional_params: Optional[dict]=None) -> str:
+    """
+    Generate a prompt string for GPT API based on template, segment, and instruction type.
+    Args:
+        template (str): Prompt template with placeholders.
+        segment (str): Segment text to embed.
+        instruction_type (str): Type of instruction e.g., 'fine_grained', 'multi_hop', 'reasoning'.
+        additional_params (dict): Optional additional parameters for template formatting.
+    Returns:
+        prompt (str): Fully formatted prompt string.
+    """
+    prompt = template
+    # Placeholders in template should include {segment}, {instruction_type}, and optional params
+    if additional_params is None:
+        additional_params = {}
+    prompt = prompt.format(segment=segment, instruction_type=instruction_type, **additional_params)
+    return prompt
+
+def generate_qa_pair(segment: str, instruction_type: str, prompt_template: str, model_api_key: Optional[str]=None) -> Tuple[str, str]:
+    """
+    Call GPT-4 API with prompt to generate QA pair from segment.
+    Args:
+        segment (str): Short text segment.
+        instruction_type (str): Instruction type guiding generation.
+        prompt_template (str): Prompt template string.
+        model_api_key (str): Optional, API key for openai.
+    Returns:
+        (question, answer): The generated QA pair.
+    """
+    prompt = generate_prompt(prompt_template, segment, instruction_type)
+    # Use openai API or fallback to local testing
+    if model_api_key is None:
+        # For local testing, mock response or implement alternative
+        # Here, we assume local mock
+        question = "Mock question based on segment."
+        answer = "Mock answer for testing."
+        return question, answer
+    else:
+        response = openai.ChatCompletion.create(
+            model='gpt-4',
+            messages=[
+                {"role": "system", "content": "Generate a question-answer pair."},
+                {"role": "user", "content": prompt}
+            ],
+            temperature=0.0,
+            max_tokens=512,
+            top_p=0.95,
+            api_key=model_api_key
+        )
+        response_text = response.choices[0].message['content'].strip()
+        # Parse response into question and answer
+        # Assume the response is formatted as "Q: ... \nA: ..."
+        qa_match = re.match(r"Q[:\s]*(.+)\nA[:\s]*(.+)", response_text, re.IGNORECASE | re.DOTALL)
+        if qa_match:
+            question = qa_match.group(1).strip()
+            answer = qa_match.group(2).strip()
+        else:
+            # fallback to entire response as answer, with generic question
+            question = "Generated question."
+            answer = response_text
+        return question, answer
+
+def assemble_context(segments: List[str], target_length: int, strategy: str='random') -> str:
+    """
+    Assemble long context string from segments to match target length.
+    Args:
+        segments (List[str]): List of segment texts.
+        target_length (int): Desired total length in tokens.
+        strategy (str): 'random' or 'stratified' placement.
+    Returns:
+        context_text (str): Concatenated context string.
+    """
+    # Tokenize segments and compute their token counts
+    tokenized_segments = [tokenizer(seg, add_special_tokens=False) for seg in segments]
+    segment_token_lengths = [len(t['input_ids']) for t in tokenized_segments]
+
+    # Initialize context
+    context = ''
+    current_length = 0
+
+    if strategy == 'random':
+        # Randomly shuffle segments
+        indices = list(range(len(segments)))
+        random.shuffle(indices)
+        for idx in indices:
+            seg_text = segments[idx]
+            seg_length = segment_token_lengths[idx]
+            if current_length + seg_length > target_length:
+                break
+            context += seg_text + ' '
+            current_length += seg_length
+    elif strategy == 'stratified':
+        # Stratify segments across the dataset, e.g., interleave with padding or fixed pattern
+        # For simplicity, do similar as above
+        for idx in range(len(segments)):
+            if current_length >= target_length:
+                break
+            context += segments[idx] + ' '
+            current_length += segment_token_lengths[idx]
+    else:
+        # Default to concatenation until target length
+        for seg_text in segments:
+            seg_length = len(tokenizer(seg_text, add_special_tokens=False)['input_ids'])
+            if current_length + seg_length > target_length:
+                break
+            context += seg_text + ' '
+            current_length += seg_length
+
+    # Remove extra spaces
+    context = context.strip()
+    return context
+
+def tokenize_and_process(text: str, max_length: int=None) -> Dict:
+    """
+    Tokenize input text, with optional maximum length truncation.
+    Args:
+        text (str): Input string.
+        max_length (int): Max token length.
+    Returns:
+        dict: tokenized 'input_ids', 'attention_mask' and 'segment_indices'.
+    """
+    encoding = tokenizer(
+        text,
+        max_length=max_length,
+        truncation=True,
+        padding='max_length' if max_length else False,
+        return_tensors='pt'
+    )
+    return {
+        'input_ids': encoding['input_ids'][0],
+        'attention_mask': encoding['attention_mask'][0],
+        # For segmentation, find segment boundaries based on delimiters or token ids
+    }
+
+def save_dataset(dataset: List[Dict], filename: str) -> None:
+    """
+    Save dataset to JSON file.
+    Args:
+        dataset (list): List of dict samples.
+        filename (str): Path to save.
+    """
+    with open(filename, 'w', encoding='utf-8') as f:
+        json.dump(dataset, f, ensure_ascii=False, indent=2)
+
+def load_dataset(filename: str) -> List[Dict]:
+    """
+    Load dataset from JSON file.
+    Args:
+        filename (str): Path to dataset file.
+    Returns:
+        dataset (list): List of dict samples.
+    """
+    with open(filename, 'r', encoding='utf-8') as f:
+        dataset = json.load(f)
+    return dataset
+
+def prepare_training_batch(dataset: List[Dict], batch_size: int=BATCH_SIZE, use_sliding_window:bool=USE_SLIDING_WINDOW, window_size:int=SLIDING_WINDOW_SIZE) -> Tuple[torch.Tensor, torch.Tensor]:
+    """
+    Generate a batch of data suitable for training.
+    Args:
+        dataset (list): List of samples.
+        batch_size (int): Batch size.
+        use_sliding_window (bool): Whether to apply sliding window.
+        window_size (int): Size of sliding window in tokens.
+    Returns:
+        input_ids (torch.Tensor): Batch of token IDs.
+        attention_mask (torch.Tensor): Attention masks.
+    """
+    import torch
+
+    input_ids_list = []
+    attention_mask_list = []
+
+    for _ in range(batch_size):
+        sample = random.choice(dataset)
+        long_context = sample['context']
+        qa_pair = sample['qa']
+        question, answer = qa_pair
+
+        # Format input prompt
+        prompt_text = f"Context:\n{long_context}\nQuestion: {question}\nAnswer:"
+        tokenized = tokenizer(prompt_text, max_length=None)
+
+        # Apply sliding window if enabled
+        if use_sliding_window:
+            total_tokens = len(tokenized['input_ids'])
+            if total_tokens > window_size:
+                start_idx = random.randint(0, total_tokens - window_size)
+                input_ids = tokenized['input_ids'][start_idx:start_idx+window_size]
+                attn_mask = tokenized['attention_mask'][start_idx:start_idx+window_size]
+            else:
+                input_ids = tokenized['input_ids']
+                attn_mask = tokenized['attention_mask']
+        else:
+            input_ids = tokenized['input_ids']
+            attn_mask = tokenized['attention_mask']
+
+        # Pad sequences to max length in batch
+        max_len = max(len(input_ids), window_size if use_sliding_window else len(input_ids))
+        padded_input_ids = input_ids + [tokenizer.pad_token_id] * (max_len - len(input_ids))
+        padded_attention_mask = attn_mask + [0] * (max_len - len(attn_mask))
+
+        input_ids_list.append(padded_input_ids)
+        attention_mask_list.append(padded_attention_mask)
+
+    input_ids_tensor = torch.tensor(input_ids_list, dtype=torch.long)
+    attention_mask_tensor = torch.tensor(attention_mask_list, dtype=torch.long)
+
+    return input_ids_tensor, attention_mask_tensor
+
+def format_prompt_template(instruction_type:str='fine_grained') -> str:
+    """
+    Return the prompt template string based on instruction_type.
+    Args:
+        instruction_type (str): For selecting different instruction prompts.
+    Returns:
+        template (str): The prompt template string.
+    """
+    if instruction_type == 'fine_grained':
+        return ("Given a short segment of text, generate one question that is highly specific "
+                "to the information contained in the segment. Also, provide a concise answer "
+                "based on the segment.")
+    elif instruction_type == 'multi_hop':
+        return ("Given multiple segments, generate a question that requires reasoning and "
+                "integration of information from at least two segments. Provide the answer accordingly.")
+    elif instruction_type == 'reasoning':
+        return ("Using the provided context, produce a question that encourages multi-hop "
+                "reasoning. Supply a precise answer that synthesizes information from different parts.")
+    else:
+        return ("Generate a question and answer based on the segment, emphasizing detail and reasoning.")
+
+def add_special_tokens(prompt:str, markers:Dict[str, str]) -> str:
+    """
+    Insert special delimiters or markers into prompts to denote segment boundaries or key info.
+    Args:
+        prompt (str): Original prompt string.
+        markers (dict): Markers like {'segment_start':'<seg>', 'segment_end':'</seg>'}
+    Returns:
+        augmented_prompt (str): Modified prompt with markers.
+    """
+    for marker, token in markers.items():
+        prompt = prompt.replace(marker, token)
+    return prompt
+
+def compute_metrics(generated_responses: List[str], references: List[str], task_type:str='qa') -> Dict:
+    """
+    Calculate evaluation metrics such as accuracy, F1, recall, etc.
+    Args:
+        generated_responses (List[str]): Model outputs.
+        references (List[str]): Ground truth answers or labels.
+        task_type (str): 'QA', 'retrieval', etc.
+    Returns:
+        dict: Metrics scores.
+    """
+    from sklearn.metrics import accuracy_score, precision_recall_fscore_support
+
+    metrics = {}
+    if task_type == 'qa':
+        # For QA, compute F1 or exact match
+        # Placeholder: Implement exact match or F1 computation
+        # For simplicity, use exact match
+        correct = sum([1 if g.strip().lower() == r.strip().lower() else 0 for g, r in zip(generated_responses, references)])
+        accuracy = correct / len(generated_responses)
+        metrics['accuracy'] = accuracy
+    elif task_type == 'retrieval':
+        # For retrieval, match presence in responses
+        match_scores = []
+        for g, r in zip(generated_responses, references):
+            g_norm = normalize_text(g)
+            r_norm = normalize_text(r)
+            match_scores.append(1.0 if r_norm in g_norm else 0.0)
+        metrics['recall'] = np.mean(match_scores)
+    else:
+        # Other task metrics
+        pass
+    return metrics
+
+def process_retrieval(model_output:str, target_keywords:List[str]) -> bool:
+    """
+    Simulate retrieval success by matching model output with target keywords.
+    Args:
+        model_output (str): The model generated content.
+        target_keywords (List[str]): Keywords or key segments to find.
+    Returns:
+        success (bool): Whether retrieval is successful.
+    """
+    output_norm = normalize_text(model_output)
+    for keyword in target_keywords:
+        if normalize_text(keyword) in output_norm:
+            return True
+    return False
+
+def normalize_text(text:str) -> str:
+    """
+    Normalize text for comparison: lowercase, remove punctuation, extra spaces.
+    Args:
+        text (str): Raw text.
+    Returns:
+        normalized (str): Normalized text.
+    """
+    import string
+    text = text.lower()
+    text = re.sub(r'\s+', ' ', text)
+    text = re.sub(f"[{re.escape(string.punctuation)}]", "", text)
+    return text.strip()
+
+def calculate_context_length(token_ids: List[int]) -> int:
+    """
+    Count tokens in a list of token IDs.
+    Args:
+        token_ids (List[int]): Token IDs.
+    Returns:
+        length (int): Number of tokens.
+    """
+    return len(token_ids)
+```

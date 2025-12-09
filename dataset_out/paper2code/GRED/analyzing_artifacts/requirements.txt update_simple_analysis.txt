@@ -1,0 +1,55 @@
+# requirements.txt update
+
+This requirements.txt should include all essential packages and versions required to implement and reproduce the GRED architecture as described in the paper, the plan, and the design specifications, ensuring compatibility with the provided config.yaml settings.
+
+### 1. Core Deep Learning Framework
+- **torch==1.12.1**  
+  - Provides the primary tensor operations, neural network modules, and autograd for model definition, training, and inference.
+  
+- **torch-geometric==2.0.4**  
+  - Essential for graph data handling, including datasets, graph batching, neighborhood extraction, and sparse operations.
+
+- **PyYAML==6.0**  
+  - For loading configuration files (`config.yaml`) that parameterize model hyperparameters, dataset selection, and training settings.
+
+### 2. Additional Utility Packages
+- **numpy>=1.21.0 (recommended)**  
+  - For general numerical operations, especially for precomputations, eigenvalue manipulations, and validation.
+
+- **scipy>=1.7.0**  
+  - For shortest path algorithms (Floyd-Warshall, Dijkstra) and spectral computations (eigenvalues/eigenvectors), useful in precomputing neighborhoods and spectral parameterization.
+
+### 3. Optional but Recommended
+- **tqdm>=4.62.0**  
+  - To show progress bars during training and evaluation loops, especially with large datasets.
+
+- **matplotlib>=3.4.0**  
+  - For visualization, e.g., plotting learned eigenvalues or performance metrics per hyperparameter setting.
+
+### 4. Hardware Support and Compatibility
+- Since training may leverage GPU acceleration, ensure CUDA-compatible PyTorch is installed alongside the specified versions.
+
+### 5. Package Compatibility Remarks
+- **torch>=1.12.1, torch-geometric>=2.0.4**  
+  - Confirm compatible versions; certain features like complex number support are limited; if complex eigenvalues are required, custom implementation may be necessary, but per the specification, real eigenvalues with spectral parameterization suffice.
+
+### 6. Extra Notes
+- All packages are strictly pinned to avoid version inconsistencies.
+- For reproducibility, recommend installing via pip with `requirements.txt` or conda environment YAML, matching these versions.
+
+---
+
+**Summary:**  
+Update your `requirements.txt` to include:
+
+```plaintext
+torch==1.12.1
+torch-geometric==2.0.4
+PyYAML==6.0
+numpy>=1.21.0
+scipy>=1.7.0
+tqdm>=4.62.0
+matplotlib>=3.4.0
+```
+
+This ensures all core dependencies necessary to implement the GRED model, precompute neighborhoods, manage eigenvalues, and execute training/evaluation are met.

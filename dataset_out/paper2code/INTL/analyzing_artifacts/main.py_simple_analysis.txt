@@ -1,0 +1,156 @@
+# Logic Analysis for main.py
+
+This script serves as the entry point of the entire training and evaluation pipeline for reproducing the experiments in "MODULATE YOUR SPECTRUM IN SELF-SUPERVISED LEARNING". Its primary responsibilities include:
+
+1. Parsing configurations
+2. Initializing dataset loaders
+3. Building model architectures
+4. Setting up spectral transformation modules
+5. Configuring regularizers (trace loss)
+6. Setting up optimizer, scheduler, and training strategies
+7. Running the pretraining loop with spectral regularization
+8. Conducting evaluations (linear classifier, k-NN)
+9. Logging and outputting results
+
+Below is a step-by-step logical flow with detailed considerations:
+
+---
+
+## 1. Load and Parse Configurations
+- **Input:** `config.yaml` converted into a Python dictionary.
+- **Actions:**
+  - Extract training hyperparameters: learning rate, batch size, epochs, warmup epochs, schedule, weight decay, momentum, spectral iteration `T`, spectral method, modulation parameter `p`, trace loss weight, epsilon for numerical stability.
+  - Extract model parameters: backbone type (`ResNet50`), projection dimension, number of layers, hidden dimension.
+  - Extract dataset settings: dataset name (`ImageNet-100`), augmentation parameters, crop sizes, number of crops, etc.
+  - Extraction of evaluation type and metrics.
+
+---
+
+## 2. Initialize Dataset Loader
+- **Objective:** Load training and validation datasets with the specified data augmentation.
+- **Inputs:**
+  - Dataset type and parameters from configuration:
+    - e.g., `dataset: ImageNet-100`
+    - augmentation parameters such as crop scales, brightness, contrast, etc.
+- **Actions:**
+  - Instantiate `DatasetLoader` class with dataset name and dataset_params.
+  - Load datasets: training set for SSL pretraining, validation set for evaluation.
+  - Use multi-view augmentation:
+    - For training: produce 2 or more views (as specified).
+    - For validation: standard resized/cropped images.
+- **Output:**
+  - Datasets ready for DataLoader, with batched data.
+
+---
+
+## 3. Build Backbone and Projection Head
+- **Objective:** Construct the model components.
+- **Actions:**
+  - Instantiate backbone:
+    - e.g., `torchvision.models.resnet50()` or `timm.create_model('resnet50')`
+  - Build projection head:
+    - Multi-layer MLP with:
+      - Input: backbone output feature dim (e.g., 2048)
+      - Hidden layers: specified in config (e.g., 4096 units, 2 layers)
+      - Output layer: projection_dim (e.g., 8192)
+  - Wrap into `SSLModel` class with encode() (for backbone) and project() methods.
+
+---
+
+## 4. Set Up Spectral Transformation Module
+- **Objective:** Implement spectral modulation (`g(λ)`) based on config.
+- **Actions:**
+  - Instantiate `SpectralTransformer`:
+    - Pass hyperparameters: `T=4`, method (`Newton`), `p=0.5`, epsilon for numerical stability.
+  - Note: Spectral transform includes eigendecomposition, spectral modulation, and reconstruction functions.
+  - For `p ≈ 0.5`, this performs whitening.
+  - For IterNorm: configure accordingly with Newton iteration.
+  - Ensure all functions (spectral modulation) are prepared to accept current eigenvalues, eigenvectors, and input embeddings.
+
+## 5. Set Up Regularizer
+- **Objective:** Implement trace loss regularizer.
+- **Actions:**
+  - Instantiate `Regularizer`:
+    - Using trace_loss_weight from config (`0.01`).
+  - The regularizer computes the difference of covariances’ eigenvalues from 1 (if needed).
+
+## 6. Initialize Training Components
+- **Optimizer:**
+  - Use SGD with momentum, weight decay.
+  - Learning rate as per config.
+- **Learning Rate Scheduler:**
+  - Implement cosine decay schedule with warm-up epochs.
+  - Compute total steps/epochs.
+- **Optional:**
+  - EMA (Exponential Moving Average):
+    - Initialize `torch.optim` with or without EMA based on config.
+    - If used, instantiate a `Shadow` copy of the encoder.
+    
+## 7. Training Loop
+- For each epoch:
+  - Iterate over DataLoader:
+    - For each batch:
+      - **Data Preparation:**
+        - Retrieve multiple views per sample (`X1`, `X2`).
+        - Transfer to device (GPU).
+      - **Encoding & Projection:**
+        - Pass views through backbone + projection to get embeddings `Z1`, `Z2`.
+      - **Spectral Transformation:**
+        - Compute covariance matrix of embeddings (`Sigma = Z Z^T / m`).
+        - Eigendecompose: `U, Lambda`.
+        - Modulate spectrum via spectral function `g(λ)`:
+          - For whitening: `λ^{-0.5}`
+          - For INTL: iterative Newton function.
+        - Reconstruct transformed embeddings: `Z_hat = U g(Λ) U^T Z`.
+      - **Compute Losses:**
+        - Main alignment loss: cosine similarity or normalized MSE between views.
+        - Regularizer: compute trace loss on covariance of `Z_hat`.
+        - Combine losses: `total_loss = alignment_loss + trace_loss_weight * trace_loss`.
+      - **Backward Pass:**
+        - Compute gradients.
+        - Optionally clip gradients to improve numerical stability.
+        - Update model parameters.
+      - **Logging Eigenvalues / Condition:**
+        - Optional: log eigenvalues and condition number for debugging or spectrum monitoring.
+- **Learning Rate Adjustment:**
+  - Step scheduler at epoch boundaries.
+
+## 8. Validation & Evaluation
+- **At specified intervals (e.g., after each epoch or every few epochs):**
+  - **Linear Evaluation:**
+    - Freeze encoder.
+    - Train a linear classifier on the validation set.
+    - Measure Top-1, Top-5 accuracy.
+  - **K-Nearest Neighbors:**
+    - Extract features.
+    - Use sklearn's `KNeighborsClassifier` with k=5.
+    - Measure accuracy.
+  - **Spectrum Logging:**
+    - Extract eigenvalues of embedding covariance.
+    - Log condition number, eigenvalue distribution.
+    - Save for analysis.
+
+## 9. Post-Training Evaluation
+- Run final evaluation:
+  - Transfer learning on downstream datasets like COCO detection and segmentation if applicable.
+  - Log AP scores and other metrics.
+- Save model checkpoints, spectrum logs.
+
+---
+
+## 10. Result Reporting and Save Outputs
+- Save training logs: loss curves, spectrum evolution.
+- Save models: backbone + projection + spectral modules.
+- Save evaluation results: classification accuracy, transfer metrics.
+- Generate spectrum plots for eigenvalues during training.
+
+---
+
+# Additional Notes & Considerations:
+- **Numerical stability:** Regularize covariance eigenvalues with small \(\epsilon\).
+- **Eigen-decomposition:** Use `torch.linalg.eigh`; check for ill-conditioning.
+- **Newton iterations:** For iterative whitening, implement the fixed T iterations carefully.
+- **Hyperparameters Tuning:** Based on empirical results, use the specified `T=4`, regularization coefficient, and spectral method.
+- **Logging:** Add spectrum, condition number, and loss metrics periodically for debugging and analysis.
+
+This logic analysis ensures that main.py effectively orchestrates all components, manages hyperparameters, performs training/evaluation, and logs comprehensive diagnostics for reproduction fidelity.

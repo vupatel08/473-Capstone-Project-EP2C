@@ -1,0 +1,487 @@
+## sac_policy.py
+"""
+Implementation of the Soft Actor-Critic (SAC) agent for fragment assembly within GEAM framework.
+This module:
+- Encodes current molecule state as a graph embedding via GNN.
+- Defines three sub-policy networks for steps a1 (attach site), a2 (fragment selection), a3 (attachment site on fragment),
+  using Gumbel-Softmax for differentiable discrete sampling.
+- Implements critic networks (Q-functions) estimating expected rewards.
+- Contains training routines with SAC update rules, replay buffer, environment interaction.
+- Supports molecule construction and validation, interfacing with external oracle (e.g., docking).
+- Uses configurations from "config.yaml".
+"""
+
+import torch
+import torch.nn as nn
+import torch.nn.functional as F
+import numpy as np
+import random
+from collections import deque
+import yaml
+from torch.optim import Adam
+
+# Load config values
+with open("config.yaml", "r") as f:
+    config = yaml.safe_load(f)
+
+DEVICE = config.get("training", {}).get("device", "cpu")
+LEARNING_RATE = config["training"].get("rl_learning_rate", 1e-4)
+BATCH_SIZE = config["training"].get("rl_batch_size", 64)
+GAMMA = float(config["training"].get("gamma", 0.99))
+ALPHA = 0.2  # Typical initial temperature for SAC, can be trainable if desired
+TEMP = ALPHA
+
+NUM_MSG_PASSES = int(config["training"].get("message_passes", 3))
+FC_LAYERS = int(config["training"].get("fc_layers", 2))
+MAX_MOLECULE_SIZE = int(config["training"].get("molecule_max_size", 40))
+NUM_REPRODUCTION = int(config["training"].get("num_reproduction", 3))
+MUTATION_RATE = float(config["training"].get("mutation_rate", 0.1))
+NUM_MOLECULE_SAMPLES = int(config["training"].get("num_molecules_sample", 3000))
+Vocab_size_max = int(config["training"].get("max_vocabulary_size", 1000))
+Vocab_size_init = int(config["training"].get("initial_vocabulary_size", 300))
+
+# --- Utility functions ---
+
+def gumbel_softmax_sample(logits, tau=1.0):
+    """Sample from Gumbel-Softmax distribution."""
+    gumbel_noise = -torch.empty_like(logits).exponential_().log()
+    y = logits + gumbel_noise
+    return F.softmax(y / tau, dim=-1)
+
+def gumbel_softmax(logits, tau=1.0, hard=False):
+    """Sample from Gumbel-Softmax with optional hard approximation."""
+    y = gumbel_softmax_sample(logits, tau)
+    if hard:
+        _, max_idx = y.max(dim=-1, keepdim=True)
+        y_hard = torch.zeros_like(y).scatter_(-1, max_idx, 1.0)
+        y = (y_hard - y).detach() + y
+    return y
+
+# --- Environment interaction ---
+def attach_fragment(current_mol, fragment, site_on_current, site_on_fragment):
+    """
+    Attaches fragment to current_mol at specified sites.
+    Args:
+        current_mol: RDKit molecule object
+        fragment: RDKit molecule object
+        site_on_current: atom index on current_mol to bond
+        site_on_fragment: atom index on fragment to bond
+    Returns:
+        new_mol: RDKit molecule object or None if invalid
+        success: bool
+    """
+    from rdkit.Chem import rdmolops
+    try:
+        combo = Chem.RWMol(current_mol)
+        frag = Chem.RWMol(fragment)
+
+        # Create dummy atoms for attachment points
+        # Remove attachment atom from fragment before bonding
+        # Bond them and sanitize afterwards
+        combo.InsertMol(frag)
+        combo.AddBond(site_on_current, len(combo.GetAtoms()) - 1, order=Chem.BondType.SINGLE)
+
+        # Sanitize molecule
+        new_mol = combo.GetMol()
+        Chem.SanitizeMol(new_mol)
+        return new_mol, True
+    except Exception:
+        return None, False
+
+def compute_reward(molecule, oracle_func):
+    """
+    Evaluate molecule property/score via external oracle, e.g., docking.
+    Args:
+        molecule: RDKit Mol object
+        oracle_func: function to evaluate property; returns scalar
+    Returns:
+        reward: float
+    """
+    try:
+        score = oracle_func(molecule)
+        return score
+    except Exception:
+        return 0.0
+
+def is_valid_molecule(mol):
+    """Checks whether a molecule is chemically valid."""
+    from rdkit.Chem import SanitizeMol
+    try:
+        Chem.SanitizeMol(mol)
+        if mol.GetNumAtoms() == 0:
+            return False
+        return True
+    except:
+        return False
+
+# --- Main class for SAC agent ---
+
+class SACAgent(nn.Module):
+    def __init__(self, node_input_dim, edge_feat_dim, fragment_embed_dim, hidden_dim=128):
+        super().__init__()
+        self.node_input_dim = node_input_dim
+        self.edge_feat_dim = edge_feat_dim
+        self.fragment_embed_dim = fragment_embed_dim
+        self.hidden_dim = hidden_dim
+
+        # Define GNN encoder (same as in model.py)
+        self.encoder = GNNEncoder(input_dim=node_input_dim,
+                                  hidden_dim=hidden_dim,
+                                  num_passes=NUM_MSG_PASSES,
+                                  fc_layers=FC_LAYERS,
+                                  edge_dim=edge_feat_dim).to(DEVICE)
+
+        # Policy networks: each produces logits over actions
+        # We'll implement as simple MLPs; flexible for further improvements
+        self.pi_a1 = self._build_policy_network()  # For attachment site on current molecule
+        self.pi_a2 = self._build_policy_network()  # For fragment selection
+        self.pi_a3 = self._build_policy_network()  # For attachment site on fragment
+
+        # Critic networks (Q-functions)
+        self.q1 = self._build_q_network()
+        self.q2 = self._build_q_network()
+
+        # Optimizers
+        self.policy_params = list(self.pi_a1.parameters()) + list(self.pi_a2.parameters()) + list(self.pi_a3.parameters())
+        self.q_params = list(self.q1.parameters()) + list(self.q2.parameters())
+
+        self.policy_optimizer = Adam(self.policy_params, lr=LEARNING_RATE)
+        self.q_optimizer = Adam(self.q_params, lr=LEARNING_RATE)
+
+    def _build_policy_network(self):
+        # Input size depends on concatenation of features
+        return nn.Sequential(
+            nn.Linear(self.hidden_dim + self.hidden_dim, self.hidden_dim),
+            nn.ReLU(),
+            nn.Linear(self.hidden_dim, 20)  # Output logits over possible actions (size varies)
+        )
+
+    def _build_q_network(self):
+        return nn.Sequential(
+            nn.Linear(self.hidden_dim * 2, self.hidden_dim),
+            nn.ReLU(),
+            nn.Linear(self.hidden_dim, 1)
+        )
+
+    def encode_state(self, mol_data):
+        """
+        Encode current molecule graph to a fixed vector.
+        Args:
+            mol_data: torch_geometric Data object representing molecule
+        Returns:
+            graph embedding: tensor [hidden_dim]
+        """
+        node_emb = self.encoder(mol_data)  # shape: [num_nodes, hidden_dim]
+        # Sum pooling over nodes
+        graph_emb = node_emb.sum(dim=0)
+        return graph_emb
+
+    def get_attachment_site_logits(self, mol_data, site_embeddings):
+        """
+        Compute logits for attachment site actions.
+        Args:
+            mol_data: Data object
+            site_embeddings: [num_sites, hidden_dim], embedding of available sites
+        Returns:
+            logits: [num_sites]
+        """
+        graph_emb = self.encode_state(mol_data)  # optional; in this design, we base logits on graph embedding
+        # For simplicity, compute logits based on node embeddings
+        # Here, we assume site_embeddings are node embeddings mapped to action logits
+        # Or directly compute similarity
+        concat_feat = torch.cat([site_embeddings, graph_emb.expand_as(site_embeddings)], dim=1)
+        logits = self.pi_a1(concat_feat).squeeze()
+        return logits
+
+    def get_fragment_logits(self, fragment_embeddings, context_embeddings):
+        """
+        Compute logits for fragment selection actions.
+        Args:
+            fragment_embeddings: [num_fragments, fragment_embed_dim]
+            context_embeddings: [hidden_dim], e.g., from current molecule
+        Returns:
+            logits: [num_fragments]
+        """
+        # Concatenate context to each fragment embedding
+        context = context_embeddings.unsqueeze(0).expand(fragment_embeddings.size(0), -1)
+        concat_feat = torch.cat([fragment_embeddings, context], dim=1)
+        logits = self.pi_a2(concat_feat).squeeze()
+        return logits
+
+    def get_attachment_site_fragment_logits(self, frag_emb, site_emb):
+        """
+        Compute logits for attachment site on fragment.
+        Args:
+            frag_emb: [hidden_dim]
+            site_emb: [num_sites, hidden_dim]
+        Returns:
+            logits: [num_sites]
+        """
+        concat_feat = torch.cat([site_emb, frag_emb.unsqueeze(0).expand_as(site_emb)], dim=1)
+        logits = self.pi_a3(concat_feat).squeeze()
+        return logits
+
+    def select_action(self, mol_data, fragment_pool, tau=1.0, deterministic=False):
+        """
+        Samples actions a1, a2, a3 using Gumbel-Softmax.
+        Args:
+            mol_data: Data object for current molecule
+            fragment_pool: list of fragment Data objects
+            tau: temperature
+            deterministic: bool, if True, take argmax
+        Returns:
+            a1_idx, a2_idx, a3_idx
+            action probabilities for backprop
+        """
+        # Encode current state
+        node_emb = self.encoder(mol_data)  # [num_nodes, hidden_dim]
+        graph_emb = node_emb.sum(dim=0)  # [hidden_dim]
+
+        # --- Action a1: attachment site on molecule ---
+        # For simplicity, assume candidate sites are all node indices
+        site_embs = node_emb  # shape: [num_nodes, hidden_dim]
+        logits_a1 = self.get_attachment_site_logits(mol_data, site_embs)
+        probs_a1 = gumbel_softmax(logits_a1, tau, hard=deterministic)
+
+        a1_idx = probs_a1.argmax() if deterministic else torch.multinomial(probs_a1, 1).item()
+
+        # --- Action a2: fragment selection from pool ---
+        if len(fragment_pool) == 0:
+            a2_idx = 0
+            probs_a2 = torch.ones(len(fragment_pool), device=DEVICE) / max(1, len(fragment_pool))
+        else:
+            frag_embs = []
+            for f in fragment_pool:
+                f_emb = self.encoder(f)
+                frag_embs.append(f_emb)
+            frag_embs_tensor = torch.stack(frag_embs)  # [num_fragments, hidden_dim]
+            probs_a2 = gumbel_softmax(self.get_fragment_logits(frag_embs_tensor, graph_emb), tau, hard=deterministic)
+            a2_idx = probs_a2.argmax() if deterministic else torch.multinomial(probs_a2, 1).item()
+
+        # --- Action a3: attachment site on fragment ---
+        fragment = fragment_pool[a2_idx]
+        frag_emb = self.encoder(fragment)
+        # Candidate attachment sites: all atoms in fragment
+        fra_node_embs = self.encoder(fragment)
+        site_embs_frag = fra_node_embs  # assume all nodes as candidates
+        logits_a3 = self.get_attachment_site_fragment_logits(frag_emb, site_embs_frag)
+        probs_a3 = gumbel_softmax(logits_a3, tau, hard=deterministic)
+        a3_idx = probs_a3.argmax() if deterministic else torch.multinomial(probs_a3, 1).item()
+
+        return a1_idx, a2_idx, a3_idx, probs_a1, probs_a2, probs_a3
+
+    def evaluate_q(self, mol_data, fragment_pool, a1_idx, a2_idx, a3_idx):
+        """
+        Evaluate Q-values for current state and selected actions.
+        Returns:
+            q1_value, q2_value
+        """
+        # Encode state
+        node_emb = self.encoder(mol_data)
+        state_embed = node_emb.sum(dim=0)
+
+        # Embedding for each action step (if needed)
+        q_input_a1 = state_embed
+        q_input_a2 = self._get_fragment_embedding(fragment_pool[a2_idx])
+        q_input_a3 = self._get_fragment_site_embedding(fragment_pool[a2_idx], a3_idx)
+
+        # Compute Q-values
+        q1_val = self.q1(torch.cat([q_input_a1, q_input_a2], dim=0))
+        q2_val = self.q2(torch.cat([q_input_a1, q_input_a2], dim=0))
+        return q1_val.squeeze(), q2_val.squeeze()
+
+    def _get_fragment_embedding(self, fragment):
+        # Extra method to obtain fragment embedding
+        frag_emb = self.encoder(fragment)
+        return frag_emb
+
+    def _get_fragment_site_embedding(self, fragment, site_idx):
+        # Placeholder for site embedding
+        node_embs = self.encoder(fragment)
+        site_emb = node_embs[site_idx]
+        return site_emb
+
+    def update(self, experiences, optimizers, oracle_func):
+        """
+        Update Q and policy networks with SAC loss.
+        Args:
+            experiences: batch of (s, a, r, s_next, done)
+            optimizers: dict of optimizers
+            oracle_func: external oracle for reward computation
+        """
+        # Unpack experiences
+        s_batch, a_batch, r_batch, s_next_batch, done_batch = experiences
+
+        # Compute target Q values
+        with torch.no_grad():
+            # For s_next, sample actions via policy
+            # Here, for simplicity, use mean action (or stochastic sampling)
+            q_target_values = []
+            for s_next in s_next_batch:
+                # sample next action
+                a1_next, a2_next, a3_next, _, _, _ = self.select_action(s_next, [])
+                # evaluate Q for next state
+                q1_next, q2_next = self.evaluate_q(s_next, [], a1_next, a2_next, a3_next)
+                min_q = torch.min(q1_next, q2_next)
+                q_target = r_batch + GAMMA * (1 - done_batch) * (min_q - TEMP * 0)  # entropy term can be added
+                q_target_values.append(q_target)
+            q_target_tensor = torch.stack(q_target_values)
+
+        # --- Update Q networks ---
+        q1_values, q2_values = [], []
+        for s, a in zip(s_batch, a_batch):
+            # Decode actions
+            a1_idx, a2_idx, a3_idx = a
+            q1_val, q2_val = self.evaluate_q(s, [], a1_idx, a2_idx, a3_idx)
+            q1_values.append(q1_val)
+            q2_values.append(q2_val)
+        q1_tensor = torch.stack(q1_values)
+        q2_tensor = torch.stack(q2_values)
+
+        q1_loss = F.mse_loss(q1_tensor, q_target_tensor)
+        q2_loss = F.mse_loss(q2_tensor, q_target_tensor)
+
+        optimizers['q'].zero_grad()
+        q1_loss.backward()
+        q2_loss.backward()
+        optimizers['q'].step()
+
+        # --- Update policy ---
+        policy_loss = []
+        for s in s_batch:
+            a1_idx, a2_idx, a3_idx, probs_a1, probs_a2, probs_a3 = self.select_action(s, [], tau=TEMP)
+            q1_eval, q2_eval = self.evaluate_q(s, [], a1_idx, a2_idx, a3_idx)
+            min_q = torch.min(q1_eval, q2_eval)
+            # Add entropy regularization
+            entropy_term = - (torch.sum(torch.log(probs_a1 + 1e-8)) +
+                              torch.sum(torch.log(probs_a2 + 1e-8)) +
+                              torch.sum(torch.log(probs_a3 + 1e-8)))
+            policy_loss.append((TEMP * entropy_term - min_q).mean())
+
+        policy_loss = torch.stack(policy_loss).mean()
+
+        optimizers['policy'].zero_grad()
+        policy_loss.backward()
+        optimizers['policy'].step()
+
+        # --- Update temperature alpha if trainable ---
+        # For simplicity, keep fixed or implement adaptive
+        return q1_loss.item(), q2_loss.item(), policy_loss.item()
+
+# --- SAC training loop ---
+class SACTrainer:
+    def __init__(self, agent: SACAgent, oracle_func, replay_buffer_size=10000):
+        self.agent = agent
+        self.oracle_func = oracle_func
+        self.replay_buffer = deque(maxlen=replay_buffer_size)
+
+        self.optimizer_dict = {
+            'policy': self.agent.policy_optimizer,
+            'q': self.agent.q_optimizer
+        }
+
+    def store_experience(self, s, a, r, s_next, done):
+        self.replay_buffer.append((s, a, r, s_next, done))
+
+    def sample_batch(self):
+        batch_size = BATCH_SIZE
+        batch = random.sample(self.replay_buffer, min(batch_size, len(self.replay_buffer)))
+        s_batch, a_batch, r_batch, s_next_batch, done_batch = zip(*batch)
+        return s_batch, a_batch, r_batch, s_next_batch, done_batch
+
+    def train(self, num_epochs):
+        for epoch in range(num_epochs):
+            if len(self.replay_buffer) < BATCH_SIZE:
+                continue
+            batch = self.sample_batch()
+            self.agent.update(batch, self.optimizer_dict, self.oracle_func)
+
+# --- Main interaction loop ---
+def train_agent(initial_molecule, goal_vocabulary: List, oracle_func, num_epochs=10, max_steps=200):
+    """
+    Runs the SAC-based molecule generation process.
+    Args:
+        initial_molecule: RDKit Mol object (e.g., benzene)
+        goal_vocabulary: list of fragment Data objects
+        oracle_func: function to evaluate property/reward
+        num_epochs: training epochs for SAC
+        max_steps: max steps per episode
+    Returns:
+        final molecule object
+    """
+    from rdkit import Chem
+    current_mol = initial_molecule
+    mol_data = molecule_to_data(current_mol)  # convert to torch_geometric Data
+
+    agent = SACAgent(node_input_dim=16, edge_feat_dim=6, fragment_embed_dim=128)
+    trainer = SACTrainer(agent, oracle_func)
+    env_step = 0
+
+    for episode in range(1):  # Single episode, can be looped for multiple runs
+        mol_data = molecule_to_data(current_mol)
+        for t in range(max_steps):
+            # Sample actions
+            a1_idx, a2_idx, a3_idx, probs_a1, probs_a2, probs_a3 = agent.select_action(mol_data, goal_vocabulary, tau=1.0, deterministic=False)
+            # Get candidate sites and fragments
+            node_embeddings = agent.encoder(mol_data)
+            sites = node_embeddings  # potential site nodes
+            fragment = goal_vocabulary[a2_idx]
+            # Attach fragment
+            site_on_current = a1_idx
+            site_on_fragment = a3_idx
+            new_mol, success = attach_fragment(current_mol, fragment, site_on_current, site_on_fragment)
+            if not success or not is_valid_molecule(new_mol):
+                # Invalid, skip
+                continue
+            # Compute reward
+            r = compute_reward(new_mol, oracle_func)
+            # Convert to data object
+            new_data = molecule_to_data(new_mol)
+            # Store experience
+            trainer.store_experience(mol_data, (a1_idx, a2_idx, a3_idx), r, new_data, False)
+            # Update current molecule
+            current_mol = new_mol
+            mol_data = new_data
+            env_step += 1
+        # After episode, train networks
+        trainer.train(num_epochs=num_epochs)
+
+    return current_mol
+
+# --- Helper: Convert RDKit Mol to torch_geometric Data ---
+def molecule_to_data(mol):
+    # Similar to dataset_loader.py, convert mol to Data object
+    # Use atom features and bonds
+    from torch_geometric.data import Data
+    node_feats = []
+    for atom in mol.GetAtoms():
+        node_feats.append(atom_feature_vector(atom))
+    x = torch.tensor(node_feats, dtype=torch.float, device=DEVICE)
+    edge_index = []
+    edge_attr = []
+    for bond in mol.GetBonds():
+        i, j = bond.GetBeginAtomIdx(), bond.GetEndAtomIdx()
+        edge_index.extend([[i, j], [j, i]])
+        edge_attr.extend([bond_feature_vector(bond), bond_feature_vector(bond)])
+    if len(edge_index) == 0:
+        edge_index_tensor = torch.empty((2,0), dtype=torch.long, device=DEVICE)
+        edge_attr_tensor = torch.empty((0,6), dtype=torch.float, device=DEVICE)
+    else:
+        edge_index_tensor = torch.tensor(edge_index, dtype=torch.long, device=DEVICE).t()
+        edge_attr_tensor = torch.tensor(edge_attr, dtype=torch.float, device=DEVICE)
+    data = Data(x=x, edge_index=edge_index_tensor, edge_attr=edge_attr_tensor)
+    return data
+
+# --- Main module ---
+if __name__ == "__main__":
+    # Load initial molecule, e.g., benzene
+    from rdkit import Chem
+    benzene = Chem.MolFromSmiles("c1ccccc1")
+    # Load goal-aware fragment vocabulary from elsewhere (e.g., from FGIB scores)
+    goal_vocabulary = []  # Placeholder: list of Data objects for fragments
+    # Define oracle function (docking, property evaluation)
+    def oracle_func(mol):
+        return 0.0  # Placeholder: replace with docking evaluation
+
+    # Run molecule generation with SAC
+    final_molecule = train_agent(benzene, goal_vocabulary, oracle_func)

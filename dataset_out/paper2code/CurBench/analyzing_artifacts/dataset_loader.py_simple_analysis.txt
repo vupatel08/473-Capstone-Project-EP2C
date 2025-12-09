@@ -1,0 +1,127 @@
+**Logic Analysis for `dataset_loader.py` — DatasetLoader class**
+
+---
+
+### Goal:
+Implement a robust `DatasetLoader` class that handles dataset loading, preprocessing, transformation, and data augmentation, adhering to the experimental protocols described in *CurBench*. The class must support various datasets (CIFAR-10, CIFAR-100, Tiny-ImageNet, MNIST, Graph datasets, etc.), apply label noise and class imbalance transformations, and provide an interface for downstream training and evaluation.
+
+---
+
+### 1. Class Overview:
+- **Class Name:** `DatasetLoader`
+- **Primary Responsibilities:**
+  - Initialize with configuration parameters (dataset name, split ratios, noise ratio, imbalance factor).
+  - Load datasets in their native formats using appropriate APIs.
+  - Apply label noise for the *noise setting* with specified ratio `p`.
+  - Generate class imbalance for the *imbalance setting* using specified ratio `r`.
+  - Support data augmentation where applicable.
+  - Provide clean and transformed datasets via `load_data()` and `apply_noise_or_imbalance()`.
+
+### 2. Inputs & Configuration:
+- **Constructor (`__init__`) Parameters:**  
+  Input options may include:
+  - `dataset_name` (string): Which dataset to load (`CIFAR10`, `CIFAR100`, `Tiny-ImageNet`, `MNIST`, etc.)
+  - `split_ratios` (dict): For train/val/test splits (default 80%/10%/10%).
+  - `noise_ratio` (`p` float in [0,1]): Probability to flip labels for label noise.
+  - `imbalance_factor` (`r` float): Multiplier for class imbalance.
+  - Additional options: `apply_augmentation`, `difficulty_scores`, etc.
+
+- **Constants & Hyperparameters:**
+  - For datasets like CIFAR, use standard normalization transforms.
+  - For noise, generate random label corruption.
+  - For imbalance, select a sampling strategy to reduce samples per class.
+
+---
+
+### 3. Dataset API:
+- **`load_data()` Method:**
+  - Executes dataset loading using:
+    - `torchvision.datasets.CIFAR10` or `CIFAR100`
+    - `torchvision.datasets.ImageFolder` (for Tiny-ImageNet)
+    - `torchvision.datasets.MNIST`  
+    - External APIs for graph datasets (e.g., OGB, TUDataset)
+  - Returns datasets in a common format (e.g., PyTorch `Dataset`, or custom wrapper).
+
+- **Dataset Preparation:**
+  - After loading raw data, perform:
+    - Split into `train`, `val`, `test` sets based on `split_ratios`.
+    - Store datasets with associated labels, features, or graph attributes.
+    - Possibly store or generate sample difficulty scores (for curriculum).
+
+---
+
+### 4. Noise and Imbalance Application:
+- **`apply_noise_or_imbalance()` Method:**
+  - Intended to modify the dataset in-place or return a new dataset with the specified transformations.
+  - **Noise**:
+    - For each sample in training set, with probability `p`, assign a random label uniformly among other classes.
+    - Ensure reproducibility by seeding the randomness.
+  - **Imbalance**:
+    - For class imbalance, reduce the number of samples per class to follow an exponential or geometric distribution:
+      - Use the formula: `n_c = n_0 * d^c`, where `d` is a decay factor.
+    - Implement via a stratified sampling subset that retains the desired imbalance ratio.
+    - Ensure that the reduction is consistent with the specified `r`.
+  - **Implementation notes**:
+    - For label noise:
+      - Loop or vectorized operation on labels.
+      - Use `np.random` or `torch` for randomization.
+    - For class imbalance:
+      - Calculate number of samples per class.
+      - Randomly select the required number of samples for each class.
+      - Handle cases where the number exceeds available data.
+
+---
+
+### 5. Data Transformation & Augmentation:
+- Utilize torchvision transforms:
+  - Normalize: mean/std normalization for CV datasets.
+  - Augmentation: random crops, flips, color jitters, etc.
+- For graph datasets:
+  - Use appropriate graph transforms (if applicable), e.g., node feature augmentation, subgraph sampling.
+- These transformations are to be applied during data loading or preprocessing pipeline.
+
+---
+
+### 6. API Behavior:
+- **`load_data()`**:
+  - Loads raw datasets.
+  - Applies initial preprocessing.
+  - Returns dataset objects (e.g., `torch.utils.data.Dataset` or datasets compatible with DataLoader).
+- **`apply_noise_or_imbalance()`**:
+  - Transforms the datasets according to specified noise/imbalance ratios.
+  - Modifies labels or sample distributions.
+  - Returns a transformed dataset, possibly a new dataset object, ready for training.
+- **Clarity & Reproducibility**:
+  - Use fixed random seed (e.g., from the configuration) during noise/imbalance generation.
+  - Log the applied transformations for reproducibility.
+
+### 7. Edge Cases & Special Considerations:
+- Support for datasets without labels (or with complex labels, e.g., in graphs).
+- Ensure no data leakage: do not apply noisy/imbalanced transformations to validation/test sets.
+- For datasets like Tiny-ImageNet lacking official test labels, load validation set as test, following the paper.
+- Handle the format conversions needed for datasets, e.g., images to tensors, graphs to data objects.
+- Document assumptions about dataset structures.
+
+---
+
+### 8. Implementation Details & Final Notes:
+- Should be compatible with main training pipeline.
+- Should implement debugging/logging outputs (e.g., info logs on data sizes, noise, imbalance info).
+- Provide clear and simple API for external code to invoke data loading and transformations:
+  - Example:
+    ```python
+    loader = DatasetLoader(config_params)
+    dataset = loader.load_data()
+    transformed_dataset = loader.apply_noise_or_imbalance(dataset)
+    ```
+- Modular design to extend to other datasets or transformations easily.
+
+---
+
+### Summary:
+- The `DatasetLoader` class systematically manages dataset fetching, splitting, and transformations.
+- Apply label noise and class imbalance rigorously, respecting reproducibility.
+- Integrate data augmentation seamlessly during data loading.
+- Provide consistent datasets for the training pipeline, aligning with the experimental protocols described in the paper.
+
+This logic will guide the precise coding of the dataset handling module aligned with *CurBench*'s requirements.

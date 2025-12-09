@@ -1,0 +1,117 @@
+# Logic Analysis for evaluation.py
+
+## Overview
+The purpose of `evaluation.py` is to implement an `Evaluation` class responsible for:
+- Running inference on datasets (such as ∗-Bench, LongBench)
+- Controlling the streaming and chunked inference process
+- Managing the interaction among dataset loader, model wrapper, attention + memory modules
+- Collecting various performance metrics (accuracy, ROUGE, retrieval precision)
+- Tracking resource usage (e.g., time, GPU/memory utilization, cache hit/miss statistics)
+- Logging and summarizing evaluation results
+
+This process must adhere to the minimal assumptions of the experimental setup, aligning with the methodology of inferring long sequences using the `InfLLM` approach, without further training.
+
+---
+
+## Key Components & Requirements
+### 1. Initialization
+- **Dataset**: instantiate and load sequences, each possibly very long (>1 million tokens). Sequences are streamed in chunks, maintaining short-term context.
+- **Model**: initialize `ModelWrapper` with provided model, frozen parameters, no training.
+- **Memory Management**: instantiate `MemoryManager` with configuration for cache size (`cache_size_gpu=64`), relevance decay (`relevance_decay=0.1`), block size, and top-k selections for relevance.
+- **Attention & Relevance**: the model includes mechanisms to invoke custom attention with memory relevance, per paper instructions.
+- **Metrics Tracking**: prepare data structures (e.g., counters or logs) for storing accuracy, ROUGE, retrieval precision, and cache statistics (hit/miss).
+
+### 2. Streaming Inference
+- Loop through dataset sequences:
+  - For each sequence:
+    - **Chunk Streaming**:
+      - Use dataset loader (`stream_chunks`) to get chunks of size specified in config (`chunk_size=4096` tokens).
+      - Each chunk is processed sequentially to simulate streaming long input.
+    - **Per Chunk Processing**:
+      - Prepare the current input chunk (`local tokens`) + relevant external memory units (from buffer/cache).
+      - Invoke the model’s inference with custom attention:
+        - Inputs include current tokens, previous memory, and cached relevant units.
+        - Invoke the custom attention wrapper, which manages local attention + relevance retrieval.
+      - Record model output tokens (for evaluation).
+    - **Memory & Cache Updates**:
+      - After generating the chunk, identify the "evicted" tokens and blocks.
+      - Compute importance scores for evicted blocks (using the formula for importance score).
+      - Select top `r_k` tokens per block as unit representations.
+      - Update the external memory with newly relevant blocks.
+      - Manage cache:
+        - Update GPU cache based on relevance scores.
+        - Offload less relevant units to CPU memory, following LRU policy.
+        - Track cache hits/misses for resource monitoring.
+
+### 3. Post-Sequence Metrics
+- For each sequence:
+  - Extract model predictions (e.g., answers, summaries, key retrievals).
+  - Compare against ground truth labels or expected outputs.
+  - Calculate:
+    - **Accuracy**: for classification, QA or Math tasks.
+    - **ROUGE**: for summarization tasks.
+    - **Retrieval precision**: for retrieve tasks like Retrieve.PassKey.
+    - (Optional) other metrics as configured.
+- Store metrics for reporting.
+
+### 4. Performance & Resource Logging
+- Log per-sequence and aggregate metrics:
+  - Overall accuracy, ROUGE, retrieval, etc.
+  - Resource metrics:
+    - Total inference time (`time.perf_counter()` or `torch.cuda.Event`)
+    - GPU memory usage (`torch.cuda.max_memory_allocated()`)
+    - Cache hit/miss ratios (`cache_stats` updated during each chunk)
+- Capture cache system stats:
+  - Count number of cache hits vs misses.
+  - Record cache miss rate in log.
+- Log total time taken per sequence, average performance, and resource consumption.
+
+### 5. Final Reporting
+- Summarize:
+  - Mean and standard deviation (if applicable) of metrics over sequences.
+  - Total resource usage statistics.
+  - Cache hit/miss ratios.
+- Save or print results in a structured report (e.g., JSON, printed table).
+
+---
+
+## Implementation Details & Considerations
+### Metrics Calculation
+- Use standard libraries (e.g., scikit-learn for accuracy, Rouge package for ROUGE).
+- For retrieval accuracy, string matching or token matching between retrieved passkey tokens and ground truth.
+
+### Timing & Resource Monitoring
+- Use `time.perf_counter()` for wall-clock timing.
+- Use `torch.cuda.max_memory_allocated()` before and after inference to record height.
+- Use custom counters for cache statistics (`cache_hits`, `cache_misses`).
+
+### Data Collection & Logging
+- Maintain dictionaries or pandas DataFrames for batch metrics.
+- Log details at the end or per sequence for detailed provenance.
+
+### Compatibility & Flexibility
+- Critical to interface correctly with `ModelWrapper`'s generate method, which uses custom attention wrapped during inference.
+- Ensure that the sequence of chunks and memory updates is consistent with dataset loader and model architecture.
+- Handle sequence boundaries and partial inputs gracefully.
+
+---
+
+## Summary
+The `Evaluation` class:
+- Is initialized with dataset, model, memory manager, and config.
+- Loops through dataset sequences:
+  - Streams sequence chunks.
+  - For each chunk:
+    - Applies custom attention with external memory.
+    - Collects output tokens.
+    - Updates external memory based on importance scores.
+    - Manages GPU/CPU cache via LRU policy.
+  - Calculates sequence-level metrics.
+- Collects and logs system resource usage and cache statistics.
+- Outputs final performance report for analysis and comparison.
+
+By following this detailed plan, `evaluation.py` will faithfully reproduce the experimental inference pipeline described in the paper, while enabling systematic measurement of performance and resource efficiency.
+
+---
+
+Please advise if you want a corresponding skeleton code outline or specific pseudocode snippets next.

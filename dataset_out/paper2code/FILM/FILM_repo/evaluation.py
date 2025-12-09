@@ -1,0 +1,288 @@
+## evaluation.py
+"""
+Evaluation module for assessing long-context utilization of the trained language model.
+Implements retrieval probing, scaling evaluation with sliding window, and real-world long
+document tasks, based on configurations from 'config.yaml'.
+"""
+
+import os
+import json
+import torch
+import numpy as np
+import re
+from tqdm import tqdm
+from transformers import AutoModelForCausalLM
+from utils import (
+    load_dataset_from_json,
+    generate_prompt,
+    normalize_text,
+    tokenize_and_process,
+    format_prompt_template
+)
+import yaml
+
+# Load configurations from 'config.yaml'
+with open('config.yaml', 'r') as f:
+    CONFIG = yaml.safe_load(f)
+
+# Extract config parameters with defaults
+MAX_SEQ_LENGTH = 4096  # Model-supported max sequence length
+LONG_CONTEXT_LENGTHS = CONFIG.get('long_context', {}).get('length_distribution', [4000, 8000, 16000, 32000])
+USE_SLIDING_WINDOW = CONFIG.get('evaluation', {}).get('use_sliding_window', True)
+SLIDING_WINDOW_SIZE = CONFIG.get('evaluation', {}).get('sliding_window_size', 4096)
+MODEL_NAME = CONFIG.get('model', {}).get('name', 'mistral-7b-instruct-v0.2')
+DEVICE = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+EVAL_TASKS = CONFIG.get('evaluation', {}).get('tasks', {})
+# For simplicity, evaluate all tasks by default
+EVAL_RETRIEVAL = EVAL_TASKS.get('retrieval', True)
+EVAL_SCALING = EVAL_TASKS.get('scaling', True)
+EVAL_FEWSHOT = EVAL_TASKS.get('few_shot', True)
+
+# Load the fine-tuned model
+model = AutoModelForCausalLM.from_pretrained(MODEL_NAME).to(DEVICE)
+model.eval()
+
+# Load tokenizer for decoding generated tokens
+from transformers import AutoTokenizer
+tokenizer = AutoTokenizer.from_pretrained(MODEL_NAME, use_fast=True)
+if tokenizer.pad_token is None:
+    tokenizer.pad_token = tokenizer.eos_token
+
+# Utility functions for metrics
+def compute_exact_match(pred: str, ref: str) -> int:
+    return int(normalize_text(pred) == normalize_text(ref))
+
+def compute_recall(pred_tokens: list, target_tokens: set) -> float:
+    """
+    Word-level recall: fraction of target tokens appearing in prediction.
+    """
+    pred_token_set = set(pred_tokens)
+    recall = len(target_tokens.intersection(pred_token_set)) / max(1, len(target_tokens))
+    return recall
+
+def extract_answer_from_response(response: str, answer_type='qa') -> str:
+    """
+    Extract answer text from model response, expecting formats like 'Q: ... A: ...'.
+    """
+    match = re.search(r'([Qq][:\s\S]+?)(?:\n|$)', response)
+    question = ''
+    answer = ''
+    q_match = re.search(r'Q[:\s]*(.+)', response, re.IGNORECASE)
+    a_match = re.search(r'A[:\s]*(.+)', response, re.IGNORECASE)
+    if q_match:
+        question = q_match.group(1).strip()
+    if a_match:
+        answer = a_match.group(1).strip()
+    else:
+        # fallback
+        answer = response.strip()
+    return answer
+
+# Function to perform inference with optional sliding window
+def generate_response(input_ids, attention_mask, max_new_tokens=512, do_sample=False, temperature=1.0, top_p=0.9):
+    seq_len = input_ids.shape[1]
+    if seq_len <= MAX_SEQ_LENGTH:
+        outputs = model.generate(
+            input_ids=input_ids,
+            attention_mask=attention_mask,
+            max_new_tokens=max_new_tokens,
+            do_sample=do_sample,
+            temperature=temperature,
+            top_p=top_p
+        )
+        return outputs
+    else:
+        # Long sequence: sliding window approach
+        return _long_sequence_generate(input_ids, attention_mask, max_new_tokens, do_sample, temperature, top_p)
+
+def _long_sequence_generate(input_ids, attention_mask, max_new_tokens, do_sample, temperature, top_p):
+    generated = input_ids
+    attn_mask = attention_mask
+    for _ in range(max_new_tokens):
+        input_slice = generated[:, -MAX_SEQ_LENGTH:]
+        attn_slice = attn_mask[:, -MAX_SEQ_LENGTH:]
+        outputs = model.generate(
+            input_ids=input_slice,
+            attention_mask=attn_slice,
+            max_new_tokens=1,
+            do_sample=do_sample,
+            temperature=temperature,
+            top_p=top_p
+        )
+        next_token = outputs[:, -1:].to(generated.device)
+        generated = torch.cat([generated, next_token], dim=1)
+        attn_mask = torch.cat([attn_mask, torch.ones_like(next_token, dtype=torch.long).to(generated.device)], dim=1)
+    return generated
+
+# Load dataset (assumed processed and stored in JSON)
+def load_eval_dataset(path):
+    with open(path, 'r', encoding='utf-8') as f:
+        data = json.load(f)
+    return data
+
+# Evaluation functions
+def evaluate_retrieval(dataset, style='document', pattern='bi', position='middle'):
+    """
+    Evaluate retrieval probing:
+        - style: 'document', 'code', 'structured'
+        - pattern: 'forward', 'backward', 'bi'
+        - position: 'start', 'middle', 'end'
+    """
+    metrics_results = {}
+    total = 0
+    correct = 0
+    recall_scores = []
+    for sample in tqdm(dataset, desc=f"Eval {style}-{pattern}-{position}"):
+        context = sample['context']
+        question = sample['question']
+        answer = sample['answer']
+        # Prepare prompt
+        prompt = generate_prompt(
+            template=format_prompt_template('qa'),
+            segment=context,
+            instruction_type='qa'
+        )
+        input_ids = tokenizer(prompt, return_tensors='pt', add_special_tokens=False)['input_ids'].to(DEVICE)
+        attention_mask = torch.ones_like(input_ids)
+        # Generate response
+        output_ids = generate_response(input_ids, attention_mask)
+        output_text = tokenizer.decode(output_ids[0], skip_special_tokens=True)
+        # For retrieval, check if answer tokens are present and compute recall
+        pred_answer = extract_answer_from_response(output_text)
+        total += 1
+        # Pointer to relevant answer tokens
+        target_tokens = set(normalize_text(answer).split())
+        pred_tokens = normalize_text(pred_answer).split()
+        recall = compute_recall(pred_tokens, target_tokens)
+        recall_scores.append(recall)
+        if normalize_text(answer) == normalize_text(pred_answer):
+            correct += 1
+    accuracy = correct / total if total > 0 else 0.0
+    recall_mean = np.mean(recall_scores) if recall_scores else 0.0
+    return {'accuracy': accuracy, 'recall': recall_mean}
+
+def evaluate_scaling(model, dataset, lengths=LONG_CONTEXT_LENGTHS):
+    """
+    Evaluate model performance at varying context lengths, utilizing sliding windows if necessary.
+    """
+    length_performance = {}
+    for length in lengths:
+        position = 'middle'  # Can vary position if data is segmented
+        subset = [sample for sample in dataset if sample.get('context_length', 0) >= length*0.9]
+        if not subset:
+            continue
+        perf = evaluate_retrieval(subset, style='document', pattern='bi', position=position)
+        length_performance[length] = perf
+    return length_performance
+
+def evaluate_realworld_tasks():
+    """
+    Evaluate model on real-world long document tasks (e.g., NarrativeQA, Qasper, etc.).
+    Assumed dataset per task is prepared similarly as in training, with prompt formatting.
+    """
+    tasks = {
+        'NarrativeQA': 'Evaluate narrative question answering with long documents.',
+        'Qasper': 'Evaluate QA on scientific datasets.',
+        'MultiFQA': 'Evaluate multi-document QA.',
+        'HotpotQA': 'Multihop QA.',
+        '2WikiMQA': 'Multi-hop QA with wiki data.',
+        'MuSiQue': 'Large-scale QA benchmark.',
+        'GovReport': 'Summarization of long reports.',
+        'QMSum': 'Long meeting summarization.',
+        'MultiNews': 'Multinews summarization.'
+    }
+    results = {}
+    for task_name, description in tasks.items():
+        dataset_path = f'data/{task_name}.json'  # assume dataset files
+        data = load_eval_dataset(dataset_path)
+        # Depending on task, choose ops (classification, QA, summarization)
+        # For simplicity, assume QA style
+        scores = []
+        for sample in tqdm(data, desc=f"{task_name}"):
+            prompt = generate_prompt(
+                template=format_prompt_template('qa'),
+                segment=sample['context'],
+                instruction_type='qa'
+            )
+            input_ids = tokenizer(prompt, return_tensors='pt', add_special_tokens=False)['input_ids'].to(DEVICE)
+            attention_mask = torch.ones_like(input_ids)
+            output_ids = generate_response(input_ids, attention_mask)
+            output_text = tokenizer.decode(output_ids[0], skip_special_tokens=True)
+            pred_answer = extract_answer_from_response(output_text)
+            ref_answer = sample['answer']
+            # For F1 or accuracy, implement as needed. Here, example with exact match
+            score = compute_exact_match(pred_answer, ref_answer)
+            scores.append(score)
+        mean_score = np.mean(scores) if scores else 0.0
+        results[task_name] = mean_score
+    return results
+
+def evaluate_short_context_tasks():
+    """
+    Evaluate on standard short-context tasks: MMLU, BoolQ, RACE, etc.
+    Assumes datasets are formatted and scripts are available.
+    """
+    # Placeholder: Implementation depends on specific evaluation scripts
+    # For demo, we assume all are loaded and evaluated similarly
+    short_tasks = ['MMLU', 'BoolQ', 'RACE', 'CommonsenseQA', 'ARC']
+    results = {}
+    for task in short_tasks:
+        dataset_path = f'data/{task}.json'
+        data = load_eval_dataset(dataset_path)
+        scores = []
+        for sample in tqdm(data, desc=task):
+            prompt = generate_prompt(
+                template=format_prompt_template('qa'),
+                segment=sample['context'],
+                instruction_type='qa'
+            )
+            input_ids = tokenizer(prompt, return_tensors='pt', add_special_tokens=False)['input_ids'].to(DEVICE)
+            attention_mask = torch.ones_like(input_ids)
+            output_ids = generate_response(input_ids, attention_mask)
+            output_text = tokenizer.decode(output_ids[0], skip_special_tokens=True)
+            pred_answer = extract_answer_from_response(output_text)
+            ref_answer = sample['answer']
+            scores.append(compute_exact_match(pred_answer, ref_answer))
+        results[task] = np.mean(scores)
+    return results
+
+# Main evaluation orchestrator
+def main():
+    dataset_path = 'full_dataset.json'
+    dataset = load_eval_dataset(dataset_path)
+
+    # Retrieval probing at various positions (e.g., start, middle, end)
+    positions = ['start', 'middle', 'end']
+    styles = ['document', 'code', 'structured']
+    pattern = 'bi'  # bi-directional pattern
+
+    results = {}
+    if EVAL_RETRIEVAL:
+        for style in styles:
+            for pos in positions:
+                res = evaluate_retrieval(dataset, style=style, pattern=pattern, position=pos)
+                results[f'{style}-{pos}'] = res
+
+    # Evaluation over context lengths (scaling)
+    if EVAL_SCALING:
+        length_perf = evaluate_scaling(model, dataset)
+        results['scaling'] = length_perf
+
+    # Evaluation on real-world long document tasks
+    if EVAL_SCALING:
+        real_task_results = evaluate_realworld_tasks()
+        results['real_world_tasks'] = real_task_results
+
+    # Short-context tasks
+    if EVAL_FEWSHOT:
+        short_results = evaluate_short_context_tasks()
+        results['short_context'] = short_results
+
+    # Save or print results
+    output_path = 'evaluation_results.json'
+    with open(output_path, 'w', encoding='utf-8') as f:
+        json.dump(results, f, indent=2)
+    print(f"Evaluation complete. Results saved to {output_path}")
+
+if __name__ == "__main__":
+    main()

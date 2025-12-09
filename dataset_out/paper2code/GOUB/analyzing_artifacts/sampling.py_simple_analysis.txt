@@ -1,0 +1,147 @@
+**Logic Analysis for sampling.py**
+
+**Objective**:  
+Implement a `Sampler` class that performs the reverse diffusion process for image restoration based on the trained neural network, supporting both stochastic reverse SDE sampling and deterministic Mean-ODE sampling, aligned with the mathematical formulations in the paper.
+
+---
+
+### 1. **Primary Responsibilities of sampler.py**
+
+- **Initialize** with trained model, schedule parameters, and inference options.
+- **Generate** the restored high-quality image by solving the reverse process starting from a low-quality image (`x_T` or noised `x_T`).
+- **Support**:
+  - **Stochastic reverse SDE** sampling for diversity.
+  - **Deterministic Mean-ODE** sampling for fast, stable restoration (recommended).
+- **Input**:
+  - Conditioning image `x_T` (the low-quality or degraded image, possibly with masking).
+- **Output**:
+  - Restored high-quality image `x_0`.
+
+---
+
+### 2. **Key Inputs & Dependencies**
+
+- **Model (`self.model`)**:
+  - Neural network estimating scaled noise \(\epsilon_\theta(x_t, x_T, t)\).
+  - Must support inputs:
+    - Current image `x_t`
+    - Conditioning image `x_T`
+    - Time step `t` (or normalized float in [0,1])
+- **Schedule Parameters**:
+  - Discrete schedule of \(\theta_t\), \(g_t\), and their cumulative sums (\(\bar{\theta}_{t}\), \(\bar{\sigma}_{t}\), \(\bar{\sigma}_{t:T}\))
+  - These are precomputed in `schedule_utils.py`.
+- **Sampling steps**:
+  - Number of steps (`steps`): typically 100 as per the config.
+  - Whether to use deterministic (`use_mean_ode=True`) or stochastic sampling.
+
+---
+
+### 3. **Implementation Details**
+
+#### 3.1. Initialization
+
+- Accept `x_T` as starting point for reverse process.
+- Load schedule arrays for `theta_t`, `g_t`, `\(\bar{\theta}_{t}\)`, `\(\bar{\sigma}_{t}\)` and `\(\bar{\sigma}_{t:T}\)` precomputed during setup.
+- Determine the time discretization interval (`dt`), e.g., total time T divided by number of steps minus one.
+- Set inference mode:
+  - **Deterministic (Mean-ODE)**: skip stochastic noise; integrate ODE.
+  - **Stochastic (SDE)**: incorporate noise at each step.
+
+#### 3.2. Reverse Sampling (Main loop)
+
+- Loop backward over time steps:
+  - For each discrete time point \( t_i \):
+    - **Calculate** \(\nabla_{x_t} \log p(x_t | x_T)\) using the neural network:
+      \[
+      \nabla_{x_t}\log p(x_t | x_T) \approx - \epsilon_\theta(x_t, x_T, t) / \bar{\sigma}^\prime_t
+      \]
+      where \(\bar{\sigma}^\prime_t\) is the scale used in training.
+    - **Compute drift/dynamics**:
+      - For **ODE (deterministic)**: 
+        \[
+        dx_t = \left[ \left(\theta_t + g_t^2 \frac{e^{-2\bar{\theta}_{t:T}}}{\bar{\sigma}_{t:T}^2} \right) (x_T - x_t) - g_t^2 \nabla_{x_t} \log p(x_t | x_T) \right] dt
+        \]
+      - For **SDE (stochastic)**:
+        \[
+        dx_t = \left[ \left(\theta_t + g_t^2 \frac{e^{-2\bar{\theta}_{t:T}}}{\bar{\sigma}_{t:T}^2} \right) (x_T - x_t) - g_t^2 \nabla_{x_t} \log p(x_t | x_T) \right] dt + g_t d w_t
+        \]
+      - Integrate using Euler-Maruyama:
+        - For deterministic (ODE): simple Euler step.
+        - For SDE: add Gaussian noise scaled by \(\sqrt{dt}\).
+    - Implement **adaptive step size** or fixed step size based on configuration.
+- **From** initial `x_T`, perform the above steps iteratively for all time steps, moving backward to earlier times and eventually reaching \( x_0 \).
+
+#### 3.3. Supporting Methods
+
+- **compute_score(x_t, x_T, t)**:
+  - Calls the neural network, predicts \(\epsilon_\theta\).
+  - Computes gradient approximation for the score.
+- **return** the final `x_0`:
+  - For deterministic sampling: integrated directly along the ODE path.
+  - For stochastic: multiple samples may be generated; here, only one per call.
+
+---
+
+### 4. **Handling Schedules and Data Structures**
+
+- Load precomputed arrays from `schedule_utils.py`:
+  - \(\theta_t\), \(g_t\), \(\bar{\theta}_{t}\), \(\bar{\sigma}_t\), \(\bar{\sigma}_{t:T}\).
+- During each step:
+  - Retrieve schedule values for current \(t_i\).
+  - Interpolate if needed (if schedule stored at specific points).
+- Ensure consistent indexing:  
+  - Discretize total time T into `steps`.
+  - Map each iteration to a schedule value.
+
+---
+
+### 5. **Algorithm Parameter Settings**
+
+- **Total steps** in inference: as per config (`steps`: 100).
+- **Time step size**:
+  \[
+  dt = \frac{T}{\text{steps}}
+  \]
+- For deterministic ODE:
+  - Stepping from \( t_{T} \) down to \( t=0 \), or vice versa depending on implementation.
+- For stochastic SDE:
+  - Add Gaussian noise \(\mathcal{N}(0, g_t^2 \times dt)\) at each step.
+
+---
+
+### 6. **Additional Considerations**
+
+- **Numerical stability**:
+  - Use small \(\delta\) (from \(\theta_t\) schedule) to prevent division by zero.
+  - Limit maximum step size if necessary.
+- **Model evaluation mode**:
+  - Use `model.eval()` during inference to disable dropout, batchnorm.
+- **Device handling**:
+  - Keep tensors on GPU if available for efficiency.
+- **Output**:
+  - Final `x_0` is the restored image in tensor form.
+  - Apply postprocessing (clipping, denormalization) if necessary.
+
+---
+
+### 7. **Summary**
+
+The `sampling.py` module will contain:
+
+- `Sampler` class:
+  - `__init__` to load model, schedule, inference method.
+  - `restore(x_T)` method:
+    - Performs backward integration (Euler) over schedule.
+    - Uses `compute_score()` to get \(\nabla_{x_t}\log p\).
+    - Integrates either deterministically (Mean-ODE) or with added noise (SDE).
+    - Returns the final estimated image `x_0`.
+
+- Utility functions:
+  - For schedule retrieval.
+  - For computing the score approximation.
+
+This detailed plan ensures accurate, stable implementation directly aligned with the paper's methodology and mathematical formulations.
+
+---
+
+Would you like me to proceed with writing the code based on this analysis?

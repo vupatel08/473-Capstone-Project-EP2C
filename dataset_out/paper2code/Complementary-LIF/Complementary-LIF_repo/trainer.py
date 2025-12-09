@@ -1,0 +1,211 @@
+## trainer.py
+import torch
+import torch.nn as nn
+import torch.optim as optim
+import torch.nn.functional as F
+from dataset_loader import DatasetLoader
+from model import SpikingResNet
+import yaml
+import os
+
+class Trainer:
+    def __init__(self, config: dict):
+        """
+        Initialize with configuration parameters from YAML.
+        Args:
+            config (dict): parsed YAML config for dataset, training, model, neuron, etc.
+        """
+        self.config = config
+
+        # Set device
+        self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+
+        # Load dataset
+        self.train_loader, self.test_loader = self._load_datasets()
+
+        # Initialize model
+        self.model = self._build_model()
+        self.model.to(self.device)
+
+        # Initialize optimizer
+        optim_cfg = self.config['training']
+        self.optimizer = optim.SGD(self.model.parameters(),
+                                   lr=optim_cfg.get('learning_rate', 0.01),
+                                   momentum=0.9,
+                                   weight_decay=optim_cfg.get('weight_decay', 5e-5))
+        # Learning rate scheduler (optional)
+        # For simplicity, omit unless specified
+        self.epochs = optim_cfg.get('epochs', 200)
+
+        # Loss criterion
+        self.criterion = nn.CrossEntropyLoss()
+
+        # Other parameters
+        self.surrogate_alpha = optim_cfg.get('surrogate_alpha', 1.0)
+        self.tau = optim_cfg.get('time_constant_tau', 1.5)
+        self.T = self.model.T  # total timesteps
+        self.log_interval = self.config.get('logging', {}).get('log_interval', 10)
+        self.save_dir = self.config.get('logging', {}).get('save_dir', './checkpoints')
+        os.makedirs(self.save_dir, exist_ok=True)
+
+        # Set seed for reproducibility
+        seed = self.config['training'].get('seed', 2022)
+        torch.manual_seed(seed)
+        torch.cuda.manual_seed_all(seed)
+        torch.backends.cudnn.benchmark = False
+        torch.backends.cudnn.deterministic = True
+
+        self.best_acc = 0.0
+
+    def _load_datasets(self):
+        dataset_cfg = self.config['dataset']
+        loader = DatasetLoader(dataset_cfg)
+        train_dataset, test_dataset = loader.load_data()
+        train_loader = torch.utils.data.DataLoader(
+            train_dataset,
+            batch_size=dataset_cfg.get('batch_size', 128),
+            shuffle=True,
+            num_workers=dataset_cfg.get('num_workers', 4),
+            pin_memory=True)
+        test_loader = torch.utils.data.DataLoader(
+            test_dataset,
+            batch_size=dataset_cfg.get('batch_size', 128),
+            shuffle=False,
+            num_workers=dataset_cfg.get('num_workers', 4),
+            pin_memory=True)
+        return train_loader, test_loader
+
+    def _build_model(self):
+        model_cfg = self.config['model']
+        input_channels = model_cfg.get('input_channels', 3)
+        num_classes = model_cfg.get('num_classes', 10)
+        T = model_cfg.get('timesteps', 6)
+        return SpikingResNet(num_classes=num_classes, V_th=1.0, tau=self.tau, T=T)
+
+    def train(self):
+        for epoch in range(1, self.epochs + 1):
+            self.model.train()
+            epoch_loss = 0.0
+            correct = 0
+            total_samples = 0
+
+            # Reset neuron states before each epoch (per batch)
+            # For each batch, resetting is required externally here if model manages multiple sequences
+            # Assuming model.reset_state() handles batch size internally
+            for batch_idx, (inputs, labels) in enumerate(self.train_loader):
+                inputs = inputs.to(self.device)
+                labels = labels.to(self.device)
+
+                # Reset states for all neurons in model
+                self.model.reset_state(inputs.shape[0])
+
+                # Forward: simulate sequence over T timesteps
+                outputs = self.model.forward_sequence(inputs, self.T)
+
+                # Compute loss using only last timestep output or aggregate as needed
+                # Assuming model outputs logits at last timestep
+                loss = self.criterion(outputs, labels)
+
+                # Backpropagation with recursive gradients
+                self.optimizer.zero_grad()
+                loss.backward()
+                # Here, the custom autograd functions in neuron.py handle recursive gradient equations
+                self.optimizer.step()
+
+                epoch_loss += loss.item()
+                # Calculate accuracy
+                pred = outputs.argmax(dim=1)
+                correct += pred.eq(labels).sum().item()
+                total_samples += labels.size(0)
+
+                if (batch_idx + 1) % self.log_interval == 0:
+                    print(f"Epoch [{epoch}/{self.epochs}] Batch [{batch_idx+1}/{len(self.train_loader)}] "
+                          f"Loss: {loss.item():.4f} Accuracy: {correct/total_samples*100:.2f}%")
+
+            train_acc = correct / total_samples * 100
+            print(f"==== Epoch [{epoch}] Training Loss: {epoch_loss/len(self.train_loader):.4f} "
+                  f"Training Accuracy: {train_acc:.2f}%")
+            # Save checkpoint
+            ckpt_path = os.path.join(self.save_dir, f'checkpoint_epoch_{epoch}.pt')
+            torch.save(self.model.state_dict(), ckpt_path)
+
+            # Optional: decay LR
+            # For example, simple step LR
+            # if hasattr(self, 'scheduler') and self.scheduler:
+            #     self.scheduler.step()
+
+            # Validate after each epoch
+            val_acc = self.validate()
+            if val_acc > self.best_acc:
+                self.best_acc = val_acc
+                best_path = os.path.join(self.save_dir, 'best_model.pt')
+                torch.save(self.model.state_dict(), best_path)
+                print(f"New best model saved with accuracy: {val_acc:.2f}%")
+
+    def validate(self):
+        self.model.eval()
+        correct = 0
+        total = 0
+        with torch.no_grad():
+            for inputs, labels in self.test_loader:
+                inputs = inputs.to(self.device)
+                labels = labels.to(self.device)
+                self.model.reset_state(inputs.shape[0])
+                outputs = self.model.forward_sequence(inputs, self.T)
+                pred = outputs.argmax(dim=1)
+                correct += pred.eq(labels).sum().item()
+                total += labels.size(0)
+        acc = correct / total * 100
+        print(f"Validation Accuracy: {acc:.2f}%")
+        return acc
+
+    def test(self):
+        # For final evaluation and conversion
+        self.model.eval()
+        correct = 0
+        total = 0
+        with torch.no_grad():
+            for inputs, labels in self.test_loader:
+                inputs = inputs.to(self.device)
+                labels = labels.to(self.device)
+                self.model.reset_state(inputs.shape[0])
+                outputs = self.model.forward_sequence(inputs, self.T)
+                pred = outputs.argmax(dim=1)
+                correct += pred.eq(labels).sum().item()
+                total += labels.size(0)
+        acc = correct / total * 100
+        print(f"Test Accuracy: {acc:.2f}%")
+        return acc
+
+    def run(self):
+        self.train()
+        final_acc = self.test()
+        print(f"Final Test Accuracy: {final_acc:.2f}%")
+        # Optionally, convert model to LIF for inference
+        # and test again
+        if self.config['evaluation'].get('convert_for_inference', True):
+            self.convert_and_infer()
+
+    def convert_and_infer(self):
+        # This method converts the trained CLIF model to a LIF model as per paper
+        # and evaluates with fixed biases, etc.
+        # Implementation depends on model's conversion methods
+        print("Converting CLIF to LIF for inference...")
+        model_lif = self.model.convert_to_LIF()
+        model_lif.to(self.device)
+        model_lif.eval()
+        total_correct = 0
+        total_samples = 0
+        with torch.no_grad():
+            for inputs, labels in self.test_loader:
+                inputs = inputs.to(self.device)
+                labels = labels.to(self.device)
+                # For conversion, may need to adjust reset biases as per Table 8
+                # Here, assume converted model is ready
+                model_lif.reset_state(inputs.shape[0])
+                outputs = model_lif.forward_sequence(inputs, self.T)
+                pred = outputs.argmax(dim=1)
+                total_correct += pred.eq(labels).sum().item()
+                total_samples += labels.size(0)
+        acc = total_correct / total_samples * 100
+        print(f"Converted LIF inference accuracy: {acc:.2f}%")
