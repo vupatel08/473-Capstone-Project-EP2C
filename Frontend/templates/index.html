@@ -163,7 +163,7 @@
     <div class="hero">
       <div class="logo"><span>Paper → Code</span></div>
       <h1 class="title">EP2C</h1>
-      <p class="subtitle">Turn research papers into reproducible, linked code. Upload your paper and pick a target language!</p>
+      <p class="subtitle">Turn research papers into reproducible, linked code. Upload your paper to begin.</p>
     </div>
 
     <div class="card">
@@ -188,14 +188,6 @@
           </div>
 
           <div class="field">
-            <label for="language">Language</label>
-            <select id="language" name="language" required>
-              <option value="">— Select —</option>
-              {% for lang in languages %}
-              <option value="{{ lang }}">{{ lang }}</option>
-              {% endfor %}
-            </select>
-
             <div class="benefits">
               <div class="benefit">
                 <b>Reproducible</b>
@@ -204,10 +196,6 @@
               <div class="benefit">
                 <b>Explainable</b>
                 <span class="muted">Human-readable explanations, non-coders can follow the logic.</span>
-              </div>
-              <div class="benefit">
-                <b>Multilingual</b>
-                <span class="muted">Choose the language that fits your stack.</span>
               </div>
             </div>
           </div>
