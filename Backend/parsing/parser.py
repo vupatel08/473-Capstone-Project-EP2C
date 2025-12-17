@@ -234,6 +234,12 @@ def _typecheck(args, types, single_elem = False):
     return
 
 
+def clear_env(doc_names: list[str], output_dir: Path):
+    for doc in doc_names:
+        if doc[-1] == '/':
+            return
+    #if os.path.exists(output_dir / {d}):
+
 def codegen_prep(doc_paths: list[Path], output_dir: Path) -> list[dict[str: str, str: list[dict[str: str, str: str | Path]]]]:
     """
     Prepare given parsed document data for code generation. Assume parameters match their given type hints.
