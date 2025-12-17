@@ -1,0 +1,3114 @@
+[
+    {
+        "type": "text",
+        "text": "BayOTIDE: Bayesian Online Multivariate Time Series Imputation with Functional Decomposition ",
+        "text_level": 1,
+        "bbox": [
+            151,
+            109,
+            820,
+            154
+        ],
+        "page_idx": 0
+    },
+    {
+        "type": "text",
+        "text": "Shikai Fang 1 † Qingsong Wen 2 ‡ Yingtao Luo 3 † Shandian Zhe 1 Liang Sun 2 ",
+        "bbox": [
+            205,
+            199,
+            759,
+            215
+        ],
+        "page_idx": 0
+    },
+    {
+        "type": "text",
+        "text": "Abstract ",
+        "text_level": 1,
+        "bbox": [
+            245,
+            233,
+            316,
+            250
+        ],
+        "page_idx": 0
+    },
+    {
+        "type": "text",
+        "text": "In real-world scenarios such as traffic and energy management, we frequently encounter large volumes of time-series data characterized by missing values, noise, and irregular sampling patterns. While numerous imputation methods have been proposed, the majority tend to operate within a local horizon, which involves dividing long sequences into batches of fixed-length segments for model training. This local horizon often leads to the overlooking of global trends and periodic patterns. More importantly, most methods assume the observations are sampled at regular timestamps, and fail to handle complex irregular sampled time series in various applications. Additionally, most existing methods are learned in an offline manner. Thus, it is not suitable for applications with rapidly arriving streaming data. To address these challenges, we propose BayOTIDE : Bayesian Online Multivariate Time series Imputation with functional decomposition. Our method conceptualizes multivariate time series as the weighted combination of groups of low-rank temporal factors with different patterns. We employ a suite of Gaussian Processes (GPs),each with a unique kernel, as functional priors to model these factors. For computational efficiency, we further convert the GPs into a statespace prior by constructing an equivalent stochastic differential equation (SDE), and developing a scalable algorithm for online inference. The proposed method can not only handle imputation over arbitrary timestamps, but also offer uncertainty quantification and interpretability for the downstream application. We evaluate our method on both synthetic and real-world datasets. We release the code at https://github.com/ xuangu-fang/BayOTIDE. ",
+        "bbox": [
+            120,
+            261,
+            442,
+            779
+        ],
+        "page_idx": 0
+    },
+    {
+        "type": "text",
+        "text": "",
+        "bbox": [
+            532,
+            236,
+            854,
+            280
+        ],
+        "page_idx": 0
+    },
+    {
+        "type": "text",
+        "text": "1. Introduction ",
+        "text_level": 1,
+        "bbox": [
+            501,
+            306,
+            627,
+            321
+        ],
+        "page_idx": 0
+    },
+    {
+        "type": "text",
+        "text": "Multivariate time series data are ubiquitous and generated quickly in many real-world applications (Wen et al., 2022; Esling & Agon, 2012; Zhang et al., 2024), such as traffic (Chen et al., 2024; Li et al., 2015) and energy (Zhu et al., 2023; Grabner et al., 2023). However, the collected data are often incomplete and noisy due to sensor failures, communication errors, or other reasons. The missing values in the time series data can lead to inaccurate downstream analysis. Therefore, it is essential to impute the missing values in the time series data in an efficient way. ",
+        "bbox": [
+            501,
+            333,
+            885,
+            481
+        ],
+        "page_idx": 0
+    },
+    {
+        "type": "text",
+        "text": "Most early methods for time series imputation (Acuna & Rodriguez, 2004; Van Buuren & Groothuis-Oudshoorn, 2011; Durbin & Koopman, 2012) are based on statistical models. Deep learning based imputation methods have gotten boosted attention (Wang et al., 2024a; Fang & Wang, 2020) in recent years, for their ability to capture complex nonlinear patterns. Another remarkable direction is to apply diffusion models (Yang et al., 2024; Song et al., 2020; Ho et al., 2020) to handle probabilistic imputation, where filling the missing value can be modeled as a denoising process. Most recent work TIDER (LIU et al., 2023) proposed another imputation direction to apply the matrix factorization and decompose the series into disentangled representations. ",
+        "bbox": [
+            501,
+            491,
+            885,
+            685
+        ],
+        "page_idx": 0
+    },
+    {
+        "type": "text",
+        "text": "Despite the success of the proposed methods, they are limited in several aspects. First, most DNN-based and diffusionbased methods are trained by splitting the long sequence into small patches. This local horizon can fail to capture the crucial global patterns (Alcaraz & Strodthoff, 2022; Woo et al., 2022), such as trends and periodicity (Chen et al., 2022; Wen et al., 2021), leading to less interpretability. Second, many methods assume the observations are sampled at regular time stamps, and always under-utilize or ignore the real timestamps. Thus, those models can only impute on fixed-step and discretized time points, instead of the arbitrary time stamps at the whole continuous field. Lastly, in real-world applications such as electricity load monitoring, massive time series data are generated quickly and collected in a streaming manner (Liu et al., 2023). It is extremely costly or even impossible to retrain the model from scratch when new data arrives. Thus, to align with streaming data, the imputation model should work and update in an efficient online manner. However, to the best of our knowledge, all prior imputation methods are designed and optimized in an offline manner, i.e., go through all collected data several epochs for training, which is not suitable for streaming data scenarios. ",
+        "bbox": [
+            501,
+            695,
+            885,
+            904
+        ],
+        "page_idx": 0
+    },
+    {
+        "type": "text",
+        "text": "",
+        "bbox": [
+            89,
+            85,
+            472,
+            219
+        ],
+        "page_idx": 1
+    },
+    {
+        "type": "text",
+        "text": "To handle those limitations, we propose BayOTIDE : Bayesian Online multivariate Time series Imputation with functional DEcomposition. BayOTIDE treats the observed values of multivariate time series as the noisy samples from a continuous temporal function. Then, we decompose the function into groups of weighted functional factors, and each factor is aimed to capture a dynamic pattern. We apply Gaussian Processes (GPs) with smooth and periodic kernels as functional priors to fit the factors. Employing the SDE representation of GPs and moment-matching techniques, we develop an online algorithm to infer the running posterior of weights and factors efficiently. As it is a Bayesian model, BayOTIDE can offer uncertainty quantification and robustness against noise. The learned functional factors can provide not only interpretability but also imputation over arbitrary timestamps. We list the comparison of BayOTIDE and other main-stream imputation methods in Table 1. In summary, we highlight our contributions as follows: ",
+        "bbox": [
+            89,
+            228,
+            473,
+            500
+        ],
+        "page_idx": 1
+    },
+    {
+        "type": "text",
+        "text": "• We propose BayOTIDE , a novel Bayesian method for multivariate time series imputation. BayOTIDE can explicitly learn the function factors representing various global patterns, which offer interpretability and uncertainty quantification. As BayOTIDE is a continuous model, it can utilize the irregularly sampled timestamps and impute over arbitrary timestamps naturally. ",
+        "bbox": [
+            106,
+            517,
+            473,
+            622
+        ],
+        "page_idx": 1
+    },
+    {
+        "type": "text",
+        "text": "• To the best of our knowledge, BayOTIDE is the first online probabilistic imputation method of multivariate time series that could fit streaming data well. Furthermore, we develop a scalable inference algorithm with closed-form update and linear cost via momentmatching techniques. ",
+        "bbox": [
+            106,
+            631,
+            473,
+            720
+        ],
+        "page_idx": 1
+    },
+    {
+        "type": "text",
+        "text": "• We extensively evaluate our method on synthetic and real-world datasets, and the results show that BayOTIDE outperforms the state-of-the-art methods in terms of accuracy and efficiency. ",
+        "bbox": [
+            106,
+            731,
+            473,
+            790
+        ],
+        "page_idx": 1
+    },
+    {
+        "type": "text",
+        "text": "2. Related Work ",
+        "text_level": 1,
+        "bbox": [
+            89,
+            819,
+            225,
+            835
+        ],
+        "page_idx": 1
+    },
+    {
+        "type": "text",
+        "text": "Disentangled representations of time series. The most classical framework of decomposing time series into disentangled representations is the seasonal-trend decomposition(STL) (Cleveland et al., 1990) along with its following work (Wen et al., 2019; 2020; Abdollahi, 2020; Bandara et al., 2021), which are non-parametric method to decompose the univariate series into seasonal, trend and residual components. (Qiu et al., 2018) proposed the structural design to extend decomposition into multivariate and probabilistic cases. Recently, CoST (Woo et al., 2022) and TIDER (LIU et al., 2023) show the disentangled representations of multivariate series could get significant performance improvement in forecasting and imputation tasks, respectively, with bonus of interpretability. However, they are not flexible enough to handle the continuous time field and observation noise. Benavoli & Corani (2021) propose a similar idea to directly utilize the state-space GPs with mixture kernels to estimate the seasonal-trend factors, but is restricted in univariate series. Besides the imputation and forecasting, learning the disentangled representation of time series is a crucial tool for estimating causal-related latent variables in sequential data (Yao et al., 2021; 2022). A series of recent works on tensor-valued time series analysis (Fang et al., 2022; 2024; Wang et al., 2024b) also apply the idea of disentangled representations to learn temporal dynamics in latent spaces. ",
+        "bbox": [
+            88,
+            845,
+            473,
+            905
+        ],
+        "page_idx": 1
+    },
+    {
+        "type": "text",
+        "text": "",
+        "bbox": [
+            501,
+            85,
+            885,
+            416
+        ],
+        "page_idx": 1
+    },
+    {
+        "type": "text",
+        "text": "Bayesian imputation modeling. Bayesian methods are widely used in time series imputation tasks for robust modeling and uncertainty quantification. Early work directly applies a single Bayesian model like Gaussian Process (Roberts et al., 2013) and energy models (Brakel et al., 2013) to model the dynamics. With deep learning boosting in the past ten years, it is popular to utilize the probabilistic modules with various deep networks, such as RNN (Mulyadi et al., 2021), VAE (Fortuin et al., 2020) and GAN (Yoon et al., 2018). Adopting score-based generative models (SGMs) is another promising direction for probabilistic imputation, which could be used as autoregressive denoising (Rasul et al., 2021), conditional diffusion (Tashiro et al., 2021), Schrödinger Bridge (Chen et al., 2023) and statespace blocks (Alcaraz & Strodthoff, 2022). However, most of the above methods are trained in the offline and patchingsequence manner, which lacks interpretability and may not fit streaming scenarios. ",
+        "bbox": [
+            500,
+            425,
+            885,
+            695
+        ],
+        "page_idx": 1
+    },
+    {
+        "type": "text",
+        "text": "3. Background ",
+        "text_level": 1,
+        "bbox": [
+            501,
+            715,
+            624,
+            732
+        ],
+        "page_idx": 1
+    },
+    {
+        "type": "text",
+        "text": "3.1. Multivariate Time Series Imputation ",
+        "text_level": 1,
+        "bbox": [
+            501,
+            742,
+            785,
+            757
+        ],
+        "page_idx": 1
+    },
+    {
+        "type": "text",
+        "text": "The classical multivariate time series imputation problem is formulated as follows. A $N$ -step multivariate time series ${ \\bf X } = \\{ { \\bf x } _ { 1 } , \\ldots , { \\bf x } _ { N } \\} \\in \\mathbb { R } ^ { D \\times N }$ , where ${ \\bf x } _ { n } \\in \\mathbb { R } ^ { D }$ is the $D$ size value at $n$ -th step and $\\mathbf { x } _ { n } ^ { d }$ represents it’s values at $d$ -th channel. There is a mask matrix $\\mathbf { M } \\in \\{ 0 , 1 \\} ^ { D \\times N }$ , indicating whether the series value is observed or missing. The goal is to use the observed values, where $\\mathbf { M } _ { d , n } = 1$ , to estimate the missing values $\\mathbf { x } _ { n } ^ { d }$ , where $\\mathbf { M } _ { d , n } = 0$ . In the above setting, the interval between two consecutive timestamps is assumed to be constant by default. If the timestamps are irregularly sampled and continuous, the problem becomes more challenging and the exact timestamps $\\{ t _ { 1 } , \\ldots , t _ { N } \\}$ should be considered in the imputation model. In this paper, we aimed to learn a general function $\\mathbf { X } ( t ) : t  \\mathbb { R } ^ { D }$ to impute the missing values at any time $t \\in [ t _ { 1 } , t _ { N } ]$ . ",
+        "bbox": [
+            501,
+            765,
+            885,
+            900
+        ],
+        "page_idx": 1
+    },
+    {
+        "type": "table",
+        "img_path": "images/14db62ddba2209cee763b8c2a901b301cacbc7ecf42a2e0b27d24b42df225b35.jpg",
+        "table_caption": [
+            "Table 1: Comparison of BayOTIDE and main-stream multivariate time series imputation methods. ❅! means only partial models in the family have the property, or it’s not clear in the original paper. For example, only deep models with probabilistic modules can offer uncertainty quantification, such as GP-VAE (Fortuin et al., 2020), but most deep models cannot. The diffusion-based CSDI (Tashiro et al., 2021) and CSBI (Chen et al., 2023) take timestamps as input, but the model is trained with discretized time embedding. "
+        ],
+        "table_footnote": [],
+        "table_body": "<table><tr><td>Properties / Methods</td><td>BayOTIDE</td><td>TIDER</td><td>Statistic-based</td><td>DNN-based</td><td>Diffusion-based</td></tr><tr><td>Uncertainty-aware</td><td></td><td>X</td><td>X</td><td>X</td><td></td></tr><tr><td>Interpretability</td><td>:</td><td>✓</td><td>✓</td><td>x</td><td>X</td></tr><tr><td>Continuous modeling</td><td>✓</td><td>X</td><td>X</td><td>X</td><td>X</td></tr><tr><td>Inference manner</td><td>online</td><td>offline</td><td>offline</td><td>offline</td><td>offline</td></tr></table>",
+        "bbox": [
+            178,
+            71,
+            790,
+            162
+        ],
+        "page_idx": 2
+    },
+    {
+        "type": "text",
+        "text": "",
+        "bbox": [
+            89,
+            253,
+            473,
+            344
+        ],
+        "page_idx": 2
+    },
+    {
+        "type": "text",
+        "text": "3.2. Gaussian Process (GP) and State-Space Model ",
+        "text_level": 1,
+        "bbox": [
+            89,
+            359,
+            441,
+            376
+        ],
+        "page_idx": 2
+    },
+    {
+        "type": "text",
+        "text": "Gaussian Process (GP) (Rasmussen & Williams, 2006)s is a powerful Bayesian prior for functional approximation, always denoted as $f \\sim \\mathcal { G P } \\left( 0 , \\kappa \\left( \\mathbf { x } , \\mathbf { x } ^ { \\prime } \\right) \\right)$ . As a nonparametric model, it’s characterized by a mean function, here assumed to be zero, and a covariance function or kernel $\\kappa \\left( \\mathbf { x } , \\mathbf { x } ^ { \\prime } \\right)$ , which is a positive definite function that measures the similarity of inputs. The choice of the kernel is crucial as it determines the types of functions the GP can model. For instance, the Matérn kernel ",
+        "bbox": [
+            88,
+            383,
+            473,
+            520
+        ],
+        "page_idx": 2
+    },
+    {
+        "type": "equation",
+        "img_path": "images/6b5ed23484a9b4d88194fab63d22a3593a7c9ffa63bb08d48931509538d19ccd.jpg",
+        "text": "$$\n\\kappa _ { \\mathrm { M a t } \\in \\mathrm { r n } } = \\sigma ^ { 2 } \\frac { \\left( \\frac { \\sqrt { 2 \\nu } } { l } \\alpha \\left( \\mathbf { x } , \\mathbf { x } ^ { \\prime } \\right) \\right) ^ { \\nu } } { \\Gamma ( \\nu ) 2 ^ { \\nu - 1 } } K _ { \\nu } \\left( \\frac { \\sqrt { 2 \\nu } } { l } \\alpha \\left( \\mathbf { x } , \\mathbf { x } ^ { \\prime } \\right) \\right) ,\n$$",
+        "text_format": "latex",
+        "bbox": [
+            104,
+            526,
+            457,
+            575
+        ],
+        "page_idx": 2
+    },
+    {
+        "type": "text",
+        "text": "and periodic kernel: ",
+        "bbox": [
+            88,
+            599,
+            220,
+            613
+        ],
+        "page_idx": 2
+    },
+    {
+        "type": "equation",
+        "img_path": "images/586730f8cc838cc70939ce81b20fdaae260b9a53935e05c93bb3bbe0bb38c751.jpg",
+        "text": "$$\n\\kappa _ { \\mathrm { p e r i o d i c } } = \\sigma ^ { 2 } e x p \\left( - 2 \\sin ^ { 2 } ( \\pi \\alpha \\left( \\mathbf { x } , \\mathbf { x } ^ { \\prime } \\right) / p ) / l ^ { 2 } \\right)\n$$",
+        "text_format": "latex",
+        "bbox": [
+            129,
+            621,
+            431,
+            641
+        ],
+        "page_idx": 2
+    },
+    {
+        "type": "text",
+        "text": "are versatile choices to model functions with non-linear and cyclical patterns, respectively. $\\{ \\sigma ^ { 2 } , l , \\nu , p \\}$ are hyperparameters determining the variance, length-scale, smoothness, and periodicity of the function. $\\alpha \\left( \\cdot , \\cdot \\right)$ is the Euclidean distance, and $K _ { \\nu }$ is the modified Bessel function, $\\Gamma ( \\cdot )$ is the Gamma function. ",
+        "bbox": [
+            88,
+            656,
+            473,
+            747
+        ],
+        "page_idx": 2
+    },
+    {
+        "type": "text",
+        "text": "Despite the flexibility and capacity, full GP is a computationally expensive model with $\\mathcal { O } ( n ^ { 3 } )$ inference cost while handlining $n$ observation data, which is not feasible in practice. To sidestep expensive kernel matrix computation, (Hartikainen & Särkkä, 2010; Särkkä, 2013) applied the spectral analysis and worked out a crucial statement: a temporal GP with a stationary kernel is equivalent to a linear time-invariant stochastic differential equation (LTI-SDE). Specifically, given $f ( t ) \\sim \\mathcal { G P } \\left( 0 , \\kappa \\left( t , t ^ { \\prime } \\right) \\right)$ , we can define a vector-valued companion form: ${ \\bf z } ( t ) = { \\bf \\Psi }$ $\\begin{array} { r } { ( f ( t ) , \\frac { \\mathrm { d } f ( t ) } { \\mathrm { d } t } , \\dots , \\frac { \\mathrm { d } f ^ { m } ( t ) } { \\mathrm { d } t } ) ^ { \\top } : t  \\mathcal { R } ^ { m + 1 } } \\end{array}$ , where $m$ is the order of the derivative. Then, the GP is equivalent to the solution of the LTI-SDE with canonical form: ",
+        "bbox": [
+            88,
+            753,
+            473,
+            905
+        ],
+        "page_idx": 2
+    },
+    {
+        "type": "text",
+        "text": "",
+        "bbox": [
+            500,
+            250,
+            885,
+            306
+        ],
+        "page_idx": 2
+    },
+    {
+        "type": "equation",
+        "img_path": "images/6b0f01fbde10ad262482f492d0322a677c564418088396365c42806f05c09ba7.jpg",
+        "text": "$$\n\\frac { \\mathrm { d } \\mathbf { z } ( t ) } { \\mathrm { d } t } = \\mathbf { F } \\mathbf { z } ( t ) + \\mathbf { L } w ( t ) ,\n$$",
+        "text_format": "latex",
+        "bbox": [
+            606,
+            311,
+            776,
+            343
+        ],
+        "page_idx": 2
+    },
+    {
+        "type": "text",
+        "text": "where $\\mathbf { F }$ is a $( m + 1 ) \\times ( m + 1 )$ matrix, $\\mathbf { L }$ is a $( m + 1 ) \\times 1$ vector, and $w ( t )$ is a white noise process with spectral density $q _ { \\mathbf { s } }$ . On arbitrary collection of timestamps $\\{ t _ { 1 } , \\ldots , t _ { N } \\}$ , the LTI-SDE (3) can be further discretized as the Markov model with Gaussian transition, known as the state-space model (SSM): ",
+        "bbox": [
+            501,
+            349,
+            885,
+            440
+        ],
+        "page_idx": 2
+    },
+    {
+        "type": "equation",
+        "img_path": "images/cdc69c4ce39800da32cbe5e14a61ce283908d61a0914fb5c76c0bd1050f84597.jpg",
+        "text": "$$\n\\begin{array} { r l } & { p ( \\mathbf { z } ( t _ { 1 } ) ) = \\mathcal { N } ( \\mathbf { z } ( t _ { 1 } ) | \\mathbf { 0 } , \\mathbf { P } _ { \\infty } ) , } \\\\ & { p ( \\mathbf { z } ( t _ { n + 1 } ) | \\mathbf { z } ( t _ { n } ) ) = \\mathcal { N } ( \\mathbf { z } ( t _ { n + 1 } ) | \\mathbf { A } _ { n } \\mathbf { z } ( t _ { n } ) , \\mathbf { Q } _ { n } ) , } \\end{array}\n$$",
+        "text_format": "latex",
+        "bbox": [
+            522,
+            446,
+            843,
+            487
+        ],
+        "page_idx": 2
+    },
+    {
+        "type": "text",
+        "text": "where ${ \\bf A } _ { n } = \\exp ( { \\bf F } \\Delta _ { n } )$ , $\\begin{array} { r } { { \\bf Q } _ { n } = \\int _ { t _ { n } } ^ { t _ { n + 1 } } { \\bf A } _ { n } { \\bf L } { \\bf L } ^ { \\top } { \\bf A } _ { n } ^ { \\top } q _ { \\bf s } \\mathrm { d } t . } \\end{array}$ $\\Delta _ { n } = t _ { n + 1 } - t _ { n }$ , and $\\mathbf { P } _ { \\infty }$ is the steady-state covariance matrix, which can be obtained by solving the Lyapunov equation $\\mathbf { F P } _ { \\infty } + \\mathbf { P } _ { \\infty } \\mathbf { F } ^ { \\top } + \\mathbf { L L } ^ { \\top } \\dot { q } _ { \\mathbf { s } } = 0$ (Lancaster & Rodman, 1995). SSM (4) can be efficiently solved with linear cost by classical methods like the Kalman filter (Kalman, 1960). After inference over ${ \\bf z } ( t )$ , we can easily obtain $f ( t )$ by a simple projection: $f ( t ) = [ 1 , 0 , \\ldots . . 0 ] \\mathbf { z } ( t )$ . ",
+        "bbox": [
+            500,
+            494,
+            885,
+            618
+        ],
+        "page_idx": 2
+    },
+    {
+        "type": "text",
+        "text": "We highlight that all the parameters of the LTI-SDE (3) and its SSM (4): $\\{ m , { \\bf F } , { \\bf L } , q _ { \\bf s } , { \\bf P } _ { \\infty } \\}$ are time-invariant constant and can be derived from the given stationary kernel function. In practice, stationary kernels are a common choice for GP, which requires the kernel to be a function of the distance between two inputs. For example, the Matérn and periodic kernels are stationary kernels, and we can work out their closed-form formulas of LTI-SDE and SSM. We omit the specific formulas here and refer the readers to the appendix. ",
+        "bbox": [
+            500,
+            625,
+            885,
+            761
+        ],
+        "page_idx": 2
+    },
+    {
+        "type": "text",
+        "text": "4. Method ",
+        "text_level": 1,
+        "bbox": [
+            501,
+            780,
+            586,
+            796
+        ],
+        "page_idx": 2
+    },
+    {
+        "type": "text",
+        "text": "4.1. Functional Decomposition of Time Series ",
+        "text_level": 1,
+        "bbox": [
+            501,
+            806,
+            816,
+            821
+        ],
+        "page_idx": 2
+    },
+    {
+        "type": "text",
+        "text": "The motivation of BayOTIDE is based on the fact that the different channels of real-world multivariate time series are always correlated, and there may exist shared patterns across channels. Thus, we propose to decompose the series into a set of functional basis (factors) and channel-wise weights. ",
+        "bbox": [
+            500,
+            830,
+            885,
+            905
+        ],
+        "page_idx": 2
+    },
+    {
+        "type": "text",
+        "text": "Inspired by the classic seasonal-trend decomposition (Cleveland et al., 1990) and TIDER (LIU et al., 2023), we assume there are two groups of factors representing different temporal patterns. The first group of factors is supposed to capture the nonlinear and long-term patterns, and the second represents the periodic parts, namely, trends and seasonalities. Thus, we decompose the function $\\mathbf { X } ( t ) : t  \\mathbb { R } ^ { D }$ as the weighted combination of two groups of functional factors. Specifically, assume there are $D _ { r }$ trend factors and $D _ { s }$ seasonality factors, then we have the following decomposition: ",
+        "bbox": [
+            88,
+            84,
+            475,
+            236
+        ],
+        "page_idx": 3
+    },
+    {
+        "type": "equation",
+        "img_path": "images/0ee1f25cd8f4c37ca1add819ff8e1a5c5075d20b2265953211266e8d458d6679.jpg",
+        "text": "$$\n\\mathbf { X } ( t ) = \\mathbf { U } \\mathbf { V } ( t ) = \\left[ \\mathbf { U } _ { \\mathrm { t r e n d } } , \\mathbf { U } _ { \\mathrm { s e a s o n } } \\right] \\left[ \\begin{array} { l } { \\mathbf { v } _ { \\mathrm { t r e n d } } ( t ) , } \\\\ { \\mathbf { v } _ { \\mathrm { s e a s o n } } ( t ) } \\end{array} \\right] ,\n$$",
+        "text_format": "latex",
+        "bbox": [
+            104,
+            246,
+            436,
+            281
+        ],
+        "page_idx": 3
+    },
+    {
+        "type": "text",
+        "text": "where $\\mathbf { U } ~ = ~ [ \\mathbf { U } _ { \\mathrm { t r e n d } } ~ \\in ~ \\mathbb { R } ^ { D \\times D _ { r } } , \\mathbf { U } _ { \\mathrm { s e a s o n } } ~ \\in ~ \\mathbb { R } ^ { D \\times D _ { s } } ]$ are the weights of the combination. The trends factor group ${ \\bf v } _ { \\mathrm { s e a s o n } } ( t ) : t \\to \\mathbb { R } ^ { D _ { s } }$ , and seasonality factor groups $\\mathbf { v _ { t r e n d } } ( t ) : t \\to \\mathbb { R } ^ { D _ { r } }$ are the concatenation of independent temporal factors over each dimension: ",
+        "bbox": [
+            88,
+            291,
+            473,
+            368
+        ],
+        "page_idx": 3
+    },
+    {
+        "type": "equation",
+        "img_path": "images/0978e0e18bf9581dabfaace65973d56553a37735c3f1368f0bd8b5ba49c947e9.jpg",
+        "text": "$$\n\\begin{array} { r l } & { { \\mathbf { v } } _ { \\mathrm { t r e n d } } ( t ) = \\mathrm { c o n c a t } [ v _ { \\mathrm { t r e n d } } ^ { i } ( t ) ] _ { i = 1 \\dots D _ { r } } , } \\\\ & { { \\mathbf { v } } _ { \\mathrm { s e a s o n } } ( t ) = \\mathrm { c o n c a t } [ v _ { \\mathrm { s e a s o n } } ^ { j } ( t ) ] _ { j = 1 \\dots D _ { s } } , } \\end{array}\n$$",
+        "text_format": "latex",
+        "bbox": [
+            151,
+            377,
+            406,
+            421
+        ],
+        "page_idx": 3
+    },
+    {
+        "type": "text",
+        "text": "where $v _ { \\mathrm { t r e n d } } ^ { i } ( t ) , v _ { \\mathrm { s e a s o n } } ^ { j } ( t )$ are the 1-d temporal function factor, aimed to model the $i$ -th trend and $j$ -th seasonality latent pattern respectively. ",
+        "bbox": [
+            88,
+            431,
+            473,
+            478
+        ],
+        "page_idx": 3
+    },
+    {
+        "type": "text",
+        "text": "For the imputation task, if we can estimate the $\\mathbf { U }$ and $\\mathbf { V } ( t )$ well, we can impute the missing values of $\\mathbf X ( t )$ by $\\mathbf { U V } ( t )$ for any $t$ . As TIDER (LIU et al., 2023) proposed a lowrank decomposition similar to (5), our model can be seen as a generalization of TIDER to the continuous-time and functional field with the Bayesian framework. ",
+        "bbox": [
+            88,
+            486,
+            475,
+            575
+        ],
+        "page_idx": 3
+    },
+    {
+        "type": "text",
+        "text": "4.2. GP Prior and Joint Probability of Our Model ",
+        "text_level": 1,
+        "bbox": [
+            88,
+            593,
+            437,
+            608
+        ],
+        "page_idx": 3
+    },
+    {
+        "type": "text",
+        "text": "We assume $\\mathbf X ( t )$ is partially observed with missing values and noise on timestamps $\\{ t _ { 1 } , \\dots , t _ { N } \\}$ . We denote the observed values as $\\mathbf { Y } = \\{ \\mathbf { y } _ { n } \\} _ { n = 1 } ^ { N }$ , where $\\mathbf { y } _ { n } \\in \\mathbb { R } ^ { D }$ , and its value at $d$ -th channel is denoted as $y _ { n } ^ { d }$ . $\\mathbf { M } \\in \\{ 0 , 1 \\} ^ { D \\times N }$ is the mask matrix, where 1 for observed values and 0 for missing values. The noise level is assumed to be the same for all the channels. Thus, we set the Gaussian likelihood for the observed values as: ",
+        "bbox": [
+            88,
+            616,
+            475,
+            737
+        ],
+        "page_idx": 3
+    },
+    {
+        "type": "equation",
+        "img_path": "images/3010c5f6f679432aa9ec27f5f2e8425ad4733e6862df3df5557be70e2f4d9ab4.jpg",
+        "text": "$$\np ( \\mathbf { Y } | \\mathbf { U } , \\mathbf { V } ( t ) , \\tau ) = \\prod _ { ( d , n ) \\in \\Omega } \\mathcal { N } ( y _ { n } ^ { d } \\mid \\mathbf { u } ^ { d } \\mathbf { v } ( t _ { n } ) , \\tau ^ { - 1 } ) ,\n$$",
+        "text_format": "latex",
+        "bbox": [
+            101,
+            744,
+            441,
+            782
+        ],
+        "page_idx": 3
+    },
+    {
+        "type": "text",
+        "text": "where $\\tau$ is the inverse of the noise level. $\\Omega$ is the collection of observed values’ location, namely $\\Omega = \\{ ( d , n ) \\ |$ $\\mathbf { M } _ { d , n } = 1 \\}$ . $\\mathbf { u } ^ { d } \\in \\mathbb { R } ^ { 1 \\times ( D _ { r } + D _ { s } ) }$ is the $d$ -th row of $\\mathbf { U }$ , and $\\mathbf { v } ( t _ { n } ) \\in \\mathbb { R } ^ { \\left( D _ { r } + D _ { s } \\right) \\times 1 }$ is the concatenation of $\\mathbf { v _ { t r e n d } } ( t _ { n } )$ and $\\mathbf { v } _ { \\mathrm { s e a s o n } } ( t _ { n } )$ . ",
+        "bbox": [
+            88,
+            791,
+            473,
+            868
+        ],
+        "page_idx": 3
+    },
+    {
+        "type": "text",
+        "text": "As ${ \\mathbf { v } } _ { \\mathrm { s e a s o n } } ( t )$ and $\\mathbf { v _ { t r e n d } } ( t )$ are supposed to capture different temporal patterns, we adopt Gaussian Processes (GPs) with different kernels to model them. Specifically, we use the Matérn kernel to model the trend factors, and the periodic kernel to model the seasonality factors: ",
+        "bbox": [
+            88,
+            875,
+            472,
+            905
+        ],
+        "page_idx": 3
+    },
+    {
+        "type": "text",
+        "text": "",
+        "bbox": [
+            500,
+            84,
+            885,
+            130
+        ],
+        "page_idx": 3
+    },
+    {
+        "type": "equation",
+        "img_path": "images/d688fc2f9614cfe8d9014550153625523f9770a8be50b4300e9d1b4ec47b3e5a.jpg",
+        "text": "$$\nv _ { \\mathrm { t r e n d } } ^ { i } ( t ) \\sim \\mathcal { G P } ( 0 , \\kappa _ { \\mathrm { M a t } \\in \\mathrm { r n } } ) , v _ { \\mathrm { s e a s o n } } ^ { j } ( t ) \\sim \\mathcal { G P } ( 0 , \\kappa _ { \\mathrm { p e r i o d i c } } ) .\n$$",
+        "text_format": "latex",
+        "bbox": [
+            511,
+            137,
+            872,
+            156
+        ],
+        "page_idx": 3
+    },
+    {
+        "type": "text",
+        "text": "We further assume that Gaussian prior for $\\mathbf { u } ^ { d }$ and Gamma prior for $\\tau$ . Then, the joint probability model is: ",
+        "bbox": [
+            500,
+            178,
+            885,
+            207
+        ],
+        "page_idx": 3
+    },
+    {
+        "type": "equation",
+        "img_path": "images/f8af3f028f85cd1222d83dc36c1c9277c1cef7f25f1dfb3a91d8b4fabd6bfa24.jpg",
+        "text": "$$\n\\begin{array} { r l } & { p ( { \\mathbf Y } , { \\mathbf V } ( t ) , { \\mathbf U } , \\tau ) = { \\cal G } \\mathrm { a m } ( \\tau \\mid a _ { 0 } , b _ { 0 } ) \\displaystyle \\prod _ { d = 1 } ^ { D } { \\cal N } ( \\mathbf u ^ { d } \\mid \\mathbf 0 , { I } ) } \\\\ & { ~ \\cdot \\displaystyle \\prod _ { j = 1 } ^ { D _ { s } } \\mathcal { G P } ( 0 , \\kappa _ { \\mathrm { p e r i o d i c } } ) \\displaystyle \\prod _ { i = 1 } ^ { D _ { r } } \\mathcal { G P } ( 0 , \\kappa _ { \\mathrm { M a t e r n } } ) \\cdot p ( { \\mathbf Y } | \\Theta ) , ~ ( } \\end{array}\n$$",
+        "text_format": "latex",
+        "bbox": [
+            511,
+            214,
+            872,
+            304
+        ],
+        "page_idx": 3
+    },
+    {
+        "type": "text",
+        "text": "where $\\begin{array} { r c l } { \\Theta } & { = } & { \\{ \\mathbf { U } , \\mathbf { V } ( t ) , \\tau \\} } \\end{array}$ denotes all model random variables for compactness. As each GP prior term corresponds to a companion form ${ \\bf z } ( t )$ (see section(3.2)), we define the concatenation of all factors’ companion forms as $\\mathbf { Z } ( t )$ and we have $\\begin{array} { r c l } { p ( \\mathbf { V } ( t ) ) } & { = } & { p ( \\mathbf { Z } ( t ) ) } \\end{array} =$ $\\begin{array} { r } { P ( \\mathbf { Z } ( t _ { 1 } ) ) \\prod _ { i = 1 } ^ { N - 1 } P ( \\mathbf { Z } ( t _ { n + 1 } ) | \\mathbf { Z } ( t _ { n } ) ) } \\end{array}$ . ",
+        "bbox": [
+            500,
+            310,
+            885,
+            406
+        ],
+        "page_idx": 3
+    },
+    {
+        "type": "text",
+        "text": "4.3. Online Inference ",
+        "text_level": 1,
+        "bbox": [
+            500,
+            420,
+            648,
+            435
+        ],
+        "page_idx": 3
+    },
+    {
+        "type": "text",
+        "text": "With the joint probability (9), we further propose an online inference algorithm to estimate the running posterior of $\\Theta$ . We denote all observations up to time $t _ { n }$ as $\\mathcal { D } _ { t _ { n } }$ , i.e. $\\mathcal { D } _ { t _ { n } } =$ $\\left\\{ \\mathbf { y } _ { 1 } , \\ldots , \\mathbf { y } _ { n } \\right\\}$ . When a new observation $\\mathbf { y } _ { n + 1 }$ arrives at $t _ { n + 1 }$ , we aimed to update the posterior distribution $p ( \\Theta )$ $\\mathscr { D } _ { t _ { n } } \\cup \\mathbf { y } _ { n + 1 } )$ without reusing the previous observations $\\mathcal { D } _ { t _ { n } }$ . The general principle for online inference is the incremental version of Bayes’rule, which is: ",
+        "bbox": [
+            500,
+            443,
+            887,
+            565
+        ],
+        "page_idx": 3
+    },
+    {
+        "type": "equation",
+        "img_path": "images/16ced773c7edfb5c283698df00703c950e0185f093e3f7e0fe98b2e79c32e963.jpg",
+        "text": "$$\np ( \\Theta \\mid \\mathcal { D } _ { t _ { n } } \\cup \\mathbf { y } _ { n + 1 } ) \\propto p ( \\mathbf { y } _ { n + 1 } \\mid \\Theta , \\mathcal { D } _ { t _ { n } } ) p ( \\Theta \\mid \\mathcal { D } _ { t _ { n } } ) .\n$$",
+        "text_format": "latex",
+        "bbox": [
+            517,
+            573,
+            866,
+            592
+        ],
+        "page_idx": 3
+    },
+    {
+        "type": "text",
+        "text": "However, the exact posterior is not tractable. Thus, we first apply the mean-field factorization to approximate the posterior. Specifically, we approximate the exact posterior as: ",
+        "bbox": [
+            500,
+            613,
+            883,
+            672
+        ],
+        "page_idx": 3
+    },
+    {
+        "type": "equation",
+        "img_path": "images/2791424da77250c0f5c746347b28f2dd8d75093f9d4bb27506bdf8dc224112a6.jpg",
+        "text": "$$\np ( \\boldsymbol { \\Theta } \\mid \\mathcal { D } _ { t _ { n } } ) \\approx q ( \\tau \\mid \\mathcal { D } _ { t _ { n } } ) \\prod _ { d = 1 } ^ { D } q ( \\mathbf { u } ^ { d } \\mid \\mathcal { D } _ { t _ { n } } ) q ( \\mathbf { Z } ( t ) \\mid \\mathcal { D } _ { t _ { n } } ) ,\n$$",
+        "text_format": "latex",
+        "bbox": [
+            506,
+            678,
+            875,
+            722
+        ],
+        "page_idx": 3
+    },
+    {
+        "type": "text",
+        "text": "where $q ( \\mathbf { u } ^ { d } \\mid \\mathcal { D } _ { t _ { n } } ) \\ = \\ \\mathcal { N } ( \\mathbf { m } _ { n } ^ { d } , \\mathbf { V } _ { n } ^ { d } )$ and $q ( \\tau ~ | ~ \\mathcal { D } _ { t _ { n } } ) ~ =$ ${ \\mathrm { G a m m a } } ( \\tau \\mid a _ { n } , b _ { n } )$ are the approx. distributions for $\\mathbf { U }$ and $\\tau$ at time $t _ { n }$ respectively. For $\\mathbf { Z } ( t )$ , we design the approximated posterior as $\\begin{array} { r } { q ( \\mathbf { Z } ( t ) \\mid \\mathcal { D } _ { t _ { n } } ) = \\prod _ { i = 1 } ^ { n } q ( \\mathbf { Z } ( t _ { i } ) ) } \\end{array}$ , where $q ( \\mathbf { Z } ( t _ { i } ) )$ are the concatenation of $q ( \\mathbf { z } ( t _ { i } ) ) \\ = \\ N ( \\mu _ { i } , \\mathbf { S } _ { i } )$ across all factors. $\\{ \\{ \\mathbf { m } _ { n } ^ { d } , \\mathbf { V } _ { n } ^ { d } \\} , \\{ \\mu _ { i } , \\mathbf { S } _ { i } \\} , a _ { n } , b _ { n } , \\}$ are the variational parameters of the approximated posterior to be estimated. ",
+        "bbox": [
+            500,
+            744,
+            885,
+            867
+        ],
+        "page_idx": 3
+    },
+    {
+        "type": "text",
+        "text": "With mean-field approximation, (10) is still not feasible. It’s because the multiple factors and weights interweave in the likelihood, and R.H.S of (10) is unnormalized. To solve it, we propose a novel online approach to update $q ( \\Theta \\mid \\mathcal { D } _ { t _ { n } } )$ with a closed form by adopting conditional Expectation Propagation(CEP) (Wang & Zhe, 2019) and chain structure of $\\mathbf { Z } ( t )$ . Specifically, with current $q ( \\Theta \\mid \\mathcal { D } _ { t _ { n } } )$ and prior $p ( \\Theta )$ , we can approximate each likelihood term of the newarriving observation $y _ { n + 1 }$ as several messages factors: ",
+        "bbox": [
+            500,
+            875,
+            883,
+            905
+        ],
+        "page_idx": 3
+    },
+    {
+        "type": "text",
+        "text": "",
+        "bbox": [
+            88,
+            84,
+            473,
+            190
+        ],
+        "page_idx": 4
+    },
+    {
+        "type": "equation",
+        "img_path": "images/565b320e004c9d18a6d858abc80a6fae258dadad2a0ba41f837728db0795af03.jpg",
+        "text": "$$\np ( \\boldsymbol { y } _ { n + 1 } ^ { d } \\mid \\boldsymbol { \\Theta } ) \\approx \\mathcal { Z } f _ { n + 1 } ^ { d } ( \\mathbf { Z } ( t _ { n + 1 } ) ) f _ { n + 1 } ^ { d } ( \\mathbf { u } _ { d } ) f _ { n + 1 } ^ { d } ( \\boldsymbol { \\tau } ) ,\n$$",
+        "text_format": "latex",
+        "bbox": [
+            94,
+            199,
+            439,
+            219
+        ],
+        "page_idx": 4
+    },
+    {
+        "type": "text",
+        "text": "where $\\mathcal { Z }$ is the normalization constant, $f _ { n + 1 } ^ { d } ( \\mathbf { u } _ { d } ) = \\mathcal { N } ( \\mathbf { u } _ { d } \\mid$ $\\hat { \\mathbf { m } } _ { n + 1 } ^ { d } , \\hat { \\mathbf { V } } _ { n + 1 } ^ { d } )$ and $f _ { n + 1 } ^ { d } ( \\tau ) = \\mathrm { G a m m a } ( \\tau \\mid \\hat { a } _ { n + 1 } , \\hat { b } _ { n + 1 } )$ $f _ { n + 1 } ^ { d } ( { \\bf Z } ( t _ { n + 1 } ) ) = \\mathrm { c o n c a t } [ \\mathcal { N } ( \\hat { \\mu } _ { i } , \\hat { S } _ { i } ) ]$ are the approximated message factors of $\\mathbf { u } _ { d } , \\tau .$ , and $\\mathbf { Z } ( t _ { n + 1 } )$ respectively. ",
+        "bbox": [
+            88,
+            229,
+            475,
+            296
+        ],
+        "page_idx": 4
+    },
+    {
+        "type": "text",
+        "text": "Then, we merge all the message factors of $\\mathbf { U }$ and $\\tau$ and follow the variational form of (10), and will obtain the update equations: ",
+        "bbox": [
+            88,
+            303,
+            473,
+            348
+        ],
+        "page_idx": 4
+    },
+    {
+        "type": "equation",
+        "img_path": "images/f8f20a05a75d796995a83d947f80279608441e5ab38a3ece7393140acc58885e.jpg",
+        "text": "$$\n\\begin{array} { l } { { \\displaystyle q ( \\tau | \\mathcal D _ { t _ { n + 1 } } ) = q ( \\tau | \\mathcal D _ { t _ { n } } ) \\prod _ { d = 1 } ^ { D } f _ { n + 1 } ^ { d } ( \\tau ) } , } \\\\ { { \\displaystyle q ( \\mathbf u ^ { d } | \\mathcal D _ { t _ { n + 1 } } ) = q ( \\mathbf u ^ { d } | \\mathcal D _ { t _ { n } } ) f _ { n + 1 } ^ { d } ( \\mathbf u ^ { d } ) } . } \\end{array}\n$$",
+        "text_format": "latex",
+        "bbox": [
+            155,
+            358,
+            403,
+            425
+        ],
+        "page_idx": 4
+    },
+    {
+        "type": "text",
+        "text": "The message approximation (12) and the message merging procedure (13)(14) are based on the conditional momentmatching technique, which can be done in parallel for all channels with closed-form update. We omit the derivation and exact formulas and refer the readers to the appendix. ",
+        "bbox": [
+            88,
+            439,
+            473,
+            515
+        ],
+        "page_idx": 4
+    },
+    {
+        "type": "text",
+        "text": "Then, we present the online update of $\\mathbf { Z } ( t )$ . With the chain structure of $q ( \\mathbf { Z } ( t ) \\mid \\mathcal { D } _ { t _ { n } } )$ and $p ( \\mathbf { Z } ( t ) )$ , we found the update can be conducted sequentially. Specifically: ",
+        "bbox": [
+            88,
+            522,
+            473,
+            568
+        ],
+        "page_idx": 4
+    },
+    {
+        "type": "equation",
+        "img_path": "images/29a01520476ae398c987fd68b2bf9f0bed742a23d66bf8fa0d00d036ede58bb0.jpg",
+        "text": "$$\n\\begin{array} { l } { { \\displaystyle q ( { \\bf Z } ( t _ { n + 1 } ) ) = } \\ ~ } \\\\ { { \\displaystyle q ( { \\bf Z } ( t _ { n } ) ) p ( { \\bf Z } ( t _ { n + 1 } ) \\vert { \\bf Z } ( t _ { n } ) ) \\prod _ { d = 1 } f _ { n + 1 } ^ { d } ( { \\bf Z } ( t _ { n + 1 } ) ) , } \\ ~ } \\end{array}\n$$",
+        "text_format": "latex",
+        "bbox": [
+            107,
+            577,
+            426,
+            632
+        ],
+        "page_idx": 4
+    },
+    {
+        "type": "text",
+        "text": "where $p ( \\mathbf { Z } ( t _ { n + 1 } ) | \\mathbf { Z } ( t _ { n } ) )$ is the concatenation of all factors’ transition given in (4). If we treat $\\prod _ { d } f _ { n + 1 } ^ { d } ( \\mathbf { Z } ( t _ { n + 1 } ) )$ as the observation of the state space, (15) is the Kalman filter model (Kalman, 1960). Thus, we can obtain the closedform update of $q ( \\mathbf { Z } ( t ) | \\mid \\mathcal { D } _ { t _ { n } } )$ , which is the running posterior $q ( \\mathbf { Z } _ { n } | \\mathbf { y } _ { 1 : n } )$ . After going through all observations, we run Rauch-Tung-Striebel (RTS) smoother (Rauch et al., 1965) to efficiently compute the full posterior of each state $q ( \\mathbf { Z } _ { n } | \\mathbf { y } _ { 1 : N } )$ from backward. ",
+        "bbox": [
+            88,
+            640,
+            473,
+            777
+        ],
+        "page_idx": 4
+    },
+    {
+        "type": "text",
+        "text": "The online algorithm is summarized in Algorithm table 1: we go through all the timestamps, approximate the message factors with moment-matching, and run Kalman filter and message merging and update sequentially. For each timestamp, we can run moment-matching and posterior update steps iteratively several times with damping trick (Minka, 2001a) for better approximation. The algorithm is very efficient as the message approximation (12) can be parallel for ",
+        "bbox": [
+            88,
+            785,
+            473,
+            905
+        ],
+        "page_idx": 4
+    },
+    {
+        "type": "text",
+        "text": "Algorithm 1 BayOTIDE ",
+        "text_level": 1,
+        "bbox": [
+            500,
+            84,
+            665,
+            99
+        ],
+        "page_idx": 4
+    },
+    {
+        "type": "text",
+        "text": "Input: observation $\\begin{array} { r c l } { \\mathbf { Y } } & { = } & { \\{ \\mathbf { y } _ { n } \\} _ { n = 1 } ^ { N } \\mathrm { o v e r } \\{ t }  \\end{array}$ n}Nn=1,   \n$D _ { s } , D _ { r }$ , the kernel hyperparameters.   \nInitialize $q ( \\tau ) , q ( \\mathcal { W } ) , \\{ q ( \\mathbf { Z } ( t _ { n } ) ) \\} _ { n = 1 } ^ { N }$ .   \nfor $t = 1$ to $N$ do Approximate messages by (12) for all observed channels in parallel. Update posterior of $\\tau$ and $\\mathbf { U }$ by (13) and (14) for all observed channels in parallel. Update posteriors of $\\mathbf { Z } ( t )$ using Kalman filter by (15).   \nend for   \nRun RTS smoother to obtain the full posterior of $\\mathbf { Z } ( t )$ .   \nReturn: $q ( \\tau ) , q ( \\mathcal { W } ) , \\{ q ( \\mathbf { Z } ( t _ { n } ) ) \\} _ { n = 1 } ^ { N }$ ",
+        "bbox": [
+            509,
+            103,
+            887,
+            289
+        ],
+        "page_idx": 4
+    },
+    {
+        "type": "text",
+        "text": "different channels, and all the updates are closed-form. The $\\begin{array} { r } { \\mathcal { O } ( \\sum _ { k = 1 } ^ { D _ { r } + D _ { s } } N ( m _ { k } + m _ { k } ^ { 2 } ) + D ( D _ { s } + D _ { r } ) ) } \\end{array}$ $\\mathcal { O } ( N ( D _ { s } + D _ { r } ) )$ and swhere $N$ e costis the $D$ nal time series, $D _ { r }$ , $D _ { s }$ are number of trends and seasonality factors respectively, $m _ { k }$ is the order of the companion form of $k$ -th factor’s GP prior determined by the kernel types. ",
+        "bbox": [
+            500,
+            332,
+            885,
+            439
+        ],
+        "page_idx": 4
+    },
+    {
+        "type": "text",
+        "text": "4.4. Probabilistic Imputation at Arbitrary Timestamp ",
+        "text_level": 1,
+        "bbox": [
+            500,
+            455,
+            879,
+            470
+        ],
+        "page_idx": 4
+    },
+    {
+        "type": "text",
+        "text": "With the current posterior $\\{ q ( { \\mathbf { z } } ( t _ { 1 } ) ) \\ldots q ( { \\mathbf { z } } ( t _ { N } ) ) \\}$ over the observed timestamps, the functional and chain property of GP priors allow us to infer the prediction distribution, namely do probabilistic interpolation at arbitrary time stamps. Specifically, for a never-seen timestamp $t ^ { \\star } ~ \\in ~ ( t _ { 1 } , { \\bf t } _ { N } )$ , we can identify the closest neighbor of $t ^ { \\star }$ observed in training, i.e, $t _ { k } ~ < ~ t ^ { \\star } ~ < ~ t _ { k + 1 }$ , where $t _ { k } , t _ { k + 1 } \\in \\{ t _ { 1 } \\ldots t _ { N } \\}$ . Then the predictive distribution at $t ^ { \\star }$ is given by $q ( \\mathbf { z } ( t ^ { \\star } ) ) = \\mathcal { N } ( \\mathbf { z } ^ { \\star } \\mid \\mathbf { m } ^ { \\star } , \\mathbf { V } ^ { \\star } )$ . $\\{ \\mathbf { m } ^ { \\star } , \\mathbf { V } ^ { \\star } \\}$ are defined as: ",
+        "bbox": [
+            500,
+            479,
+            885,
+            630
+        ],
+        "page_idx": 4
+    },
+    {
+        "type": "equation",
+        "img_path": "images/f18d03b4afec5a8d1c1cf160ea2bbebcd1bfd255cea04da06f0d7c74ce90039c.jpg",
+        "text": "$$\n\\begin{array} { r l } & { \\mathbf { V } ^ { \\star } = ( \\mathcal { Q } _ { 1 } ^ { - 1 } + \\mathcal { A } _ { 2 } ^ { \\top } \\mathcal { Q } _ { 1 } ^ { - 1 } \\mathcal { A } _ { 2 } ) ^ { - 1 } , } \\\\ & { \\mathbf { m } ^ { \\star } = \\mathbf { V } ^ { \\star } ( \\mathcal { Q } _ { 1 } ^ { - 1 } \\mathcal { A } _ { 1 } \\mathbf { m } _ { k } + \\mathcal { A } _ { 2 } ^ { \\top } \\mathcal { Q } _ { 2 } ^ { - 1 } \\mathbf { m } _ { k + 1 } ) , } \\end{array}\n$$",
+        "text_format": "latex",
+        "bbox": [
+            552,
+            650,
+            831,
+            694
+        ],
+        "page_idx": 4
+    },
+    {
+        "type": "text",
+        "text": "where $\\mathbf { m } _ { k } , \\mathbf { m } _ { k + 1 }$ are the predictive mean of $q ( \\mathbf { z } ( t _ { k } ) ) , q ( \\mathbf { z } ( t _ { k + 1 } ) )$ , $\\{ \\mathcal { A } _ { 1 } , \\mathcal { A } _ { 2 } , \\mathcal { Q } _ { 1 } , \\mathcal { Q } _ { 2 } \\}$ are transition matrices and covariance matrices based on the forwardbackward transitions $p ( \\mathbf { z } ( t ^ { \\star } ) | \\mathbf { z } ( t _ { k } ) ) , p ( \\mathbf { z } ( t _ { k + 1 } ) | \\mathbf { z } ( t ^ { \\star } ) )$ respectively. Eq.(16) offers continuous modeling of the time series. We give a detailed derivation in the appendix. ",
+        "bbox": [
+            500,
+            715,
+            885,
+            806
+        ],
+        "page_idx": 4
+    },
+    {
+        "type": "text",
+        "text": "5. Experiments ",
+        "text_level": 1,
+        "bbox": [
+            500,
+            825,
+            629,
+            842
+        ],
+        "page_idx": 4
+    },
+    {
+        "type": "text",
+        "text": "5.1. Synthetic data ",
+        "text_level": 1,
+        "bbox": [
+            500,
+            852,
+            630,
+            866
+        ],
+        "page_idx": 4
+    },
+    {
+        "type": "text",
+        "text": "We first evaluate BayOTIDE on a synthetic task. We first set four temporal functions and a weight matrix, defined as ",
+        "bbox": [
+            500,
+            876,
+            883,
+            905
+        ],
+        "page_idx": 4
+    },
+    {
+        "type": "text",
+        "text": "follows: ",
+        "bbox": [
+            88,
+            85,
+            143,
+            99
+        ],
+        "page_idx": 5
+    },
+    {
+        "type": "equation",
+        "img_path": "images/54dd59b4ba7a8c3b0ed7ac59b76bafec6ecc01fcafe21672e556c88be8d70030.jpg",
+        "text": "$$\n\\begin{array} { r l } & { \\mathbf { U } = \\left( \\begin{array} { c c c c } { 1 } & { 1 } & { - 2 } & { - 2 } \\\\ { 0 . 4 } & { 1 } & { 2 } & { - 1 } \\\\ { - 0 . 3 } & { 2 } & { 1 } & { - 1 } \\\\ { - 1 } & { 1 } & { 1 } & { 0 . 5 } \\end{array} \\right) , } \\\\ & { \\mathbf { V } ( t ) = \\left( \\begin{array} { c } { 1 0 t , } \\\\ { \\sin ( 2 0 \\pi t ) , } \\\\ { \\cos ( 4 0 \\pi t ) , } \\\\ { \\sin ( 6 0 \\pi t ) } \\end{array} \\right) . } \\end{array}\n$$",
+        "text_format": "latex",
+        "bbox": [
+            166,
+            106,
+            393,
+            238
+        ],
+        "page_idx": 5
+    },
+    {
+        "type": "text",
+        "text": "Then, the four-channel time series is defined as ${ \\bf X } ( t ) =$ $\\mathbf { U V } ( t )$ , and each channel is a mixture of multiscale trend and seasonality factors. We collected 2000 data points over the 500 irregularly sampled timestamps from [0, 1]. We randomly set only $2 0 \\%$ of the data as observed values, and the rest as missing for evaluation. We further add Gaussian noise with a standard deviation 0.1 to the observed data. We use the Matérn kernel with $\\nu = 3 / 2$ as the trend kernel and the periodic kernel with period $2 0 \\pi$ as the seasonality kernel. We set $D _ { r } = 1 , D _ { s } = 3$ . We highlight that evaluation could be taken on the timestamps that never appear in the training set, known as the all-channel-missing imputation, but we can apply (16) to handle such hard cases easily. ",
+        "bbox": [
+            89,
+            246,
+            473,
+            443
+        ],
+        "page_idx": 5
+    },
+    {
+        "type": "text",
+        "text": "The imputation results are shown in Figure 1a. We can see that BayOTIDE recovers the series well, and the estimated uncertainty is reasonable. We also show the channel-wise estimated factors in Figure 1b,1c,1d, and 1e. We can see that the estimated factors are close to the real factors, which indicates that BayOTIDE can capture the underlying multiscale patterns of the data. ",
+        "bbox": [
+            88,
+            450,
+            473,
+            555
+        ],
+        "page_idx": 5
+    },
+    {
+        "type": "text",
+        "text": "5.2. Real-world Applications ",
+        "text_level": 1,
+        "bbox": [
+            89,
+            573,
+            287,
+            588
+        ],
+        "page_idx": 5
+    },
+    {
+        "type": "text",
+        "text": "Datasets We evaluate BayOTIDE on three real-world datasets, Traffic-Guangzhou(Chen et al.): traffic speed records in Guangzhou with 214 channels and 500 timestamps. Solar-Power(https://www.nrel.gov/ grid/solar-power-data.html) : 137 channels and 52560 timestamps, which records the solar power generation of 137 PV plants. Uber-Move(https:// movement.uber.com/): 7489 channels and 744 timestamps, recording the average movement of Uber cars along with the road segments in London, Jan 2020. For each dataset, we randomly sample $\\{ 7 0 \\% , 5 0 \\% \\}$ of the available data points as observations for model training, and the rest for evaluation. The data process and split strategy are aligned with TIDER (LIU et al., 2023). ",
+        "bbox": [
+            89,
+            597,
+            473,
+            806
+        ],
+        "page_idx": 5
+    },
+    {
+        "type": "text",
+        "text": "Baselines and Settings To the best of our knowledge, there are no online algorithms for multivariate time series imputation. Thus, we set several popular deterministic and probabilistic offline imputation approaches as baselines. The deterministic group includes: (1) SimpleMean (Acuna & Rodriguez, 2004), impute with column-wise mean values. ",
+        "bbox": [
+            89,
+            815,
+            473,
+            905
+        ],
+        "page_idx": 5
+    },
+    {
+        "type": "text",
+        "text": "(2) BRITS (Cao et al., 2018), the RNN-based model for imputation with time decay (3) NAOMI(Liu et al., 2019), a Bidirectional RNN model build with adversarial training (4) SAITS(Du et al., 2023), a transformer-based model which adopts the self-attention mechanism. (5) TIDER(LIU et al., 2023). State of art deterministic imputation model based on disentangled temporal representations. ",
+        "bbox": [
+            501,
+            84,
+            885,
+            190
+        ],
+        "page_idx": 5
+    },
+    {
+        "type": "text",
+        "text": "The probabilistic group includes: (1) Multi-Task GP(Bonilla et al., 2008), the classical multi-output Gaussian process model (2) GP-VAE(Fortuin et al., 2020), a deep generative model which combines Gaussian Processes(GP) and variational autoencoder(VAE) for imputation (3) CSDI(Tashiro et al., 2021) Famous probabilistic approach which apply conditional diffusion model to capture the temporal dependency. (4)CSBI Advanced diffusion method that models the imputation task as a conditional Schrödinger Bridge(SB)(Chen et al., 2023). We also set BayOTIDE-fix-wight by fixing all weight values as one and BayOTIDE-trend-only, and only using trend factor, respectively for BayOTIDE . ",
+        "bbox": [
+            501,
+            198,
+            885,
+            378
+        ],
+        "page_idx": 5
+    },
+    {
+        "type": "text",
+        "text": "For most baselines, we use the released implementation provided by the authors. We partially use the results of deterministic methods reported in TIDER(LIU et al., 2023), as the setting is aligned. To avoid the out-of-memory problem of diffusion-based and deep-based baselines, we follow the preprocess of original papers, which split the whole sequence into small patches and subsample the channels for those methods. ",
+        "bbox": [
+            501,
+            387,
+            885,
+            507
+        ],
+        "page_idx": 5
+    },
+    {
+        "type": "text",
+        "text": "For BayOTIDE , we implemented it by Pytorch and finetuned the $D _ { s } , D _ { r }$ , and the kernel hyperparameters to obtain optimal results. Detailed information on hyperparameter settings is provided at Table 5 in the appendix. For the metrics, we use the mean absolute error (MAE) and the root mean squared error (RMSE) as the deterministic evaluation metrics for all methods. We adopt the continuous ranked probability score (CRPS) and the negative log-likelihood (NLLK), for BayOTIDE and all probabilistic baselines. We use 50 samples from the posterior to compute CRPS and NLLK. We repeat all the experiments 5 times and report the average results. For the CEP step at each timestamp in BayOTIDE , we use the damping trick (Minka, 2001a) in several inner epochs to avoid numerical instability. For the online imputation, we use the online update equations to obtain the imputation results and run RTS smoother at every evaluation timestamp. ",
+        "bbox": [
+            501,
+            513,
+            885,
+            772
+        ],
+        "page_idx": 5
+    },
+    {
+        "type": "text",
+        "text": "Deterministic and Probabilistic performance Table 2 and table 3 show the RMSE, MAE, and CRPS scores of imputation on three datasets with observed ratio $= 5 0 \\%$ and $= 7 0 \\%$ respectively. We can see that BayOTIDE , an online method that only processes data once, beats the offline baselines and performs best in most cases. TIDER is the sub-optimal method for most cases. For probabilistic approaches, diffusion-based CSDI and CSBI obtain fair performance, but are costly in memory and need to split the long sequence into small patches for training. BayOTIDEfix-wight is with poor performance, which indicates that the weighted bases mechanism is crucial. BayOTIDE-trendonly is slightly worse than BayOTIDE , showing the modeling of periodic factor is necessary. The results of NLLK score over three datasets can be found at table 6 in the appendix. ",
+        "bbox": [
+            500,
+            780,
+            885,
+            900
+        ],
+        "page_idx": 5
+    },
+    {
+        "type": "image",
+        "img_path": "images/1691117854f65b8a933e5c179ae98a662762f5ab801cc474ca2af1643f29508c.jpg",
+        "image_caption": [
+            "Figure 1: (a): The multivariate time series recovered from observations. The shaded region indicates two posterior standard deviations. (b)-(e): The weighted trend-seasonality factors learned by BayOTIDE of each channel. "
+        ],
+        "image_footnote": [],
+        "bbox": [
+            133,
+            125,
+            839,
+            458
+        ],
+        "page_idx": 6
+    },
+    {
+        "type": "table",
+        "img_path": "images/8d14871331758af0a123459de4d47f6a416e8dbfabfca80892ffb00e613d6160.jpg",
+        "table_caption": [],
+        "table_footnote": [
+            "Table 2: RMSE, MAE and CRPS scores of imputation results of all methods on three datasets with observed ratio $= 5 0 \\%$ "
+        ],
+        "table_body": "<table><tr><td rowspan=\"2\">Observed-ratio=50% Metrics</td><td colspan=\"3\">Traffic-GuangZhou</td><td colspan=\"3\">Solar-Power</td><td colspan=\"3\">Uber-Move</td></tr><tr><td>RMSE</td><td>MAE</td><td>CRPS</td><td>RMSE</td><td>MAE</td><td>CRPS</td><td>RMSE</td><td>MAE</td><td>CRPS</td></tr><tr><td colspan=\"10\">Deterministic &amp; Offline</td></tr><tr><td>SimpleMean</td><td>9.852</td><td>7.791</td><td>-</td><td>3.213</td><td>2.212</td><td></td><td>5.183</td><td>4.129</td><td></td></tr><tr><td>BRITS</td><td>4.874</td><td>3.335</td><td>-</td><td>2.842</td><td>1.985</td><td>-</td><td>2.180</td><td>1.527</td><td></td></tr><tr><td>NAOMI</td><td>5.986</td><td>4.543</td><td>-</td><td>2.918</td><td>2.112</td><td></td><td>2.343</td><td>1.658</td><td></td></tr><tr><td>SAITS</td><td>4.839</td><td>3.391</td><td>-</td><td>2.791</td><td>1.827</td><td></td><td>1.998</td><td>1.453</td><td></td></tr><tr><td>TIDER</td><td>4.708</td><td>3.469</td><td>-</td><td>1.679</td><td>0.838</td><td>-</td><td>1.959</td><td>1.422</td><td>-</td></tr><tr><td colspan=\"10\">Probabilistic &amp; Offline</td></tr><tr><td>Multi-Task GP</td><td>4.887</td><td>3.530</td><td>0.092</td><td>2.847</td><td>1.706</td><td>0.203</td><td>3.625</td><td>2.365</td><td>0.121</td></tr><tr><td>GP-VAE</td><td>4.844</td><td>3.419</td><td>0.084</td><td>3.720</td><td>1.810</td><td>0.368</td><td>5.399</td><td>3.622</td><td>0.203</td></tr><tr><td>CSDI</td><td>4.813</td><td>3.202</td><td>0.076</td><td>2.276</td><td>0.804</td><td>0.166</td><td>1.982</td><td>1.437</td><td>0.072</td></tr><tr><td>CSBI</td><td>4.790</td><td>3.182</td><td>0.074</td><td>2.097</td><td>1.033</td><td>0.153</td><td>1.985</td><td>1.441</td><td>0.075</td></tr><tr><td colspan=\"10\">Probabilistic &amp; Online</td></tr><tr><td>BayOTIDE-fix weight</td><td>11.032</td><td>9.294</td><td>0.728</td><td>5.245</td><td>2.153</td><td>0.374</td><td>5.950</td><td>4.863</td><td>0.209</td></tr><tr><td>BayOTIDE-trend only</td><td>4.188</td><td>2.875</td><td>0.059</td><td>1.789</td><td>0.791</td><td>0.132</td><td>2.052</td><td>1.464</td><td>0.067</td></tr><tr><td>BayOTIDE</td><td>3.820</td><td>2.687</td><td>0.055</td><td>1.699</td><td>0.734</td><td>0.122</td><td>1.901</td><td>1.361</td><td>0.062</td></tr></table>",
+        "bbox": [
+            137,
+            574,
+            831,
+            837
+        ],
+        "page_idx": 6
+    },
+    {
+        "type": "table",
+        "img_path": "images/b0357c50b396b6f7d251c547f45ce57f8a61e05ac84681aa4dbb15cc152b189f.jpg",
+        "table_caption": [
+            "Table 3: RMSE, MAE and CRPS scores of imputation results of all methods on three datasets with observed ratio $= 7 0 \\%$ "
+        ],
+        "table_footnote": [],
+        "table_body": "<table><tr><td rowspan=\"2\">Observed-ratio=70% Metrics</td><td colspan=\"3\">Traffic-GuangZhou</td><td colspan=\"3\">Solar-Power</td><td colspan=\"3\">UberLondon</td></tr><tr><td>RMSE</td><td>MAE</td><td>CRPS</td><td>RMSE</td><td>MAE</td><td>CRPS</td><td>RMSE</td><td>MAE</td><td>CRPS</td></tr><tr><td colspan=\"10\">Deterministic &amp; Offline</td></tr><tr><td>SimpleMean</td><td>10.141</td><td>8.132</td><td>-</td><td>3.156</td><td>2.319</td><td>-</td><td>5.323</td><td>4.256</td><td></td></tr><tr><td>BITS</td><td>4.416</td><td>3.003</td><td>-</td><td>2.617</td><td>1.861</td><td>-</td><td>2.154</td><td>1.488</td><td></td></tr><tr><td>NAOMI</td><td>5.173</td><td>4.013</td><td></td><td>2.702</td><td>2.003</td><td></td><td>2.139</td><td>1.423</td><td></td></tr><tr><td>SAITS</td><td>4.407</td><td>3.025</td><td>-</td><td>2.359</td><td>1.575</td><td></td><td>1.893</td><td>1.366</td><td></td></tr><tr><td>TIDER</td><td>4.168</td><td>3.098</td><td>-</td><td>1.676</td><td>0.874</td><td>-</td><td>1.867</td><td>1.354</td><td></td></tr><tr><td colspan=\"10\">Probabilistic &amp; Offline</td></tr><tr><td>Multi-Task GP</td><td>4.471</td><td>3.223</td><td>0.082</td><td>2.618</td><td>1.418</td><td>0.189</td><td>3.159</td><td>2.126</td><td>0.108</td></tr><tr><td>GP-VAE</td><td>4.373</td><td>3.156</td><td>0.075</td><td>3.561</td><td>1.723</td><td>0.331</td><td>3.133</td><td>2.005</td><td>0.625</td></tr><tr><td>CSDI</td><td>4.301</td><td>2.991</td><td>0.069</td><td>2.132</td><td>1.045</td><td>0.153</td><td>1.886</td><td>1.361</td><td>0.068</td></tr><tr><td>CSBI</td><td>4.201</td><td>2.955</td><td>0.064</td><td>1.987</td><td>0.926</td><td>0.138</td><td>1.899</td><td>1.353</td><td>0.070</td></tr><tr><td colspan=\"10\">Probabilistic &amp; Online</td></tr><tr><td>BayOTIDE-fix weight</td><td>13.319</td><td>9.29</td><td>0.677</td><td>5.238</td><td>2.026</td><td>0.388</td><td>5.889</td><td>4.849</td><td>0.208</td></tr><tr><td>BayOTIDE-trend only</td><td>4.002</td><td>2.759</td><td>0.056</td><td>1.651</td><td>0.712</td><td>0.124</td><td>2.015</td><td>1.438</td><td>0.065</td></tr><tr><td>BayOTIDE</td><td>3.724</td><td>2.611</td><td>0.053</td><td>1.621</td><td>0.709</td><td>0.116</td><td>1.832</td><td>1.323</td><td>0.061</td></tr></table>",
+        "bbox": [
+            137,
+            79,
+            831,
+            345
+        ],
+        "page_idx": 7
+    },
+    {
+        "type": "text",
+        "text": "",
+        "bbox": [
+            88,
+            398,
+            473,
+            518
+        ],
+        "page_idx": 7
+    },
+    {
+        "type": "text",
+        "text": "Online Imputation We demonstrate the online imputation performance of BayOTIDE on three datasets with observed ratio $5 0 \\%$ . Whenever a group of observations at new timestamps have been sequentially fed into the model, we evaluate the test RMSE of the model with the updated weights and temporal factor. We compare the performance of BayOTIDE with the BayOTIDE-fix-wight. The online result on Traffic-Guangzhou is shown in Figure 2a. We can see that BayOTIDE shows the reasonable results that the evaluation error drops gradually when more timestamps are processed, meaning the model can continuously learn and improve. The performance of BayOTIDE-fix-wight is very poor. It indicates the trivial usage of the GP-SS model for multivariate time series imputation may not be feasible. The online results for the other two datasets can be found in the appendix. ",
+        "bbox": [
+            88,
+            527,
+            473,
+            767
+        ],
+        "page_idx": 7
+    },
+    {
+        "type": "text",
+        "text": "Scalability and Sensitivity We evaluate the scalability of BayOTIDE over data size and factor numbers. We set three different factor numbers: $D _ { r } + D _ { s } = \\{ 5 , 2 0 , 5 0 \\}$ . As for the scalability over series length $N$ , We make synthetic data with channel number $D = 1 0 0 0$ , increase the $N$ from 1000 to 4000, and measure the training time. The result is shown in Figure 2b. Similarly, we fix the series length $N = 1 0 0 0$ , increase the series channel $D$ from 1000 to ",
+        "bbox": [
+            89,
+            775,
+            472,
+            895
+        ],
+        "page_idx": 7
+    },
+    {
+        "type": "text",
+        "text": "4000, and then measure the training time. The result is shown in Figure 2c. As we can see, the running time of BayOTIDE grows linearly in both channel and length size, and the factor number determines the slope. Therefore, BayOTIDE enjoys the linear scalability to the data size, which is suitable for large-scale applications. ",
+        "bbox": [
+            501,
+            398,
+            885,
+            488
+        ],
+        "page_idx": 7
+    },
+    {
+        "type": "text",
+        "text": "We further examine the sensitivity of BayOTIDE with different hyperparameters. We build the model with Matérn kernel with different smoothness $\\nu = \\{ 1 / 2 , 3 / 2 \\}$ on the Traffic-Guangzhou with observed ratio $7 0 \\%$ . We vary three crucial hyperparameters: the number of factors $D _ { r } + D _ { s }$ , the kernel length scale, and the kernel variance, and check how imputation performance (CRPS) changes. The results are shown in Figure 2d, Figure 2e, and Figure 2f, respectively. We found more factors that will result in better performance in general for both kernel types. We can find that the performance is relatively stable over different hyperparameters for Matérn kernel with smoothness $\\nu = \\{ 1 / 2 \\}$ . For the Matérn kernel with smoothness $\\nu = \\{ 3 / 2 \\}$ , the performance is more sensitive, especially to the kernel lengthscale. The smaller kernel lengthscale will result in better performance. The kernel variance is also sensitive, but the performance is relatively stable when the variance is large enough. More results on the sensitivity of BayOTIDE over different combinations of latent space dimensions $( D _ { r } , D _ { s } )$ are shown in Table 7 in the appendix. ",
+        "bbox": [
+            501,
+            496,
+            885,
+            797
+        ],
+        "page_idx": 7
+    },
+    {
+        "type": "text",
+        "text": "Imputation on Irregular and All-Channel-Missing Timestamps We further show BayOTIDE can work well with irregulate timestamps with functional and continuous design, and therefore can handle the challenging case of all-channel-missing case. We select the observations at $\\{ 5 0 \\% , 7 0 \\% \\}$ randomly sampled irregulate timestamps for training, and evaluate the model on the left all-channelmissing timestamps. Such timestamps are never seen in the training, and the model needs to do the interpolation. We highlight that most existing advanced imputation methods cannot handle this hard case well. It’s because they are based on the regular-time-interval setting, which assumes there is at least one observation at every timestamp during the training. However, BayOTIDE can apply the Eq. (16) and give probabilistic imputation at the arbitrary continuous timestamp. Thus, we only list the results of BayOTIDE on three datasets in Table 4. We can see the performance is closed or even better than the standard imputation setting shown in Table 2. ",
+        "bbox": [
+            501,
+            806,
+            885,
+            896
+        ],
+        "page_idx": 7
+    },
+    {
+        "type": "image",
+        "img_path": "images/4a04cdd7f6cc6c70519e39ae4f19af6aed08dd6388fbd471a9c095483a2a7602.jpg",
+        "image_caption": [
+            "Figure 2: Online performance, scalability and sensitivity of BayOTIDE "
+        ],
+        "image_footnote": [],
+        "bbox": [
+            114,
+            83,
+            857,
+            414
+        ],
+        "page_idx": 8
+    },
+    {
+        "type": "text",
+        "text": "",
+        "bbox": [
+            89,
+            472,
+            473,
+            667
+        ],
+        "page_idx": 8
+    },
+    {
+        "type": "table",
+        "img_path": "images/b634d7b0d43b8aaf0f76fcc974083e781cfe3c527b55daeef7f6e7f39dad54d6.jpg",
+        "table_caption": [
+            "Table 4: The imputation results of BayOTIDE with settings of irregulate and all-channel-missing timestamps on three datasets with observed ratio $= \\{ 5 0 \\% , 7 0 \\% \\}$ . "
+        ],
+        "table_footnote": [],
+        "table_body": "<table><tr><td rowspan=\"2\">Dataset Obs.</td><td colspan=\"2\">GuangZhou</td><td colspan=\"2\">Solar-Power</td><td colspan=\"2\">Uber-Move</td></tr><tr><td>50%</td><td>70%</td><td>50%</td><td>70%</td><td>50%</td><td>70%</td></tr><tr><td>RMSE</td><td>3.625</td><td>3.383</td><td>1.624</td><td>1.442</td><td>3.017</td><td>2.931</td></tr><tr><td>MAE</td><td>2.524</td><td>2.401</td><td>0.706</td><td>0.614</td><td>1.199</td><td>1.154</td></tr><tr><td>CRPS</td><td>0.051</td><td>0.046</td><td>0.121</td><td>0.113</td><td>0.311</td><td>0.302</td></tr><tr><td>NLLK</td><td>2.708</td><td>2.634</td><td>1.861</td><td>1.857</td><td>2.137</td><td>2.138</td></tr></table>",
+        "bbox": [
+            88,
+            726,
+            478,
+            818
+        ],
+        "page_idx": 8
+    },
+    {
+        "type": "text",
+        "text": "6. Conclusion ",
+        "text_level": 1,
+        "bbox": [
+            500,
+            469,
+            614,
+            487
+        ],
+        "page_idx": 8
+    },
+    {
+        "type": "text",
+        "text": "We proposed BayOTIDE , a novel Bayesian model for online multivariate time series imputations. We decompose the multivariate time series into a temporal function basis and channel-wise weights, and apply a group of GPs to fit the temporal function basis. An efficient online inference algorithm is developed based on the SDE representation of GPs and moment-matching techniques. Results on both synthetic and real-world datasets show that BayOTIDE outperforms the state-of-the-art methods in terms of both imputation accuracy and uncertainty quantification. We also evaluated the scalability and robustness of BayOTIDE on large-scale real-world datasets with different settings of hyperparameters and missing patterns. . In the future, we plan to extend BayOTIDE to handle more complex patterns and more challenging tasks, such as long-term forecasting with non-stationary patterns. ",
+        "bbox": [
+            501,
+            496,
+            885,
+            738
+        ],
+        "page_idx": 8
+    },
+    {
+        "type": "text",
+        "text": "Impact Statement ",
+        "text_level": 1,
+        "bbox": [
+            89,
+            83,
+            240,
+            99
+        ],
+        "page_idx": 9
+    },
+    {
+        "type": "text",
+        "text": "This paper is dedicated to innovating time series imputation techniques to push the boundaries of time series analysis further. While our primary objective is to enhance imputation accuracy and computational efficiency, we are also mindful of the broader ethical considerations that accompany technological progress in this area. While immediate societal impacts may not be apparent, we acknowledge the importance of ongoing vigilance regarding the ethical use of these advancements. It is essential to continuously assess and address potential implications to ensure responsible development and application in various scenarios. ",
+        "bbox": [
+            89,
+            109,
+            473,
+            275
+        ],
+        "page_idx": 9
+    },
+    {
+        "type": "text",
+        "text": "References ",
+        "text_level": 1,
+        "bbox": [
+            89,
+            295,
+            181,
+            310
+        ],
+        "page_idx": 9
+    },
+    {
+        "type": "text",
+        "text": "Abdollahi, H. A novel hybrid model for forecasting crude oil price based on time series decomposition. Applied energy, 267:115035, 2020. ",
+        "bbox": [
+            89,
+            319,
+            473,
+            364
+        ],
+        "page_idx": 9
+    },
+    {
+        "type": "text",
+        "text": "Acuna, E. and Rodriguez, C. The treatment of missing values and its effect on classifier accuracy. In Classification, Clustering, and Data Mining Applications: Proceedings of the Meeting of the International Federation of Classification Societies (IFCS), Illinois Institute of Technology, Chicago, 15–18 July 2004, pp. 639–647. Springer, 2004. ",
+        "bbox": [
+            88,
+            375,
+            475,
+            479
+        ],
+        "page_idx": 9
+    },
+    {
+        "type": "text",
+        "text": "Alcaraz, J. M. L. and Strodthoff, N. Diffusion-based time series imputation and forecasting with structured state space models. arXiv preprint arXiv:2208.09399, 2022. ",
+        "bbox": [
+            88,
+            491,
+            473,
+            536
+        ],
+        "page_idx": 9
+    },
+    {
+        "type": "text",
+        "text": "Bandara, K., Hyndman, R. J., and Bergmeir, C. Mstl: A seasonal-trend decomposition algorithm for time series with multiple seasonal patterns. arXiv preprint arXiv:2107.13462, 2021. ",
+        "bbox": [
+            86,
+            546,
+            475,
+            607
+        ],
+        "page_idx": 9
+    },
+    {
+        "type": "text",
+        "text": "Benavoli, A. and Corani, G. State space approximation of gaussian processes for time series forecasting. In Advanced Analytics and Learning on Temporal Data: 6th ECML PKDD Workshop, AALTD 2021, Bilbao, Spain, September 13, 2021, Revised Selected Papers 6, pp. 21–35. Springer, 2021. ",
+        "bbox": [
+            88,
+            617,
+            475,
+            708
+        ],
+        "page_idx": 9
+    },
+    {
+        "type": "text",
+        "text": "Bonilla, E., Chai, K. M., and Williams, C. Multi-task Gaussian process prediction. In Advances in Neural Information Processing Systems 20. 2008. ",
+        "bbox": [
+            88,
+            718,
+            473,
+            763
+        ],
+        "page_idx": 9
+    },
+    {
+        "type": "text",
+        "text": "Brakel, P., Stroobandt, D., and Schrauwen, B. Training energy-based models for time-series imputation. The Journal of Machine Learning Research, 14(1):2771– 2797, 2013. ",
+        "bbox": [
+            86,
+            775,
+            475,
+            833
+        ],
+        "page_idx": 9
+    },
+    {
+        "type": "text",
+        "text": "Cao, W., Wang, D., Li, J., Zhou, H., Li, L., and Li, Y. Brits: Bidirectional recurrent imputation for time series. Advances in neural information processing systems, 31, 2018. ",
+        "bbox": [
+            88,
+            845,
+            475,
+            904
+        ],
+        "page_idx": 9
+    },
+    {
+        "type": "text",
+        "text": "Chen, W., Wang, W., Peng, B., Wen, Q., Zhou, T., and Sun, L. Learning to rotate: Quaternion transformer for complicated periodical time series forecasting. In Proceedings of the 28th ACM SIGKDD conference on knowledge discovery and data mining, pp. 146–156, 2022. ",
+        "bbox": [
+            500,
+            85,
+            885,
+            160
+        ],
+        "page_idx": 9
+    },
+    {
+        "type": "text",
+        "text": "Chen, W., Liang, Y., Zhu, Y., Chang, Y., Luo, K., Wen, H., Li, L., Yu, Y., Wen, Q., Chen, C., et al. Deep learning for trajectory data management and mining: A survey and beyond. arXiv preprint arXiv:2403.14151, 2024. ",
+        "bbox": [
+            500,
+            171,
+            885,
+            232
+        ],
+        "page_idx": 9
+    },
+    {
+        "type": "text",
+        "text": "Chen, X., Chen, Y., and He, Z. Urban traffic speed dataset of guangzhou, china, march 2018. URL https://doi. org/10.5281/zenodo, 1205229. ",
+        "bbox": [
+            500,
+            242,
+            885,
+            287
+        ],
+        "page_idx": 9
+    },
+    {
+        "type": "text",
+        "text": "Chen, Y., Deng, W., Fang, S., Li, F., Yang, N. T., Zhang, Y., Rasul, K., Zhe, S., Schneider, A., and Nevmyvaka, Y. Provably convergent schr\\\" odinger bridge with applications to probabilistic time series imputation. arXiv preprint arXiv:2305.07247, 2023. ",
+        "bbox": [
+            500,
+            297,
+            887,
+            372
+        ],
+        "page_idx": 9
+    },
+    {
+        "type": "text",
+        "text": "Cleveland, R. B., Cleveland, W. S., McRae, J. E., and Terpenning, I. Stl: A seasonal-trend decomposition. J. Off. Stat, 6(1):3–73, 1990. ",
+        "bbox": [
+            500,
+            383,
+            887,
+            429
+        ],
+        "page_idx": 9
+    },
+    {
+        "type": "text",
+        "text": "Du, W., Côté, D., and Liu, Y. Saits: Self-attentionbased imputation for time series. Expert Systems with Applications, 219:119619, 2023. ",
+        "bbox": [
+            500,
+            439,
+            885,
+            484
+        ],
+        "page_idx": 9
+    },
+    {
+        "type": "text",
+        "text": "Durbin, J. and Koopman, S. J. Time series analysis by state space methods, volume 38. OUP Oxford, 2012. ",
+        "bbox": [
+            500,
+            496,
+            885,
+            525
+        ],
+        "page_idx": 9
+    },
+    {
+        "type": "text",
+        "text": "Esling, P. and Agon, C. Time-series data mining. ACM Computing Surveys (CSUR), 45(1):1–34, 2012. ",
+        "bbox": [
+            498,
+            536,
+            885,
+            566
+        ],
+        "page_idx": 9
+    },
+    {
+        "type": "text",
+        "text": "Fang, C. and Wang, C. Time series data imputation: A survey on deep learning approaches. arXiv preprint arXiv:2011.11347, 2020. ",
+        "bbox": [
+            500,
+            577,
+            885,
+            622
+        ],
+        "page_idx": 9
+    },
+    {
+        "type": "text",
+        "text": "Fang, S., Narayan, A., Kirby, R., and Zhe, S. Bayesian continuous-time tucker decomposition. In International Conference on Machine Learning, pp. 6235–6245. PMLR, 2022. ",
+        "bbox": [
+            500,
+            632,
+            885,
+            691
+        ],
+        "page_idx": 9
+    },
+    {
+        "type": "text",
+        "text": "Fang, S., Yu, X., Li, S., Wang, Z., Kirby, M., and Zhe, S. Streaming factor trajectory learning for temporal tensor decomposition. Advances in Neural Information Processing Systems, 36, 2024. ",
+        "bbox": [
+            500,
+            704,
+            885,
+            763
+        ],
+        "page_idx": 9
+    },
+    {
+        "type": "text",
+        "text": "Fortuin, V., Baranchuk, D., Rätsch, G., and Mandt, S. Gp-vae: Deep probabilistic time series imputation. In International conference on artificial intelligence and statistics, pp. 1651–1661. PMLR, 2020. ",
+        "bbox": [
+            500,
+            775,
+            885,
+            834
+        ],
+        "page_idx": 9
+    },
+    {
+        "type": "text",
+        "text": "Grabner, M., Wang, Y., Wen, Q., Blavzivc, B., and vStruc, V. A global modeling framework for load forecasting in distribution networks. IEEE Transactions on Smart Grid, 2023. ",
+        "bbox": [
+            500,
+            845,
+            885,
+            904
+        ],
+        "page_idx": 9
+    },
+    {
+        "type": "text",
+        "text": "Hartikainen, J. and Särkkä, S. Kalman filtering and smoothing solutions to temporal gaussian process regression models. In 2010 IEEE international workshop on machine learning for signal processing, pp. 379–384. IEEE, 2010. ",
+        "bbox": [
+            88,
+            85,
+            475,
+            160
+        ],
+        "page_idx": 10
+    },
+    {
+        "type": "text",
+        "text": "Ho, J., Jain, A., and Abbeel, P. Denoising diffusion probabilistic models. Advances in neural information processing systems, 33:6840–6851, 2020. ",
+        "bbox": [
+            86,
+            171,
+            473,
+            217
+        ],
+        "page_idx": 10
+    },
+    {
+        "type": "text",
+        "text": "Kalman, R. E. A new approach to linear filtering and prediction problems. 1960. ",
+        "bbox": [
+            88,
+            227,
+            475,
+            256
+        ],
+        "page_idx": 10
+    },
+    {
+        "type": "text",
+        "text": "Lancaster, P. and Rodman, L. Algebraic riccati equations. Clarendon press, 1995. ",
+        "bbox": [
+            88,
+            267,
+            475,
+            297
+        ],
+        "page_idx": 10
+    },
+    {
+        "type": "text",
+        "text": "Li, L., Su, X., Zhang, Y., Lin, Y., and Li, Z. Trend modeling for traffic time series analysis: An integrated study. IEEE Transactions on Intelligent Transportation Systems, 16 (6):3430–3439, 2015. ",
+        "bbox": [
+            86,
+            308,
+            473,
+            367
+        ],
+        "page_idx": 10
+    },
+    {
+        "type": "text",
+        "text": "Liu, H., Ma, Z., Yang, L., Zhou, T., Xia, R., Wang, Y., Wen, Q., and Sun, L. Sadi: A self-adaptive decomposed interpretable framework for electric load forecasting under extreme events. In ICASSP 2023-2023 IEEE International Conference on Acoustics, Speech and Signal Processing (ICASSP), pp. 1–5. IEEE, 2023. ",
+        "bbox": [
+            88,
+            378,
+            475,
+            469
+        ],
+        "page_idx": 10
+    },
+    {
+        "type": "text",
+        "text": "LIU, S., Li, X., Cong, G., Chen, Y., and JIANG, Y. Multivariate time-series imputation with disentangled temporal representations. In The Eleventh International Conference on Learning Representations, 2023. ",
+        "bbox": [
+            86,
+            481,
+            475,
+            541
+        ],
+        "page_idx": 10
+    },
+    {
+        "type": "text",
+        "text": "Liu, Y., Yu, R., Zheng, S., Zhan, E., and Yue, Y. Naomi: Non-autoregressive multiresolution sequence imputation. Advances in neural information processing systems, 32, 2019. ",
+        "bbox": [
+            86,
+            551,
+            475,
+            609
+        ],
+        "page_idx": 10
+    },
+    {
+        "type": "text",
+        "text": "Minka, T. P. Expectation propagation for approximate bayesian inference. In Proceedings of the Seventeenth conference on Uncertainty in artificial intelligence, pp. 362–369, 2001a. ",
+        "bbox": [
+            86,
+            622,
+            473,
+            681
+        ],
+        "page_idx": 10
+    },
+    {
+        "type": "text",
+        "text": "Minka, T. P. A family of algorithms for approximate Bayesian inference. PhD thesis, Massachusetts Institute of Technology, 2001b. ",
+        "bbox": [
+            88,
+            694,
+            473,
+            738
+        ],
+        "page_idx": 10
+    },
+    {
+        "type": "text",
+        "text": "Mulyadi, A. W., Jun, E., and Suk, H.-I. Uncertainty-aware variational-recurrent imputation network for clinical time series. IEEE Transactions on Cybernetics, 52(9):9684– 9694, 2021. ",
+        "bbox": [
+            86,
+            748,
+            473,
+            809
+        ],
+        "page_idx": 10
+    },
+    {
+        "type": "text",
+        "text": "Qiu, J., Jammalamadaka, S. R., and Ning, N. Multivariate bayesian structural time series model. J. Mach. Learn. Res., 19(1):2744–2776, 2018. ",
+        "bbox": [
+            88,
+            819,
+            475,
+            866
+        ],
+        "page_idx": 10
+    },
+    {
+        "type": "text",
+        "text": "Rasmussen, C. E. and Williams, C. K. I. Gaussian Processes for Machine Learning. MIT Press, 2006. ",
+        "bbox": [
+            88,
+            876,
+            473,
+            905
+        ],
+        "page_idx": 10
+    },
+    {
+        "type": "text",
+        "text": "Rasul, K., Seward, C., Schuster, I., and Vollgraf, R. Autoregressive denoising diffusion models for multivariate probabilistic time series forecasting. In International Conference on Machine Learning, pp. 8857–8868. PMLR, 2021. ",
+        "bbox": [
+            500,
+            85,
+            887,
+            160
+        ],
+        "page_idx": 10
+    },
+    {
+        "type": "text",
+        "text": "Rauch, H. E., Tung, F., and Striebel, C. T. Maximum likelihood estimates of linear dynamic systems. AIAA journal, 3(8):1445–1450, 1965. ",
+        "bbox": [
+            500,
+            174,
+            885,
+            218
+        ],
+        "page_idx": 10
+    },
+    {
+        "type": "text",
+        "text": "Roberts, S., Osborne, M., Ebden, M., Reece, S., Gibson, N., and Aigrain, S. Gaussian processes for time-series modelling, 2013. ",
+        "bbox": [
+            500,
+            232,
+            885,
+            276
+        ],
+        "page_idx": 10
+    },
+    {
+        "type": "text",
+        "text": "Särkkä, S. Bayesian filtering and smoothing. Number 3. Cambridge University Press, 2013. ",
+        "bbox": [
+            500,
+            290,
+            887,
+            320
+        ],
+        "page_idx": 10
+    },
+    {
+        "type": "text",
+        "text": "Solin, A. and Särkkä, S. Explicit link between periodic covariance functions and state space models. In Artificial Intelligence and Statistics, pp. 904–912. PMLR, 2014. ",
+        "bbox": [
+            500,
+            333,
+            885,
+            378
+        ],
+        "page_idx": 10
+    },
+    {
+        "type": "text",
+        "text": "Solin, A. et al. Stochastic differential equation methods for spatio-temporal gaussian process regression. 2016. ",
+        "bbox": [
+            500,
+            392,
+            885,
+            421
+        ],
+        "page_idx": 10
+    },
+    {
+        "type": "text",
+        "text": "Song, Y., Sohl-Dickstein, J., Kingma, D. P., Kumar, A., Ermon, S., and Poole, B. Score-based generative modeling through stochastic differential equations. arXiv preprint arXiv:2011.13456, 2020. ",
+        "bbox": [
+            500,
+            435,
+            885,
+            496
+        ],
+        "page_idx": 10
+    },
+    {
+        "type": "text",
+        "text": "Tashiro, Y., Song, J., Song, Y., and Ermon, S. Csdi: Conditional score-based diffusion models for probabilistic time series imputation. Advances in Neural Information Processing Systems, 34:24804–24816, 2021. ",
+        "bbox": [
+            500,
+            508,
+            885,
+            569
+        ],
+        "page_idx": 10
+    },
+    {
+        "type": "text",
+        "text": "Van Buuren, S. and Groothuis-Oudshoorn, K. mice: Multivariate imputation by chained equations in r. Journal of statistical software, 45:1–67, 2011. ",
+        "bbox": [
+            500,
+            582,
+            885,
+            627
+        ],
+        "page_idx": 10
+    },
+    {
+        "type": "text",
+        "text": "Wang, J., Du, W., Cao, W., Zhang, K., Wang, W., Liang, Y., and Wen, Q. Deep learning for multivariate time series imputation: A survey. arXiv preprint arXiv:2402.04059, 2024a. ",
+        "bbox": [
+            500,
+            640,
+            885,
+            699
+        ],
+        "page_idx": 10
+    },
+    {
+        "type": "text",
+        "text": "Wang, Z. and Zhe, S. Conditional expectation propagation. In UAI, pp. 6, 2019. ",
+        "bbox": [
+            500,
+            713,
+            887,
+            743
+        ],
+        "page_idx": 10
+    },
+    {
+        "type": "text",
+        "text": "Wang, Z., Fang\\*, S., Li, S., and Zhe, S. Dynamic tensor decomposition via neural diffusion-reaction processes. Advances in Neural Information Processing Systems, 36, 2024b. ",
+        "bbox": [
+            500,
+            757,
+            887,
+            816
+        ],
+        "page_idx": 10
+    },
+    {
+        "type": "text",
+        "text": "Wen, Q., Gao, J., Song, X., Sun, L., Xu, H., and Zhu, S. Robuststl: A robust seasonal-trend decomposition algorithm for long time series. In Proceedings of the AAAI Conference on Artificial Intelligence, volume 33, pp. 5409–5416, 2019. ",
+        "bbox": [
+            501,
+            830,
+            887,
+            905
+        ],
+        "page_idx": 10
+    },
+    {
+        "type": "text",
+        "text": "Wen, Q., Zhang, Z., Li, Y., and Sun, L. Fast robuststl: Efficient and robust seasonal-trend decomposition for time series with complex patterns. In Proceedings of the 26th ACM SIGKDD International Conference on Knowledge Discovery & Data Mining, pp. 2203–2213, 2020. ",
+        "bbox": [
+            89,
+            84,
+            473,
+            161
+        ],
+        "page_idx": 11
+    },
+    {
+        "type": "text",
+        "text": "Wen, Q., He, K., Sun, L., Zhang, Y., Ke, M., and Xu, H. Robustperiod: Robust time-frequency mining for multiple periodicity detection. In Proceedings of the 2021 international conference on management of data, pp. 2328–2337, 2021. ",
+        "bbox": [
+            88,
+            170,
+            473,
+            246
+        ],
+        "page_idx": 11
+    },
+    {
+        "type": "text",
+        "text": "Wen, Q., Yang, L., Zhou, T., and Sun, L. Robust time series analysis and applications: An industrial perspective. In Proceedings of the 28th ACM SIGKDD Conference on Knowledge Discovery and Data Mining, pp. 4836–4837, 2022. ",
+        "bbox": [
+            88,
+            256,
+            473,
+            330
+        ],
+        "page_idx": 11
+    },
+    {
+        "type": "text",
+        "text": "Woo, G., Liu, C., Sahoo, D., Kumar, A., and Hoi, S. Cost: Contrastive learning of disentangled seasonal-trend representations for time series forecasting. arXiv preprint arXiv:2202.01575, 2022. ",
+        "bbox": [
+            86,
+            342,
+            475,
+            401
+        ],
+        "page_idx": 11
+    },
+    {
+        "type": "text",
+        "text": "Yang, Y., Jin, M., Wen, H., Zhang, C., Liang, Y., Ma, L., Wang, Y., Liu, C., Yang, B., Xu, Z., et al. A survey on diffusion models for time series and spatio-temporal data. arXiv preprint arXiv:2404.18886, 2024. ",
+        "bbox": [
+            88,
+            411,
+            475,
+            473
+        ],
+        "page_idx": 11
+    },
+    {
+        "type": "text",
+        "text": "Yao, W., Sun, Y., Ho, A., Sun, C., and Zhang, K. Learning temporally causal latent processes from general temporal data. arXiv preprint arXiv:2110.05428, 2021. ",
+        "bbox": [
+            88,
+            482,
+            473,
+            527
+        ],
+        "page_idx": 11
+    },
+    {
+        "type": "text",
+        "text": "Yao, W., Chen, G., and Zhang, K. Temporally disentangled representation learning. Advances in Neural Information Processing Systems, 35:26492–26503, 2022. ",
+        "bbox": [
+            88,
+            537,
+            473,
+            583
+        ],
+        "page_idx": 11
+    },
+    {
+        "type": "text",
+        "text": "Yoon, J., Jordon, J., and Schaar, M. Gain: Missing data imputation using generative adversarial nets. In International conference on machine learning, pp. 5689– 5698. PMLR, 2018. ",
+        "bbox": [
+            88,
+            593,
+            475,
+            654
+        ],
+        "page_idx": 11
+    },
+    {
+        "type": "text",
+        "text": "Zhang, K., Wen, Q., Zhang, C., Cai, R., Jin, M., Liu, Y., Zhang, J. Y., Liang, Y., Pang, G., Song, D., et al. Selfsupervised learning for time series analysis: Taxonomy, progress, and prospects. IEEE Transactions on Pattern Analysis and Machine Intelligence, 2024. ",
+        "bbox": [
+            88,
+            662,
+            475,
+            739
+        ],
+        "page_idx": 11
+    },
+    {
+        "type": "text",
+        "text": "Zhu, Z., Chen, W., Xia, R., Zhou, T., Niu, P., Peng, B., Wang, W., Liu, H., Ma, Z., Wen, Q., et al. eforecaster: Unifying electricity forecasting with robust, flexible, and explainable machine learning algorithms. In Proceedings of the AAAI Conference on Artificial Intelligence, volume 37, pp. 15630–15638, 2023. ",
+        "bbox": [
+            88,
+            748,
+            475,
+            839
+        ],
+        "page_idx": 11
+    },
+    {
+        "type": "text",
+        "text": "Appendix ",
+        "text_level": 1,
+        "bbox": [
+            501,
+            83,
+            583,
+            101
+        ],
+        "page_idx": 11
+    },
+    {
+        "type": "text",
+        "text": ".1. LTI-SDE representation of GP with Matérn kernel and periodic kernel ",
+        "text_level": 1,
+        "bbox": [
+            500,
+            109,
+            875,
+            138
+        ],
+        "page_idx": 11
+    },
+    {
+        "type": "text",
+        "text": ".1.1. CONNECT GP WITH LTI-SDE BY SPECTRAL ANALYSIS ",
+        "bbox": [
+            501,
+            147,
+            846,
+            178
+        ],
+        "page_idx": 11
+    },
+    {
+        "type": "text",
+        "text": "We take the Matérn kernel as an example to show how to connect GP with LTI-SDE. The Matérn kernel is defined as: ",
+        "bbox": [
+            500,
+            186,
+            885,
+            217
+        ],
+        "page_idx": 11
+    },
+    {
+        "type": "equation",
+        "img_path": "images/fb891b355aa91095dfe74199c0e0197d0b1ddb446badc15adbcfefa2f706fb95.jpg",
+        "text": "$$\n\\kappa _ { \\nu } ( t , t ^ { \\prime } ) = a \\frac { ( \\frac { \\sqrt { 2 \\nu } } { \\rho } \\Delta ) ^ { \\nu } } { \\Gamma ( \\nu ) 2 ^ { \\nu - 1 } } K _ { \\nu } ( \\frac { \\sqrt { 2 \\nu } } { \\rho } \\Delta )\n$$",
+        "text_format": "latex",
+        "bbox": [
+            571,
+            242,
+            812,
+            282
+        ],
+        "page_idx": 11
+    },
+    {
+        "type": "text",
+        "text": "where $\\Delta = | t - t ^ { \\prime } | , \\Gamma ( \\cdot )$ is the Gamma function, $a > 0$ and $\\rho > 0$ are the amplitude and length-scale parameters respectively, $K _ { \\nu }$ is the modified Bessel function of the second kind, and $\\nu > 0$ controls the smoothness of sample paths from the GP prior $f ( t ) \\sim \\mathcal { G P } ( 0 , \\kappa _ { \\nu } ( t , t ^ { \\prime } ) )$ . ",
+        "bbox": [
+            500,
+            296,
+            885,
+            372
+        ],
+        "page_idx": 11
+    },
+    {
+        "type": "text",
+        "text": "For a stationary Matérn kernel $\\kappa _ { \\nu } ( t , t ^ { \\prime } ) = \\kappa _ { \\nu } ( t - t ^ { \\prime } )$ , the energy spectrum density of $f ( t )$ can be obtained via the Wiener-Khinchin theorem by taking the Fourier transform of $\\kappa _ { \\nu } ( \\Delta )$ : ",
+        "bbox": [
+            500,
+            380,
+            885,
+            440
+        ],
+        "page_idx": 11
+    },
+    {
+        "type": "equation",
+        "img_path": "images/9776190df75edeb5acf581f2eba8a5fee3fa0c0f92cb075b7df933ee2866803a.jpg",
+        "text": "$$\nS ( \\omega ) = \\frac { \\sigma ^ { 2 } } { ( \\alpha ^ { 2 } + \\omega ^ { 2 } ) ^ { m + 1 } }\n$$",
+        "text_format": "latex",
+        "bbox": [
+            611,
+            465,
+            772,
+            501
+        ],
+        "page_idx": 11
+    },
+    {
+        "type": "text",
+        "text": "where $\\omega$ is the frequency, $\\begin{array} { r } { \\alpha = \\frac { \\sqrt { 2 \\nu } } { \\rho } } \\end{array}$ , and we take $\\nu = m + \\textstyle { \\frac { 1 } { 2 } }$ for $m \\in \\{ 0 , 1 , 2 , \\ldots \\}$ . ",
+        "bbox": [
+            500,
+            515,
+            883,
+            551
+        ],
+        "page_idx": 11
+    },
+    {
+        "type": "text",
+        "text": "Expanding the polynomial gives: ",
+        "bbox": [
+            501,
+            558,
+            717,
+            574
+        ],
+        "page_idx": 11
+    },
+    {
+        "type": "equation",
+        "img_path": "images/b14310d3fa01b87fef90e5d4459b05ba7484b8a62b6c6058eb9160dfdb25ee0f.jpg",
+        "text": "$$\n( \\alpha + i \\omega ) ^ { m + 1 } = \\sum _ { k = 0 } ^ { m } c _ { k } ( i \\omega ) ^ { k } + ( i \\omega ) ^ { m + 1 }\n$$",
+        "text_format": "latex",
+        "bbox": [
+            557,
+            598,
+            826,
+            640
+        ],
+        "page_idx": 11
+    },
+    {
+        "type": "text",
+        "text": "where $c _ { k }$ are coefficients. This allows constructing an equivalent frequency domain system: ",
+        "bbox": [
+            500,
+            654,
+            887,
+            684
+        ],
+        "page_idx": 11
+    },
+    {
+        "type": "equation",
+        "img_path": "images/480dde01c6880fb66ce6b30d8effe873ccf8ca109efd7d70c1bf1f30c012c932.jpg",
+        "text": "$$\n\\sum _ { k = 1 } ^ { m } c _ { k } ( i \\omega ) ^ { k } \\widehat { f } ( \\omega ) + ( i \\omega ) ^ { m + 1 } \\widehat { f } ( \\omega ) = \\widehat { \\beta } ( \\omega )\n$$",
+        "text_format": "latex",
+        "bbox": [
+            549,
+            709,
+            833,
+            751
+        ],
+        "page_idx": 11
+    },
+    {
+        "type": "text",
+        "text": "where $\\widehat { f } ( \\omega )$ and $\\widehat { \\beta } ( \\omega )$ are Fourier transforms of $f ( t )$ and white noise $w ( t )$ with spectral density $q _ { \\mathbf { s } }$ respectively. ",
+        "bbox": [
+            500,
+            766,
+            885,
+            799
+        ],
+        "page_idx": 11
+    },
+    {
+        "type": "text",
+        "text": "Taking the inverse Fourier transform yields the time domain SDE: ",
+        "bbox": [
+            500,
+            805,
+            885,
+            834
+        ],
+        "page_idx": 11
+    },
+    {
+        "type": "equation",
+        "img_path": "images/b42002e46db45e3f1942e2a7e5ab9491a3d6b51290eaa43f96f3cae6cad7ace6.jpg",
+        "text": "$$\n\\sum _ { k = 1 } ^ { m } c _ { k } \\frac { d ^ { k } f } { d t ^ { k } } + \\frac { d ^ { m + 1 } f } { d t ^ { m + 1 } } = w ( t )\n$$",
+        "text_format": "latex",
+        "bbox": [
+            591,
+            862,
+            792,
+            904
+        ],
+        "page_idx": 11
+    },
+    {
+        "type": "text",
+        "text": "We can further construct a new state $\\begin{array} { r l } { \\mathbf { z } } & { { } = } \\end{array}$ $( f , f ^ { ( 1 ) } , \\ldots , f ^ { ( m ) } ) ^ { \\top }$ (where each $\\begin{array} { r l r } { f ^ { ( k ) } } & { { } \\triangleq } & { \\mathrm { d } ^ { k } f / \\mathrm { d } t ^ { k } ) } \\end{array}$ and convert (21) into a linear time-invariant (LTI) SDE, ",
+        "bbox": [
+            86,
+            85,
+            475,
+            130
+        ],
+        "page_idx": 12
+    },
+    {
+        "type": "equation",
+        "img_path": "images/43262e689b707aeaa4c10f9e3f605a2086df7d5dfbb917784b37e516896dd7c6.jpg",
+        "text": "$$\n\\frac { \\mathrm { d } \\mathbf { z } ( t ) } { \\mathrm { d } t } = \\mathbf { F } \\mathbf { z } ( t ) + \\mathbf { L } w ( t )\n$$",
+        "text_format": "latex",
+        "bbox": [
+            197,
+            137,
+            364,
+            170
+        ],
+        "page_idx": 12
+    },
+    {
+        "type": "text",
+        "text": "where ",
+        "bbox": [
+            88,
+            178,
+            130,
+            191
+        ],
+        "page_idx": 12
+    },
+    {
+        "type": "equation",
+        "img_path": "images/6926b59ace384389317ab91edb8716305884012754a3c8d0c73ad3cab9e757fd.jpg",
+        "text": "$$\n\\mathbf { F } = \\left( \\begin{array} { c c c c } { 0 } & { 1 } & & & \\\\ & { \\ddots } & { \\ddots } & & \\\\ & & & { 0 } & { 1 } \\\\ { - c _ { 0 } } & { \\ldots } & { - c _ { m - 1 } } & { - c _ { m } } \\end{array} \\right) , \\quad \\mathbf { L } = \\left( \\begin{array} { c } { 0 } \\\\ { \\vdots } \\\\ { 0 } \\\\ { 1 } \\end{array} \\right) .\n$$",
+        "text_format": "latex",
+        "bbox": [
+            89,
+            196,
+            472,
+            272
+        ],
+        "page_idx": 12
+    },
+    {
+        "type": "text",
+        "text": "The LTI-SDE is particularly useful in that its finite set of states follows a Gauss-Markov chain, namely the state-space prior. Specifically, given arbitrary $t _ { 1 } < \\ldots < t _ { L }$ , we have ",
+        "bbox": [
+            88,
+            286,
+            473,
+            333
+        ],
+        "page_idx": 12
+    },
+    {
+        "type": "equation",
+        "img_path": "images/3a1a0ea2a0e9489ff70a5fef412ff9ee2b084fe55380927f0bdcbf2b8b8d035b.jpg",
+        "text": "$$\np ( \\mathbf { z } ( t _ { 1 } ) , \\ldots , \\mathbf { z } ( t _ { L } ) ) = p ( \\mathbf { z } ( t _ { 1 } ) ) \\prod _ { k = 1 } ^ { L - 1 } p ( \\mathbf { z } ( t _ { k + 1 } ) | \\mathbf { z } ( t _ { k } ) )\n$$",
+        "text_format": "latex",
+        "bbox": [
+            93,
+            340,
+            467,
+            371
+        ],
+        "page_idx": 12
+    },
+    {
+        "type": "text",
+        "text": "where ",
+        "bbox": [
+            88,
+            378,
+            129,
+            391
+        ],
+        "page_idx": 12
+    },
+    {
+        "type": "equation",
+        "img_path": "images/7c38f42e40d434752d2b80102c071dc17993c09ff3378da095e004b968b11413.jpg",
+        "text": "$$\n\\begin{array} { c } { p ( \\mathbf { z } ( t _ { 1 } ) ) = \\mathcal { N } ( \\mathbf { z } ( t _ { 1 } ) | \\mathbf { 0 } , \\mathbf { P } _ { \\infty } ) , } \\\\ { p ( \\mathbf { z } ( t _ { n + 1 } ) | \\mathbf { z } ( t _ { n } ) ) = \\mathcal { N } ( \\mathbf { z } ( t _ { n + 1 } ) | \\mathbf { A } _ { n } \\mathbf { z } ( t _ { n } ) , \\mathbf { Q } _ { n } ) } \\end{array}\n$$",
+        "text_format": "latex",
+        "bbox": [
+            111,
+            401,
+            426,
+            440
+        ],
+        "page_idx": 12
+    },
+    {
+        "type": "text",
+        "text": "where ${ \\bf A } _ { n } = \\exp ( { \\bf F } \\Delta _ { n } )$ , $\\begin{array} { r } { { \\bf Q } _ { n } = \\int _ { t _ { n } } ^ { t _ { n + 1 } } { \\bf A } _ { n } { \\bf L } { \\bf L } ^ { \\top } { \\bf A } _ { n } ^ { \\top } q _ { \\bf s } \\mathrm { d } t . } \\end{array}$ $\\Delta _ { n } = t _ { n + 1 } - t _ { n }$ , and $\\mathbf { P } _ { \\infty }$ is the steady-state covariance matrix of the LTI-SDE 3, which can be obtained by solving the Lyapunov equation ${ \\bf F } { \\bf P } _ { \\infty } + { \\bf P } _ { \\infty } { \\bf F } ^ { \\top } + { \\bf L } { \\bf L } ^ { \\top } q _ { \\bf s } = { \\bar { 0 } }$ (Lancaster & Rodman, 1995), as we claimed in the main paper. ",
+        "bbox": [
+            88,
+            449,
+            473,
+            542
+        ],
+        "page_idx": 12
+    },
+    {
+        "type": "text",
+        "text": "Note that for other types of stationary kernel functions, such as the periodic kernels, we can approximate the inverse spectral density $1 / S ( \\omega )$ with a polynomial of $\\omega ^ { 2 }$ with negative roots (Solin & Särkkä, 2014), and follow the same way to construct an LTI-SDE and state-space prior. ",
+        "bbox": [
+            88,
+            549,
+            473,
+            625
+        ],
+        "page_idx": 12
+    },
+    {
+        "type": "text",
+        "text": ".1.2. THE CLOSED-FORM OF LTI-SDE AND STATE SPACE PRIOR WITH MATÉRN KERNEL AND PERIODIC KERNEL ",
+        "text_level": 1,
+        "bbox": [
+            88,
+            640,
+            436,
+            684
+        ],
+        "page_idx": 12
+    },
+    {
+        "type": "text",
+        "text": "With the canonical form of LTI-SDE (22)and state space prior(23) and above derivation, we can work out the closedform of LTI-SDE and state space prior for Matérn kernel and periodic kernel. We present the results in the following. ",
+        "bbox": [
+            88,
+            694,
+            475,
+            753
+        ],
+        "page_idx": 12
+    },
+    {
+        "type": "text",
+        "text": "For Matérn kernel with $m = 0$ , indicating the smoothness is $\\begin{array} { r } { \\nu = 0 + \\frac { 1 } { 2 } } \\end{array}$ , it becomes the exponential covariance function: ",
+        "bbox": [
+            88,
+            761,
+            473,
+            792
+        ],
+        "page_idx": 12
+    },
+    {
+        "type": "equation",
+        "img_path": "images/2f4de156df935fc8f90df3b837e2a7366abb869a83006a51a6cda288a45204e4.jpg",
+        "text": "$$\n\\kappa _ { \\mathrm { e x p } } ( \\tau ) = \\sigma ^ { 2 } \\exp \\left( - \\frac { \\tau } { \\ell } \\right)\n$$",
+        "text_format": "latex",
+        "bbox": [
+            194,
+            801,
+            366,
+            830
+        ],
+        "page_idx": 12
+    },
+    {
+        "type": "text",
+        "text": "Then the parameters of the LTI-SDE and state space prior are: $\\{ m = 0 , { \\bf { F } } = - 1 / l , { \\bf { L } } = 1 , q _ { \\bf { s } } = 2 \\sigma ^ { 2 } / l , { \\bf { P } } _ { \\infty } = \\sigma ^ { 2 } \\}$ ",
+        "bbox": [
+            88,
+            837,
+            473,
+            869
+        ],
+        "page_idx": 12
+    },
+    {
+        "type": "text",
+        "text": "For Matérn kernel with $m = 1$ , indicating the smoothness is $\\nu = 1 + \\textstyle { \\frac { 1 } { 2 } } = 3 / 2$ , the kernel becomes the Matérn $3 / 2$ ",
+        "bbox": [
+            88,
+            875,
+            473,
+            906
+        ],
+        "page_idx": 12
+    },
+    {
+        "type": "text",
+        "text": "covariance function: ",
+        "bbox": [
+            500,
+            85,
+            635,
+            99
+        ],
+        "page_idx": 12
+    },
+    {
+        "type": "equation",
+        "img_path": "images/38f3f91fc6d086d98dd9c3930e583b298533d170c3160b710bb1d9376a44758b.jpg",
+        "text": "$$\n\\kappa _ { \\mathrm { M a t . } } \\left( \\tau \\right) = \\sigma ^ { 2 } \\left( 1 + \\frac { \\sqrt { 3 } \\tau } { \\ell } \\right) \\exp \\left( - \\frac { \\sqrt { 3 } \\tau } { \\ell } \\right)\n$$",
+        "text_format": "latex",
+        "bbox": [
+            531,
+            106,
+            826,
+            150
+        ],
+        "page_idx": 12
+    },
+    {
+        "type": "equation",
+        "img_path": "images/95157d197f12b6e2ce0b3cb060e50a3ecec21bbeb70a9491475965d8eb0f5f49.jpg",
+        "text": "$$\n\\begin{array} { r l } & { \\mathrm { a r e } \\colon m = 1 , \\mathbf { F } = \\left( \\begin{array} { c c } { 0 } & { 1 } \\\\ { - \\lambda ^ { 2 } } & { - 2 \\lambda } \\end{array} \\right) , \\mathbf { L } = \\left( \\begin{array} { c } { 0 } \\\\ { 1 } \\end{array} \\right) , \\mathbf { P } _ { \\infty } = } \\\\ & { \\left( \\begin{array} { c c } { \\sigma ^ { 2 } } & { 0 } \\\\ { 0 } & { \\lambda ^ { 2 } \\sigma ^ { 2 } } \\end{array} \\right) , q _ { \\mathrm { s } } = 4 \\lambda ^ { 3 } \\sigma ^ { 2 } , \\mathrm { w h e r e } \\lambda = \\sqrt { 3 } / \\ell . } \\end{array}\n$$",
+        "text_format": "latex",
+        "bbox": [
+            500,
+            171,
+            887,
+            238
+        ],
+        "page_idx": 12
+    },
+    {
+        "type": "text",
+        "text": "For the periodic kernel: ",
+        "bbox": [
+            500,
+            242,
+            655,
+            256
+        ],
+        "page_idx": 12
+    },
+    {
+        "type": "equation",
+        "img_path": "images/994f55f390de4c4dccbd702dcf44b20d21d19886811ece8f1d91846764803530.jpg",
+        "text": "$$\n\\kappa _ { \\mathrm { p e r i o d i c } } ( t , t ^ { \\prime } ) = \\sigma ^ { 2 } \\exp \\left( - \\frac { 2 \\sin ^ { 2 } ( \\pi \\Delta / p ) } { l ^ { 2 } } \\right)\n$$",
+        "text_format": "latex",
+        "bbox": [
+            534,
+            266,
+            823,
+            303
+        ],
+        "page_idx": 12
+    },
+    {
+        "type": "text",
+        "text": "with preset periodicity $p$ , (Solin & Särkkä, 2014) construct corresponding SDE by a sum of $\\mathbf { n }$ two-dimensional SDE models $\\mathrm { ( m } { = } 1 \\mathrm { ) }$ ) of the following parameters: ",
+        "bbox": [
+            500,
+            311,
+            885,
+            357
+        ],
+        "page_idx": 12
+    },
+    {
+        "type": "equation",
+        "img_path": "images/5dba0333e14394fbeed9283f53739a89980fb9186d43c429c9a268096067eec2.jpg",
+        "text": "$$\n\\mathbf { F } _ { j } = \\left( \\begin{array} { c c } { 0 } & { - \\frac { 2 \\pi } { p } j } \\\\ { \\frac { 2 \\pi } { p } j } & { 0 } \\end{array} \\right) , \\mathbf { L } _ { j } = \\left( \\begin{array} { c c } { 1 } & { 0 } \\\\ { 0 } & { 1 } \\end{array} \\right)\n$$",
+        "text_format": "latex",
+        "bbox": [
+            534,
+            367,
+            825,
+            405
+        ],
+        "page_idx": 12
+    },
+    {
+        "type": "text",
+        "text": "$\\mathbf { P } _ { \\infty , j } = q _ { j } ^ { 2 } \\mathbf { I } _ { 2 }$ , where $q _ { j } ^ { 2 } = 2 \\mathrm { I } _ { j } \\left( \\ell ^ { - 2 } \\right) / \\exp \\left( \\ell ^ { - 2 } \\right)$ , for $j =$ $1 , 2 , \\ldots , n$ and $q _ { 0 } ^ { 2 } = \\mathrm { I } _ { 0 } \\left( \\ell ^ { - 2 } \\right) / \\exp \\left( \\ell ^ { - 2 } \\right)$ (Solin et al., 2016) ",
+        "bbox": [
+            498,
+            415,
+            885,
+            464
+        ],
+        "page_idx": 12
+    },
+    {
+        "type": "text",
+        "text": ".2. Derivative of online update equations by conditional moment matching ",
+        "text_level": 1,
+        "bbox": [
+            500,
+            481,
+            885,
+            511
+        ],
+        "page_idx": 12
+    },
+    {
+        "type": "text",
+        "text": ".2.1. BRIEF INTRODUCTION OF EP AND CEP ",
+        "bbox": [
+            501,
+            518,
+            812,
+            534
+        ],
+        "page_idx": 12
+    },
+    {
+        "type": "text",
+        "text": "The Expectation Propagation (EP) (Minka, 2001b) and Conditional EP (CEP) (Wang & Zhe, 2019) frameworks approximate complex probabilistic models with distributions in the exponential family. ",
+        "bbox": [
+            500,
+            541,
+            885,
+            603
+        ],
+        "page_idx": 12
+    },
+    {
+        "type": "text",
+        "text": "Consider a model with latent variables $\\pmb \\theta$ and observed data $\\mathcal { D } = \\{ \\mathbf { y } _ { 1 } , \\dots , \\mathbf { y } _ { N } \\}$ . The joint probability is: ",
+        "bbox": [
+            500,
+            611,
+            885,
+            641
+        ],
+        "page_idx": 12
+    },
+    {
+        "type": "equation",
+        "img_path": "images/a995a1d6201ce2fe807979f97fc33b6bd1a3bf94d5eb98c1ec446d2cb1b2b269.jpg",
+        "text": "$$\np ( \\pmb \\theta , \\mathcal { D } ) = p ( \\pmb \\theta ) \\prod _ { n = 1 } ^ { N } p ( \\mathbf { y } _ { n } | \\pmb \\theta )\n$$",
+        "text_format": "latex",
+        "bbox": [
+            596,
+            670,
+            789,
+            714
+        ],
+        "page_idx": 12
+    },
+    {
+        "type": "text",
+        "text": "The posterior $p ( \\pmb \\theta | \\mathcal { D } )$ is usually intractable. EP approximates each term with an exponential family distribution: ",
+        "bbox": [
+            500,
+            731,
+            885,
+            762
+        ],
+        "page_idx": 12
+    },
+    {
+        "type": "equation",
+        "img_path": "images/afdd42465697b3275b567bceeaf866c0015fe9e345829643a0a2f4586765aed6.jpg",
+        "text": "$$\n\\begin{array} { r } { p ( y _ { n } | \\pmb { \\theta } ) \\approx c _ { n } f _ { n } ( \\pmb { \\theta } ) } \\\\ { p ( \\pmb { \\theta } ) \\approx c _ { 0 } f _ { 0 } ( \\pmb { \\theta } ) } \\end{array}\n$$",
+        "text_format": "latex",
+        "bbox": [
+            625,
+            795,
+            758,
+            834
+        ],
+        "page_idx": 12
+    },
+    {
+        "type": "text",
+        "text": "where $f _ { n } ( \\pmb \\theta ) \\propto \\exp ( \\lambda _ { n } ^ { \\top } \\phi ( \\pmb \\theta ) )$ are in the exponential family with natural parameters $\\lambda _ { n }$ and sufficient statistics $\\phi ( \\pmb \\theta )$ . ",
+        "bbox": [
+            500,
+            852,
+            885,
+            883
+        ],
+        "page_idx": 12
+    },
+    {
+        "type": "text",
+        "text": "The joint probability is approximated by: ",
+        "bbox": [
+            500,
+            890,
+            769,
+            905
+        ],
+        "page_idx": 12
+    },
+    {
+        "type": "equation",
+        "img_path": "images/f678f53a40d8bf0b35812b24cf8e1dd9353c8f8384009fc54ebae30c5d9e3c0b.jpg",
+        "text": "$$\np ( \\pmb \\theta , \\mathcal { D } ) \\approx f _ { 0 } ( \\pmb \\theta ) \\prod _ { n = 1 } ^ { N } f _ { n } ( \\pmb \\theta ) \\cdot \\mathrm { c o n s t }\n$$",
+        "text_format": "latex",
+        "bbox": [
+            165,
+            107,
+            397,
+            150
+        ],
+        "page_idx": 13
+    },
+    {
+        "type": "text",
+        "text": "giving a tractable approximate posterior $q ( \\pmb \\theta ) \\approx p ( \\pmb \\theta | \\mathcal { D } )$ . ",
+        "bbox": [
+            88,
+            167,
+            459,
+            184
+        ],
+        "page_idx": 13
+    },
+    {
+        "type": "text",
+        "text": "EP optimizes the approximations $f _ { n }$ by repeatedly: ",
+        "bbox": [
+            91,
+            190,
+            423,
+            207
+        ],
+        "page_idx": 13
+    },
+    {
+        "type": "text",
+        "text": "1) Computing the calibrated distribution $q ^ { \\backslash n }$ excluding $f _ { n }$ ",
+        "bbox": [
+            88,
+            213,
+            472,
+            229
+        ],
+        "page_idx": 13
+    },
+    {
+        "type": "text",
+        "text": "2) Constructing the tilted distribution $\\widetilde { p }$ incorporating the true likelihood. ",
+        "bbox": [
+            88,
+            236,
+            473,
+            266
+        ],
+        "page_idx": 13
+    },
+    {
+        "type": "text",
+        "text": "3) Projecting $\\widetilde { p }$ back to the exponential family by moment matching. ",
+        "bbox": [
+            88,
+            273,
+            472,
+            304
+        ],
+        "page_idx": 13
+    },
+    {
+        "type": "text",
+        "text": "4) Updating $\\begin{array} { r } { f _ { n } \\approx \\frac { q ^ { * } } { q ^ { \\backslash n } } } \\end{array}$ where $q ^ { * }$ is the projection. ",
+        "bbox": [
+            88,
+            309,
+            411,
+            330
+        ],
+        "page_idx": 13
+    },
+    {
+        "type": "text",
+        "text": "The intractable moment matching in Step 3 is key. CEP exploits factorized $\\begin{array} { r l } { f _ { n } = \\prod _ { m } f _ { n m } ( \\pmb { \\theta } _ { m } ) } \\end{array}$ with disjoint $\\pmb { \\theta } _ { m }$ . It uses nested expectations: ",
+        "bbox": [
+            88,
+            334,
+            473,
+            380
+        ],
+        "page_idx": 13
+    },
+    {
+        "type": "text",
+        "text": "Specifically, for $f _ { n + 1 } ^ { d } ( \\tau ) = \\mathrm { G a m m a } ( \\tau \\mid \\hat { a } _ { n + 1 } , \\hat { b } _ { n + 1 } )$ we have: ",
+        "bbox": [
+            500,
+            83,
+            885,
+            113
+        ],
+        "page_idx": 13
+    },
+    {
+        "type": "equation",
+        "img_path": "images/65325b384f05da9f567c462fc935a7054771d09f0c580ea0d575c82d2323778b.jpg",
+        "text": "$$\n\\begin{array} { l } { \\displaystyle \\hat { a } _ { n + 1 } = \\frac 1 2 } \\\\ { \\displaystyle \\hat { b } _ { n + 1 } = \\frac 1 2 \\mathbb { E } _ { q } [ ( \\mathbf { y } _ { n + 1 } ^ { d } - \\mathbf { u } ^ { d } \\mathbf { V } ( t _ { n + 1 } ) ) ^ { 2 } ] } \\end{array}\n$$",
+        "text_format": "latex",
+        "bbox": [
+            566,
+            125,
+            816,
+            188
+        ],
+        "page_idx": 13
+    },
+    {
+        "type": "text",
+        "text": "For $f _ { n + 1 } ^ { d } ( \\mathbf { u } _ { d } ) = \\mathcal { N } ( \\mathbf { u } _ { d } \\mid \\hat { \\mathbf { m } } _ { n + 1 } ^ { d } , \\hat { \\mathbf { V } } _ { n + 1 } ^ { d } )$ , we have: ",
+        "bbox": [
+            500,
+            207,
+            828,
+            227
+        ],
+        "page_idx": 13
+    },
+    {
+        "type": "equation",
+        "img_path": "images/242f52be83a5943808743207a6be61300c439be2a4e5730a493a8bbbcef04647.jpg",
+        "text": "$$\n\\begin{array} { r l } & { \\hat { { \\bf V } } _ { n + 1 } ^ { d } = [ \\mathbb { E } _ { q } [ \\tau \\cdot { \\bf Z } ( t _ { n + 1 } ) { \\bf Z } ^ { T } ( t _ { n + 1 } ) ] ] ^ { - 1 } } \\\\ & { \\hat { \\bf m } _ { n + 1 } ^ { d } = \\hat { { \\bf V } } _ { n + 1 } ^ { d } \\cdot \\mathbb { E } _ { q } [ \\tau { \\bf y } _ { n + 1 } ^ { d } { \\bf Z } ( t _ { n + 1 } ) ] } \\end{array}\n$$",
+        "text_format": "latex",
+        "bbox": [
+            560,
+            238,
+            823,
+            282
+        ],
+        "page_idx": 13
+    },
+    {
+        "type": "text",
+        "text": "For $f _ { n + 1 } ^ { d } ( { \\bf Z } ( t _ { n + 1 } ) ) = \\mathrm { c o n c a t } [ \\mathcal { N } ( \\hat { \\mu } _ { i } , \\hat { S } _ { i } ) ] = \\mathcal { N } ( \\hat { \\mu } _ { \\bf i } , \\hat { S } _ { i } )$ , we have: ",
+        "bbox": [
+            498,
+            303,
+            887,
+            334
+        ],
+        "page_idx": 13
+    },
+    {
+        "type": "equation",
+        "img_path": "images/0087b1aa9a4e885d0309e6bf209d04ebeca2162f715d3facd5a2e01dac2ad157.jpg",
+        "text": "$$\n\\begin{array} { r } { \\hat { \\mathbf { S } } _ { i } = [ \\mathbb { E } _ { q } [ \\tau \\cdot { \\mathbf { u } } _ { d } { \\mathbf { u } } _ { d } ^ { T } ] ] ^ { - 1 } } \\\\ { \\hat { \\mu } _ { \\mathbf { i } } = \\hat { \\mathbf { S } } _ { i } \\cdot \\mathbb { E } _ { q } [ \\tau { \\mathbf { y } } _ { n + 1 } ^ { d } { \\mathbf { u } } _ { d } ] } \\end{array}\n$$",
+        "text_format": "latex",
+        "bbox": [
+            612,
+            347,
+            771,
+            391
+        ],
+        "page_idx": 13
+    },
+    {
+        "type": "equation",
+        "img_path": "images/f918b7bcb694c1b8ce114ba4e1db676019f5b3af73249d916d0ade36554a54d6.jpg",
+        "text": "$$\n\\mathbb { E } _ { \\widetilde { p } } [ \\phi ( \\pmb { \\theta } _ { m } ) ] = \\mathbb { E } _ { \\widetilde { p } ( \\pmb { \\theta } _ { \\setminus m } ) } \\mathbb { E } _ { \\widetilde { p } ( \\pmb { \\theta } _ { m } | \\pmb { \\theta } _ { \\setminus m } ) } [ \\phi ( \\pmb { \\theta } _ { m } ) ]\n$$",
+        "text_format": "latex",
+        "bbox": [
+            138,
+            412,
+            421,
+            434
+        ],
+        "page_idx": 13
+    },
+    {
+        "type": "text",
+        "text": "The inner expectation is tractable. For the outer expectation, CEP approximates the marginal tilted distribution with the current posterior: ",
+        "bbox": [
+            88,
+            450,
+            473,
+            494
+        ],
+        "page_idx": 13
+    },
+    {
+        "type": "text",
+        "text": "All the expectation is taken over the current approximated posterior $q ( \\Theta \\mid \\mathcal { D } _ { t _ { n } } )$ . ",
+        "bbox": [
+            500,
+            411,
+            885,
+            443
+        ],
+        "page_idx": 13
+    },
+    {
+        "type": "text",
+        "text": "With these message factors from the new-arriving likelihood, the online update is easy. We follow the (13), (14) and (15) to merge the factors and obtain the closed-form online update for the global posterior. ",
+        "bbox": [
+            500,
+            449,
+            885,
+            508
+        ],
+        "page_idx": 13
+    },
+    {
+        "type": "equation",
+        "img_path": "images/29c378117ae6e72e6005779a9bd6a2fdfc101577c13d4df91d364778ff66c24a.jpg",
+        "text": "$$\n\\mathbb { E } _ { \\widetilde { p } ( \\pmb { \\theta } _ { \\setminus m } ) } [ \\mathbf { g } ( \\pmb { \\theta } _ { \\setminus m } ) ] \\approx \\mathbb { E } _ { q ( \\pmb { \\theta } _ { \\setminus m } ) } [ \\mathbf { g } ( \\pmb { \\theta } _ { \\setminus m } ) ]\n$$",
+        "text_format": "latex",
+        "bbox": [
+            155,
+            529,
+            406,
+            549
+        ],
+        "page_idx": 13
+    },
+    {
+        "type": "text",
+        "text": "If still intractable, the delta method is used to approximate the expectation with a Taylor expansion. ",
+        "bbox": [
+            88,
+            565,
+            473,
+            595
+        ],
+        "page_idx": 13
+    },
+    {
+        "type": "text",
+        "text": "Once the conditional moment $\\mathbf { g } ( \\pmb \\theta _ { \\backslash m } )$ is obtained, CEP substitutes the expectation $\\mathbb { E } _ { q ( \\pmb { \\theta } _ { \\setminus m } ) } [ \\pmb { \\theta } _ { \\setminus m } ]$ to compute the matched moment for constructing $q ^ { * }$ . ",
+        "bbox": [
+            88,
+            603,
+            473,
+            648
+        ],
+        "page_idx": 13
+    },
+    {
+        "type": "text",
+        "text": "Online inference Update ",
+        "text_level": 1,
+        "bbox": [
+            89,
+            665,
+            259,
+            680
+        ],
+        "page_idx": 13
+    },
+    {
+        "type": "text",
+        "text": "We then applied the EP and CEP to approximate the running posterior $p ( \\Theta \\mid \\mathcal { D } _ { t _ { n } } \\cup \\mathbf { y } _ { n + 1 } )$ . With the incremental version of Bayes’rule (10), the key is to work out the close-form factors in the likelihood approximation (12). In other words, we adopt conditional moment match techniques to handle: ",
+        "bbox": [
+            88,
+            688,
+            473,
+            763
+        ],
+        "page_idx": 13
+    },
+    {
+        "type": "equation",
+        "img_path": "images/18ab76c4d333ba7ee60e30e5a0474b8e2ce425d1e4c96c6df7b009c74dd123d9.jpg",
+        "text": "$$\n\\begin{array} { r l } & { \\mathcal { N } ( \\mathbf { y } _ { n + 1 } ^ { d } \\mid \\mathbf { u } ^ { d } \\mathbf { V } ( t _ { n + 1 } ) , \\tau ^ { - 1 } ) \\approx } \\\\ & { \\mathcal { Z } f _ { n + 1 } ^ { d } ( \\mathbf { Z } ( t _ { n + 1 } ) ) f _ { n + 1 } ^ { d } ( \\mathbf { u } _ { d } ) f _ { n + 1 } ^ { d } ( \\tau ) } \\end{array}\n$$",
+        "text_format": "latex",
+        "bbox": [
+            161,
+            772,
+            400,
+            818
+        ],
+        "page_idx": 13
+    },
+    {
+        "type": "text",
+        "text": "Then we follow the standard CEP procedure to compute the conditional moment of $\\{ \\mathbf { Z } ( t _ { n + 1 } ) , \\mathbf { u } _ { d } , \\tau \\}$ and update $\\begin{array} { r l r } { f _ { n + 1 } ^ { d } ( \\mathbf { u } _ { d } ) } & { { } = } & { \\mathcal { N } ( \\mathbf { u } _ { d } \\quad \\mathbf { | } \\quad \\hat { \\mathbf { m } } _ { n + 1 } ^ { d } , \\hat { \\mathbf { V } } _ { n + 1 } ^ { d } ) } \\end{array}$ and $f _ { n + 1 } ^ { d } ( \\tau ) = \\mathrm { G a m m a } ( \\tau \\mid \\hat { a } _ { n + 1 } , \\hat { b } _ { n + 1 } )$ , $f _ { n + 1 } ^ { d } ( { \\bf Z } ( t _ { n + 1 } ) ) =$ $\\mathrm { c o n c a t } [ \\mathcal { N } ( \\hat { \\mu } _ { i } , \\hat { \\mathbf { S } } _ { i } ) ]$ . ",
+        "bbox": [
+            88,
+            825,
+            473,
+            906
+        ],
+        "page_idx": 13
+    },
+    {
+        "type": "text",
+        "text": ".3. Derivation of the PROBABILISTIC IMPUTATION AT ARBITRARY TIME STAMPS ",
+        "text_level": 1,
+        "bbox": [
+            500,
+            525,
+            883,
+            555
+        ],
+        "page_idx": 13
+    },
+    {
+        "type": "text",
+        "text": "Consider a general state space model, which includes a sequence of states $\\mathbf { x } _ { 1 } , \\ldots , \\mathbf { x } _ { M }$ and the observed data $\\mathcal { D }$ The states are at time $t _ { 1 } , \\dots , t _ { M }$ respectively. The key of the state space model is that the prior of the states is a Markov chain. The joint probability has the following form, ",
+        "bbox": [
+            500,
+            564,
+            885,
+            640
+        ],
+        "page_idx": 13
+    },
+    {
+        "type": "equation",
+        "img_path": "images/799e4f34904a51fa3b29235b52422e20e0664cb0bce9915b326745ea3fd64e0d.jpg",
+        "text": "$$\n\\begin{array} { r l } & { p ( \\mathbf { x } _ { 1 } , \\ldots , \\mathbf { x } _ { M } , \\mathcal { D } ) } \\\\ & { \\quad = p ( \\mathbf { x } _ { 1 } ) \\prod _ { j = 1 } ^ { M - 1 } p ( \\mathbf { x } _ { j + 1 } | \\mathbf { x } _ { j } ) \\cdot p ( \\mathcal { D } | \\mathbf { x } _ { 1 } , \\ldots , \\mathbf { x } _ { M } ) . } \\end{array}\n$$",
+        "text_format": "latex",
+        "bbox": [
+            524,
+            652,
+            833,
+            719
+        ],
+        "page_idx": 13
+    },
+    {
+        "type": "text",
+        "text": "Note that here we do not assume the data likelihood is factorized over each state, like those typically used in Kalman filtering. In our point process model, the likelihood often couples multiple states together. ",
+        "bbox": [
+            500,
+            732,
+            885,
+            792
+        ],
+        "page_idx": 13
+    },
+    {
+        "type": "text",
+        "text": "Suppose we have run some posterior inference to obtain the posterior of these states $q ( \\mathbf { x } _ { 1 } , \\ldots , \\mathbf { x } _ { M } )$ , and we can easily pick up the marginal posterior of each state and each pair of the states. Now we want to calculate the posterior distribution of the state at time $t ^ { * }$ such that $t _ { m } < t ^ { * } < t _ { m + 1 }$ Denote the corresponding state by $\\mathbf { x } ^ { * }$ , our goal is to compute $p ( \\mathbf { x } ^ { * } | \\mathcal { D } )$ . To do so, we consider incorporating $\\mathbf { x } ^ { * }$ in the joint ",
+        "bbox": [
+            500,
+            799,
+            885,
+            906
+        ],
+        "page_idx": 13
+    },
+    {
+        "type": "text",
+        "text": "probability (41), ",
+        "bbox": [
+            88,
+            84,
+            197,
+            99
+        ],
+        "page_idx": 14
+    },
+    {
+        "type": "equation",
+        "img_path": "images/25c520910c42e0fb7290f30310c2e7b19da84fb2a2cbb8ee1f53f32b54f94ff5.jpg",
+        "text": "$$\n\\begin{array} { r l } & { p ( \\mathbf x _ { 1 } , \\ldots , \\mathbf x _ { m } , \\mathbf x ^ { * } , \\mathbf x _ { m + 1 } , \\ldots , \\mathbf x _ { M } , \\mathcal D ) } \\\\ & { \\quad = p ( \\mathbf x _ { 1 } ) \\displaystyle \\prod _ { j = 1 } ^ { m - 1 } p ( \\mathbf x _ { j + 1 } | \\mathbf x _ { j } ) \\cdot p ( \\mathbf x ^ { * } | \\mathbf x _ { m } ) p ( \\mathbf x _ { m + 1 } | \\mathbf x ^ { * } ) } \\\\ & { \\quad \\cdot \\displaystyle \\prod _ { j = m + 1 } ^ { M } p ( \\mathbf x _ { j + 1 } | \\mathbf x _ { j } ) \\cdot p ( \\mathcal D | \\mathbf x _ { 1 } , \\ldots , \\mathbf x _ { M } ) . } \\end{array}\n$$",
+        "text_format": "latex",
+        "bbox": [
+            114,
+            113,
+            446,
+            226
+        ],
+        "page_idx": 14
+    },
+    {
+        "type": "text",
+        "text": "Now, we marginalize out $\\begin{array} { r l r l } { \\mathbf { x } _ { 1 : M \\setminus \\{ m , m + 1 \\} } } & { { } } & { = } \\end{array}$ $\\left\\{ \\mathbf { x } _ { 1 } , \\hdots , \\mathbf { x } _ { m - 1 } , \\mathbf { x } _ { m + 2 } , \\hdots , \\mathbf { x } _ { M } \\right\\}$ . Note that since $\\mathbf { x } ^ { * }$ does not appear in the likelihood, we can take it out from the integral, ",
+        "bbox": [
+            88,
+            237,
+            473,
+            297
+        ],
+        "page_idx": 14
+    },
+    {
+        "type": "equation",
+        "img_path": "images/f474992387cfc0cb69943bc8ed9818c011b52681bbba3b6d12302a6d2f329855.jpg",
+        "text": "$$\n\\begin{array} { r l } {  { p ( \\mathbf { x } _ { m } , \\mathbf { x } _ { m + 1 } , \\mathbf { x } ^ { * } , \\mathcal { D } ) } } \\\\ & { = \\int p ( \\mathbf { x } _ { 1 } ) \\prod _ { j = 1 } ^ { m - 1 } p ( \\mathbf { x } _ { j + 1 } | \\mathbf { x } _ { j } ) } \\\\ & { \\underset { j = m + 1 } { M } \\prod _ { \\substack { p ( \\mathbf { x } _ { j + 1 } | \\mathbf { x } _ { j } ) \\cdot p ( \\mathcal { D } | \\mathbf { x } _ { 1 } , \\dots , \\mathbf { x } _ { \\mathcal { M } } ) \\mathrm { d } \\mathbf { x } _ { 1 : \\mathcal { M } \\setminus \\{ m , m + 1 \\} } } } } \\\\ & { \\cdot p ( \\mathbf { x } ^ { * } | \\mathbf { x } _ { m } ) p ( \\mathbf { x } _ { m + 1 } | \\mathbf { x } ^ { * } ) } \\\\ & { = \\frac { p ( \\mathbf { x } _ { m } , \\mathbf { x } _ { m + 1 } , \\mathcal { D } ) p ( \\mathbf { x } ^ { * } | \\mathbf { x } _ { m } ) p ( \\mathbf { x } _ { m + 1 } | \\mathbf { x } ^ { * } ) } { p ( \\mathbf { x } _ { m + 1 } | \\mathbf { x } _ { m } ) } . \\qquad ( 4 ; } \\end{array}\n$$",
+        "text_format": "latex",
+        "bbox": [
+            96,
+            309,
+            462,
+            478
+        ],
+        "page_idx": 14
+    },
+    {
+        "type": "text",
+        "text": "Therefore, we have ",
+        "bbox": [
+            88,
+            496,
+            215,
+            511
+        ],
+        "page_idx": 14
+    },
+    {
+        "type": "equation",
+        "img_path": "images/9efcf28d89d13798c799d42112307303f6d5f471d766636f294c8a08dcb03ef0.jpg",
+        "text": "$$\n\\begin{array} { r l } & { p ( \\mathbf x _ { m } , \\mathbf x _ { m + 1 } , \\mathbf x ^ { * } | \\mathcal D ) \\propto } \\\\ & { p ( \\mathbf x _ { m } , \\mathbf x _ { m + 1 } | \\mathcal D ) p ( \\mathbf x ^ { * } | \\mathbf x _ { m } ) p ( \\mathbf x _ { m + 1 } | \\mathbf x ^ { * } ) . } \\end{array}\n$$",
+        "text_format": "latex",
+        "bbox": [
+            148,
+            523,
+            411,
+            564
+        ],
+        "page_idx": 14
+    },
+    {
+        "type": "text",
+        "text": "Suppose we are able to obtain $\\begin{array} { r l } { p ( \\mathbf { x } _ { m } , \\mathbf { x } _ { m + 1 } | \\mathcal { D } ) } & { { } \\approx } \\end{array}$ $q ( \\mathbf { x } _ { m } , \\mathbf { x } _ { m + 1 } )$ . We now need to obtain the posterior of $\\mathbf { x } ^ { * }$ . In the LTI SDE model, we know that the state transition is a Gaussian jump. Let us denote ",
+        "bbox": [
+            88,
+            575,
+            475,
+            637
+        ],
+        "page_idx": 14
+    },
+    {
+        "type": "equation",
+        "img_path": "images/923793bd37aa61a08fc7a041b79ce005f8df8f859c66d4678aeaceae8c3b9ec8.jpg",
+        "text": "$$\n\\begin{array} { r l } & { p ( \\mathbf { x } ^ { * } | \\mathbf { x } _ { m } ) = \\mathcal { N } ( \\mathbf { x } ^ { * } | \\mathbf { A } _ { 1 } \\mathbf { x } _ { m } , \\mathbf { Q } _ { 1 } ) } \\\\ & { p ( \\mathbf { x } _ { m + 1 } | \\mathbf { x } ^ { * } ) = \\mathcal { N } ( \\mathbf { x } _ { m + 1 } | \\mathbf { A } _ { 2 } \\mathbf { x } ^ { * } , \\mathbf { Q } _ { 2 } ) . } \\end{array}\n$$",
+        "text_format": "latex",
+        "bbox": [
+            155,
+            648,
+            406,
+            690
+        ],
+        "page_idx": 14
+    },
+    {
+        "type": "text",
+        "text": "Then, we can simply merge the natural parameters of the two Gaussian and obtain ",
+        "bbox": [
+            88,
+            702,
+            473,
+            732
+        ],
+        "page_idx": 14
+    },
+    {
+        "type": "equation",
+        "img_path": "images/9cb0a1531c0848bbe541aefcafa3a612ea0a0faec8e102e32716fdde92478384.jpg",
+        "text": "$$\n\\begin{array} { r } { p ( \\mathbf { x } _ { m } , \\mathbf { x } _ { m + 1 } , \\mathbf { x } ^ { * } | \\mathcal { D } ) = p ( \\mathbf { x } _ { m } , \\mathbf { x } _ { m + 1 } | \\mathcal { D } ) \\mathcal { N } ( \\mathbf { x } ^ { * } | \\boldsymbol { \\mu } ^ { * } , \\boldsymbol { \\Sigma } ^ { * } ) , } \\end{array}\n$$",
+        "text_format": "latex",
+        "bbox": [
+            98,
+            746,
+            462,
+            763
+        ],
+        "page_idx": 14
+    },
+    {
+        "type": "text",
+        "text": "where ",
+        "bbox": [
+            88,
+            792,
+            129,
+            806
+        ],
+        "page_idx": 14
+    },
+    {
+        "type": "equation",
+        "img_path": "images/d97d7ae27e68d4eb521569b9c09a94e21d93d95330740b81a79c9058e94362ee.jpg",
+        "text": "$$\n\\begin{array} { r l } & { \\quad \\left( \\pmb { \\Sigma } ^ { * } \\right) ^ { - 1 } = \\mathbf { Q } _ { 1 } ^ { - 1 } + \\mathbf { A } _ { 2 } ^ { \\top } \\mathbf { Q } _ { 2 } ^ { - 1 } \\mathbf { A } _ { 2 } , } \\\\ & { \\quad \\left( \\pmb { \\Sigma } ^ { * } \\right) ^ { - 1 } \\pmb { \\mu } ^ { * } = \\mathbf { Q } _ { 1 } ^ { - 1 } \\mathbf { A } _ { 1 } \\mathbf { x } _ { m } + \\mathbf { A } _ { 2 } ^ { \\top } \\mathbf { Q } _ { 2 } ^ { - 1 } \\mathbf { x } _ { m + 1 } . } \\end{array}\n$$",
+        "text_format": "latex",
+        "bbox": [
+            120,
+            818,
+            415,
+            864
+        ],
+        "page_idx": 14
+    },
+    {
+        "type": "text",
+        "text": "Those are the formulas for probabilistic imputation as arbitrary time stamps. ",
+        "bbox": [
+            88,
+            875,
+            475,
+            905
+        ],
+        "page_idx": 14
+    },
+    {
+        "type": "text",
+        "text": ".4. More experimental results ",
+        "text_level": 1,
+        "bbox": [
+            501,
+            85,
+            705,
+            99
+        ],
+        "page_idx": 14
+    },
+    {
+        "type": "text",
+        "text": "The NLLK scores of probabilistic imputation approaches across all datasets with different observed ratios are shown in table 6. We can see that BayOTIDE , an online method that only processes data once, beats the offline baselines and achieves the best performance in all cases. ",
+        "bbox": [
+            501,
+            108,
+            885,
+            183
+        ],
+        "page_idx": 14
+    },
+    {
+        "type": "text",
+        "text": "To further show the sensitivity of BayOTIDE over the different latent space dimensions, we evaluate our method on the Guangzhou-traffic dataset (observed ratio $= 7 0 \\%$ ) with different settings of latent space dimension and evaluate the test CRPC score. The results are shown in table 7. We found that increasing the latent space dimension, especially the trend factor dimension $( D _ { r } )$ , can improve the model performance. However, the improvement is not linear, and the model may suffer from overfitting when the latent space dimension is too large. A seasonal factor dimension $( D _ { s } )$ that is too high may also lead to overfitting and degrading the model performance. ",
+        "bbox": [
+            501,
+            191,
+            885,
+            372
+        ],
+        "page_idx": 14
+    },
+    {
+        "type": "text",
+        "text": "For the online imputation, the results on the Solar-Power and Uber-Move is shown in Figure 3a and Figure 3b. ",
+        "bbox": [
+            500,
+            381,
+            885,
+            410
+        ],
+        "page_idx": 14
+    },
+    {
+        "type": "table",
+        "img_path": "images/06446fc5188fec6699131422dcdf9c24fcc28b09a601f642683bae47640dcc00.jpg",
+        "table_caption": [
+            "Table 5: The hyperparameter setting of BayOTIDE for the imputation task. "
+        ],
+        "table_footnote": [],
+        "table_body": "<table><tr><td>Observed-ratio=50%</td><td>Traffic-GuangZhou</td><td>Solar-Power</td><td>Uber-Move</td></tr><tr><td>Number of trend factor Dr</td><td>30</td><td>50</td><td>30</td></tr><tr><td>Number of seasonality factor Ds</td><td>10</td><td>5</td><td></td></tr><tr><td>Trend factor smoothness (ν)</td><td>$\\frac { {2 }$</td><td>3</td><td>MIN</td></tr><tr><td>Trend factor lengthscale</td><td>0.1</td><td>0.001</td><td>0.1</td></tr><tr><td>Trend factor variance</td><td>1.0</td><td>1.0</td><td>1.0</td></tr><tr><td>Seasonal factor frequency (2πp)</td><td>15</td><td>10</td><td>15</td></tr><tr><td>Seasonal factor lengthscale</td><td>0.05</td><td>0.5</td><td>0.05</td></tr><tr><td>Damping epochs</td><td>5</td><td>2</td><td>5</td></tr><tr><td>Observed-ratio=70%</td><td>Traffic-GuangZhou</td><td>Solar-Power</td><td>Uber-Move</td></tr><tr><td>Number of trend factor Dτ</td><td>30</td><td>50</td><td>30</td></tr><tr><td>Number of seasonality factor Ds</td><td>10</td><td>5</td><td>5</td></tr><tr><td>Trend factor smoothness (ν)</td><td>$ \\fac{ 2 $</td><td>$\\frac{ { 2 }$</td><td>$\\frac { {2 }$</td></tr><tr><td>Trend factor lengthscale</td><td>0.1</td><td></td><td></td></tr><tr><td>Trend factor variance</td><td>1.0</td><td>0.0005</td><td>0.1</td></tr><tr><td>Seasonal factor frequency (2πp)</td><td>15</td><td>1.0</td><td>1.0</td></tr><tr><td></td><td></td><td>100</td><td>15</td></tr><tr><td>Seasonal factor lengthscale</td><td>0.05</td><td>0.5</td><td>0.05</td></tr><tr><td>Damping epochs</td><td>5</td><td>2</td><td>5</td></tr></table>",
+        "bbox": [
+            220,
+            93,
+            750,
+            330
+        ],
+        "page_idx": 15
+    },
+    {
+        "type": "image",
+        "img_path": "images/e1cfa78e64b42e946dd15945ded8c4854b656c57f955a440c18a6e8e2fae15a8.jpg",
+        "image_caption": [
+            "Figure 3: Online imputation results on Solar-Power and Uber-Move. ",
+            "Table 6: The negative log-likelihood score (NLLK) of all probabilistic imputation methods on all datasets with observed ratio $= \\{ 5 0 \\% , 7 0 \\% \\}$ "
+        ],
+        "image_footnote": [],
+        "bbox": [
+            147,
+            393,
+            820,
+            622
+        ],
+        "page_idx": 15
+    },
+    {
+        "type": "table",
+        "img_path": "images/2d37ccdd2a219ee206ae67a2e102d14bd5cc96ff32ecacb1fd1a3fd07a1aa16e.jpg",
+        "table_caption": [],
+        "table_footnote": [],
+        "table_body": "<table><tr><td rowspan=\"2\">Dataset Observed ratio</td><td colspan=\"2\">Traffic-GuangZhou</td><td colspan=\"2\">Solar-Power</td><td colspan=\"2\">Uber-Move</td></tr><tr><td>50%</td><td>70%</td><td>50%</td><td>70%</td><td>50%</td><td>70%</td></tr><tr><td colspan=\"7\">Probabilistic &amp; Offline</td></tr><tr><td>Multi-Task GP</td><td>7.339</td><td>6.921</td><td>4.921</td><td>4.292</td><td>4.426</td><td>4.027</td></tr><tr><td>GP-VAE</td><td>5.353</td><td>4.691</td><td>6.921</td><td>6.006</td><td>7.323</td><td>5.827</td></tr><tr><td>CSDI</td><td>3.942</td><td>3.518</td><td>3.433</td><td>2.921</td><td>2.415</td><td>2.322</td></tr><tr><td>CSBI</td><td>3.912</td><td>3.527</td><td>3.537</td><td>3.016</td><td>2.424</td><td>2.331</td></tr><tr><td colspan=\"7\">Probabilistic &amp; Online</td></tr><tr><td>BayOTIDE-fix weight</td><td>10.239</td><td>8.905</td><td>4.116</td><td>4.093</td><td>3.249</td><td>3.252</td></tr><tr><td>BayOTIDE-trend only</td><td>2.897</td><td>2.852</td><td>1.944</td><td>1.878</td><td>2.169</td><td>2.146</td></tr><tr><td>BayOTIDE</td><td>3.244</td><td>3.078</td><td>1.885</td><td>1.852</td><td>2.167</td><td>2.100</td></tr></table>",
+        "bbox": [
+            222,
+            675,
+            748,
+            851
+        ],
+        "page_idx": 15
+    },
+    {
+        "type": "table",
+        "img_path": "images/b32de1ee0a6bbf76587676883561bd7979f587a35c90026dcabc2e08b6f06c9d.jpg",
+        "table_caption": [],
+        "table_footnote": [
+            "Table 7: The test CRPC on Guangzhou-traffic dataset(observed ratio $= 7 0 \\%$ ) with different settings of latent space dimension. "
+        ],
+        "table_body": "<table><tr><td>Test CRPC</td><td>Dr = 5</td><td>Dr = 10</td><td>Dr = 20</td><td>Dr = 30</td><td>Dr = 40</td></tr><tr><td>D = 3</td><td>0.068</td><td>0.064</td><td>0.061</td><td>0.057</td><td>0.056</td></tr><tr><td>D = 5</td><td>0.067</td><td>0.063</td><td>0.059</td><td>0.056</td><td>0.055</td></tr><tr><td>Ds = 10</td><td>0.066</td><td>0.063</td><td>0.058</td><td>0.053</td><td>0.053</td></tr><tr><td>Ds = 20</td><td>0.081</td><td>0.074</td><td>0.065</td><td>0.059</td><td>0.058</td></tr></table>",
+        "bbox": [
+            258,
+            433,
+            715,
+            525
+        ],
+        "page_idx": 16
+    }
+]

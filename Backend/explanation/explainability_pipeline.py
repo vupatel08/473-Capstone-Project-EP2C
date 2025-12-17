@@ -63,17 +63,17 @@ class ExplainabilityPipeline:
         print("EP2C EXPLANATION LAYER GENERATION")
         print("="*60 + "\n")
         
-        # Load inputs
+        # Load all required inputs for explanation generation
         print("Loading inputs...")
-        paper_json = self._load_json(paper_json_path)
-        generated_files = self._load_generated_files(generated_code_dir)
-        planning_artifacts = self._load_json(planning_artifacts_path)
-        config_data = self._load_yaml(config_path) if config_path else {}
+        paper_json = self._load_json(paper_json_path)  # Paper content in JSON format
+        generated_files = self._load_generated_files(generated_code_dir)  # All generated Python files
+        planning_artifacts = self._load_json(planning_artifacts_path)  # Planning phase outputs
+        config_data = self._load_yaml(config_path) if config_path else {}  # Config if available
         
-        # Extract paper content as string for analysis
+        # Extract paper content as string for text-based analysis (missing info detection)
         paper_content = self._extract_paper_content(paper_json)
         
-        # Step 1: Generate traceability map
+        # Step 1: Generate bidirectional traceability map (code <-> paper sections)
         print("\nStep 1: Generating paper-to-code traceability map...")
         traceability_map = self.explanation_generator.generate_traceability_map(
             paper_json,
@@ -81,7 +81,7 @@ class ExplainabilityPipeline:
             planning_artifacts
         )
         
-        # Step 2: Detect missing information
+        # Step 2: Detect missing information (hyperparameters, datasets, etc. not in paper)
         print("\nStep 2: Detecting missing information...")
         missing_info = self.missing_info_detector.detect_missing_information(
             paper_content,
@@ -89,7 +89,7 @@ class ExplainabilityPipeline:
             generated_files
         )
         
-        # Step 3: Generate README
+        # Step 3: Generate basic README with traceability and missing info alerts
         print("\nStep 3: Generating comprehensive README...")
         readme_content = self.readme_generator.generate_readme(
             paper_metadata=self._extract_paper_metadata(paper_json),
@@ -99,7 +99,7 @@ class ExplainabilityPipeline:
             config_data=config_data
         )
         
-        # Step 4: Evaluate explainability
+        # Step 4: Evaluate explainability metrics (coverage, comments, references, etc.)
         print("\nStep 4: Evaluating explainability metrics...")
         explainability_metrics = self.evaluator.evaluate_explainability(
             generated_code=generated_files,
@@ -108,34 +108,34 @@ class ExplainabilityPipeline:
             paper_sections=traceability_map.get("paper_sections", [])
         )
         
-        # Create output directory
+        # Create output directory for all explanation layer files
         os.makedirs(output_dir, exist_ok=True)
         
-        # Save outputs
+        # Save all explanation layer outputs
         print("\nSaving explanation layer outputs...")
         
-        # Save traceability map
-        with open(f"{output_dir}/traceability_map.json", 'w') as f:
+        # Save traceability map (JSON format for programmatic access)
+        with open(f"{output_dir}/traceability_map.json", 'w', encoding='utf-8') as f:
             json.dump(traceability_map, f, indent=2)
         
-        # Save README
-        with open(f"{output_dir}/README.md", 'w') as f:
+        # Save basic README (user-facing documentation)
+        with open(f"{output_dir}/README.md", 'w', encoding='utf-8') as f:
             f.write(readme_content)
         
-        # Save missing info
-        with open(f"{output_dir}/missing_information.json", 'w') as f:
+        # Save missing information alerts (JSON format)
+        with open(f"{output_dir}/missing_information.json", 'w', encoding='utf-8') as f:
             json.dump(missing_info, f, indent=2)
         
-        # Save explainability metrics
-        with open(f"{output_dir}/explainability_metrics.json", 'w') as f:
+        # Save explainability metrics (JSON format)
+        with open(f"{output_dir}/explainability_metrics.json", 'w', encoding='utf-8') as f:
             json.dump(explainability_metrics, f, indent=2)
         
-        # Save evaluation report
+        # Save human-readable evaluation report
         report = self.evaluator.generate_explanation_report(explainability_metrics)
-        with open(f"{output_dir}/explainability_report.txt", 'w') as f:
+        with open(f"{output_dir}/explainability_report.txt", 'w', encoding='utf-8') as f:
             f.write(report)
         
-        # Step 5: Generate comprehensive EXPLANATION.md
+        # Step 5: Generate comprehensive EXPLANATION.md (combines all outputs)
         print("\nStep 5: Generating comprehensive EXPLANATION.md...")
         comprehensive_explanation = self.readme_generator.generate_comprehensive_explanation(
             paper_metadata=self._extract_paper_metadata(paper_json),
@@ -182,31 +182,35 @@ class ExplainabilityPipeline:
             return yaml.safe_load(f)
     
     def _load_generated_files(self, code_dir: str) -> Dict[str, str]:
-        """Load generated code files."""
+        """Load generated code files from directory."""
         files = {}
         
+        # Walk through code directory and find all Python files
         for root, dirs, filenames in os.walk(code_dir):
             for filename in filenames:
-                if filename.endswith('.py'):
+                if filename.endswith('.py'):  # Only load Python files
                     file_path = os.path.join(root, filename)
-                    rel_path = os.path.relpath(file_path, code_dir)
+                    rel_path = os.path.relpath(file_path, code_dir)  # Relative path for mapping
                     with open(file_path, 'r', encoding='utf-8') as f:
-                        files[rel_path] = f.read()
+                        files[rel_path] = f.read()  # Store file content
         
         return files
     
     def _extract_paper_content(self, paper_json: Dict) -> str:
-        """Extract paper content as string."""
+        """Extract paper content as string for text-based analysis."""
         content_parts = []
         
+        # Add abstract if available
         if "abstract" in paper_json:
             content_parts.append(paper_json["abstract"])
         
+        # Add all body text sections
         if "body_text" in paper_json:
             for item in paper_json["body_text"]:
                 if "text" in item:
                     content_parts.append(item["text"])
         
+        # Join all content into single string for text search
         return " ".join(content_parts)
     
     def _extract_paper_metadata(self, paper_json: Dict) -> Dict:

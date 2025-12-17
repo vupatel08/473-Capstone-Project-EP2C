@@ -260,13 +260,16 @@ def codegen_prep(doc_paths: list[Path], output_dir: Path) -> list[dict[str: str,
         })
 
         # Use default MinerU output directory.
-        paper_output_directory = output_dir / f"{curr_doc}/auto"
+        paper_output_directory = output_dir / curr_doc / "auto"
+        content_list_path = paper_output_directory / f"{curr_doc}_content_list.json"
 
-        with open(paper_output_directory / f"{curr_doc}_content_list.json", encoding="utf-8") as curr_parse:
-            if not curr_parse:
-                print(f"Document \'{curr_doc}\' not found.", file=sys.stderr)
-            else:
-                parse_content =json.load(curr_parse)
+        if not content_list_path.exists():
+            print(f"Document \'{curr_doc}\' not found at {content_list_path}.", file=sys.stderr)
+            continue
+
+        try:
+            with open(content_list_path, 'r', encoding='utf-8') as curr_parse:
+                parse_content = json.load(curr_parse)
                 content_str = ""
                 
                 # Handle each type of parsed data.
@@ -290,8 +293,7 @@ def codegen_prep(doc_paths: list[Path], output_dir: Path) -> list[dict[str: str,
                             # Store the image file's path.
                             context_lst[i]["content"].append({
                                 "type": "image",
-                                "path": paper_output_directory / 
-                                    f"/{item["img_path"]}"
+                                "path": paper_output_directory / item["img_path"]
                                 })
                             
                             if "table_caption" in item:
@@ -316,6 +318,12 @@ def codegen_prep(doc_paths: list[Path], output_dir: Path) -> list[dict[str: str,
                         "type": "text",
                         "content": content_str
                     })
+        except (UnicodeDecodeError, json.JSONDecodeError) as e:
+            print(f"Error reading or parsing content_list.json for '{curr_doc}': {e}", file=sys.stderr)
+            continue
+        except Exception as e:
+            print(f"Unexpected error processing '{curr_doc}': {e}", file=sys.stderr)
+            continue
     
     return context_lst
 
@@ -353,7 +361,7 @@ def ep2c_parse(docs: list[tuple[str | Path, str]], output_path: str | Path):
     for doc_lang in docs:
         # Typecheck all arguments.
         if (not isinstance(doc_lang, tuple)) or \
-           (len(doc_lang) != 2) \
+           (len(doc_lang) != 2) or \
            (not ((type(doc_lang[0]) in path_types) and isinstance(doc_lang[1], str))):
             
             print(f"{error_prefix}document list should be a list of (str | Path, str) tuples.", file=sys.stderr)
@@ -371,11 +379,4 @@ def ep2c_parse(docs: list[tuple[str | Path, str]], output_path: str | Path):
     _parse_doc(path_list=doc_paths, langs=langs, output_dir=output_path)
 
     return
-
-out = codegen_prep([Path("Backend/parsing/ExampleResearchPaper.pdf"), Path("Backend/parsing/EP2C -  Project Proposal.pdf")], Path("Backend/parsing/parse_output"))
-
-with open("out.txt", 'w', encoding="utf-8") as f:
-    for doc in out:
-        print(doc["document"], file=f)
-        for item in doc["content"]:
-            print("    " + str(item), file=f)
+    

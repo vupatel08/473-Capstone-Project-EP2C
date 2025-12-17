@@ -1,0 +1,3921 @@
+[
+    {
+        "type": "text",
+        "text": "MODULATE YOUR SPECTRUM IN SELF-SUPERVISED LEARNING ",
+        "text_level": 1,
+        "bbox": [
+            176,
+            80,
+            820,
+            126
+        ],
+        "page_idx": 0
+    },
+    {
+        "type": "text",
+        "text": "Xi Weng∗1, Yunhao $\\mathbf { N i } ^ { * 1 }$ , Tengwei $\\mathbf { S o n g ^ { 1 } }$ , Jie $\\mathbf { L u o ^ { 1 } }$ , Rao Muhammad Anwer2, Salman Khan2, Fahad Shahbaz Khan2, Lei Huang \u0000 1 1SKLCCSE, Institute of Artificial Intelligence, Beihang University, Beijing, China 2Mohamed bin Zayed University of Artificial Intelligence, UAE ",
+        "bbox": [
+            186,
+            150,
+            746,
+            208
+        ],
+        "page_idx": 0
+    },
+    {
+        "type": "text",
+        "text": "ABSTRACT ",
+        "text_level": 1,
+        "bbox": [
+            452,
+            231,
+            544,
+            246
+        ],
+        "page_idx": 0
+    },
+    {
+        "type": "text",
+        "text": "Whitening loss offers a theoretical guarantee against feature collapse in selfsupervised learning (SSL) with joint embedding architectures. Typically, it involves a hard whitening approach, transforming the embedding and applying loss to the whitened output. In this work, we introduce Spectral Transformation (ST), a framework to modulate the spectrum of embedding and to seek for functions beyond whitening that can avoid dimensional collapse. We show that whitening is a special instance of ST by definition, and our empirical investigations unveil other ST instances capable of preventing collapse. Additionally, we propose a novel ST instance named IterNorm with trace loss (INTL). Theoretical analysis confirms INTL’s efficacy in preventing collapse and modulating the spectrum of embedding toward equal-eigenvalues during optimization. Our experiments on ImageNet classification and COCO object detection demonstrate INTL’s potential in learning superior representations. The code is available at https://github.com/winci-ai/INTL. ",
+        "bbox": [
+            233,
+            260,
+            766,
+            430
+        ],
+        "page_idx": 0
+    },
+    {
+        "type": "text",
+        "text": "1 INTRODUCTION ",
+        "text_level": 1,
+        "bbox": [
+            176,
+            452,
+            336,
+            467
+        ],
+        "page_idx": 0
+    },
+    {
+        "type": "text",
+        "text": "Self-supervised learning (SSL) via joint embedding architectures to learn visual representations has made significant progress over the last several years (Bachman et al., 2019; He et al., 2020; Chen et al., 2020a; Chen & He, 2021; Bardes et al., 2022; Oquab et al., 2023), almost outperforming their supervised counterpart on many downstream tasks (Liu et al., 2021; Jaiswal et al., 2020; Ranasinghe et al., 2022). This paradigm addresses to train a dual pair of networks to produce similar embeddings for different views of the same image (Chen & He, 2021). One main challenge with the joint embedding architectures is how to prevent a collapse of the representation, in which the two branches ignore the inputs and produce identical and constant outputs (Chen & He, 2021). A variety of methods have been proposed to successfully avoid collapse, including contrastive learning methods (Wu et al., 2018; He et al., 2020; Saunshi et al., 2019) that attract different views from the same image (positive pairs) while pull apart different images (negative pairs), and non-contrastive methods (Grill et al., 2020; Chen & He, 2021) that directly match the positive targets without introducing negative pairs. ",
+        "bbox": [
+            174,
+            472,
+            825,
+            631
+        ],
+        "page_idx": 0
+    },
+    {
+        "type": "text",
+        "text": "The collapse problem is further generalized into dimensional collapse (Hua et al., 2021; Jing et al., 2022) (or informational collapse (Bardes et al., 2022)), where the embedding vectors only span a lower-dimensional subspace and would be highly correlated. In this case, the covariance matrix of embedding has certain zero eigenvalues, which degenerates the representation in SSL. To prevent dimensional collapse, a theoretically motivated paradigm, called whitening loss, is proposed by minimizing the distance between embeddings of positive pairs under the condition that embeddings from different views are whitened (Ermolov et al., 2021; Hua et al., 2021). One typical implementation of whitening loss is hard whitening (Ermolov et al., 2021; Weng et al., 2022) that designs whitening transformation over mini-batch data and imposes the loss on the whitened output (Ermolov et al., 2021; Hua et al., 2021; Weng et al., 2022). We note that the whitening transformation is a function over embedding during forward pass, and modulates the spectrum of embedding implicitly during backward pass when minimizing the objective. This raises questions whether there exist other functions over embedding can avoid collapse? If yes, how the function affects the spectrum of embedding? ",
+        "bbox": [
+            174,
+            637,
+            825,
+            821
+        ],
+        "page_idx": 0
+    },
+    {
+        "type": "text",
+        "text": "This paper proposes spectral transformation (ST), a framework to modulate the spectrum of embedding in joint embedding architecture. ST maps the spectrum of embedding to a desired distribution during forward pass, and modulates the spectrum of embedding by implicit gradient update during backward pass (Figure 1). ",
+        "bbox": [
+            176,
+            829,
+            825,
+            882
+        ],
+        "page_idx": 0
+    },
+    {
+        "type": "text",
+        "text": "This framework provides a way to seek for functions beyond whitening transformation that can avoid dimensional collapse. We show that whitening transformation is a special instance of ST using a power function by definition, and there exist other power functions that can avoid dimensional collapse by our empirical investigation (see Section 3.2 for details). We demonstrate that IterNorm (Huang et al., 2019), an approximating whitening method by using Newton’s iterations (Bini et al., 2005; Ye et al., 2020), is also an instance of ST, and show that IterNorm ",
+        "bbox": [
+            174,
+            85,
+            483,
+            243
+        ],
+        "page_idx": 1
+    },
+    {
+        "type": "image",
+        "img_path": "images/95fdffda957824b56fb3c0e9715120a31bb3a632f3237d120fa3079b6043c9ef.jpg",
+        "image_caption": [
+            "Figure 1: The framework using spectral transformation (ST) to modulate the spectrum of embedding in joint embedding architecture for SSL. "
+        ],
+        "image_footnote": [],
+        "bbox": [
+            493,
+            82,
+            820,
+            188
+        ],
+        "page_idx": 1
+    },
+    {
+        "type": "text",
+        "text": "with different iteration number corresponds to different ST (see Section 3.2.2 for details). We further theoretically characterize how the spectrum evolves as the increasing of iteration number of IterNorm. ",
+        "bbox": [
+            174,
+            244,
+            825,
+            271
+        ],
+        "page_idx": 1
+    },
+    {
+        "type": "text",
+        "text": "We empirically observe that IterNorm suffers from severe dimensional collapse and mostly fails to train the model in SSL unexpectedly, unlike its benefits in approximating whitening for supervised learning (Huang et al., 2019). We thus propose IterNorm with trace loss (INTL), a simple solution to address the failure of IterNorm, by adding an extra penalty on the transformed output. Moreover, we theoretically demonstrate that INTL can avoid dimensional collapse, and reveal its mechanism in modulating the spectrum of embedding to be equal-eigenvalues. We conduct comprehensive experiments and show that INTL is a promising SSL method in practice. Our main contributions are summarized as follows: ",
+        "bbox": [
+            174,
+            277,
+            825,
+            383
+        ],
+        "page_idx": 1
+    },
+    {
+        "type": "text",
+        "text": "• We propose spectral transformation, a framework to modulate the spectrum of embedding and to seek for functions beyond whitening that can avoid dimensional collapse. We show there exist other functions that can avoid dimensional collapse by empirical observation and intuitive explanation.   \nWe propose a new instance of ST, called IterNorm with trace loss (INTL). We theoretically prove that INTL can avoid collapse and modulate the spectrum of embedding towards an equal-eigenvalue distribution during the course of optimization.   \n• INTL’s experimental performance on standard benchmarks showcases its high promise as a practical SSL method, consistently achieving or surpassing state-of-the-art methods, even when utilizing a relatively small batch size. ",
+        "bbox": [
+            217,
+            386,
+            825,
+            530
+        ],
+        "page_idx": 1
+    },
+    {
+        "type": "text",
+        "text": "2 RELATED WORK ",
+        "text_level": 1,
+        "bbox": [
+            174,
+            537,
+            344,
+            554
+        ],
+        "page_idx": 1
+    },
+    {
+        "type": "text",
+        "text": "Our work is related to the SSL methods that address the feature collapse problem when using joint embedding architectures. ",
+        "bbox": [
+            176,
+            560,
+            823,
+            588
+        ],
+        "page_idx": 1
+    },
+    {
+        "type": "text",
+        "text": "Contrastive learning prevents collapse by attracting positive samples closer, and spreading negative samples apart (Wu et al., 2018; Ye et al., 2019). In these methods, negative samples play an important role and need to be well designed (Oord et al., 2018; Bachman et al., 2019; Henaff, 2020). MoCos (He et al., 2020; Chen et al., 2020b) build a memory bank with a momentum encoder to provide consistent negative samples, while SimCLR (Chen et al., 2020a) addresses that more negative samples in a batch with strong data augmentations perform better. Our proposed INTL can avoid collapse and work well without negative samples. Additionally, recent work (Zhang et al., 2023) explores the use of data augmentation for contrastive learning through spectrum analysis to enhance performance, while our paper focuses on developing a novel non-contrastive method to prevent collapse under standard augmentation. ",
+        "bbox": [
+            174,
+            594,
+            825,
+            727
+        ],
+        "page_idx": 1
+    },
+    {
+        "type": "text",
+        "text": "Non-contrastive learning can be categorized into two groups: asymmetric methods and whitening loss. Asymmetric methods employ asymmetric network architectures to prevent feature collapse without the need for explicit negative pairs (Caron et al., 2018; 2020; Li et al., 2021; Grill et al., 2020; Chen & He, 2021). For instance, BYOL (Grill et al., 2020) enhances network stability by appending a predictor after the online network and introducing momentum into the target network. SimSiam (Chen & He, 2021) extends BYOL and emphasizes the importance of stop-gradient to prevent trivial solutions. Other advancements in this realm include cluster assignment prediction using the Sinkhorn-Knopp algorithm (Caron et al., 2020) and the development of asymmetric pipelines with self-distillation losses for Vision Transformers (Caron et al., 2021). However, it remains unclear how these asymmetric networks effectively prevent collapse without the inclusion of negative pairs. This has sparked debates surrounding topics such as batch normalization (BN)(Fetterman & Albrecht, 2020; Tian et al., 2020b; Richemond et al., 2020) and stop-gradient(Chen & He, 2021; Zhang et al., 2022a). Despite preliminary efforts to analyze training dynamics (Tian et al., 2021) and establish connections between non-contrastive and contrastive methods (Tao et al., 2022; Garrido et al., 2023), the exact mechanisms behind these methods remain an ongoing area of research. In our work, we address the more intricate challenge of dimensional collapse and theoretically demonstrate that our INTL method effectively prevents this issue, offering valuable insights into mitigating feature collapse in various scenarios. ",
+        "bbox": [
+            174,
+            733,
+            825,
+            905
+        ],
+        "page_idx": 1
+    },
+    {
+        "type": "text",
+        "text": "",
+        "bbox": [
+            174,
+            85,
+            825,
+            152
+        ],
+        "page_idx": 2
+    },
+    {
+        "type": "text",
+        "text": "Whitening loss is a theoretically motivated paradigm to prevent dimensional collapse (Ermolov et al., 2021). One typical implementation of whitening loss is hard whitening that designs whitening transformation over mini-batch data and imposes the loss on the whitened output. The designed whitening transformation includes batch whitening in W-MSE (Ermolov et al., 2021) and ShuffledDBN (Hua et al., 2021), channel whitening in CW-RGP (Weng et al., 2022), and the combination of both in Zero-CL (Zhang et al., 2022b). Our proposed ST generalizes whitening transformation and provides a frame to modulate the spectrum of embedding. Our INTL can improve these work in training stability and performance, by replacing whitening transformation with IterNorm (Huang et al., 2019) and imposing an additional trace loss on the transformed output. Furthermore, we theoretically show that our proposed INTL modulates the spectrum of embedding to be equal-eigenvalues. ",
+        "bbox": [
+            174,
+            159,
+            825,
+            291
+        ],
+        "page_idx": 2
+    },
+    {
+        "type": "text",
+        "text": "Another way to implement whitening loss is soft whitening that imposes a whitening penalty as regularization on the embedding, including Barlow Twins (Zbontar et al., 2021), VICReg (Bardes et al., 2022) and CCA-SSG (Zhang et al., 2021). Different from these works, our proposed INTL imposes the trace loss on the approximated whitened output, providing equal-eigenvalues modulation on the embedding. ",
+        "bbox": [
+            174,
+            297,
+            825,
+            366
+        ],
+        "page_idx": 2
+    },
+    {
+        "type": "text",
+        "text": "There are also theoretical works analyzing how dimensional collapse occurs (Hua et al., 2021; Jing et al., 2022) and how it can be avoided by using whitening loss (Hua et al., 2021; Weng et al., 2022). The recent works (He & Ozay, 2022; Ghosh et al., 2022) further discuss how to characterize the magnitude of dimensional collapse, and connect the spectrum of a representation to a power law. They show the coefficient of the power law is a strong indicator for the effects of the representation. Different from these works, our theoretical analysis presents a new thought in demonstrating how to avoid dimensional collapse, which provides theoretical basis for our proposed INTL. ",
+        "bbox": [
+            173,
+            371,
+            826,
+            465
+        ],
+        "page_idx": 2
+    },
+    {
+        "type": "text",
+        "text": "3 SPECTRAL TRANSFORMATION BEYOND WHITENING ",
+        "text_level": 1,
+        "bbox": [
+            176,
+            477,
+            640,
+            492
+        ],
+        "page_idx": 2
+    },
+    {
+        "type": "text",
+        "text": "3.1 PRELIMINARY AND NOTATION ",
+        "text_level": 1,
+        "bbox": [
+            176,
+            498,
+            424,
+            512
+        ],
+        "page_idx": 2
+    },
+    {
+        "type": "text",
+        "text": "Joint embedding architectures. Let $\\mathbf { x }$ denote the input sampled uniformly from a set of images $\\mathbb { D }$ , and $\\mathbb { T }$ denote the set of data transformations available for augmentation. We consider a pair of neural networks $F _ { \\theta }$ and $F _ { \\theta ^ { \\prime } } ^ { \\prime }$ , parameterized by $\\theta$ and $\\theta ^ { \\prime }$ respectively. They take as input two randomly augmented views, $\\mathbf { x } ^ { ( 1 ) } = \\mathcal { T } _ { 1 } ( \\mathbf { x } )$ and $\\mathbf { x } ^ { ( 2 ) } = \\mathcal { T } _ { 2 } ( \\mathbf { x } )$ , where $\\mathcal { T } _ { 1 , 2 } \\in \\mathbb { T }$ ; and they output the embedding $\\mathbf { z } ^ { ( 1 ) } = F _ { \\theta } ( \\mathbf { x } ^ { ( 1 ) } )$ and $\\mathbf { z } ^ { ( 2 ) } = F _ { \\theta ^ { \\prime } } ^ { \\prime } ( \\mathbf { x } ^ { ( 2 ) } )$ . The networks are trained with an objective function that minimizes the distance between embeddings obtained from different views of the same image: ",
+        "bbox": [
+            173,
+            518,
+            825,
+            604
+        ],
+        "page_idx": 2
+    },
+    {
+        "type": "equation",
+        "img_path": "images/22b4c51ec8fd38a3606f34be1a1a802f20cbfb0174f2e7909bc13c8bde027d21.jpg",
+        "text": "$$\n\\begin{array} { r } { \\mathcal { L } ( \\mathbf { x } , \\theta ) = \\mathbb { E } _ { \\mathbf { x } \\sim \\mathbb { D } , \\ T _ { 1 , 2 } \\sim \\mathbb { T } } \\ \\ell \\big ( F _ { \\theta } ( \\mathcal { T } _ { 1 } ( \\mathbf { x } ) ) , F _ { \\theta ^ { \\prime } } ^ { \\prime } ( \\mathcal { T } _ { 2 } ( \\mathbf { x } ) ) \\big ) . } \\end{array}\n$$",
+        "text_format": "latex",
+        "bbox": [
+            308,
+            612,
+            656,
+            632
+        ],
+        "page_idx": 2
+    },
+    {
+        "type": "text",
+        "text": "where $\\ell ( \\cdot , \\cdot )$ is a loss function. The mean square error (MSE) of $L _ { 2 } -$ normalized vectors as $\\begin{array} { r } { \\ell ( { \\mathbf { z } } ^ { ( 1 ) } , { \\mathbf { z } } ^ { ( 2 ) } ) = \\| \\frac { { \\mathbf { z } } ^ { ( 1 ) } } { \\| { \\mathbf { z } } ^ { ( 1 ) } \\| _ { 2 } } - \\frac { { \\mathbf { z } } ^ { ( 2 ) } } { \\| { \\mathbf { z } } ^ { ( 2 ) } \\| _ { 2 } } \\| _ { 2 } ^ { 2 } } \\end{array}$ is usually used as the loss function (Chen & He, 2021). This loss is also equivalent to the negative cosine similarity, up to a scale of $\\begin{array} { l } { { \\frac { 1 } { 2 } } } \\end{array}$ and an optimization irrelevant constant (Chen & He, 2021). This architecture is also called Siamese Network (Chen & He, 2021), if $F _ { \\theta } = F _ { \\theta ^ { \\prime } } ^ { \\prime }$ . Another variant distinguishes the networks into target network $F _ { \\theta ^ { \\prime } } ^ { \\prime }$ and online network $F _ { \\theta }$ , and updates the weight $\\theta ^ { \\prime }$ of target network through exponential moving average (EMA) (Chen et al., 2020b; Grill et al., 2020) over $\\theta$ of online network. ",
+        "bbox": [
+            173,
+            638,
+            825,
+            746
+        ],
+        "page_idx": 2
+    },
+    {
+        "type": "text",
+        "text": "Feature collapse. While minimizing Eqn. 1, a trivial solution known as complete collapse could occur such that $F _ { \\theta } ( \\mathbf { x } ) \\equiv \\mathbf { c }$ , $\\forall \\mathbf { x } \\in \\mathbb { D }$ . Moreover, a weaker collapse condition called dimensional collapse can be easily arrived, for which the projected features collapse into a low-dimensional manifold. To express dimensional collapse more mathematically, we refer to dimensional collapse as the phenomenon that one or certain eigenvalues of the covariance matrix of feature vectors degenerate to 0. Therefore, we can determine the occurrence of dimensional collapse by observing the spectrum of the covariance matrix. ",
+        "bbox": [
+            174,
+            751,
+            825,
+            844
+        ],
+        "page_idx": 2
+    },
+    {
+        "type": "text",
+        "text": "Whitening loss. To address the collapse problem, whitening loss (Ermolov et al., 2021) is proposed to minimize Eqn. 1, under the condition that embeddings from different views are whitened. Whitening loss provides theoretical guarantee in avoiding (dimensional) collapse, since the embedding is whitened with all axes decorrelated (Ermolov et al., 2021; Hua et al., 2021). Ermolov et al. (Ermolov et al., 2021) propose to whiten the mini-batch embedding $\\textbf { Z } \\in \\mathbb { R } ^ { d \\times m }$ using batch whitening (BW) (Huang et al., 2018; Siarohin et al., 2019) and impose the loss on the whitened output $\\widehat { \\mathbf { Z } } \\in \\mathbb { R } ^ { d \\times m }$ , given the mini-batch inputs $\\mathbf { X }$ with size of $m$ , as follows: ",
+        "bbox": [
+            174,
+            852,
+            825,
+            905
+        ],
+        "page_idx": 2
+    },
+    {
+        "type": "text",
+        "text": "",
+        "bbox": [
+            174,
+            84,
+            825,
+            128
+        ],
+        "page_idx": 3
+    },
+    {
+        "type": "equation",
+        "img_path": "images/96e09ac4a4fc12855009e93d5c70617a9df625f1fac93620fc97f56e7cde9263.jpg",
+        "text": "$$\n\\operatorname* { m i n } _ { \\theta } \\mathcal { L } ( \\mathbf { X } ; \\theta ) = \\mathbb { E } _ { \\mathbf { X } \\sim \\mathbb { D } , \\mathcal { T } _ { 1 , 2 } \\sim \\mathbb { T } } \\| \\widehat { \\mathbf { Z } } ^ { ( 1 ) } - \\widehat { \\mathbf { Z } } ^ { ( 2 ) } \\| _ { F } ^ { 2 }\n$$",
+        "text_format": "latex",
+        "bbox": [
+            326,
+            131,
+            638,
+            156
+        ],
+        "page_idx": 3
+    },
+    {
+        "type": "equation",
+        "img_path": "images/b5f799c0408b7c276bc63ee234b040ab94902a08c3bbff3d7725c5ef187f5a92.jpg",
+        "text": "$$\nw i t h \\widehat { \\mathbf { Z } } ^ { ( v ) } = { \\Sigma } ^ { - \\frac { 1 } { 2 } } { \\mathbf { Z } } ^ { ( v ) } , v \\in \\{ 1 , 2 \\} ,\n$$",
+        "text_format": "latex",
+        "bbox": [
+            401,
+            159,
+            635,
+            178
+        ],
+        "page_idx": 3
+    },
+    {
+        "type": "text",
+        "text": "where is calc $\\begin{array} { r } { \\Sigma = \\frac { 1 } { m } \\mathbf { Z } \\mathbf { Z } ^ { T } } \\\\ { \\mathbf { \\Sigma } _ { \\bullet } = \\frac { 1 } { m } \\mathbf { Z } \\mathbf { Z } ^ { T } } \\end{array}$ is the covariance matrix of embedding1. by Cholesky decomposition in (Ermolov $\\Sigma ^ { - \\frac { 1 } { 2 } }$ is called the whitening matrix, and., 2021) or by eigen-decomposition in (Hua et al., 2021). E.g., zero-phase component analysis (ZCA) whitening (Huang et al., 2018) calculates $\\begin{array} { r } { \\sum ^ { - \\frac { 1 } { 2 } } = \\mathbf { U } \\Lambda ^ { - \\frac { 1 } { 2 } } \\mathbf { U } ^ { T } } \\end{array}$ , where $\\boldsymbol { \\Lambda } = \\mathrm { d i a g } ( \\lambda _ { 1 } , \\ldots , \\lambda _ { d } )$ and $\\mathbf { U } = [ \\mathbf { u } _ { 1 } , . . . , \\mathbf { u } _ { d } ]$ are the eigenvalues and associated eigenvectors of $\\Sigma$ , i.e., $\\mathbf { U } \\boldsymbol { \\Lambda } \\mathbf { U } ^ { T } = \\boldsymbol { \\Sigma }$ . One intriguing result shown in (Weng et al., 2022) is that hard whitening can avoid collapse by only constraining the embedding $\\mathbf { Z }$ to be full-rank, but not whitened. ",
+        "bbox": [
+            173,
+            181,
+            826,
+            281
+        ],
+        "page_idx": 3
+    },
+    {
+        "type": "text",
+        "text": "We note that the whitening transformation is a function over embedding $\\mathbf { Z }$ during forward pass, and modulates the spectrum of embedding $\\mathbf { Z }$ implicitly during backward pass when minimizing MSE loss imposed on the whitened output. This raises a question of whether there are other functions over embedding $\\mathbf { Z }$ that can avoid collapse? If yes, how the function affects the spectrum of embedding $\\mathbf { Z } ?$ ",
+        "bbox": [
+            174,
+            286,
+            825,
+            340
+        ],
+        "page_idx": 3
+    },
+    {
+        "type": "text",
+        "text": "3.2 SPECTRAL TRANSFORMATION ",
+        "text_level": 1,
+        "bbox": [
+            176,
+            348,
+            423,
+            362
+        ],
+        "page_idx": 3
+    },
+    {
+        "type": "text",
+        "text": "In this section, we extend the whitening transformation to spectral transformation (ST), a more general view to characterize the modulation on the spectrum of embedding, and empirically investigate the interaction between the spectrum of the covariance matrix of $\\hat { \\mathbf { Z } }$ and collapse of the SSL model. ",
+        "bbox": [
+            176,
+            364,
+            821,
+            409
+        ],
+        "page_idx": 3
+    },
+    {
+        "type": "text",
+        "text": "Definition 1. (Spectral Transformation) Given any unary function $g ( \\cdot )$ in the definition domain $\\lambda ( { \\bf Z } ) = \\{ \\lambda _ { 1 } , \\lambda _ { 2 } , \\ldots , \\lambda _ { d } \\}$ . Drawing an analogy with whitening, $g ( \\cdot )$ on the covariance matrix $\\Sigma$ of embedding $\\mathbf { Z }$ is defined as $g ( \\Sigma ) = \\mathbf { U } g ( \\Lambda ) \\mathbf { U } ^ { T }$ , where $g ( \\Lambda ) = d i a g ( g ( \\lambda ( { \\bf Z } ) ) )$ . We denote the transformation matrix of ST as $\\Phi _ { S T } = g ( \\Sigma )$ , so that the output of ST is calculated by $\\widehat { \\mathbf { Z } } = \\Phi _ { S T } \\mathbf { Z } =$ ${ \\bf U } g ( \\Lambda ) { \\bf U } ^ { T } { \\bf Z }$ and the covariance matrix of $\\hat { \\mathbf { Z } }$ is $\\begin{array} { r } { \\Sigma _ { \\widehat { \\mathbf { Z } } } = \\frac { 1 } { m } \\widehat { \\mathbf { Z } } \\widehat { \\mathbf { Z } } ^ { T } = \\mathbf { U } \\Lambda g ^ { 2 } ( \\Lambda ) \\mathbf { U } ^ { T } } \\end{array}$ . ",
+        "bbox": [
+            174,
+            411,
+            825,
+            491
+        ],
+        "page_idx": 3
+    },
+    {
+        "type": "text",
+        "text": "Based on Definition 1, ST is an abstract framework until $g ( \\cdot )$ is determined, and its essence is mapping the spectrum $\\lambda ( \\mathbf { Z } )$ to $\\lambda ( \\widehat { \\mathbf { Z } } ) = \\{ \\lambda _ { 1 } g ^ { 2 } ( \\lambda _ { 1 } ) , \\lambda _ { 2 } g ^ { 2 } ( \\lambda _ { 2 } ) , \\ldots , \\lambda _ { d } g ^ { 2 } ( \\lambda _ { d } ) \\}$ . When applied in the context of self-supervised learning, the loss function for ST remains the same as Eqn 2, with the only difference being that $\\hat { \\mathbf { Z } }$ is determined by $g ( \\cdot )$ . Meanwhile, the optimization direction for the embedding spectrum can also be determined when employing gradient-based methods. That is, what spectrum of embedding will be modulated to be during the course of training. ",
+        "bbox": [
+            173,
+            502,
+            825,
+            590
+        ],
+        "page_idx": 3
+    },
+    {
+        "type": "text",
+        "text": "Can we unveil the potential of ST? Our ST framework exhibits uncertainty and diversity, allowing $g ( \\cdot )$ to adopt the guise of any single-variable function within the defined domain, including power functions, exponential functions, iterative functions, and more. Whitening, on the other hand, is a special and successful instance within ST, where $g ( \\cdot )$ takes the form of a power function $g ( \\lambda ) = \\lambda ^ { - \\frac { 1 } { 2 } }$ . This naturally prompts two questions: 1. Could there be other functions, akin to whitening, capable of preventing collapse within the ST framework? 2. If yes, how the function works and affects the spectrum of embedding $\\mathbf { Z } ?$ ",
+        "bbox": [
+            173,
+            594,
+            826,
+            693
+        ],
+        "page_idx": 3
+    },
+    {
+        "type": "text",
+        "text": "3.2.1 SPECTRAL TRANSFORMATION USING POWER FUNCTIONS ",
+        "text_level": 1,
+        "bbox": [
+            174,
+            698,
+            625,
+            712
+        ],
+        "page_idx": 3
+    },
+    {
+        "type": "text",
+        "text": "With these questions in mind, we embark on a deeper exploration of the mechanics extending beyond whitening, considering a more comprehensive transformation $g ( \\lambda ) = \\lambda ^ { - p } , p \\in ( - \\infty , + \\infty )$ for ST. Based on Definition. 1, this comprehensive power transformation is mapping the spectrum $\\lambda ( \\mathbf { Z } )$ to $\\boldsymbol { \\lambda } ( \\widehat { \\mathbf { Z } } ) = \\bigl \\{ \\lambda _ { 1 } { } ^ { 1 - 2 p } , \\boldsymbol { \\lambda } _ { 2 } { } ^ { 1 - 2 p } , \\ldots , \\boldsymbol { \\bar { \\lambda _ { d } } } ^ { 1 - 2 p } \\bigr \\}$ ",
+        "bbox": [
+            173,
+            713,
+            825,
+            772
+        ],
+        "page_idx": 3
+    },
+    {
+        "type": "text",
+        "text": "Empirical observation. Initially, we conduct experiments on a 2D dataset, varying the parameter $p$ and visualize the outputs of the toy models as depicted in Figure 2(a). Our observations indicate that the toy model tends to perform well in avoiding collapse when $p$ falls within the neighborhood of 0.5, specifically in the range of 0.45 to 0.55. However, as $p$ gradually deviates from 0.5, collapse becomes more pronounced. Subsequently, we extend our experiments to real-world datasets to validate these findings. The results presented in Figure 2(b) align with the previously observed phenomena. When $p$ is set to either 0.45 or 0.55, the model maintains high evaluation performance, similar to that of whitening $( p = 0 . 5 )$ ). This discovery suggests that within the ST framework, there exist other functions capable of successfully preventing collapse, which answers the first question. ",
+        "bbox": [
+            173,
+            775,
+            825,
+            869
+        ],
+        "page_idx": 3
+    },
+    {
+        "type": "image",
+        "img_path": "images/2be5f6afd7243ee14f479d40d99de209f4237f3eb48c00914f297a0a869f9723.jpg",
+        "image_caption": [
+            "Figure 2: Investigate ST using power functions. We choose several $p$ from 0 to 1.5. We show (a) the visualization of the toy model output; (b) top-1 and 5-nearest neighbors (5-nn) accuracy on CIFAR-10; (c) condition indicator of embedding $\\mathbf { Z }$ and transformed output $\\hat { \\mathbf { z } }$ on CIFAR-10. We use the inverse of the condition number (IoC) in logarithmic scale with base 10 ( $\\begin{array} { r } { l g I o C = l g c ^ { - 1 } = l g \\frac { \\lambda _ { d } } { \\lambda _ { 1 } } ) } \\end{array}$ as the condition indicator. The results on CIFAR-10 are obtained through training with ResNet-18 for 200 epochs and averaged over five runs, with standard deviation shown as error bars. We show the details of experimental setup in Appendix D. Similar phenomena can be observed when using other datasets (e.g., ImageNet) and other networks (e.g., ResNet-50). "
+        ],
+        "image_footnote": [],
+        "bbox": [
+            217,
+            60,
+            767,
+            165
+        ],
+        "page_idx": 4
+    },
+    {
+        "type": "text",
+        "text": "",
+        "bbox": [
+            173,
+            292,
+            823,
+            320
+        ],
+        "page_idx": 4
+    },
+    {
+        "type": "text",
+        "text": "For the second question, as illustrated in Figure 2(c), it becomes evident that when $p$ lies in the vicinity of 0.5, the embedding showcases a more well-conditioned spectrum, characterized by a smaller condition number (larger IoC). However, when $p$ significantly deviates from 0.5, the spectrum of embedding loses its well-conditioned attributes, closely aligning with the occurrence of embedding collapse. This statement asserts that if $g ( \\cdot )$ is effective in preventing collapse within the ST framework, it will result in the modulation of the embedding spectrum towards a well-conditioned state. ",
+        "bbox": [
+            173,
+            325,
+            825,
+            407
+        ],
+        "page_idx": 4
+    },
+    {
+        "type": "text",
+        "text": "Intuitive explanation. We note that (Weng et al., 2022) implied that whitening loss in Eqn 2 can be decomposed into two asymmetric losses $\\begin{array} { r } { \\bar { \\mathcal { L } } = \\frac { 1 } { m } \\| \\phi ( \\mathbf { Z } ^ { ( 1 ) } ) \\bar { \\mathbf { Z } } ^ { ( 1 ) } - ( \\widehat { \\mathbf { Z } } ^ { ( 2 ) } ) _ { s t } \\| _ { F } ^ { 2 } + \\frac { 1 } { m } \\| \\phi ( \\mathbf { Z } ^ { ( 2 ) } ) \\mathbf { Z } ^ { ( 2 ) } - \\quad } \\end{array}$ $( \\widehat { \\mathbf { Z } } ^ { ( 1 ) } ) _ { s t } \\big \\| _ { F } ^ { 2 }$ , where $\\phi ( \\mathbf { Z } )$ refers to the whitening matrix of $\\mathbf { Z }$ , $^ { s t }$ represents the stop gradient operation, and $\\hat { \\mathbf { Z } }$ denotes the whitening output. Each asymmetric loss can be viewed as an online network to match a whitened target $\\hat { \\bf { z } }$ . As a more generalized form of whitening, our ST can also extend bthis decomposition to the loss function. As depicted in Figure 2(c), when $p$ falls within the range of 0.45 to 0.55, $\\hat { \\mathbf { Z } }$ exhibits a well-conditioned spectrum, with each eigenvalue approaching 1. In such instances, $\\hat { \\mathbf { Z } }$ serves as an ideal target for $\\phi ( \\mathbf { Z } ) \\mathbf { Z }$ to match, enabling the embedding $\\mathbf { Z }$ to learn a favorable spectrum to prevent collapse. Conversely, when $p$ deviates significantly from 0.5, the spectrum of the transformed output loses its well-conditioned characteristics, with $\\hat { \\mathbf { Z } }$ becoming a detrimental target, ultimately leading to the collapse of the embedding. ",
+        "bbox": [
+            173,
+            411,
+            826,
+            583
+        ],
+        "page_idx": 4
+    },
+    {
+        "type": "text",
+        "text": "3.2.2 IMPLICIT SPECTRAL TRANSFORMATION USING NEWTON’S ITERATION ",
+        "text_level": 1,
+        "bbox": [
+            178,
+            587,
+            717,
+            602
+        ],
+        "page_idx": 4
+    },
+    {
+        "type": "text",
+        "text": "However, utilizing the power function $g ( \\lambda ) = \\lambda ^ { - p }$ (where $p$ is approximately 0.5) within our ST framework is not without its drawbacks. One issue is the potential for numerical instability when computing eigenvalues $\\lambda$ and eigenvectors $\\mathbf { U }$ via eigen-decomposition, particularly when the covariance matrix is ill-conditioned (Paszke et al., 2019). We provide comprehensive experiments and analysis in Appendix D.3 to validate the presence of this problem in SSL. ",
+        "bbox": [
+            173,
+            606,
+            825,
+            674
+        ],
+        "page_idx": 4
+    },
+    {
+        "type": "text",
+        "text": "Naturally, if we could implement a spectral transformation that can modulate the spectrum without the need for explicit calculation of $\\lambda$ or $\\mathbf { U }$ , this issue could be mitigated. In fact, we take note of an approximate whitening method called iterative normalization (IterNorm) (Huang et al., 2019), which uses Newton’s iteration to address the numerical challenges associated with batch whitening in supervised learning. Specifically, given the centered embedding $\\mathbf { Z }$ , the iteration count $T$ , and the trace-normalized covariance matrix $\\Sigma _ { N } = \\Sigma / t r ( \\Sigma )$ , IterNorm performs Newton’s iteration as follows. ",
+        "bbox": [
+            173,
+            679,
+            826,
+            772
+        ],
+        "page_idx": 4
+    },
+    {
+        "type": "equation",
+        "img_path": "images/16d4be5c4deeaf3eb8f74590bf51c4688d11ca48f229e932fb209667dc47637e.jpg",
+        "text": "$$\n\\left\\{ \\begin{array} { l l } { \\mathbf { P } _ { 0 } = \\mathbf { I } } \\\\ { \\mathbf { P } _ { k } = \\frac { 1 } { 2 } \\big ( 3 \\mathbf { P } _ { k - 1 } - \\mathbf { P } _ { k - 1 } ^ { 3 } \\Sigma _ { N } \\big ) , \\ k = 1 , 2 , . . . , T . } \\end{array} \\right.\n$$",
+        "text_format": "latex",
+        "bbox": [
+            326,
+            772,
+            651,
+            808
+        ],
+        "page_idx": 4
+    },
+    {
+        "type": "text",
+        "text": "The whitening matrix $\\Sigma ^ { - \\frac { 1 } { 2 } }$ is approximated by $\\Phi _ { T } = \\mathbf { P } _ { T } / \\sqrt { t r ( \\Sigma ) }$ and we have the whitened output $\\widehat { \\mathbf { Z } } = \\Phi _ { T } \\mathbf { Z }$ . When $T \\to + \\infty$ , $\\Phi _ { T }  \\Sigma ^ { - \\frac { 1 } { 2 } }$ and the covariance matrix of $\\hat { \\mathbf { Z } }$ will be an identity matrix. Here, we theoretically show that IterNorm is also an instance of spectral transformation as follows. ",
+        "bbox": [
+            173,
+            811,
+            826,
+            861
+        ],
+        "page_idx": 4
+    },
+    {
+        "type": "text",
+        "text": "Theorem 1. Define one-variable iterative function $f _ { T } ( x )$ , satisfying ",
+        "bbox": [
+            173,
+            863,
+            625,
+            878
+        ],
+        "page_idx": 4
+    },
+    {
+        "type": "equation",
+        "img_path": "images/da79ce0641534639390b0094b165b23434b9f903137777cb53896ab8ea2834fc.jpg",
+        "text": "$$\n\\begin{array} { r } { f _ { k + 1 } ( x ) = \\frac { 3 } { 2 } f _ { k } ( x ) - \\frac { 1 } { 2 } { x f _ { k } } ^ { 3 } ( x ) , k \\geq 0 ; f _ { 0 } ( x ) = 1 . } \\end{array}\n$$",
+        "text_format": "latex",
+        "bbox": [
+            328,
+            887,
+            668,
+            909
+        ],
+        "page_idx": 4
+    },
+    {
+        "type": "text",
+        "text": "The mapping function of IterNorm is $g ( \\lambda ) = f _ { T } ( \\frac { \\lambda } { t r ( \\Sigma ) } ) / \\sqrt { t r ( \\Sigma ) }$ . Without calculating $\\lambda$ or U, IterNorm implicitly maps $\\forall \\lambda _ { i } \\in \\lambda ( \\mathbf { Z } )$ to $\\begin{array} { r } { \\widehat { \\lambda } _ { i } = \\frac { \\lambda _ { i } } { t r ( \\Sigma ) } { f _ { T } } ^ { 2 } \\big ( \\frac { \\lambda _ { i } } { t r ( \\Sigma ) } \\big ) } \\end{array}$ . ",
+        "bbox": [
+            174,
+            82,
+            825,
+            123
+        ],
+        "page_idx": 5
+    },
+    {
+        "type": "text",
+        "text": "The proof is provided in Appendix B.1. For simplicity, we define the T-whitening function of IterNorm $h _ { T } ( x ) = x { f _ { T } } ^ { 2 } ( x ) \\overline { { \\mathbf { \\Psi } } }$ , which obtains the spectrum of transformed output. Based on the fact that the covariance matrix of transformed output will be identity when $T$ of IterNorm increases to infinity (Bini et al., 2005), we thus have ",
+        "bbox": [
+            174,
+            126,
+            825,
+            181
+        ],
+        "page_idx": 5
+    },
+    {
+        "type": "equation",
+        "img_path": "images/38ca0e4663294fed4310ec5dfe291d098e174be54d1e98db59cac6d80e32d3aa.jpg",
+        "text": "$$\n\\forall \\lambda _ { i } > 0 , \\operatorname* { l i m } _ { T  \\infty } h _ { T } ( \\frac { \\lambda _ { i } } { t r ( \\Sigma ) } ) = 1 .\n$$",
+        "text_format": "latex",
+        "bbox": [
+            392,
+            185,
+            604,
+            219
+        ],
+        "page_idx": 5
+    },
+    {
+        "type": "text",
+        "text": "Different iteration numbers $T$ of IterNorm imply different T-whitening functions $h _ { T } ( \\cdot )$ . It is interesting to analyze the characteristics of $h _ { T } ( \\cdot )$ . ",
+        "bbox": [
+            173,
+            223,
+            825,
+            252
+        ],
+        "page_idx": 5
+    },
+    {
+        "type": "text",
+        "text": "Proposition 1. Given $x \\in ( 0 , 1 )$ , $\\forall T \\in \\mathbb { N }$ we have $h _ { T } ( x ) \\in ( 0 , 1 )$ and $h _ { T } ^ { \\prime } ( x ) > 0$ . ",
+        "bbox": [
+            174,
+            253,
+            717,
+            270
+        ],
+        "page_idx": 5
+    },
+    {
+        "type": "text",
+        "text": "The proof is shown in Appendix A.1. Proposition 1 states $h _ { T } ( x )$ is a monotone increasing function for $x \\in ( 0 , 1 )$ and its range is also in $( 0 , 1 )$ . Since $\\begin{array} { r } { \\frac { \\lambda _ { i } } { t r ( \\Sigma ) } \\in ( 0 , 1 ) , \\forall \\lambda _ { i } > 0 } \\end{array}$ , we have ",
+        "bbox": [
+            173,
+            279,
+            820,
+            313
+        ],
+        "page_idx": 5
+    },
+    {
+        "type": "equation",
+        "img_path": "images/0277fb09e7f8fb42b802c1ad0090ed10876ecaf8efb2899695242efe3d701a94.jpg",
+        "text": "$$\n\\forall T \\in \\mathbb { N } , \\lambda _ { i } > \\lambda _ { j } > 0 \\Longrightarrow 1 > \\widehat { \\lambda } _ { i } > \\widehat { \\lambda } _ { j } > 0 .\n$$",
+        "text_format": "latex",
+        "bbox": [
+            348,
+            318,
+            648,
+            338
+        ],
+        "page_idx": 5
+    },
+    {
+        "type": "text",
+        "text": "Formula 5 indicates that IterNorm maps all non-zero eigenvalues to $( 0 , 1 )$ and preserves monotonicity. ",
+        "bbox": [
+            171,
+            343,
+            828,
+            358
+        ],
+        "page_idx": 5
+    },
+    {
+        "type": "text",
+        "text": "Proposition 2. Given $x \\in ( 0 , 1 )$ , $\\forall T \\in \\mathbb { N }$ , we have $h _ { T + 1 } ( x ) > h _ { T } ( x )$ . ",
+        "bbox": [
+            174,
+            359,
+            650,
+            376
+        ],
+        "page_idx": 5
+    },
+    {
+        "type": "text",
+        "text": "The proof is shown in Appendix A.2. Proposition 2 indicates that IterNorm gradually stretches the eigenvalues towards one as the iteration number $T$ increases. This property of IterNorm theoretically shows that the spectrum of $\\hat { \\mathbf { Z } }$ will have better condition if we use a larger iteration number $T$ of IterNorm. ",
+        "bbox": [
+            174,
+            383,
+            825,
+            443
+        ],
+        "page_idx": 5
+    },
+    {
+        "type": "text",
+        "text": "In summary, our analyses theoretically show that IterNorm gradually stretches the eigenvalues towards one as the iteration number $T$ increases, and the smaller the eigenvalue is, the larger $T$ is required to approach one. ",
+        "bbox": [
+            174,
+            448,
+            825,
+            489
+        ],
+        "page_idx": 5
+    },
+    {
+        "type": "text",
+        "text": "4 ITERATIVE NORMALIZATION WITH TRACE LOSS ",
+        "text_level": 1,
+        "bbox": [
+            174,
+            494,
+            607,
+            511
+        ],
+        "page_idx": 5
+    },
+    {
+        "type": "text",
+        "text": "It is expected that IterNorm, as a kind of spectral transformation, can avoid collapse and obtain good performance in SSL, due to its benefits in approximating whitening for supervised learning (Huang et al., 2019). However, we empirically observe that IterNorm suffers severe dimensional collapse and mostly fails to train the model in SSL (we postpone the details in Section 4.2.). Based on the analyses in Section 3.2 and 3.2.2, we propose a simple solution by adding an extra penalty named trace loss on the transformed output $\\hat { \\mathbf { Z } }$ by IterNorm to ensure a well-conditioned spectrum. It is clear that the sum of eigenvalues of $\\Sigma _ { \\widehat { \\mathbf { Z } } }$ is less than or equal to $d$ , we thus propose a trace loss that encourages the trace of $\\Sigma _ { \\widehat { \\mathbf { Z } } }$ to be its maximum $d$ , when $d \\leq m$ . In particular, we design a new method called IterNorm with trace loss (INTL) for optimizing the SSL model as2: ",
+        "bbox": [
+            173,
+            515,
+            825,
+            646
+        ],
+        "page_idx": 5
+    },
+    {
+        "type": "equation",
+        "img_path": "images/3e44c0241eca872d7d6db13e545c289ce0818d8a9793f77550d401fdfb949298.jpg",
+        "text": "$$\n\\operatorname* { m i n } _ { \\theta \\in \\Theta } \\quad I N T L ( \\mathbf { Z } ) = \\sum _ { j = 1 } ^ { d } ( 1 - ( \\Sigma _ { \\widehat { \\mathbf { Z } } } ) _ { j j } ) ^ { 2 } ,\n$$",
+        "text_format": "latex",
+        "bbox": [
+            362,
+            650,
+            630,
+            695
+        ],
+        "page_idx": 5
+    },
+    {
+        "type": "text",
+        "text": "where $\\mathbf { Z } = F _ { \\theta } ( \\cdot )$ and $\\widehat { \\mathbf { Z } } = I t e r N o r m ( \\mathbf { Z } )$ . Eqn. 6 can be viewed as an optimization problem over $\\theta$ to encourage the trace of $\\hat { \\mathbf { Z } }$ to be $d$ . ",
+        "bbox": [
+            174,
+            700,
+            826,
+            734
+        ],
+        "page_idx": 5
+    },
+    {
+        "type": "text",
+        "text": "4.1 THEORETICAL ANALYSIS ",
+        "text_level": 1,
+        "bbox": [
+            174,
+            741,
+            392,
+            756
+        ],
+        "page_idx": 5
+    },
+    {
+        "type": "text",
+        "text": "In this section, we theoretically prove that INTL can avoid collapse, and INTL modulates the spectrum of embedding towards an equal-eigenvalue distribution during the course of optimization. ",
+        "bbox": [
+            176,
+            757,
+            823,
+            786
+        ],
+        "page_idx": 5
+    },
+    {
+        "type": "text",
+        "text": "Note that $\\Sigma _ { \\widehat { \\mathbf { Z } } }$ can be expressed using the T-whitening function $h _ { T } ( \\cdot )$ as $\\Sigma _ { \\widehat { \\mathbf { Z } } } = \\sum _ { i = 1 } ^ { d } h _ { T } ( x _ { i } ) \\mathbf { u } _ { i } \\mathbf { u } _ { i } ^ { T } .$ where $x _ { i } = \\lambda _ { i } / t r ( \\Sigma ) \\geq 0$ and $\\sum _ { i = 1 } ^ { d } x _ { i } = 1$ . When the range of $F _ { \\theta } ( \\cdot )$ is wide enough, the optimization ",
+        "bbox": [
+            173,
+            794,
+            826,
+            859
+        ],
+        "page_idx": 5
+    },
+    {
+        "type": "image",
+        "img_path": "images/c252cad4a7d4a62492be5715e22807065628a7c2eb85d92b6021061f239ab39c.jpg",
+        "image_caption": [
+            "Figure 3: Investigate the effectiveness of IterNorm with and without trace loss. We train the models on CIFAR-10 with ResNet-18 for 100 epochs. We apply IterNorm with various iteration numbers $T$ , and show the results with (solid lines) and without (dashed lines) trace loss respectively. (a) The spectrum of the embedding $\\mathbf { Z }$ ; (b) The spectrum of the transformed output $\\hat { \\mathbf { Z } }$ ; (c) The top-1 accuracy. (d) indicates that IterNorm (without trace loss) suffers from numeric divergence when using a large iteration number, e.g. $T = 9$ . It is noteworthy that when $T \\geq 1 1$ , the loss values are all NAN, making the model unable to be trained. Similar phenomena can be observed when using other datasets (e.g., ImageNet) and other networks (e.g., ResNet-50). "
+        ],
+        "image_footnote": [],
+        "bbox": [
+            171,
+            60,
+            818,
+            157
+        ],
+        "page_idx": 6
+    },
+    {
+        "type": "text",
+        "text": "problem over $\\theta$ (Eqn. 6) can be transformed as the following optimization problem over $\\mathbf { x }$ (Eqn. 7) without changing the optimal value (please see Appendix B.2 for the details of derivation): ",
+        "bbox": [
+            171,
+            280,
+            823,
+            308
+        ],
+        "page_idx": 6
+    },
+    {
+        "type": "equation",
+        "img_path": "images/3efb30f0429f858403cd781558ac5e2117e1014edba5a1365ecaea3468ff4e9c.jpg",
+        "text": "$$\n\\left\\{ \\begin{array} { l l } { { \\displaystyle \\operatorname* { m i n } _ { \\bf x } } } & { { I N T L ( { \\bf x } ) = \\sum _ { j = 1 } ^ { d } \\left( \\sum _ { i = 1 } ^ { d } [ 1 - h _ { T } ( x _ { i } ) ] u _ { j i } ^ { 2 } \\right) ^ { 2 } } } \\\\ { { \\it s . t . } } & { { \\displaystyle \\sum _ { i = 1 } ^ { d } x _ { i } = 1 } } \\\\ { { } } & { { x _ { i } \\geq 0 , i = 1 , \\cdots , d , } } \\end{array} \\right.\n$$",
+        "text_format": "latex",
+        "bbox": [
+            328,
+            313,
+            661,
+            401
+        ],
+        "page_idx": 6
+    },
+    {
+        "type": "text",
+        "text": "where $u _ { j i }$ is the $j$ -th elements of vector $\\mathbf { u } _ { i }$ . In this formulation, we can prove that our proposed INTL can theoretically avoid collapse, as long as the iteration number $T$ of IterNorm is larger than zero. ",
+        "bbox": [
+            171,
+            405,
+            823,
+            433
+        ],
+        "page_idx": 6
+    },
+    {
+        "type": "text",
+        "text": "Theorem 2. Let $\\mathbf { x } \\in [ 0 , 1 ] ^ { d }$ , $\\forall T \\in \\mathbb { N } _ { + }$ , $I N T L ( \\mathbf { x } )$ shown in Eqn. 7 is a strictly convex function.   \n$\\mathbf { x } ^ { * } = [ \\frac { 1 } { d } , \\cdots , \\frac { 1 } { d } ] ^ { T }$ is the unique minimum point as well as the optimal solution to $I N T L ( \\mathbf { x } )$ . ",
+        "bbox": [
+            173,
+            435,
+            823,
+            468
+        ],
+        "page_idx": 6
+    },
+    {
+        "type": "text",
+        "text": "The proof is provided in Appendix B.2. Based on Theorem 2, INTL modulates the spectrum of embedding to be equal-eigenvalues during the backward pass, which provides a theoretical guarantee to avoid dimensional collapse. ",
+        "bbox": [
+            176,
+            477,
+            823,
+            518
+        ],
+        "page_idx": 6
+    },
+    {
+        "type": "text",
+        "text": "Connection to hard whitening. Hard whitening methods, like W-MSE (Ermolov et al., 2021) and shuffle-DBN (Hua et al., 2021), design a whitening transformation over each view and minimize the distances between the whitened outputs from different views. This mechanism modulates the covariance matrix of embedding to be full-rank (Weng et al., 2022). Our INTL designs an approximated whitening transformation using IterNorm and imposes an additional trace loss penalty on the (approximately) whitened output, which modulates the covariance matrix of embedding having equal eigenvalues. ",
+        "bbox": [
+            173,
+            521,
+            825,
+            614
+        ],
+        "page_idx": 6
+    },
+    {
+        "type": "text",
+        "text": "Connection to soft whitening. Soft whitening methods, like Barlow-Twins (Zbontar et al., 2021) and VICReg (Bardes et al., 2022) directly impose a whitening penalty as a regularization on the embedding. This modulates the covariance matrix of the embedding to be identity (with a fixed scalar $\\gamma$ , e.g., $\\gamma \\mathbf { I }$ ). Our INTL imposes the penalty on the transformed output, but can be viewed as implicitly modulating the covariance matrix of the embedding to be identity with a free scalar (i.e., having equal eigenvalues). ",
+        "bbox": [
+            173,
+            617,
+            825,
+            696
+        ],
+        "page_idx": 6
+    },
+    {
+        "type": "text",
+        "text": "Intuitively, INTL modulates the spectrum of embedding to be equal-eigenvalues during the backward pass, which is a stronger constraint than hard whitening (the full-rank modulation), but a weaker constraint than soft whitening (the whitening modulation). This preliminary but new comparison provides a new way to understand the whitening loss in SSL. ",
+        "bbox": [
+            174,
+            704,
+            825,
+            758
+        ],
+        "page_idx": 6
+    },
+    {
+        "type": "text",
+        "text": "4.2 EMPIRICAL ANALYSIS ",
+        "text_level": 1,
+        "bbox": [
+            174,
+            765,
+            370,
+            779
+        ],
+        "page_idx": 6
+    },
+    {
+        "type": "text",
+        "text": "In this section, we empirically show that IterNorm-only and trace-loss-only fail to avoid collapse, but IterNorm with trace loss can well avoid collapse. ",
+        "bbox": [
+            171,
+            781,
+            823,
+            809
+        ],
+        "page_idx": 6
+    },
+    {
+        "type": "text",
+        "text": "IterNorm fails to avoid collapse. In theory, IterNorm can map all non-zero eigenvalues to approach one, with a large enough $T$ . In practice, it usually uses a fixed $T$ , and it is very likely to encounter small eigenvalues during training. In this case, IterNorm cannot ensure the transformed output has a well-conditioned spectrum (Figure 3(b)), which potentially results in dimensional collapse. One may use a large $T$ , however, IterNorm will encounter numeric divergence upon further increasing the iteration number $T$ , even though it has converged. E.g., IterNorm suffers from numeric divergence in Figure 3(d) when using $T = 9$ , since the maximum eigenvalue of whitened output is around ",
+        "bbox": [
+            173,
+            813,
+            825,
+            906
+        ],
+        "page_idx": 6
+    },
+    {
+        "type": "table",
+        "img_path": "images/f0d1b85dad687def368fefeed106f0641aff54f6335cf4caab0bdf75c0d5cb9d.jpg",
+        "table_caption": [
+            "Table 1: Classification top-1 accuracy of a linear classifier and a 5-nearest neighbors classifier for different loss functions and datasets. The table is mostly inherited from solo-learn (da Costa et al., 2022). All methods are based on ResNet-18 with two augmented views generated from per sample and are trained for 1000-epoch on CIFAR-10/100 with a batch size of 256 and 400-epoch on ImageNet-100 with a batch size of 128. "
+        ],
+        "table_footnote": [],
+        "table_body": "<table><tr><td rowspan=\"2\">Method</td><td colspan=\"2\">CIFAR-10</td><td colspan=\"2\">CIFAR-100</td><td colspan=\"2\">ImageNet-100</td></tr><tr><td>top-1</td><td>5-nn</td><td>top-1</td><td>5-nn</td><td>top-1</td><td>5-nn</td></tr><tr><td>SimCLR (Chen et al., 2020a)</td><td>90.74</td><td>85.13</td><td>65.78</td><td>53.19</td><td>77.64</td><td>65.78</td></tr><tr><td>MoCo V2 (Chen et al., 2020b)</td><td>92.94</td><td>88.95</td><td>69.89</td><td>58.09</td><td>79.28</td><td>70.46</td></tr><tr><td>BYOL (Grill et al., 2020)</td><td>92.58</td><td>87.40</td><td>70.46</td><td>56.46</td><td>80.32</td><td>68.94</td></tr><tr><td>SwAV (Caron et al., 2020)</td><td>89.17</td><td>84.18</td><td>64.88</td><td>53.32</td><td>74.28</td><td>63.84</td></tr><tr><td>SimSiam (Chen &amp; He, 2021)</td><td>90.51</td><td>86.82</td><td>66.04</td><td>55.79</td><td>78.72</td><td>67.92</td></tr><tr><td>W-MSE (Ermolov et al., 2021)</td><td>88.67</td><td>84.95</td><td>61.33</td><td>49.65</td><td>69.06</td><td>58.44</td></tr><tr><td>Shuffled-DBN (Hua et al., 2021)</td><td>91.17</td><td>88.95</td><td>66.81</td><td>57.27</td><td>75.27</td><td>67.21</td></tr><tr><td>DINO (Caron et al., 2021)</td><td>89.52</td><td>86.13</td><td>66.76</td><td>56.24</td><td>74.92</td><td>64.30</td></tr><tr><td>Barlow Twins (Zbontar et al., 2021)</td><td>92.10</td><td>88.09</td><td>70.90</td><td>59.40</td><td>80.16</td><td>72.14</td></tr><tr><td>VICReg (Bardes et al., 2022)</td><td>92.07</td><td>87.38</td><td>68.54</td><td>56.32</td><td>79.40</td><td>71.94</td></tr><tr><td>Zero-CL (Zhang et al., 2022b)</td><td>90.81</td><td>87.51</td><td>70.33</td><td>59.21</td><td>79.26</td><td>71.18</td></tr><tr><td>CW-RGP (Weng et al., 2022)</td><td>92.03</td><td>89.67</td><td>67.78</td><td>58.24</td><td>76.96</td><td>68.46</td></tr><tr><td>INTL (ours)</td><td>92.60</td><td>90.03</td><td>70.88</td><td>61.90</td><td>81.68</td><td>73.46</td></tr></table>",
+        "bbox": [
+            199,
+            142,
+            795,
+            325
+        ],
+        "page_idx": 7
+    },
+    {
+        "type": "table",
+        "img_path": "images/e1cbb5fc8fc1bb389c9569626a38df6693632b40fbafb0b73d53fc4b2599d6ba.jpg",
+        "table_caption": [
+            "Table 2: Comparisons on ImageNet linear classification with various training epochs. All methods are based on ResNet-50 backbone with two augmented views generated from per sample. EMA represents Exponential Moving Average. Given that one of the objectives of SSL methods is to achieve high performance with small batch sizes, it’s worth noting that our INTL performs effectively when trained with small batch sizes, such as 256 and 512. "
+        ],
+        "table_footnote": [],
+        "table_body": "<table><tr><td>Method</td><td>Batch size</td><td>EMA</td><td>100 eps</td><td>200 eps</td><td>400 eps</td><td>800 eps</td></tr><tr><td>SimCLR</td><td>4096</td><td>No</td><td>66.5</td><td>68.3</td><td>69.8</td><td>70.4</td></tr><tr><td rowspan=\"2\">SwAV</td><td>4096</td><td>No</td><td>66.5</td><td>69.1</td><td>70.7</td><td>71.8</td></tr><tr><td>512</td><td>No</td><td>65.8</td><td>67.9</td><td>-</td><td>-</td></tr><tr><td>SimSiam</td><td>256</td><td>No</td><td>68.1</td><td>70.0</td><td>70.8</td><td>71.3</td></tr><tr><td>W-MSE</td><td>512</td><td>No</td><td>65.1</td><td>66.4</td><td>-</td><td></td></tr><tr><td>Shuffled-DBN</td><td>512</td><td>No</td><td>65.2</td><td></td><td>-</td><td>-</td></tr><tr><td>Barlow Twins</td><td>2048</td><td>No</td><td>67.7</td><td></td><td>72.5</td><td>73.2</td></tr><tr><td>Zero-CL</td><td>1024</td><td>No</td><td>68.9</td><td>-</td><td>72.6</td><td></td></tr><tr><td>CW-RGP</td><td>512</td><td>No</td><td>67.1</td><td>69.6</td><td>-</td><td>-</td></tr><tr><td>INTL (ours)</td><td>512</td><td>No</td><td>69.5</td><td>71.1</td><td>72.4</td><td>73.1</td></tr><tr><td>MoCo v2</td><td>256</td><td>Yes</td><td>67.4</td><td>69.9</td><td>71.0</td><td>72.2</td></tr><tr><td>BYOL</td><td>4096</td><td>Yes</td><td>66.5</td><td>70.6</td><td>73.2</td><td>74.3</td></tr><tr><td>INTL (ours)</td><td>256</td><td>Yes</td><td>69.2</td><td>71.5</td><td>73.7</td><td>74.3</td></tr></table>",
+        "bbox": [
+            243,
+            411,
+            745,
+            583
+        ],
+        "page_idx": 7
+    },
+    {
+        "type": "text",
+        "text": "$1 0 ^ { 7 }$ , significantly large than 1 (we attribute to the numeric divergence, since this result goes against Proposition 1 and 2, and we further validate it by monitoring the transformed output). It is noteworthy that when $T \\geq 1 1$ , the loss values are all NAN, making the model unable to be trained. These problems make IterNorm difficult to avoid dimensional collapse in practice. ",
+        "bbox": [
+            173,
+            595,
+            825,
+            650
+        ],
+        "page_idx": 7
+    },
+    {
+        "type": "text",
+        "text": "The Synergy between IterNorm and trace loss. IterNorm in combination with trace loss demonstrates significant differences compared to IterNorm-only. Our experimental results, as shown in Figure 3(a), empirically confirm that INTL effectively prevents dimensional collapse, aligning with the findings of Theorem 2. INTL encourages the uniformity of eigenvalues within the covariance matrix of the embedding $\\mathbf { Z }$ , resulting in well-conditioned spectra for the transformed output (Figure 3(b)) and impressive evaluation performance (Figure 3(c)), even when the iteration count $T$ is as low as 1. To further evaluate the performance of trace-loss-only, we conducte experiments under the same setup. Without IterNorm, trace-loss-only achieves a top-1 accuracy of only $1 6 . 1 5 \\%$ , indicating significant collapse. Therefore, the efficacy of INTL, as well as the attainment of an optimal solution characterized by equal eigenvalues, is a result of the synergy between IterNorm and trace loss. ",
+        "bbox": [
+            174,
+            656,
+            825,
+            789
+        ],
+        "page_idx": 7
+    },
+    {
+        "type": "text",
+        "text": "5 EXPERIMENTS ON STANDARD SSL BENCHMARK ",
+        "text_level": 1,
+        "bbox": [
+            174,
+            800,
+            611,
+            818
+        ],
+        "page_idx": 7
+    },
+    {
+        "type": "text",
+        "text": "In this section, we conduct experiments on standard SSL benchmarks to validate the effectiveness of our proposed INTL. We first evaluate the performance of INTL for classification on CIFAR10/100 (Krizhevsky, 2009), ImageNet-100 (Tian et al., 2020a), and ImageNet (Deng et al., 2009). Then we evaluate the effectiveness in transfer learning, for a pre-trained model using INTL. We provide the full PyTorch-style algorithm in Appendix C as well as details of implementation and computational overhead in Appendix E. ",
+        "bbox": [
+            174,
+            825,
+            825,
+            905
+        ],
+        "page_idx": 7
+    },
+    {
+        "type": "table",
+        "img_path": "images/d956df2982365c7294f83a80703cb87817134857d3801631010302c415810c2e.jpg",
+        "table_caption": [
+            "Table 3: Transfer Learning. All competitive unsupervised methods are based on 200-epoch pretraining on ImageNet (IN). The table are mostly inherited from (Chen & He, 2021). Our INTL is performed with 3 random seeds, with mean and standard deviation reported. "
+        ],
+        "table_footnote": [],
+        "table_body": "<table><tr><td rowspan=\"2\">Method</td><td colspan=\"3\">COCO detection</td><td colspan=\"3\">COCO instance seg.</td></tr><tr><td>AP50</td><td>AP</td><td>AP75</td><td>AP50</td><td>AP</td><td>AP75</td></tr><tr><td>Scratch</td><td>44.0</td><td>26.4</td><td>27.8</td><td>46.9</td><td>29.3</td><td>30.8</td></tr><tr><td>Supervised</td><td>58.2</td><td>38.2</td><td>41.2</td><td>54.7</td><td>33.3</td><td>35.2</td></tr><tr><td>SimCLR</td><td>57.7</td><td>37.9</td><td>40.9</td><td>54.6</td><td>33.3</td><td>35.3</td></tr><tr><td>MoCo v2</td><td>58.8</td><td>39.2</td><td>42.5</td><td>55.5</td><td>34.3</td><td>36.6</td></tr><tr><td>BYOL</td><td>57.8</td><td>37.9</td><td>40.9</td><td>54.3</td><td>33.2</td><td>35.0</td></tr><tr><td>SwAV</td><td>57.6</td><td>37.6</td><td>40.3</td><td>54.2</td><td>33.1</td><td>35.1</td></tr><tr><td>SimSiam</td><td>57.5</td><td>37.9</td><td>40.9</td><td>54.2</td><td>33.2</td><td>35.2</td></tr><tr><td>W-MSE (repro.)</td><td>60.1</td><td>39.2</td><td>42.8</td><td>56.8</td><td>34.8</td><td>36.7</td></tr><tr><td>Barlow Twins</td><td>59.0</td><td>39.2</td><td>42.5</td><td>56.0</td><td>34.3</td><td>36.5</td></tr><tr><td>INTL (ours)</td><td>60.9±0.08</td><td>40.7±0.09</td><td>43.7±0.17</td><td>57.3±0.08</td><td>35.4±0.05</td><td>37.6±0.14</td></tr></table>",
+        "bbox": [
+            207,
+            111,
+            789,
+            263
+        ],
+        "page_idx": 8
+    },
+    {
+        "type": "text",
+        "text": "5.1 EVALUATION FOR CLASSIFICATION ",
+        "text_level": 1,
+        "bbox": [
+            174,
+            275,
+            459,
+            289
+        ],
+        "page_idx": 8
+    },
+    {
+        "type": "text",
+        "text": "Evaluation on small and medium size datasets. We initially train and perform linear evaluation of INTL using ResNet-18 as the backbone on CIFAR-10/100 (Krizhevsky, 2009) and ImageNet100 (Tian et al., 2020a). We strictly adhere to the experimental settings outlined in solo-learn (da Costa et al., 2022) for these datasets. As depicted in Table 1, INTL achieves remarkable results, with a top-1 accuracy of $9 2 . 6 0 \\%$ on CIFAR-10, $7 0 . 8 8 \\%$ on CIFAR-100, and $8 1 . 6 8 \\%$ on ImageNet-100. These results are on par with or even surpass the state-of-the-art methods as reproduced by solo-learn. Furthermore, when employing a 5-nearest neighbors classifier, INTL outperforms other baselines by a significant margin, underscoring its capacity to learn superior representations. ",
+        "bbox": [
+            173,
+            291,
+            826,
+            397
+        ],
+        "page_idx": 8
+    },
+    {
+        "type": "text",
+        "text": "Evaluation on ImageNet. To further assess the versatility of INTL, we train it using a ResNet-50 backbone and evaluate its performance using the standard linear evaluation protocol on ImageNet. The results, presented in Table 2, demonstrate the effectiveness of INTL, achieving top-1 accuracy of $6 9 . 5 \\%$ , $7 1 . 1 \\%$ , $7 2 . 4 \\%$ , and $7 3 . 1 \\%$ after pre-training for 100, 200, 400, and 800 epochs, respectively. We observe that our INTL performs even better when utilized in conjunction with the Exponential Moving Average (EMA) technique, as employed in BYOL and MoCo. This combination yielded a top-1 accuracy of $7 4 . 3 \\%$ after 800 epochs of training. ",
+        "bbox": [
+            174,
+            398,
+            825,
+            492
+        ],
+        "page_idx": 8
+    },
+    {
+        "type": "text",
+        "text": "5.2 TRANSFER TO DOWNSTREAM TASKS ",
+        "text_level": 1,
+        "bbox": [
+            176,
+            500,
+            470,
+            512
+        ],
+        "page_idx": 8
+    },
+    {
+        "type": "text",
+        "text": "We examine the representation quality by transferring our pre-trained model to other tasks, including COCO (Lin et al., 2014) object detection and instance segmentation. We use the baseline of the detection codebase from MoCo (He et al., 2020) for INTL. The results of baselines shown in Table 3 are mostly inherited from (Chen & He, 2021). We observe that INTL performs much better than other state-of-the-art approaches on COCO object detection and instance segmentation, which shows the great potential of INTL in transferring to downstream tasks. ",
+        "bbox": [
+            174,
+            515,
+            825,
+            594
+        ],
+        "page_idx": 8
+    },
+    {
+        "type": "text",
+        "text": "5.3 ABLATION STUDY ",
+        "text_level": 1,
+        "bbox": [
+            174,
+            601,
+            341,
+            613
+        ],
+        "page_idx": 8
+    },
+    {
+        "type": "text",
+        "text": "We conducte a comprehensive set of ablation experiments to assess the robustness and versatility of our INTL in Appendix F. These experiments cover various aspects, including batch sizes, embedding dimensions, the use of multi-crop augmentation, semi-supervised training, the choice of Vision Transformer (ViT) backbones and adding trace loss to other methods. Through these experiments, we gain valuable insights into how INTL performs under different conditions and configurations, shedding light on its adaptability and effectiveness in diverse scenarios. The results collectively reinforce the notion that INTL is a robust and flexible self-supervised learning method capable of delivering strong performance across a wide range of settings and data representations. Notably, our INTL achieved a remarkable top-1 accuracy of $7 \\mathrm { \\bar { 6 } . 6 \\% }$ on ImageNet linear evaluation with ResNet-50 when employing multi-crop augmentation, surpassing even the common supervised baseline of $7 6 . 5 \\%$ . ",
+        "bbox": [
+            173,
+            613,
+            826,
+            758
+        ],
+        "page_idx": 8
+    },
+    {
+        "type": "text",
+        "text": "6 CONCLUSION ",
+        "text_level": 1,
+        "bbox": [
+            174,
+            765,
+            320,
+            780
+        ],
+        "page_idx": 8
+    },
+    {
+        "type": "text",
+        "text": "In this paper, we proposed spectral transformation (ST) framework to modulate the spectrum of embedding and to seek for functions beyond whitening that can avoid dimensional collapse. Our proposed IterNorm with trace loss (INTL) is well-motivated, theoretically demonstrated, and empirically validated in avoiding dimension collapse. Comprehensive experiments have shown the merits of INTL for achieving state-of-the-art performance for SSL in practice. We showed that INTL modulates the spectrum of embedding to be equal-eigenvalues during the backward pass, which is a stronger constraint than hard whitening (the full-rank modulation), but a weaker constraint than soft whitening (the whitening modulation). This preliminary but new results provides a potential way to understand and compare SSL methods. ",
+        "bbox": [
+            174,
+            786,
+            825,
+            905
+        ],
+        "page_idx": 8
+    },
+    {
+        "type": "text",
+        "text": "ACKNOWLEDGMENTS ",
+        "text_level": 1,
+        "bbox": [
+            176,
+            85,
+            356,
+            99
+        ],
+        "page_idx": 9
+    },
+    {
+        "type": "text",
+        "text": "This work was partially supported by the National Science and Technology Major Project under Grant 2022ZD0116310, National Natural Science Foundation of China (Grant No. 62106012), the Fundamental Research Funds for the Central Universities. ",
+        "bbox": [
+            176,
+            114,
+            823,
+            155
+        ],
+        "page_idx": 9
+    },
+    {
+        "type": "text",
+        "text": "REPRODUCIBILITY STATEMENT ",
+        "text_level": 1,
+        "bbox": [
+            176,
+            174,
+            437,
+            190
+        ],
+        "page_idx": 9
+    },
+    {
+        "type": "text",
+        "text": "To ensure the reproducibility and comprehensiveness of our paper, we have included an appendix comprising six main sections. These sections serve various purposes: ",
+        "bbox": [
+            173,
+            205,
+            823,
+            233
+        ],
+        "page_idx": 9
+    },
+    {
+        "type": "text",
+        "text": "• Appendix A contains detailed proofs for the propositions presented in our work.   \n• Appendix B provides in-depth proofs for the theorems introduced in our research.   \n• Appendix C offers a comprehensive view of the INTL algorithm, including detailed formulas and PyTorch-style code for implementation.   \n• Appendix D elaborates on the settings used in our analytical experiments, with reference to Figure 2 and Figure 3.   \n• Appendix E furnishes insights into the implementation details and computational intricacies of experiments conducted on standard SSL benchmarks, as discussed in Section 5.   \n• Finally, Appendix F encompasses a comprehensive set of ablation experiments, assessing the robustness and versatility of our INTL method across various scenarios. ",
+        "bbox": [
+            217,
+            244,
+            825,
+            401
+        ],
+        "page_idx": 9
+    },
+    {
+        "type": "text",
+        "text": "REFERENCES ",
+        "text_level": 1,
+        "bbox": [
+            174,
+            421,
+            287,
+            436
+        ],
+        "page_idx": 9
+    },
+    {
+        "type": "text",
+        "text": "Philip Bachman, R Devon Hjelm, and William Buchwalter. Learning representations by maximizing mutual information across views. In NeurIPS, 2019.   \nAdrien Bardes, Jean Ponce, and Yann LeCun. Vicreg: Variance-invariance-covariance regularization for self-supervised learning. In ICLR, 2022.   \nDario A. Bini, Nicholas J. Higham, and Beatrice Meini. Algorithms for the matrix pth root. Numerical Algorithms, 2005.   \nMathilde Caron, Piotr Bojanowski, Armand Joulin, and Matthijs Douze. Deep clustering for unsupervised learning of visual features. In ECCV, 2018.   \nMathilde Caron, Ishan Misra, Julien Mairal, Priya Goyal, Piotr Bojanowski, and Armand Joulin. Unsupervised learning of visual features by contrasting cluster assignments. In NeurIPS, 2020.   \nMathilde Caron, Hugo Touvron, Ishan Misra, Herve Jegou, Julien Mairal, Piotr Bojanowski, and ´ Armand Joulin. Emerging properties in self-supervised vision transformers. In ICCV, 2021.   \nTing Chen, Simon Kornblith, Mohammad Norouzi, and Geoffrey Hinton. A simple framework for contrastive learning of visual representations. In ICML, 2020a.   \nXinlei Chen and Kaiming He. Exploring simple siamese representation learning. In CVPR, 2021.   \nXinlei Chen, Haoqi Fan, Ross Girshick, and Kaiming He. Improved baselines with momentum contrastive learning. arXiv preprint arXiv:2003.04297, 2020b.   \nImageNet contributors. Imagenet terms of access. 2020. URL https://image-net.org/ download.   \nVictor Guilherme Turrisi da Costa, Enrico Fini, Moin Nabi, Nicu Sebe, and Elisa Ricci. solo-learn: A library of self-supervised methods for visual representation learning. Journal of Machine Learning Research, 23(56):1–6, 2022. URL http://jmlr.org/papers/v23/21-1155.html.   \nJ. Deng, W. Dong, R. Socher, L.-J. Li, K. Li, and L. Fei-Fei. ImageNet: A Large-Scale Hierarchical Image Database. In CVPR, 2009.   \nAleksandr Ermolov, Aliaksandr Siarohin, Enver Sangineto, and Nicu Sebe. Whitening for selfsupervised representation learning. In ICML, 2021. ",
+        "bbox": [
+            171,
+            433,
+            826,
+            905
+        ],
+        "page_idx": 9
+    },
+    {
+        "type": "text",
+        "text": "Abe Fetterman and Josh Albrecht. Understanding self-supervised and contrastive learning with ”bootstrap your own latent” (byol). Technical Report, 2020. ",
+        "bbox": [
+            176,
+            85,
+            823,
+            113
+        ],
+        "page_idx": 10
+    },
+    {
+        "type": "text",
+        "text": "Inc. Flickr. Flickr terms and conditions of use. 2020. URL http://aiweb.techfak. uni-bielefeld.de/content/bworld-robot-control-software/. ",
+        "bbox": [
+            176,
+            121,
+            823,
+            148
+        ],
+        "page_idx": 10
+    },
+    {
+        "type": "text",
+        "text": "Quentin Garrido, Yubei Chen, Adrien Bardes, Laurent Najman, and Yann LeCun. On the duality between contrastive and non-contrastive self-supervised learning. In ICLR, 2023. ",
+        "bbox": [
+            176,
+            156,
+            821,
+            185
+        ],
+        "page_idx": 10
+    },
+    {
+        "type": "text",
+        "text": "Arna Ghosh, Arnab Kumar Mondal, Kumar Krishna Agrawal, and Blake A. Richards. Investigating power laws in deep representation learning. arXiv preprint arXiv:2202.05808, 2022. ",
+        "bbox": [
+            173,
+            193,
+            823,
+            222
+        ],
+        "page_idx": 10
+    },
+    {
+        "type": "text",
+        "text": "Jean-Bastien Grill, Florian Strub, Florent Altche, Corentin Tallec, Pierre Richemond, Elena ´ Buchatskaya, Carl Doersch, Bernardo Avila Pires, Zhaohan Guo, Mohammad Gheshlaghi Azar, Bilal Piot, koray kavukcuoglu, Remi Munos, and Michal Valko. Bootstrap your own latent - a new approach to self-supervised learning. In NeuraIPS, 2020. ",
+        "bbox": [
+            173,
+            228,
+            825,
+            282
+        ],
+        "page_idx": 10
+    },
+    {
+        "type": "text",
+        "text": "Bobby He and Mete Ozay. Exploring the gap between collapsed and whitened features in selfsupervised learning. In ICML, 2022. ",
+        "bbox": [
+            174,
+            290,
+            825,
+            319
+        ],
+        "page_idx": 10
+    },
+    {
+        "type": "text",
+        "text": "Kaiming He, Xiangyu Zhang, Shaoqing Ren, and Jian Sun. Deep residual learning for image recognition. In CVPR, 2016. ",
+        "bbox": [
+            174,
+            327,
+            823,
+            354
+        ],
+        "page_idx": 10
+    },
+    {
+        "type": "text",
+        "text": "Kaiming He, Haoqi Fan, Yuxin Wu, Saining Xie, and Ross Girshick. Momentum contrast for unsupervised visual representation learning. In CVPR, 2020. ",
+        "bbox": [
+            176,
+            362,
+            823,
+            391
+        ],
+        "page_idx": 10
+    },
+    {
+        "type": "text",
+        "text": "Olivier Henaff. Data-efficient image recognition with contrastive predictive coding. In ICML, 2020. ",
+        "bbox": [
+            173,
+            398,
+            823,
+            414
+        ],
+        "page_idx": 10
+    },
+    {
+        "type": "text",
+        "text": "Tianyu Hua, Wenxiao Wang, Zihui Xue, Sucheng Ren, Yue Wang, and Hang Zhao. On feature decorrelation in self-supervised learning. In ICCV, 2021. ",
+        "bbox": [
+            174,
+            421,
+            823,
+            449
+        ],
+        "page_idx": 10
+    },
+    {
+        "type": "text",
+        "text": "Lei Huang, Dawei Yang, Bo Lang, and Jia Deng. Decorrelated batch normalization. In CVPR, 2018. ",
+        "bbox": [
+            173,
+            457,
+            825,
+            472
+        ],
+        "page_idx": 10
+    },
+    {
+        "type": "text",
+        "text": "Lei Huang, Yi Zhou, Fan Zhu, Li Liu, and Ling Shao. Iterative normalization: Beyond standardization towards efficient whitening. In CVPR, 2019. ",
+        "bbox": [
+            171,
+            479,
+            825,
+            508
+        ],
+        "page_idx": 10
+    },
+    {
+        "type": "text",
+        "text": "Ashish Jaiswal, Ashwin Ramesh Babu, Mohammad Zaki Zadeh, Debapriya Banerjee, and Fillia Makedon. A survey on contrastive self-supervised learning. arXiv preprint arXiv:2011.00362, 2020. ",
+        "bbox": [
+            176,
+            515,
+            823,
+            556
+        ],
+        "page_idx": 10
+    },
+    {
+        "type": "text",
+        "text": "Li Jing, Pascal Vincent, Yann LeCun, and Yuandong Tian. Understanding dimensional collapse in contrastive self-supervised learning. In ICLR, 2022. ",
+        "bbox": [
+            173,
+            564,
+            823,
+            593
+        ],
+        "page_idx": 10
+    },
+    {
+        "type": "text",
+        "text": "Diederik P. Kingma and Jimmy Ba. Adam: A method for stochastic optimization. CoRR, abs/1412.6980, 2014. ",
+        "bbox": [
+            174,
+            599,
+            823,
+            628
+        ],
+        "page_idx": 10
+    },
+    {
+        "type": "text",
+        "text": "Alex Krizhevsky. Learning multiple layers of features from tiny images. Technical report, 2009. ",
+        "bbox": [
+            173,
+            636,
+            805,
+            651
+        ],
+        "page_idx": 10
+    },
+    {
+        "type": "text",
+        "text": "Junnan Li, Pan Zhou, Caiming Xiong, and Steven C.H. Hoi. Prototypical contrastive learning of unsupervised representations. In ICLR, 2021. ",
+        "bbox": [
+            173,
+            659,
+            820,
+            688
+        ],
+        "page_idx": 10
+    },
+    {
+        "type": "text",
+        "text": "Tsung-Yi Lin, Michael Maire, Serge Belongie, James Hays, Pietro Perona, Deva Ramanan, Piotr Dollar, and Larry Zitnick. Microsoft coco: Common objects in context. In ECCV, 2014. ",
+        "bbox": [
+            174,
+            694,
+            823,
+            723
+        ],
+        "page_idx": 10
+    },
+    {
+        "type": "text",
+        "text": "Yixin Liu, Shirui Pan, Ming Jin, Chuan Zhou, Feng Xia, and Philip S Yu. Graph self-supervised learning: A survey. arXiv e-prints, pp. arXiv–2103, 2021. ",
+        "bbox": [
+            173,
+            731,
+            823,
+            758
+        ],
+        "page_idx": 10
+    },
+    {
+        "type": "text",
+        "text": "Aaron van den Oord, Yazhe Li, and Oriol Vinyals. Representation learning with contrastive predictive coding. arXiv preprint arXiv:1807.03748, 2018. ",
+        "bbox": [
+            171,
+            766,
+            823,
+            795
+        ],
+        "page_idx": 10
+    },
+    {
+        "type": "text",
+        "text": "Maxime Oquab, Timothee Darcet, Th ´ eo Moutakanni, Huy Vo, Marc Szafraniec, Vasil Khalidov, ´ Pierre Fernandez, Daniel Haziza, Francisco Massa, Alaaeldin El-Nouby, et al. Dinov2: Learning robust visual features without supervision. arXiv preprint arXiv:2304.07193, 2023. ",
+        "bbox": [
+            174,
+            803,
+            823,
+            844
+        ],
+        "page_idx": 10
+    },
+    {
+        "type": "text",
+        "text": "Adam Paszke, Sam Gross, Francisco Massa, Adam Lerer, James Bradbury, Gregory Chanan, Trevor Killeen, Zeming Lin, Natalia Gimelshein, Luca Antiga, et al. Pytorch: An imperative style, high-performance deep learning library. Advances in neural information processing systems, 32, 2019. ",
+        "bbox": [
+            176,
+            852,
+            825,
+            905
+        ],
+        "page_idx": 10
+    },
+    {
+        "type": "text",
+        "text": "Kanchana Ranasinghe, Muzammal Naseer, Salman Khan, Fahad Shahbaz Khan, and Michael Ryoo. Self-supervised video transformer. In CVPR, 2022. ",
+        "bbox": [
+            174,
+            85,
+            823,
+            113
+        ],
+        "page_idx": 11
+    },
+    {
+        "type": "text",
+        "text": "Pierre H Richemond, Jean-Bastien Grill, Florent Altche, Corentin Tallec, Florian Strub, Andrew ´ Brock, Samuel Smith, Soham De, Razvan Pascanu, Bilal Piot, et al. Byol works even without batch statistics. arXiv preprint arXiv:2010.10241, 2020. ",
+        "bbox": [
+            174,
+            121,
+            821,
+            162
+        ],
+        "page_idx": 11
+    },
+    {
+        "type": "text",
+        "text": "Nikunj Saunshi, Orestis Plevrakis, Sanjeev Arora, Mikhail Khodak, and Hrishikesh Khandeparkar. A theoretical analysis of contrastive unsupervised representation learning. In ICML, 2019. ",
+        "bbox": [
+            173,
+            170,
+            821,
+            199
+        ],
+        "page_idx": 11
+    },
+    {
+        "type": "text",
+        "text": "Aliaksandr Siarohin, Enver Sangineto, and Nicu Sebe. Whitening and coloring batch transform for gans. In ICLR, 2019. ",
+        "bbox": [
+            173,
+            207,
+            820,
+            236
+        ],
+        "page_idx": 11
+    },
+    {
+        "type": "text",
+        "text": "Chenxin Tao, Honghui Wang, Xizhou Zhu, Jiahua Dong, Shiji Song, Gao Huang, and Jifeng Dai. Exploring the equivalence of siamese self-supervised learning via A unified gradient framework. In CVPR, 2022. ",
+        "bbox": [
+            174,
+            243,
+            823,
+            285
+        ],
+        "page_idx": 11
+    },
+    {
+        "type": "text",
+        "text": "Yonglong Tian, Dilip Krishnan, and Phillip Isola. Contrastive multiview coding. In European conference on computer vision, 2020a. ",
+        "bbox": [
+            174,
+            292,
+            823,
+            321
+        ],
+        "page_idx": 11
+    },
+    {
+        "type": "text",
+        "text": "Yuandong Tian, Lantao Yu, Xinlei Chen, and Surya Ganguli. Understanding self-supervised learning with dual deep networks. CoRR, abs/2010.00578, 2020b. ",
+        "bbox": [
+            174,
+            329,
+            823,
+            358
+        ],
+        "page_idx": 11
+    },
+    {
+        "type": "text",
+        "text": "Yuandong Tian, Xinlei Chen, and Surya Ganguli. Understanding self-supervised learning dynamics without contrastive pairs. In ICML, 2021. ",
+        "bbox": [
+            176,
+            366,
+            823,
+            395
+        ],
+        "page_idx": 11
+    },
+    {
+        "type": "text",
+        "text": "Xiao Wang and Guo-Jun Qi. Contrastive learning with stronger augmentations. IEEE transactions on pattern analysis and machine intelligence, 45(5):5549–5560, 2022. ",
+        "bbox": [
+            173,
+            402,
+            823,
+            431
+        ],
+        "page_idx": 11
+    },
+    {
+        "type": "text",
+        "text": "Xi Weng, Lei Huang, Lei Zhao, Rao Muhammad Anwer, Salman Khan, and Fahad Khan. An investigation into whitening loss for self-supervised learning. In NeurIPS, 2022. ",
+        "bbox": [
+            174,
+            439,
+            823,
+            467
+        ],
+        "page_idx": 11
+    },
+    {
+        "type": "text",
+        "text": "Zhirong Wu, Yuanjun Xiong, Stella X. Yu, and Dahua Lin. Unsupervised feature learning via non-parametric instance discrimination. In CVPR, 2018. ",
+        "bbox": [
+            176,
+            474,
+            823,
+            503
+        ],
+        "page_idx": 11
+    },
+    {
+        "type": "text",
+        "text": "Chengxi Ye, Matthew Evanusa, Hua He, Anton Mitrokhin, Tom Goldstein, James A. Yorke, Cornelia Fermuller, and Yiannis Aloimonos. Network deconvolution. In ICLR, 2020. ",
+        "bbox": [
+            174,
+            511,
+            823,
+            540
+        ],
+        "page_idx": 11
+    },
+    {
+        "type": "text",
+        "text": "Mang Ye, Xu Zhang, Pong C. Yuen, and Shih-Fu Chang. Unsupervised embedding learning via invariant and spreading instance feature. In CVPR, 2019. ",
+        "bbox": [
+            173,
+            547,
+            823,
+            575
+        ],
+        "page_idx": 11
+    },
+    {
+        "type": "text",
+        "text": "Jure Zbontar, Li Jing, Ishan Misra, Yann Lecun, and Stephane Deny. Barlow twins: Self-supervised learning via redundancy reduction. In ICML, 2021. ",
+        "bbox": [
+            173,
+            584,
+            823,
+            613
+        ],
+        "page_idx": 11
+    },
+    {
+        "type": "text",
+        "text": "Chaoning Zhang, Kang Zhang, Chenshuang Zhang, Trung X. Pham, Chang D. Yoo, and In So Kweon. How does simsiam avoid collapse without negative samples? a unified understanding with self-supervised contrastive learning. In ICLR, 2022a. ",
+        "bbox": [
+            174,
+            621,
+            823,
+            661
+        ],
+        "page_idx": 11
+    },
+    {
+        "type": "text",
+        "text": "Hengrui Zhang, Qitian Wu, Junchi Yan, David Wipf, and Philip S. Yu. From canonical correlation analysis to self-supervised graph neural networks. In NeurIPS, 2021. ",
+        "bbox": [
+            173,
+            670,
+            823,
+            698
+        ],
+        "page_idx": 11
+    },
+    {
+        "type": "text",
+        "text": "Shaofeng Zhang, Feng Zhu, Junchi Yan, Rui Zhao, and Xiaokang Yang. Zero-CL: Instance and feature decorrelation for negative-free symmetric contrastive learning. In ICLR, 2022b. ",
+        "bbox": [
+            171,
+            705,
+            823,
+            734
+        ],
+        "page_idx": 11
+    },
+    {
+        "type": "text",
+        "text": "Yifei Zhang, Hao Zhu, Zixing Song, Piotr Koniusz, and Irwin King. Spectral feature augmentation for graph contrastive learning and beyond. In Proceedings of the AAAI Conference on Artificial Intelligence, volume 37, pp. 11289–11297, 2023. ",
+        "bbox": [
+            176,
+            742,
+            823,
+            784
+        ],
+        "page_idx": 11
+    },
+    {
+        "type": "text",
+        "text": "A PROOFS OF PROPOSITION ",
+        "text_level": 1,
+        "bbox": [
+            176,
+            83,
+            423,
+            101
+        ],
+        "page_idx": 12
+    },
+    {
+        "type": "text",
+        "text": "A.1 PROOF OF PROPOSITION.1",
+        "bbox": [
+            176,
+            117,
+            400,
+            132
+        ],
+        "page_idx": 12
+    },
+    {
+        "type": "text",
+        "text": "Proposition 1. Given $x \\in ( 0 , 1 )$ , $\\forall T \\in \\mathbb { N }$ we have $h _ { T } ( x ) \\in ( 0 , 1 )$ and $h _ { T } ^ { \\prime } ( x ) > 0$ . ",
+        "bbox": [
+            171,
+            143,
+            725,
+            161
+        ],
+        "page_idx": 12
+    },
+    {
+        "type": "text",
+        "text": "Proof. We know the iterative function $f _ { T } ( x )$ satisfies ",
+        "bbox": [
+            173,
+            188,
+            526,
+            203
+        ],
+        "page_idx": 12
+    },
+    {
+        "type": "equation",
+        "img_path": "images/93ad968683124a9ffe19f0adb59eda3091cb2d727eda1c9bde6899ab028b418e.jpg",
+        "text": "$$\nf _ { k + 1 } ( x ) = { \\frac { 3 } { 2 } } f _ { k } ( x ) - { \\frac { 1 } { 2 } } x { f _ { k } } ^ { 3 } ( x ) , k \\geq 0 ; f _ { 0 } ( x ) = 1\n$$",
+        "text_format": "latex",
+        "bbox": [
+            330,
+            213,
+            668,
+            244
+        ],
+        "page_idx": 12
+    },
+    {
+        "type": "text",
+        "text": "We define ${ h _ { T } } ( x ) = x { f _ { T } } ^ { 2 } ( x )$ . When $x = 1$ , it is easy to verify $\\forall T \\in \\mathbb { N } .$ , $h _ { T } ( 1 ) = f _ { T } ( 1 ) = 1$ . We first prove $f _ { T } ( x ) > 0$ and ${ \\dot { h } } _ { T } ^ { \\prime } ( x ) > 0$ by mathematical induction. ",
+        "bbox": [
+            169,
+            255,
+            823,
+            285
+        ],
+        "page_idx": 12
+    },
+    {
+        "type": "text",
+        "text": "(1) When $T = 0$ , we have $f _ { 0 } ( x ) = 1 > 0$ , and $h _ { 0 } ( x ) = x , h _ { 0 } ^ { \\prime } ( x ) = 1 > 0 .$ . ",
+        "bbox": [
+            174,
+            289,
+            665,
+            306
+        ],
+        "page_idx": 12
+    },
+    {
+        "type": "text",
+        "text": "(2) Assuming it holds when $T = k$ , we have $f _ { k } ( x ) > 0$ and $h _ { k } ^ { \\prime } ( x ) > 0$ . Based on $h _ { k } ^ { \\prime } ( x ) =$ $f _ { k } ( x ) [ f _ { k } ( x ) \\dot { + } 2 x f _ { k } ^ { \\prime } ( x ) ]$ , we have: ",
+        "bbox": [
+            173,
+            310,
+            825,
+            340
+        ],
+        "page_idx": 12
+    },
+    {
+        "type": "equation",
+        "img_path": "images/044784f77e5a0440b16f02c848ea9bfea8849c60cf192072923f2854047cee17.jpg",
+        "text": "$$\nf _ { k } ( x ) + 2 x f _ { k } ^ { \\prime } ( x ) > 0\n$$",
+        "text_format": "latex",
+        "bbox": [
+            424,
+            349,
+            573,
+            368
+        ],
+        "page_idx": 12
+    },
+    {
+        "type": "text",
+        "text": "Since $h _ { k } ( 1 ) = 1$ , $h _ { k } ^ { \\prime } ( x ) > 0$ and $h _ { k } ( x )$ is continuous, we have $\\forall x \\in ( 0 , 1 ) , h _ { k } ( x ) < 1$ . We thus can obtain: ",
+        "bbox": [
+            174,
+            385,
+            825,
+            414
+        ],
+        "page_idx": 12
+    },
+    {
+        "type": "equation",
+        "img_path": "images/3c7c148cec8ab4ebc18f69745ab4fb8f91131eaa3ce539ecc93b48c2e037c7c9.jpg",
+        "text": "$$\n\\begin{array} { l } { f _ { k + 1 } ( x ) = \\displaystyle \\frac { 1 } { 2 } f _ { k } ( x ) [ 3 - x f _ { k } ^ { 2 } ( x ) ] } \\\\ { \\displaystyle = \\frac { 1 } { 2 } f _ { k } ( x ) [ 3 - h _ { k } ( x ) ] } \\\\ { \\displaystyle > 0 } \\end{array}\n$$",
+        "text_format": "latex",
+        "bbox": [
+            390,
+            421,
+            607,
+            500
+        ],
+        "page_idx": 12
+    },
+    {
+        "type": "text",
+        "text": "Furthermore, $h _ { k + 1 } ^ { \\prime } ( x ) = f _ { k + 1 } ( x ) [ f _ { k + 1 } ( x ) + 2 x f _ { k + 1 } ^ { \\prime } ( x ) ]$ , where ",
+        "bbox": [
+            173,
+            517,
+            602,
+            535
+        ],
+        "page_idx": 12
+    },
+    {
+        "type": "equation",
+        "img_path": "images/a0c5af4587b285cf31af05a7308f1330f87a4a6fc328ff5b6ab85fad718c6a98.jpg",
+        "text": "$$\n\\begin{array} { l } { { f _ { k + 1 } ( x ) + 2 x f _ { k + 1 } ^ { \\prime } ( x ) } } \\\\ { { \\ } } \\\\ { { \\displaystyle = \\frac 3 2 [ f _ { k } ( x ) + 2 x f _ { k } ^ { \\prime } ( x ) ] - \\frac 3 2 x f _ { k } ^ { 3 } ( x ) - 3 x ^ { 2 } f _ { k } ^ { 2 } ( x ) f _ { k } ^ { \\prime } ( x ) } } \\\\ { { \\ } } \\\\ { { \\displaystyle = \\frac 3 2 [ f _ { k } ( x ) + 2 x f _ { k } ^ { \\prime } ( x ) ] - \\frac 3 2 x f _ { k } ^ { 2 } ( x ) [ f _ { k } ( x ) + 2 x f _ { k } ^ { \\prime } ( x ) ] } } \\\\ { { \\ } } \\\\ { { \\displaystyle = \\frac 3 2 [ 1 - x f _ { k } ^ { 2 } ( x ) ] [ f _ { k } ( x ) + 2 x f _ { k } ^ { \\prime } ( x ) ] } } \\\\ { { \\ } } \\\\ { { \\displaystyle = \\frac 3 2 [ 1 - h _ { k } ( x ) ] [ f _ { k } ( x ) + 2 x f _ { k } ^ { \\prime } ( x ) ] } } \\end{array}\n$$",
+        "text_format": "latex",
+        "bbox": [
+            318,
+            545,
+            676,
+            686
+        ],
+        "page_idx": 12
+    },
+    {
+        "type": "text",
+        "text": "So we have $h _ { k + 1 } ^ { \\prime } ( x ) = \\textstyle { \\frac { 3 } { 2 } } f _ { k + 1 } ( x ) [ 1 - h _ { k } ( x ) ] [ f _ { k } ( x ) + 2 x f _ { k } ^ { \\prime } ( x ) ] > 0 .$ . Combining the result in Eqn. 10, we thus have it holds when $T = k + 1$ . ",
+        "bbox": [
+            174,
+            695,
+            825,
+            727
+        ],
+        "page_idx": 12
+    },
+    {
+        "type": "text",
+        "text": "As a result, we have $\\forall T \\in \\mathbb { N } , f _ { T } ( x ) > 0$ and $h _ { T } ^ { \\prime } ( x ) > 0$ , when $x \\in ( 0 , 1 )$ . ",
+        "bbox": [
+            176,
+            731,
+            663,
+            748
+        ],
+        "page_idx": 12
+    },
+    {
+        "type": "text",
+        "text": "Since $h _ { T } ( 1 ) = 1$ and $h _ { T } ( x )$ is continuous, we have $h _ { T } ( x ) \\ < \\ 1$ . Besides, we have $h _ { T } ( x ) \\ =$ ${ x f _ { T } } ^ { 2 } ( x ) > 0$ , then $h _ { T } ( x ) \\in ( 0 , 1 )$ . ",
+        "bbox": [
+            176,
+            752,
+            823,
+            785
+        ],
+        "page_idx": 12
+    },
+    {
+        "type": "text",
+        "text": "A.2 PROOF OF PROPOSITION.2",
+        "text_level": 1,
+        "bbox": [
+            176,
+            804,
+            401,
+            819
+        ],
+        "page_idx": 12
+    },
+    {
+        "type": "text",
+        "text": "Proposition 2. Given $x \\in ( 0 , 1 ) , \\forall T \\in \\mathbb { N }$ , we have $h _ { T + 1 } ( x ) > h _ { T } ( x )$ . ",
+        "bbox": [
+            173,
+            830,
+            650,
+            848
+        ],
+        "page_idx": 12
+    },
+    {
+        "type": "text",
+        "text": "Proof. According to proof of Proposition.1, we have that when $x \\in ( 0 , 1 )$ and $\\forall T \\in \\mathbb { N } , f _ { T } ( x ) > 0$ and $h _ { T } ( x ) = { x } { f _ { T } } ^ { 2 } ( x ) \\in ( 0 , 1 )$ . ",
+        "bbox": [
+            173,
+            875,
+            826,
+            906
+        ],
+        "page_idx": 12
+    },
+    {
+        "type": "text",
+        "text": "Therefore, we have $h _ { T + 1 } ( x ) > h _ { T } ( x ) \\iff f _ { T + 1 } ( x ) > f _ { T } ( x )$ . It is obvious that ",
+        "bbox": [
+            171,
+            83,
+            712,
+            102
+        ],
+        "page_idx": 13
+    },
+    {
+        "type": "equation",
+        "img_path": "images/02d937a89e49222e10f45bbe59a410a477d8417d04ad7e2be54f987abbed83cd.jpg",
+        "text": "$$\n\\begin{array} { l } { f _ { k + 1 } ( x ) - f _ { k } ( x ) = \\displaystyle \\frac { 3 } { 2 } f _ { k } ( x ) - \\displaystyle \\frac { 1 } { 2 } x f _ { k } ^ { 3 } ( x ) - f _ { k } ( x ) } \\\\ { \\displaystyle \\qquad = \\displaystyle \\frac { 1 } { 2 } f _ { k } ( x ) - \\displaystyle \\frac { 1 } { 2 } x f _ { k } ^ { 3 } ( x ) } \\\\ { \\displaystyle \\qquad = \\displaystyle \\frac { 1 } { 2 } f _ { k } ( x ) [ 1 - x f _ { k } ^ { 2 } ( x ) ] } \\\\ { \\displaystyle \\qquad = \\displaystyle \\frac { 1 } { 2 } f _ { k } ( x ) [ 1 - h _ { k } ( x ) ] } \\\\ { \\displaystyle \\qquad > 0 } \\end{array}\n$$",
+        "text_format": "latex",
+        "bbox": [
+            334,
+            107,
+            661,
+            246
+        ],
+        "page_idx": 13
+    },
+    {
+        "type": "text",
+        "text": "So given $x \\in ( 0 , 1 )$ , $\\forall T \\in \\mathbb { N }$ , we have $h _ { T + 1 } ( x ) > h _ { T } ( x )$ . ",
+        "bbox": [
+            173,
+            251,
+            555,
+            268
+        ],
+        "page_idx": 13
+    },
+    {
+        "type": "text",
+        "text": "B PROOFS OF THEOREM ",
+        "text_level": 1,
+        "bbox": [
+            174,
+            286,
+            393,
+            303
+        ],
+        "page_idx": 13
+    },
+    {
+        "type": "text",
+        "text": "B.1 PROOF OF THEOREM 1. ",
+        "bbox": [
+            174,
+            316,
+            380,
+            332
+        ],
+        "page_idx": 13
+    },
+    {
+        "type": "text",
+        "text": "Theorem 1. Define one-variable iterative function $f _ { T } ( x )$ , satisfying ",
+        "bbox": [
+            171,
+            342,
+            632,
+            358
+        ],
+        "page_idx": 13
+    },
+    {
+        "type": "equation",
+        "img_path": "images/405cf17ebd7023d52983825f82b6ef3cfac387fd1c7a1d778f74e6d02fb71b57.jpg",
+        "text": "$$\n\\begin{array} { r } { f _ { k + 1 } ( x ) = \\frac { 3 } { 2 } f _ { k } ( x ) - \\frac { 1 } { 2 } { x f _ { k } } ^ { 3 } ( x ) , k \\geq 0 ; f _ { 0 } ( x ) = 1 . } \\end{array}\n$$",
+        "text_format": "latex",
+        "bbox": [
+            328,
+            368,
+            668,
+            388
+        ],
+        "page_idx": 13
+    },
+    {
+        "type": "text",
+        "text": "The mapping function of IterNorm is ",
+        "bbox": [
+            173,
+            396,
+            419,
+            411
+        ],
+        "page_idx": 13
+    },
+    {
+        "type": "equation",
+        "img_path": "images/13d95ca76b35578959f03f119fb2caf85a1518042148c473e1028f4cf4ed0e54.jpg",
+        "text": "$$\n\\begin{array} { r } { g ( \\lambda ) = f _ { T } \\big ( \\frac { \\lambda } { t r ( \\Sigma ) } \\big ) / \\sqrt { t r ( \\Sigma ) } , } \\end{array}\n$$",
+        "text_format": "latex",
+        "bbox": [
+            405,
+            422,
+            594,
+            445
+        ],
+        "page_idx": 13
+    },
+    {
+        "type": "text",
+        "text": "so that $\\forall \\lambda _ { i } \\in \\lambda ( \\mathbf { Z } )$ , IterNorm maps it to $\\begin{array} { r } { \\widehat { \\lambda } _ { i } = \\frac { \\lambda _ { i } } { t r ( \\Sigma ) } { f _ { T } } ^ { 2 } ( \\frac { \\lambda _ { i } } { t r ( \\Sigma ) } ) } \\end{array}$ ",
+        "bbox": [
+            173,
+            457,
+            591,
+            479
+        ],
+        "page_idx": 13
+    },
+    {
+        "type": "text",
+        "text": "Proof. Given $\\Sigma = \\mathbf { U } \\Lambda \\mathbf { U } ^ { T }$ , $\\boldsymbol { \\Lambda } = \\mathrm { d i a g } ( \\lambda _ { 1 } , \\ldots , \\lambda _ { d } )$ , $\\mathbf { U } = [ \\mathbf { u } _ { 1 } , \\ldots , \\mathbf { u } _ { d } ]$ . Following the calculation steps of IterNorm, we have ",
+        "bbox": [
+            173,
+            493,
+            825,
+            523
+        ],
+        "page_idx": 13
+    },
+    {
+        "type": "equation",
+        "img_path": "images/4adb64061f0092064373b501169c60485428cd08fbd0624f0e48cc6056ff775e.jpg",
+        "text": "$$\n\\Sigma _ { N } = \\Sigma / t r ( \\Sigma ) = \\sum _ { i = 1 } ^ { d } \\frac { \\lambda _ { i } } { t r ( \\Sigma ) } { \\bf u } _ { i } { \\bf u } _ { i } ^ { \\cal T }\n$$",
+        "text_format": "latex",
+        "bbox": [
+            379,
+            530,
+            617,
+            573
+        ],
+        "page_idx": 13
+    },
+    {
+        "type": "text",
+        "text": "Define ",
+        "bbox": [
+            173,
+            579,
+            220,
+            593
+        ],
+        "page_idx": 13
+    },
+    {
+        "type": "equation",
+        "img_path": "images/007917e5b38b90071d41e8e68f8e305f8fceb9491b6f78b992512201cd9466b6.jpg",
+        "text": "$$\n\\Phi _ { T } ^ { \\prime } = \\sum _ { i = 1 } ^ { d } \\frac { 1 } { \\sqrt { t r ( \\Sigma ) } } f _ { T } ( \\frac { \\lambda _ { i } } { t r ( \\Sigma ) } ) { \\mathbf u _ { i } \\mathbf u _ { i } } ^ { T }\n$$",
+        "text_format": "latex",
+        "bbox": [
+            375,
+            589,
+            622,
+            632
+        ],
+        "page_idx": 13
+    },
+    {
+        "type": "text",
+        "text": "Based on $\\Phi _ { T } = \\sum _ { i = 1 } ^ { d } g ( \\lambda _ { i } ) \\mathbf { u } _ { i } \\mathbf { u } _ { i } ^ { T }$ , if we can prove $\\Phi _ { T } ^ { \\prime } = \\Phi _ { T }$ , we will have ",
+        "bbox": [
+            171,
+            645,
+            656,
+            676
+        ],
+        "page_idx": 13
+    },
+    {
+        "type": "equation",
+        "img_path": "images/c749fd98d511b3c37647cf42fb6acfa877fbffdaa61c9e346cb9c84bbd20456d.jpg",
+        "text": "$$\n\\begin{array} { r } { g ( \\lambda ) = \\frac { 1 } { \\sqrt { t r ( \\Sigma ) } } f _ { T } ( \\frac { \\lambda } { t r ( \\Sigma ) } ) } \\end{array}\n$$",
+        "text_format": "latex",
+        "bbox": [
+            413,
+            690,
+            584,
+            717
+        ],
+        "page_idx": 13
+    },
+    {
+        "type": "text",
+        "text": "Define ${ \\bf P } _ { T } ^ { \\prime } = \\sqrt { t r ( \\Sigma ) } \\Phi _ { T } ^ { \\prime }$ , then we have $\\Phi _ { T } ^ { \\prime } = \\Phi _ { T } \\iff \\mathbf { P } _ { T } ^ { \\prime } = \\mathbf { P } _ { T }$ . We can prove ${ \\bf P } _ { T } ^ { \\prime } = { \\bf P } _ { T }$ by mathematical induction. ",
+        "bbox": [
+            174,
+            731,
+            821,
+            761
+        ],
+        "page_idx": 13
+    },
+    {
+        "type": "text",
+        "text": "(1) When $T = 0$ , ",
+        "bbox": [
+            173,
+            758,
+            289,
+            772
+        ],
+        "page_idx": 13
+    },
+    {
+        "type": "equation",
+        "img_path": "images/d11ee9d1e02094eee981ab37d8f920120ec7b41f2a4293421b195957b457bff2.jpg",
+        "text": "$$\n\\begin{array} { r } { f _ { 0 } \\big ( \\frac { \\lambda _ { i } } { t r ( \\Sigma ) } \\big ) = 1 , \\mathbf { P } _ { 0 } ^ { \\prime } = \\mathbf { P } _ { 0 } = \\mathbf { I } } \\end{array}\n$$",
+        "text_format": "latex",
+        "bbox": [
+            401,
+            785,
+            598,
+            808
+        ],
+        "page_idx": 13
+    },
+    {
+        "type": "text",
+        "text": "(2) When $T \\geq 1$ , assume that ${ \\bf P } _ { T - 1 } ^ { \\prime } = { \\bf P } _ { T - 1 }$ , thus ",
+        "bbox": [
+            173,
+            819,
+            511,
+            837
+        ],
+        "page_idx": 13
+    },
+    {
+        "type": "equation",
+        "img_path": "images/81907977011ee32a4f499bcf9872db9e532f1c844b578a6ad0569e7d6291647d.jpg",
+        "text": "$$\n\\begin{array} { l } { { \\displaystyle { \\bf P } _ { T } = \\frac { 3 } { 2 } { \\bf P } _ { T - 1 } - \\frac { 1 } { 2 } { \\bf P } _ { T - 1 } ^ { 3 } \\Sigma _ { N } } } \\\\ { ~ = \\frac { 3 } { 2 } { \\bf P } _ { T - 1 } ^ { \\prime } - \\frac { 1 } { 2 } ( { \\bf P } _ { T - 1 } ^ { \\prime } ) ^ { 3 } \\Sigma _ { N } } \\end{array}\n$$",
+        "text_format": "latex",
+        "bbox": [
+            390,
+            843,
+            606,
+            906
+        ],
+        "page_idx": 13
+    },
+    {
+        "type": "text",
+        "text": "According to the definition of $\\mathbf { P } _ { T } ^ { \\prime }$ ",
+        "bbox": [
+            174,
+            85,
+            401,
+            101
+        ],
+        "page_idx": 14
+    },
+    {
+        "type": "equation",
+        "img_path": "images/680d04220bf74ceefca0f6bdc6cb7f266404a96f1d69775542f410fbcd1a6793.jpg",
+        "text": "$$\n\\mathbf { P } _ { T - 1 } ^ { \\prime } = \\sum _ { i = 1 } ^ { d } f _ { T - 1 } ( \\frac { \\lambda _ { i } } { t r ( \\Sigma ) } ) \\mathbf { u } _ { i } \\mathbf { u } _ { i } { } ^ { T }\n$$",
+        "text_format": "latex",
+        "bbox": [
+            387,
+            106,
+            609,
+            148
+        ],
+        "page_idx": 14
+    },
+    {
+        "type": "text",
+        "text": "Because $\\forall i , \\mathbf { u } _ { i } ^ { T } \\mathbf { u } _ { i } = 1$ and $\\forall i \\neq j , \\mathbf { u } _ { i } ^ { T } \\mathbf { u } _ { j } = 0$ , ",
+        "bbox": [
+            173,
+            154,
+            488,
+            170
+        ],
+        "page_idx": 14
+    },
+    {
+        "type": "equation",
+        "img_path": "images/a7eda2922c93e01417e2247134cf2ef1a48706b5ca2723038a26d65a7f49a0b8.jpg",
+        "text": "$$\n\\begin{array} { l } { { \\displaystyle { \\bf P } _ { T - 1 } ^ { 3 } \\Sigma _ { N } = ( { \\bf P } _ { T - 1 } ^ { \\prime } ) ^ { 3 } \\Sigma _ { N } } } \\\\ { ~ = \\left( \\displaystyle { \\sum _ { i = 1 } ^ { d } f _ { T - 1 } \\big ( \\frac { \\lambda _ { i } } { t r ( \\Sigma ) } \\big ) { \\bf u } _ { i } { \\bf u } _ { i } ^ { ~ T } } \\right) ^ { 3 } \\left( \\displaystyle { \\sum _ { i = 1 } ^ { d } \\frac { \\lambda _ { i } } { t r ( \\Sigma ) } { \\bf u } _ { i } { \\bf u } _ { i } ^ { ~ T } } \\right) } \\\\ { { \\displaystyle ~ = \\sum _ { i = 1 } ^ { d } f _ { T - 1 } ^ { 3 } \\big ( \\frac { \\lambda _ { i } } { t r ( \\Sigma ) } \\big ) \\frac { \\lambda _ { i } } { t r ( \\Sigma ) } { \\bf u } _ { i } { \\bf u } _ { i } ^ { ~ T } } } \\end{array}\n$$",
+        "text_format": "latex",
+        "bbox": [
+            287,
+            174,
+            707,
+            287
+        ],
+        "page_idx": 14
+    },
+    {
+        "type": "text",
+        "text": "Therefore, we have ",
+        "bbox": [
+            173,
+            297,
+            302,
+            311
+        ],
+        "page_idx": 14
+    },
+    {
+        "type": "equation",
+        "img_path": "images/3d85affb5b9eb484bc1ddafb9bb23a71bf03b8a30c2b7914b644391ad2801101.jpg",
+        "text": "$$\n\\begin{array} { l } { { \\displaystyle { \\bf P } _ { T } = \\frac { 3 } { 2 } { \\bf P } _ { T - 1 } ^ { \\prime } - \\frac { 1 } { 2 } ( { \\bf P } _ { T - 1 } ^ { \\prime } ) ^ { 3 } \\Sigma _ { N } } } \\\\ { { \\displaystyle ~ = \\frac { 3 } { 2 } \\sum _ { i = 1 } ^ { d } f _ { T - 1 } ( \\frac { \\lambda _ { i } } { t r ( \\Sigma ) } ) { \\bf u } _ { i } { \\bf u } _ { i } ^ { T } } ^ { T } - \\frac { 1 } { 2 } \\sum _ { i = 1 } ^ { d } f _ { T - 1 } ^ { 3 } ( \\frac { \\lambda _ { i } } { t r ( \\Sigma ) } ) \\frac { \\lambda _ { i } } { t r ( \\Sigma ) } { \\bf u } _ { i } { \\bf u } _ { i } ^ { \\mathrm { ~ } T } }  \\\\ { { \\displaystyle ~ = \\sum _ { i = 1 } ^ { d } \\left\\{ \\frac { 3 } { 2 } f _ { T - 1 } ( \\frac { \\lambda _ { i } } { t r ( \\Sigma ) } ) - \\frac { 1 } { 2 } f _ { T - 1 } ^ { 3 } ( \\frac { \\lambda _ { i } } { t r ( \\Sigma ) } ) \\frac { \\lambda _ { i } } { t r ( \\Sigma ) } \\right\\} { \\bf u } _ { i } { \\bf u } _ { i } ^ { \\mathrm { ~ } T } } } \\end{array}\n$$",
+        "text_format": "latex",
+        "bbox": [
+            269,
+            314,
+            727,
+            435
+        ],
+        "page_idx": 14
+    },
+    {
+        "type": "text",
+        "text": "Note ",
+        "bbox": [
+            173,
+            438,
+            209,
+            452
+        ],
+        "page_idx": 14
+    },
+    {
+        "type": "equation",
+        "img_path": "images/48a264115160b8b1bea2290008cd0c8fa2c77c2600f83fb5d6686abe91ddd0f9.jpg",
+        "text": "$$\nf _ { T } ( \\frac { \\lambda _ { i } } { t r ( \\Sigma ) } ) = \\frac { 3 } { 2 } f _ { T - 1 } ( \\frac { \\lambda _ { i } } { t r ( \\Sigma ) } ) - \\frac { 1 } { 2 } f _ { T - 1 } ^ { 3 } ( \\frac { \\lambda _ { i } } { t r ( \\Sigma ) } ) \\frac { \\lambda _ { i } } { t r ( \\Sigma ) }\n$$",
+        "text_format": "latex",
+        "bbox": [
+            316,
+            455,
+            679,
+            487
+        ],
+        "page_idx": 14
+    },
+    {
+        "type": "text",
+        "text": "So that ",
+        "bbox": [
+            173,
+            498,
+            223,
+            513
+        ],
+        "page_idx": 14
+    },
+    {
+        "type": "equation",
+        "img_path": "images/3c42fcc59f2ba198bdd5eb5621d667b09a3eb0accf46a2616cc3b67f55f38756.jpg",
+        "text": "$$\n\\mathbf { P } _ { T } = \\sum _ { i = 1 } ^ { d } f _ { T } ( \\frac { \\lambda _ { i } } { t r ( \\Sigma ) } ) \\mathbf { u } _ { i } { \\mathbf { u } _ { i } } ^ { T } = \\mathbf { P } _ { T } ^ { \\prime }\n$$",
+        "text_format": "latex",
+        "bbox": [
+            382,
+            517,
+            616,
+            559
+        ],
+        "page_idx": 14
+    },
+    {
+        "type": "text",
+        "text": "We obtain that ",
+        "bbox": [
+            173,
+            563,
+            271,
+            578
+        ],
+        "page_idx": 14
+    },
+    {
+        "type": "equation",
+        "img_path": "images/4605b52454a6d0651b0ba46e26136baeb28791e7e4c3e222912fb3211c543bdb.jpg",
+        "text": "$$\n\\Phi _ { T } = \\Phi _ { T } ^ { \\prime } = \\sum _ { i = 1 } ^ { d } \\frac { 1 } { \\sqrt { t r ( \\Sigma ) } } f _ { T } ( \\frac { \\lambda _ { i } } { t r ( \\Sigma ) } ) { \\bf u } _ { i } { \\bf u } _ { i } ^ { \\textit { T } } = { \\bf U } \\frac { 1 } { \\sqrt { t r ( \\Sigma ) } } f _ { T } ( \\frac { \\Lambda } { t r ( \\Sigma ) } ) { \\bf U } ^ { T }\n$$",
+        "text_format": "latex",
+        "bbox": [
+            258,
+            579,
+            740,
+            623
+        ],
+        "page_idx": 14
+    },
+    {
+        "type": "text",
+        "text": "Thus, the mapping function of IterNorm is $g ( \\lambda ) = f _ { T } ( \\frac { \\lambda } { t r ( \\Sigma ) } ) / \\sqrt { t r ( \\Sigma ) }$ . The whitened output is $\\begin{array} { r } { \\widehat { \\mathbf { Z } } = \\Phi _ { T } \\mathbf { Z } _ { c } = \\mathbf { U } \\frac { 1 } { \\sqrt { t r ( \\Sigma ) } } f _ { T } \\big ( \\frac { \\Lambda } { t r ( \\Sigma ) } \\big ) \\mathbf { U } ^ { T } \\mathbf { Z } _ { c } . } \\end{array}$ . The covariance matrix of $\\hat { \\mathbf { Z } }$ is ",
+        "bbox": [
+            173,
+            628,
+            825,
+            672
+        ],
+        "page_idx": 14
+    },
+    {
+        "type": "equation",
+        "img_path": "images/792045b5e6ee379847bf77c3fed6bd6f163dc66f96e3845326440edc9547d2e9.jpg",
+        "text": "$$\n\\Sigma _ { \\widehat { \\mathbf { Z } } } = \\frac { 1 } { m } \\widehat { \\mathbf { Z } } \\widehat { \\mathbf { Z } } ^ { T } = \\mathbf { U } \\frac { \\Lambda } { t r ( \\Sigma ) } { f _ { T } } ^ { 2 } ( \\frac { \\Lambda } { t r ( \\Sigma ) } ) \\mathbf { U } ^ { T } = \\sum _ { i = 1 } ^ { d } \\frac { \\lambda _ { i } } { t r ( \\Sigma ) } { f _ { T } } ^ { 2 } ( \\frac { \\lambda _ { i } } { t r ( \\Sigma ) } ) \\mathbf { u } _ { i } \\mathbf { u } _ { i } ^ { \\varLambda }\n$$",
+        "text_format": "latex",
+        "bbox": [
+            250,
+            678,
+            746,
+            722
+        ],
+        "page_idx": 14
+    },
+    {
+        "type": "text",
+        "text": "So that $\\forall \\lambda _ { i } \\in \\lambda ( \\mathbf { Z } )$ , IterNorm maps it to $\\begin{array} { r } { \\widehat { \\lambda } _ { i } = \\frac { \\lambda _ { i } } { t r ( \\Sigma ) } { f _ { T } } ^ { 2 } ( \\frac { \\lambda _ { i } } { t r ( \\Sigma ) } ) } \\end{array}$ which is a special instance of Spectral Transformation. ",
+        "bbox": [
+            174,
+            727,
+            823,
+            761
+        ],
+        "page_idx": 14
+    },
+    {
+        "type": "text",
+        "text": "B.2 PROOF OF THEOREM 2. ",
+        "text_level": 1,
+        "bbox": [
+            174,
+            775,
+            380,
+            790
+        ],
+        "page_idx": 14
+    },
+    {
+        "type": "text",
+        "text": "Theorem 2. Let $\\mathbf { x } \\in [ 0 , 1 ] ^ { d }$ , $\\forall T \\in \\mathbb { N } _ { + }$ , $I N T L ( \\mathbf { x } )$ shown in Eqn. 7 is a strictly convex function.   \n$\\mathbf { x } ^ { * } = [ \\frac { 1 } { d } , \\cdots , \\frac { 1 } { d } ] ^ { T }$ is the unique minimum point as well as the optimal solution to $I N T L ( \\mathbf { x } )$ . ",
+        "bbox": [
+            171,
+            799,
+            825,
+            833
+        ],
+        "page_idx": 14
+    },
+    {
+        "type": "text",
+        "text": "Proof. The INTL can be viewed as the following optimization problem: ",
+        "bbox": [
+            173,
+            844,
+            647,
+            861
+        ],
+        "page_idx": 14
+    },
+    {
+        "type": "equation",
+        "img_path": "images/e08b273442c1fc12651b53972912fe5d34464520b7df5446dc866d95d61e6c50.jpg",
+        "text": "$$\n\\operatorname* { m i n } _ { \\theta \\in \\Theta } \\quad I N T L ( \\mathbf { Z } ) = \\sum _ { j = 1 } ^ { d } ( 1 - ( \\Sigma _ { \\widehat { \\mathbf { Z } } } ) _ { j j } ) ^ { 2 }\n$$",
+        "text_format": "latex",
+        "bbox": [
+            366,
+            864,
+            630,
+            910
+        ],
+        "page_idx": 14
+    },
+    {
+        "type": "text",
+        "text": "where $\\mathbf { Z } = F _ { \\theta } ( \\cdot )$ and $\\widehat { \\mathbf { Z } } = I t e r N o r m ( \\mathbf { Z } )$ . Eqn. 6 can be viewed as a optimization problem over $\\theta$ to encourage the trace of $\\hat { \\mathbf { Z } }$ to be $d$ . ",
+        "bbox": [
+            174,
+            83,
+            823,
+            117
+        ],
+        "page_idx": 15
+    },
+    {
+        "type": "text",
+        "text": "Let $( x _ { 1 } , \\cdot \\cdot \\cdot , x _ { d } ) = \\varphi ( \\mathbf { Z } )$ , where $x _ { i } = \\lambda _ { i } / t r ( \\Sigma )$ as defined in the submitted paper. If $\\mathbf { Z } \\in \\mathbb { R } ^ { d \\times m }$ , $\\varphi ( \\cdot )$ will be surjective from $\\mathbb { R } ^ { d \\times m }$ to $\\mathbb { D } _ { \\mathbf { x } } = \\{ \\mathbf { x } \\in [ 0 , 1 ] ^ { d } : x _ { 1 } + \\cdot \\cdot \\cdot + x _ { d } = 1 \\}$ . When the range of $F _ { \\theta } ( \\cdot )$ is wide enough, for example, $F _ { \\theta } ( \\cdot )$ is surjective from $\\theta \\in \\Theta$ to $\\mathbf { Z } \\in \\mathbb { R } ^ { d \\times m }$ . Here we can view $F _ { \\theta } ( \\cdot )$ as a function over $\\theta$ , since the input is given and fixed. Then $\\varphi ( F _ { \\theta } ( \\cdot ) )$ is surjective from $\\theta \\in \\Theta$ to $\\mathbf { x } \\in \\mathbb { D } _ { \\mathbf { x } }$ , meaning that if we find the optimal solution $\\mathbf { x } ^ { * }$ , we are able to get the corresponding $\\theta ^ { \\ast } \\in \\Theta$ , subject to $\\bar { \\mathbf { x ^ { * } } } = \\varphi ( F _ { \\theta ^ { * } } ( \\cdot ) )$ . On the contrary, for any $\\theta \\in \\Theta$ , we can get $\\mathbf { x } = \\varphi ( F _ { \\theta } ( \\cdot ) ) \\in \\mathbb { D } _ { \\mathbf { x } } ^ { }$ . ",
+        "bbox": [
+            173,
+            123,
+            826,
+            210
+        ],
+        "page_idx": 15
+    },
+    {
+        "type": "text",
+        "text": "Therefore, the optimization expression for minimizing INTL can be written as follows which have the same range and optimal value as Eqn. 6: ",
+        "bbox": [
+            173,
+            214,
+            825,
+            243
+        ],
+        "page_idx": 15
+    },
+    {
+        "type": "equation",
+        "img_path": "images/28b9ad3359a973a6d74b44434a6ebb5931ff2e913c31aa608f04961465838451.jpg",
+        "text": "$$\n( P _ { I N T L } ) \\left\\{ \\begin{array} { l l } { { \\mathrm { m i n } } } & { { I N T L ( { \\bf x } ) = \\displaystyle \\sum _ { j = 1 } ^ { d } \\left( \\displaystyle \\sum _ { i = 1 } ^ { d } [ 1 - h _ { T } ( x _ { i } ) ] u _ { j i } ^ { 2 } \\right) ^ { 2 } } } \\\\ { { s . t . } } & { { \\displaystyle \\sum _ { i = 1 } ^ { d } x _ { i } = 1 } } \\\\ { { } } & { { x _ { i } \\geq 0 , i = 1 , \\cdots , d } } \\end{array} \\right.\n$$",
+        "text_format": "latex",
+        "bbox": [
+            289,
+            256,
+            700,
+            344
+        ],
+        "page_idx": 15
+    },
+    {
+        "type": "text",
+        "text": "We denote the Lagrange function of $P _ { I N T L }$ is that ",
+        "bbox": [
+            173,
+            356,
+            508,
+            372
+        ],
+        "page_idx": 15
+    },
+    {
+        "type": "equation",
+        "img_path": "images/393d90ab4f8f917cce9a97b9ff95b37a758139f315b9dc0b8bda1c7363282f5d.jpg",
+        "text": "$$\nL ( \\mathbf { x } ; \\alpha , \\mu ) = I N T L ( \\mathbf { x } ) + \\sum _ { i = 1 } ^ { d } \\alpha _ { i } ( - x _ { i } ) + \\mu \\left( \\sum _ { i = 1 } ^ { d } x _ { i } - 1 \\right)\n$$",
+        "text_format": "latex",
+        "bbox": [
+            302,
+            386,
+            696,
+            429
+        ],
+        "page_idx": 15
+    },
+    {
+        "type": "text",
+        "text": "B.2.1 CONVEXITY AND CONCAVITY OF $h _ { T } ( x )$ ",
+        "text_level": 1,
+        "bbox": [
+            173,
+            449,
+            509,
+            465
+        ],
+        "page_idx": 15
+    },
+    {
+        "type": "text",
+        "text": "Before calculating extreme points of $P _ { I N T L }$ , we first consider the convexity and concavity of $h _ { T } ( x )$ which is critical to proof. ",
+        "bbox": [
+            171,
+            477,
+            825,
+            506
+        ],
+        "page_idx": 15
+    },
+    {
+        "type": "text",
+        "text": "When $T = 0$ , we have $h _ { 0 } ( x ) = x$ , so $h _ { 0 } ^ { \\prime \\prime } ( x ) = 0$ ",
+        "bbox": [
+            173,
+            511,
+            495,
+            526
+        ],
+        "page_idx": 15
+    },
+    {
+        "type": "text",
+        "text": "(1) When $T = 1$ , we have $\\begin{array} { r } { { h _ { 1 } } ( x ) = { f _ { 1 } } ^ { 2 } ( x ) = \\frac { 9 } { 4 } x - \\frac { 3 } { 2 } x ^ { 2 } + \\frac { 1 } { 4 } x ^ { 3 } , \\mathrm { s o } \\ { h _ { 1 } ^ { \\prime \\prime } } ( x ) = \\frac { 3 } { 2 } ( x - 2 ) < 0 . } \\end{array}$ ",
+        "bbox": [
+            171,
+            531,
+            772,
+            551
+        ],
+        "page_idx": 15
+    },
+    {
+        "type": "text",
+        "text": "(2) Assume that when $T = k$ , $h _ { k } ^ { \\prime \\prime } ( x ) < 0$ holds. We can easily get following propositions by derivation: ",
+        "bbox": [
+            173,
+            556,
+            821,
+            585
+        ],
+        "page_idx": 15
+    },
+    {
+        "type": "equation",
+        "img_path": "images/3f34cdc066d1f325c27a7e8f5a8145db4ae749d3542b2a6890251ab4c5249c01.jpg",
+        "text": "$$\n\\begin{array} { l } { { f _ { k + 1 } ^ { \\prime } ( x ) = \\displaystyle \\frac { 3 } { 2 } f _ { k } ^ { \\prime } ( x ) - \\displaystyle \\frac { 1 } { 2 } f _ { k } ^ { 3 } ( x ) - \\displaystyle \\frac { 3 } { 2 } x f _ { k } ^ { 2 } ( x ) f _ { k } ^ { \\prime } ( x ) } } \\\\ { { f _ { k + 1 } ^ { \\prime \\prime } ( x ) = \\displaystyle \\frac { 3 } { 2 } f _ { k } ^ { \\prime \\prime } ( x ) - 3 f _ { k } ^ { 2 } ( x ) f _ { k } ^ { \\prime } ( x ) - \\displaystyle \\frac { 3 } { 2 } x f _ { k } ^ { 2 } ( x ) f _ { k } ^ { \\prime \\prime } ( x ) - 3 x f _ { k } ( x ) [ f _ { k } ^ { \\prime } ( x ) ] ^ { 2 } } } \\\\ { { h _ { k + 1 } ^ { \\prime \\prime } ( x ) = 4 f _ { k + 1 } ( x ) f _ { k + 1 } ^ { \\prime } ( x ) + 2 x [ f _ { k + 1 } ^ { \\prime } ( x ) ] ^ { 2 } + 2 x f _ { k + 1 } ( x ) f _ { k + 1 } ^ { \\prime \\prime } ( x ) } } \\end{array}\n$$",
+        "text_format": "latex",
+        "bbox": [
+            254,
+            594,
+            743,
+            678
+        ],
+        "page_idx": 15
+    },
+    {
+        "type": "text",
+        "text": "For convenience in our calculation, let $a = f _ { k } ( x ) , b = f _ { k } ^ { \\prime } ( x ) , c = f _ { k } ^ { \\prime \\prime } ( x )$ , and $h = h _ { k } ( x ) = x a ^ { 2 }$ . ",
+        "bbox": [
+            171,
+            689,
+            805,
+            707
+        ],
+        "page_idx": 15
+    },
+    {
+        "type": "text",
+        "text": "We split Eqn. 17 into three parts and take Eqn. 15 and 16 into calculation: ",
+        "bbox": [
+            174,
+            710,
+            660,
+            727
+        ],
+        "page_idx": 15
+    },
+    {
+        "type": "equation",
+        "img_path": "images/3c73e8b5da0cf47ae1a21d99e48e41a4a0898c4fa648b43695e64f24ed27c780.jpg",
+        "text": "$$\n\\begin{array} { l } { { 4 f _ { k + 1 } ( x ) f _ { k + 1 } ^ { \\prime } ( x ) = 4 ( \\displaystyle { \\frac { 3 } { 2 } } a - \\displaystyle { \\frac { 1 } { 2 } } a h ) ( \\displaystyle { \\frac { 3 } { 2 } } b - \\displaystyle { \\frac { 1 } { 2 } } a ^ { 3 } - \\displaystyle { \\frac { 3 } { 2 } } b h ) } } \\\\ { { \\qquad = a ( 3 - h ) ( 3 b - a ^ { 3 } - 3 b h ) } } \\\\ { { 2 x [ f _ { k + 1 } ^ { \\prime } ( x ) ] ^ { 2 } = 2 x ( \\displaystyle { \\frac { 3 } { 2 } } b - \\displaystyle { \\frac { 1 } { 2 } } a ^ { 3 } - \\displaystyle { \\frac { 3 } { 2 } } b h ) ^ { 2 } } } \\\\ { { \\qquad = \\displaystyle { \\frac { 1 } { 2 } } x ( 3 b - a ^ { 3 } - 3 b h ) ^ { 2 } } } \\\\ { { 2 x f _ { k + 1 } ( x ) f _ { k + 1 } ^ { \\prime \\prime } ( x ) = 2 ( \\displaystyle { \\frac { 3 } { 2 } } a - \\displaystyle { \\frac { 1 } { 2 } } a h ) [ \\displaystyle { \\frac { 3 } { 2 } } c ( 1 - h ) - 3 a ^ { 2 } b - 3 x a b ^ { 2 } ] } } \\\\ { { \\qquad = \\displaystyle { \\frac { 1 } { 2 } } a x ( 3 - h ) [ 3 c ( 1 - h ) - 6 a ^ { 2 } b - 6 x a b ^ { 2 } ] } } \\end{array}\n$$",
+        "text_format": "latex",
+        "bbox": [
+            284,
+            738,
+            717,
+            914
+        ],
+        "page_idx": 15
+    },
+    {
+        "type": "text",
+        "text": "Considering to construct the form of $h _ { k } ^ { \\prime \\prime } ( x ) = 2 ( 2 a b + x a c + x b ^ { 2 } )$ , we first calculate that ",
+        "bbox": [
+            169,
+            83,
+            761,
+            101
+        ],
+        "page_idx": 16
+    },
+    {
+        "type": "equation",
+        "img_path": "images/df50bbf0541b1c5511206363eb9e7b80c9f39790c4cc62ab938b461dc0c16d9d.jpg",
+        "text": "$$\n\\begin{array} { l } { { \\displaystyle { 4 f _ { k + 1 } ( x ) f _ { k + 1 } ^ { \\prime } ( x ) + 2 x f _ { k + 1 } ( x ) f _ { k + 1 } ^ { \\prime \\prime } ( x ) } } } \\\\ { { \\displaystyle { = \\frac { 1 } { 2 } ( 3 - h ) [ 6 a b - 2 a ^ { 4 } - 6 a b h + 3 x a c ( 1 - h ) - 6 a b h - 6 x b ^ { 2 } h ] } } } \\\\ { { \\displaystyle { = \\frac { 1 } { 2 } ( 3 - h ) [ 3 x a c ( 1 - h ) + 6 a b ( 1 - h ) + 3 x b ^ { 2 } ( 1 - h ) } } } \\\\ { { \\displaystyle { ~ - 3 x b ^ { 2 } ( 1 - h ) - 2 a ^ { 4 } - 6 a b h - 6 x b ^ { 2 } h ] } } } \\\\ { { \\displaystyle { = \\frac { 3 } { 4 } ( 3 - h ) ( 1 - h ) h _ { k } ^ { \\prime \\prime } ( x ) - \\frac { 1 } { 2 } ( 3 - h ) ( 3 x b ^ { 2 } h + 3 x b ^ { 2 } + 2 a ^ { 4 } + 6 a b h ) } } } \\end{array}\n$$",
+        "text_format": "latex",
+        "bbox": [
+            269,
+            106,
+            727,
+            236
+        ],
+        "page_idx": 16
+    },
+    {
+        "type": "text",
+        "text": "Then we calculate the left part ",
+        "bbox": [
+            173,
+            244,
+            375,
+            260
+        ],
+        "page_idx": 16
+    },
+    {
+        "type": "equation",
+        "img_path": "images/962de3ec15d40a8c6926892de76effb064a48e420cb009d42759a90d6d27b8d3.jpg",
+        "text": "$$\n\\begin{array} { c } { { 2 x [ f _ { k + 1 } ^ { \\prime } ( x ) ] ^ { 2 } = \\displaystyle \\frac { 1 } { 2 } x ( 3 b - a ^ { 3 } - 3 b h ) ^ { 2 } } } \\\\ { { } } \\\\ { { = \\displaystyle \\frac { 1 } { 2 } ( 9 x b ^ { 2 } + x a ^ { 6 } + 9 x b ^ { 2 } h ^ { 2 } - 6 x a ^ { 3 } b - 1 8 x b ^ { 2 } h + 6 x a ^ { 3 } b h ) } } \\\\ { { } } \\\\ { { = \\displaystyle \\frac { 1 } { 2 } ( 9 x b ^ { 2 } + a ^ { 4 } h + 9 x b ^ { 2 } h ^ { 2 } - 6 a b h - 1 8 x b ^ { 2 } h + 6 a b h ^ { 2 } ) } } \\end{array}\n$$",
+        "text_format": "latex",
+        "bbox": [
+            258,
+            263,
+            738,
+            356
+        ],
+        "page_idx": 16
+    },
+    {
+        "type": "text",
+        "text": "For convenience, let ",
+        "bbox": [
+            173,
+            364,
+            308,
+            378
+        ],
+        "page_idx": 16
+    },
+    {
+        "type": "equation",
+        "img_path": "images/a0936c9e66a2beafd8f4e79b46750366b198a3b58bae067fc771159dd51a9d1a.jpg",
+        "text": "$$\n\\begin{array} { l } { { S = - \\displaystyle \\frac { 1 } { 2 } ( 3 - h ) ( 3 x b ^ { 2 } h + 3 x b ^ { 2 } + 2 a ^ { 4 } + 6 a b h ) } } \\\\ { { \\ } } \\\\ { { = \\displaystyle \\frac { 1 } { 2 } ( 3 x b ^ { 2 } h ^ { 2 } + 3 x b ^ { 2 } h + 2 a ^ { 4 } h + 6 a b h ^ { 2 } - 9 x b ^ { 2 } h - 9 x b ^ { 2 } - 6 a ^ { 4 } - 1 8 a b h ) } } \\end{array}\n$$",
+        "text_format": "latex",
+        "bbox": [
+            248,
+            382,
+            746,
+            444
+        ],
+        "page_idx": 16
+    },
+    {
+        "type": "text",
+        "text": "Then we have ",
+        "bbox": [
+            173,
+            445,
+            267,
+            459
+        ],
+        "page_idx": 16
+    },
+    {
+        "type": "equation",
+        "img_path": "images/d00bb9d8708e9a6742925fb761a67e7f09952afa02fbab2551fde067b7d58ab2.jpg",
+        "text": "$$\n\\begin{array} { c } { { 2 x [ f _ { k + 1 } ^ { \\prime } ( x ) ] ^ { 2 } + S = \\displaystyle { \\frac { 1 } { 2 } ( 3 a ^ { 4 } h + 1 2 x b ^ { 2 } h ^ { 2 } - 2 4 a b h - 2 4 x b ^ { 2 } h + 1 2 a b h ^ { 2 } - 6 a ^ { 4 } ) } } } \\\\ { { { } } } \\\\ { { { } } } \\\\ { { { } = \\displaystyle { \\frac { 3 } { 2 } ( h - 2 ) ( a ^ { 4 } + 4 a b h + 4 x b ^ { 2 } h ) } } } \\\\ { { { } } } \\\\ { { { } = \\displaystyle { \\frac { 3 } { 2 } ( h - 2 ) ( a ^ { 4 } + 4 x a ^ { 3 } b + 4 x ^ { 2 } a ^ { 2 } b ^ { 2 } ) } } } \\\\ { { { } } } \\\\ { { { } } } \\\\ { { { } = \\displaystyle { \\frac { 3 } { 2 } ( h - 2 ) ( a ^ { 2 } + 2 x a b ) ^ { 2 } } } } \\\\ { { { } } } \\\\ { { { } } } \\\\ { { { } = \\displaystyle { \\frac { 3 } { 2 } [ h _ { k } ( x ) - 2 ] [ h _ { k } ^ { \\prime } ( x ) ] ^ { 2 } } } } \\end{array}\n$$",
+        "text_format": "latex",
+        "bbox": [
+            238,
+            462,
+            758,
+            614
+        ],
+        "page_idx": 16
+    },
+    {
+        "type": "text",
+        "text": "Here we obtain $\\begin{array} { r } { h _ { k + 1 } ^ { \\prime \\prime } ( x ) = \\frac { 3 } { 4 } [ 3 - h _ { k } ( x ) ] [ 1 - h _ { k } ( x ) ] h _ { k } ^ { \\prime \\prime } ( x ) + \\frac { 3 } { 2 } [ h _ { k } ( x ) - 2 ] [ h _ { k } ^ { \\prime } ( x ) ] ^ { 2 } } \\end{array}$ . Based on Lemma.1, we know $h _ { k } ( x ) \\in ( 0 , 1 )$ , so $h _ { k + 1 } ^ { \\prime \\prime } ( x ) < 0$ . Therefore, when $x \\in ( 0 , 1 )$ , then $\\forall T \\in \\mathbb { N } _ { + }$ , ${ h _ { T } } ( x ) = x { f _ { T } } ^ { 2 } ( x )$ is a strictly concave function that satisfies $h _ { T } ^ { \\prime \\prime } ( x ) < 0$ and $h _ { 0 } ^ { \\prime \\prime } ( x ) = 0$ . ",
+        "bbox": [
+            173,
+            622,
+            826,
+            674
+        ],
+        "page_idx": 16
+    },
+    {
+        "type": "text",
+        "text": "B.2.2 OPTIMAL SOLUTION FOR THE LAGRANGE FUNCTION ",
+        "bbox": [
+            173,
+            685,
+            601,
+            702
+        ],
+        "page_idx": 16
+    },
+    {
+        "type": "text",
+        "text": "Based on Section B.2.1, when $x \\in ( 0 , 1 )$ , then $\\forall T \\in \\mathbb { N } _ { + }$ , ${ h _ { T } } ( x ) = x { f _ { T } } ^ { 2 } ( x )$ is a strictly concave function that satisfies $h _ { T } ^ { \\prime \\prime } ( x ) < 0$ . So $1 - h _ { T } ( x )$ is a strictly convex function. ",
+        "bbox": [
+            174,
+            708,
+            825,
+            738
+        ],
+        "page_idx": 16
+    },
+    {
+        "type": "text",
+        "text": "We discuss $g _ { j } ( x _ { 1 } , \\cdot \\cdot \\cdot , x _ { d } ) \\ = \\ \\sum _ { i = 1 } ^ { d } [ 1 - h _ { T } ( x _ { i } ) ] u _ { j i } ^ { 2 }$ first. Denote that the Hessen Matrix of $g _ { j } ( x _ { 1 } , \\cdots , x _ { d } )$ about $\\mathbf { x }$ is ",
+        "bbox": [
+            173,
+            746,
+            826,
+            792
+        ],
+        "page_idx": 16
+    },
+    {
+        "type": "equation",
+        "img_path": "images/6887634d22fd56ffb2f17a8790890ea2a93300909772747acc4ae2bef83e93b4.jpg",
+        "text": "$$\n\\nabla ^ { 2 } g _ { j } = \\left[ \\begin{array} { c c c } { { - u _ { j 1 } ^ { 2 } h _ { T } ^ { \\prime \\prime } ( x _ { 1 } ) } } & { { } } & { { } } \\\\ { { } } & { { \\ddots } } & { { } } \\\\ { { } } & { { } } & { { - u _ { j d } ^ { 2 } h _ { T } ^ { \\prime \\prime } ( x _ { d } ) } } \\end{array} \\right]\n$$",
+        "text_format": "latex",
+        "bbox": [
+            346,
+            795,
+            650,
+            856
+        ],
+        "page_idx": 16
+    },
+    {
+        "type": "text",
+        "text": "and the Hessen Matrix of $g _ { j } ^ { 2 } ( x _ { 1 } , \\cdots , x _ { d } )$ about $\\mathbf { x }$ is ",
+        "bbox": [
+            173,
+            866,
+            516,
+            883
+        ],
+        "page_idx": 16
+    },
+    {
+        "type": "equation",
+        "img_path": "images/b34130af023fd5445d579abd66f6d23f3a4bfc5bd91fceebb1417262ce28a33e.jpg",
+        "text": "$$\n\\nabla ^ { 2 } ( g _ { j } ^ { 2 } ) = \\nabla ( 2 g _ { j } \\nabla g _ { j } ) = 2 g _ { j } \\nabla ^ { 2 } g _ { j } + 2 ( \\nabla g _ { j } ) ( \\nabla g _ { j } ) ^ { T }\n$$",
+        "text_format": "latex",
+        "bbox": [
+            321,
+            888,
+            673,
+            909
+        ],
+        "page_idx": 16
+    },
+    {
+        "type": "text",
+        "text": "We denote that all eigenvalues of $( \\nabla g _ { j } ) ( \\nabla g _ { j } ) ^ { T }$ are $( \\nabla g _ { j } ) ^ { T } ( \\nabla g _ { j } ) , 0 , \\cdot \\cdot \\cdot , 0$ . All eigenvalues are non-negtive, denoting that $2 ( \\nabla g _ { j } ) ( \\nabla g _ { j } ) ^ { T }$ is semi-positive. ",
+        "bbox": [
+            173,
+            83,
+            825,
+            117
+        ],
+        "page_idx": 17
+    },
+    {
+        "type": "text",
+        "text": "Now we denote that the Hessen Matrix of $I N T L ( \\mathbf { x } )$ is ",
+        "bbox": [
+            173,
+            121,
+            537,
+            137
+        ],
+        "page_idx": 17
+    },
+    {
+        "type": "equation",
+        "img_path": "images/b9ee03db03435eff7a874480b95722b9ac19c2f16f8cdae56d578985ae0368f5.jpg",
+        "text": "$$\n\\begin{array} { l } { { \\nabla ^ { 2 } I N T L ( { \\bf x } ) = \\displaystyle \\sum _ { j = 1 } ^ { d } \\nabla ^ { 2 } ( g _ { j } ^ { 2 } ) } } \\\\ { { \\displaystyle \\quad = 2 \\sum _ { j = 1 } ^ { d } ( \\nabla g _ { j } ) ( \\nabla g _ { j } ) ^ { T } + 2 \\sum _ { j = 1 } ^ { d } g _ { j } \\nabla ^ { 2 } g _ { j } } } \\end{array}\n$$",
+        "text_format": "latex",
+        "bbox": [
+            323,
+            160,
+            673,
+            253
+        ],
+        "page_idx": 17
+    },
+    {
+        "type": "text",
+        "text": "where ",
+        "bbox": [
+            173,
+            282,
+            217,
+            296
+        ],
+        "page_idx": 17
+    },
+    {
+        "type": "equation",
+        "img_path": "images/f183005627a1c31a74782bd1aae9d11fe53f8c4ec79a280851b3117a0d3a02b6.jpg",
+        "text": "$$\n2 \\sum _ { j = 1 } ^ { d } g _ { j } \\nabla ^ { 2 } g _ { j } = 2 \\left[ \\begin{array} { c c c } { { - \\sum _ { j = 1 } ^ { d } u _ { j 1 } ^ { 2 } h _ { T } ^ { \\prime \\prime } ( x _ { 1 } ) g _ { j } } } & { { } } & { { } } \\\\ { { } } & { { . . } } & { { } } \\\\ { { } } & { { } } & { { - \\sum _ { j = 1 } ^ { d } u _ { j d } ^ { 2 } h _ { T } ^ { \\prime \\prime } ( x _ { d } ) g _ { j } } } \\end{array} \\right]\n$$",
+        "text_format": "latex",
+        "bbox": [
+            272,
+            318,
+            723,
+            415
+        ],
+        "page_idx": 17
+    },
+    {
+        "type": "text",
+        "text": "We denote that $h _ { T } ^ { \\prime \\prime } ( x _ { i } ) < 0 , g _ { j } > 0$ , and $u _ { j i }$ are not all zeros for a certain $i$ (since $\\sum _ { j = 1 } ^ { d } u _ { j i } ^ { 2 } = 1 )$ ",
+        "bbox": [
+            173,
+            450,
+            794,
+            484
+        ],
+        "page_idx": 17
+    },
+    {
+        "type": "text",
+        "text": "Therefore, $- \\sum _ { j = 1 } ^ { d } u _ { j i } ^ { 2 } h _ { T } ^ { \\prime \\prime } ( x _ { i } ) g _ { j } > 0$ and $2 \\sum _ { j = 1 } ^ { d } g _ { j } \\nabla ^ { 2 } g _ { j }$ must be a positive matrix. ",
+        "bbox": [
+            173,
+            492,
+            692,
+            526
+        ],
+        "page_idx": 17
+    },
+    {
+        "type": "text",
+        "text": "Since $2 \\sum _ { j = 1 } ^ { d } ( \\nabla g _ { j } ) ( \\nabla g _ { j } ) ^ { T }$ is semi-positive, then we can denote that $\\nabla ^ { 2 } I N T L$ is positive. ",
+        "bbox": [
+            176,
+            532,
+            756,
+            568
+        ],
+        "page_idx": 17
+    },
+    {
+        "type": "text",
+        "text": "Therefore, $I N T L ( \\mathbf { x } )$ is strictly convex about $\\mathbf { x }$ on $( 0 , 1 ) ^ { d }$ . ",
+        "bbox": [
+            173,
+            575,
+            558,
+            592
+        ],
+        "page_idx": 17
+    },
+    {
+        "type": "text",
+        "text": "And for $I N T L ( \\mathbf { x } )$ is continuous, the minimum point on $[ 0 , 1 ] ^ { d }$ is the same as that on $( 0 , 1 ) ^ { d }$ . ",
+        "bbox": [
+            168,
+            598,
+            782,
+            614
+        ],
+        "page_idx": 17
+    },
+    {
+        "type": "text",
+        "text": "While the constraints of $\\left( P _ { I N T L } \\right)$ form a convex set, $\\left( P _ { I N T L } \\right)$ must be a convex programming, which means that the KKT point of $\\left( P _ { I N T L } \\right)$ is its unique extreme point, and the global minimum point in the same time. ",
+        "bbox": [
+            173,
+            619,
+            825,
+            661
+        ],
+        "page_idx": 17
+    },
+    {
+        "type": "text",
+        "text": "We denote that the KKT conditions of $\\left( P _ { I N T L } \\right)$ is that ",
+        "bbox": [
+            173,
+            666,
+            534,
+            683
+        ],
+        "page_idx": 17
+    },
+    {
+        "type": "equation",
+        "img_path": "images/2126c642fc04f993a470903228fbb64b1db7b3c4081b4e9b7cfc241e1a29cefd.jpg",
+        "text": "$$\n\\left\\{ \\begin{array} { l l } { \\frac { \\partial L } { \\partial x _ { i } } = 0 , } & { i = 1 , \\cdots , d } \\\\ { \\alpha _ { i } ( - x _ { i } ) = 0 , } & { i = 1 , \\cdots , d } \\\\ { \\alpha _ { i } \\geq 0 , } & { i = 1 , \\cdots , d } \\\\ { \\displaystyle \\sum _ { i = 1 } ^ { d } x _ { i } - 1 = 0 } & \\end{array} \\right.\n$$",
+        "text_format": "latex",
+        "bbox": [
+            390,
+            705,
+            607,
+            790
+        ],
+        "page_idx": 17
+    },
+    {
+        "type": "text",
+        "text": "We can identify one of the solutions to the KKT conditions is that ",
+        "bbox": [
+            173,
+            819,
+            606,
+            835
+        ],
+        "page_idx": 17
+    },
+    {
+        "type": "equation",
+        "img_path": "images/1f9a545e3739562ffc106b28d20a9151748954eac3125b3f17e33ff71f4dd9c8.jpg",
+        "text": "$$\n\\left\\{ \\begin{array} { l } { \\mathbf { x } = [ \\frac { 1 } { d } , \\cdot \\cdot \\cdot , \\frac { 1 } { d } ] ^ { T } } \\\\ { \\pmb { \\alpha } = \\mathbf { 0 } } \\\\ { \\mu = - 2 h _ { T } ^ { \\prime } ( \\frac { 1 } { d } ) [ h _ { T } ( \\frac { 1 } { d } ) - 1 ] } \\end{array} \\right.\n$$",
+        "text_format": "latex",
+        "bbox": [
+            392,
+            858,
+            586,
+            911
+        ],
+        "page_idx": 17
+    },
+    {
+        "type": "text",
+        "text": "It is easy to identify the last three equations in KKT conditions. As for the first equation, for all $t = 1 , \\cdots , d$ , we have ",
+        "bbox": [
+            173,
+            84,
+            823,
+            113
+        ],
+        "page_idx": 18
+    },
+    {
+        "type": "equation",
+        "img_path": "images/61e190161cb35de6711d96848f580866041568a46d28802a7b4b1fb339c6cbbb.jpg",
+        "text": "$$\n\\begin{array} { r l } & { \\frac { \\partial L } { \\partial \\mathbf { k } _ { \\perp } } = \\mathcal { N } _ { 2 } ( z ) \\underbrace { \\sum _ { i = 1 } ^ { N } \\sum _ { j = 1 } ^ { N } \\ln { | z _ { i } | } } _ { = : = 1 } - 1 | \\mathcal { S } _ { i , j } ^ { \\mathbf { a } , \\mathbf { a } } \\rangle ^ { 2 } \\cdots \\partial _ { i } + \\mu , } \\\\ & { \\qquad = 2 \\mathcal { N } _ { i } ( \\frac 1 2 ) ^ { \\frac { 1 } { N } } \\sum _ { i = 1 } ^ { N } \\sum _ { j = 1 } ^ { N } \\ln { | z _ { i } | } ^ { \\frac 1 2 } - 1 | \\mathcal { S } _ { i , j } ^ { \\mathbf { a } } \\rangle ^ { 2 } + \\mu } \\\\ & { \\qquad = 2 \\mathcal { N } _ { i } ( \\frac 1 2 ) ^ { \\frac { 1 } { N } } \\sum _ { j = 1 } ^ { N } | \\mathcal { S } _ { i , j } ^ { \\mathbf { a } } \\rangle ^ { 2 } - 1 | \\mathcal { S } _ { i , j } ^ { \\mathbf { a } } \\rangle ^ { 2 } \\ w _ { j } ^ { \\mathbf { a } , \\mathbf { a } } \\rangle ^ { 2 } + \\mu } \\\\ & { \\qquad = - 3 \\mathcal { N } _ { i } ( \\frac 1 2 ) ^ { \\frac { 1 } { N } } \\sum _ { j = 1 } ^ { N } | \\mathcal { S } _ { i , j } ^ { \\mathbf { a } } \\rangle ^ { 2 } - 1 | \\mathcal { S } _ { i , j } ^ { \\mathbf { a } } \\rangle ^ { 2 } \\ w _ { j } ^ { \\mathbf { a } , \\mathbf { a } } \\rangle ^ { 2 } + \\mu } \\\\ & { \\qquad = 2 \\mathcal { N } _ { i } ( \\frac 1 2 ) ^ { \\frac { 1 } { N } } \\sum _ { i = 1 } ^ { N } | \\mathcal { S } _ { i , j } ^ { \\mathbf { a } } \\rangle ^ { 2 } - 1 | \\mathcal { S } _ { i , j } ^ { \\mathbf { a } } \\rangle ^ { 2 } + \\mu } \\\\ &  \\qquad = 2 \\mathcal { N } _ { i } ( \\frac 1 2 ) ^ { \\frac { 1 } { N } } \\sum _ { i = 1 } ^ { N } \\frac { 1 } { N } \\ \\end{array}\n$$",
+        "text_format": "latex",
+        "bbox": [
+            316,
+            123,
+            673,
+            404
+        ],
+        "page_idx": 18
+    },
+    {
+        "type": "text",
+        "text": "Therefore, $\\mathbf { x } ^ { * } = [ \\frac { 1 } { d } , \\cdots , \\frac { 1 } { d } ] _ { . } ^ { T }$ is the optimal solution to $\\left( P _ { I N T L } \\right)$ . INTL promotes the equality of all eigenvalues in the optimization process, which provides a theoretical guarantee to avoid dimensional collapse. ",
+        "bbox": [
+            173,
+            410,
+            825,
+            453
+        ],
+        "page_idx": 18
+    },
+    {
+        "type": "text",
+        "text": "C ALGORITHM OF INTL ",
+        "text_level": 1,
+        "bbox": [
+            174,
+            473,
+            393,
+            489
+        ],
+        "page_idx": 18
+    },
+    {
+        "type": "text",
+        "text": "The description of our paper is based on batch whitening (BW) (Ermolov et al., 2021; Hua et al., 2021), and it can extend similarly for channel whitening (CW) (Weng et al., 2022), where the covariance matrix of $\\mathbf { Z }$ is calculated as ${ \\boldsymbol { \\Sigma } } = { \\frac { 1 } { d } } { \\bf Z } ^ { T } { \\bf Z }$ . We implement INTL based on CW, considering CW is more effective when the batch size $m$ is relatively small. ",
+        "bbox": [
+            173,
+            505,
+            825,
+            560
+        ],
+        "page_idx": 18
+    },
+    {
+        "type": "text",
+        "text": "Given the centralized embedding of two positive pairs $\\mathbf { Z } ^ { \\left( v \\right) } , \\mathbf { Z } ^ { \\left( v \\right) } \\in \\mathbb { R } ^ { d \\times m }$ and $v \\in \\{ 1 , 2 \\}$ , we use IterNorm to obtain the approximately whitened output $\\widehat { \\mathbf { Z } } ^ { ( v ) } = [ \\widehat { \\mathbf { z } } _ { 1 } ^ { ( v ) } , \\ldots , \\widehat { \\mathbf { z } } _ { m } ^ { ( v ) } ]$ . The loss functions used in our method are ",
+        "bbox": [
+            174,
+            568,
+            825,
+            613
+        ],
+        "page_idx": 18
+    },
+    {
+        "type": "equation",
+        "img_path": "images/b0994ce5641ae37c1698a5204152c756b83cb736310c540f1fac2bdf6254781b.jpg",
+        "text": "$$\n\\mathcal { L } _ { M S E } = \\frac { 1 } { m } \\sum _ { i } \\Vert \\frac { \\hat { \\mathbf { z } } _ { i } ^ { ( 1 ) } } { \\Vert \\hat { \\mathbf { z } } _ { i } ^ { ( 1 ) } \\Vert _ { 2 } } - \\frac { \\hat { \\mathbf { z } } _ { i } ^ { ( 2 ) } } { \\Vert \\hat { \\mathbf { z } } _ { i } ^ { ( 2 ) } \\Vert _ { 2 } } \\Vert _ { 2 } ^ { 2 }\n$$",
+        "text_format": "latex",
+        "bbox": [
+            364,
+            611,
+            633,
+            652
+        ],
+        "page_idx": 18
+    },
+    {
+        "type": "equation",
+        "img_path": "images/136bb15a62efdb3bf21665baaee18171d2ddc887d875e184bc4e11516f8bde9f.jpg",
+        "text": "$$\n\\mathcal { L } _ { t r a c e } = \\sum _ { v = 1 } ^ { 2 } \\sum _ { i = 1 } ^ { m } ( 1 - \\frac { 1 } { d } \\hat { \\mathbf { z } } _ { i } ^ { ( v ) } \\hat { \\mathbf { z } } _ { i } ^ { ( v ) } ) ^ { 2 }\n$$",
+        "text_format": "latex",
+        "bbox": [
+            377,
+            659,
+            619,
+            703
+        ],
+        "page_idx": 18
+    },
+    {
+        "type": "equation",
+        "img_path": "images/adf65559c104a01bbb98522d83ff40a61aad2d60f0e92361c4815cdab880e892.jpg",
+        "text": "$$\n\\mathcal { L } _ { I N T L } = \\mathcal { L } _ { M S E } + \\beta \\cdot \\mathcal { L } _ { t r a c e }\n$$",
+        "text_format": "latex",
+        "bbox": [
+            397,
+            707,
+            599,
+            724
+        ],
+        "page_idx": 18
+    },
+    {
+        "type": "text",
+        "text": "where $\\mathcal { L } _ { M S E }$ indicates MSE of $L _ { 2 }$ −normalized vectors which minimizes the distance between $\\widehat { \\mathbf { Z } } ^ { ( 1 ) }$ and $\\widehat { \\mathbf { Z } } ^ { ( 2 ) }$ . Here we simplify the expression of $\\mathcal { L } _ { t r a c e }$ in Eqn. 6, because off-diagonal elements of $\\Sigma _ { \\widehat { \\mathbf { Z } } }$ does not need to be calculated. $\\beta$ is the trade-off between $\\mathcal { L } _ { M S E }$ and INTL. ",
+        "bbox": [
+            174,
+            738,
+            823,
+            786
+        ],
+        "page_idx": 18
+    },
+    {
+        "type": "text",
+        "text": "In our experiments, we observe that when the iteration number $T$ of IterNorm is fixed, the coefficient $\\beta$ that obtains good performance has only relevant to the batch size. So we fix the iteration number $T$ to 4 and empirically regress $\\beta$ with various batch sizes and obtain that $\\beta = 0 . 0 1 * ( l o g _ { 2 } b s - 3 )$ where $b s$ means the batch size and $b s > 8$ . We keep the iteration number $T$ of IterNorm and the coefficient $\\beta$ fixed in this form (i.e., $\\beta$ is determined given the batch size) across all the datasets and architectures, so our INTL can be directly applied to other datasets and models without tuning the coefficient. ",
+        "bbox": [
+            173,
+            791,
+            825,
+            886
+        ],
+        "page_idx": 18
+    },
+    {
+        "type": "text",
+        "text": "For clarity, we also describe the algorithm of INTL in PyTorch-style pseudocode, shown in Figure 4(a). ",
+        "bbox": [
+            173,
+            890,
+            825,
+            906
+        ],
+        "page_idx": 18
+    },
+    {
+        "type": "image",
+        "img_path": "images/10ae08626ee10909858f7512a45c0ba3a56e90f1b82cefc6ef175aedaf1307ab.jpg",
+        "image_caption": [
+            "Figure 4: Algorithm of INTL, PyTorch-style Pseudocode. "
+        ],
+        "image_footnote": [],
+        "bbox": [
+            267,
+            85,
+            725,
+            579
+        ],
+        "page_idx": 19
+    },
+    {
+        "type": "text",
+        "text": "D ANALYTICAL EXPERIMENTS ",
+        "text_level": 1,
+        "bbox": [
+            176,
+            635,
+            446,
+            651
+        ],
+        "page_idx": 19
+    },
+    {
+        "type": "text",
+        "text": "D.1 EXPERIMENTS ON SYNTHETIC 2D DATASET ",
+        "text_level": 1,
+        "bbox": [
+            173,
+            666,
+            521,
+            683
+        ],
+        "page_idx": 19
+    },
+    {
+        "type": "text",
+        "text": "In section 3.2 of the submitted paper, we conduct experiments on the 2D dataset and report the results on with varying $p$ . Here, we provide the details of the experimental setup, and further show the results of IterNorm (Huang et al., 2019) for SSL in this 2D dataset. ",
+        "bbox": [
+            174,
+            694,
+            825,
+            734
+        ],
+        "page_idx": 19
+    },
+    {
+        "type": "text",
+        "text": "D.1.1 DETAILS OF EXPERIMENTAL SETUPS ",
+        "text_level": 1,
+        "bbox": [
+            174,
+            753,
+            488,
+            767
+        ],
+        "page_idx": 19
+    },
+    {
+        "type": "text",
+        "text": "We synthesize a two-dimensional dataset with isotropic Gaussian blobs containing 512 sample points as shown in Figure 5(a). We construct a toy Siamese network (a simple three-layer neural network, including three fully connected (FC) layers, with BN and ReLU appended to the first two) as the encoder for this dataset. The dimensions of the network are $( 2 - \\bar { 1 6 ) } - ( 1 6 - 1 6 ) - ( 1 6 - 2 )$ that each bracket represents the input and output dimensions of each FC layer respectively. We then use MSE as the loss function and do not normalize the features before calculating the loss function. ",
+        "bbox": [
+            174,
+            777,
+            825,
+            858
+        ],
+        "page_idx": 19
+    },
+    {
+        "type": "text",
+        "text": "We train the model by randomly shuffling the data into mini-batches, and set the batch size to 32. We use the stochastic gradient descent (SGD) algorithm with a learning rate of 0.1. In terms of the data transformation, we only apply Gaussian noise as data augmentation and generate 2 views from each sample point in mini-batches. We visualize the output of the initialized network without training in Figure 5(b). All runs are performed under the same random seed. ",
+        "bbox": [
+            174,
+            864,
+            821,
+            905
+        ],
+        "page_idx": 19
+    },
+    {
+        "type": "image",
+        "img_path": "images/c088985fd9c9cd61ce6d5647a9863d6764d26485b5874e9b304d52aab2a00b9f.jpg",
+        "image_caption": [
+            "Figure 5: Visualization of our synthetic 2D dataset. We show (a) the distribution of our 2D dataset; (b) the initial output of the toy Siamese network. "
+        ],
+        "image_footnote": [],
+        "bbox": [
+            194,
+            87,
+            792,
+            257
+        ],
+        "page_idx": 20
+    },
+    {
+        "type": "text",
+        "text": "",
+        "bbox": [
+            174,
+            310,
+            823,
+            338
+        ],
+        "page_idx": 20
+    },
+    {
+        "type": "image",
+        "img_path": "images/0bda4af586971bdcdc7bb0e8d18bf0aba25b8e7bf3ab431b642995c886745d5c.jpg",
+        "image_caption": [
+            "Figure 6: Investigate the spectrum of transformed output $\\hat { \\mathbf { Z } }$ (solid lines) and the corresponding embedding $\\mathbf { Z }$ (dashed lines) using IterNorm for SSL with different iteration numbers $T$ . We show the evolution of eigenvalues during training on the toy 2D dataset (Note that there are only two eigenvalues and we ignore the larger one because it always remains a high value during training). In particular, (a) shows the results with a well-conditioned initial spectrum while (b) with a illconditioned one. "
+        ],
+        "image_footnote": [],
+        "bbox": [
+            197,
+            359,
+            787,
+            515
+        ],
+        "page_idx": 20
+    },
+    {
+        "type": "text",
+        "text": "D.1.2 RESULTS OF ITERNORM FOR SSL ",
+        "text_level": 1,
+        "bbox": [
+            176,
+            622,
+            465,
+            637
+        ],
+        "page_idx": 20
+    },
+    {
+        "type": "text",
+        "text": "To figure out the failure of IterNorm (Huang et al., 2019) for SSL, we further conduct experiments to investigate the spectrum of the whitened output $\\hat { \\mathbf { Z } }$ using IterNorm on this synthetic 2D dataset for intuitive analyses. The output dimension of the toy model is 2, so there are only two eigenvalues of the covariance matrix of the output. We then track alterations of the two eigenvalues during training. IterNorm can obtain an idealized whitened output with a small iteration number $( e . g . , \\mathrm { T } { = } \\bar { 5 }$ , as recommend in (Huang et al., 2019)) and avoid collapse, if the embedding $\\mathbf { Z }$ has a well-conditioned spectrum3 (Figure 6(a)). However, if the embedding $\\mathbf { Z }$ has a ill-conditioned spectrum as shown in Figure 6(b), IterNorm fails to pull the small eigenvalue to approach 1 which results in dimensional collapse. ",
+        "bbox": [
+            173,
+            647,
+            825,
+            772
+        ],
+        "page_idx": 20
+    },
+    {
+        "type": "text",
+        "text": "D.2 EXPERIMENTS ON CIFAR-10 ",
+        "text_level": 1,
+        "bbox": [
+            176,
+            790,
+            423,
+            804
+        ],
+        "page_idx": 20
+    },
+    {
+        "type": "text",
+        "text": "In section 3 and 4 of the submitted paper, we conduct several experiments on CIFAR-10 to illustrate our analysis. We provide a brief description of the setup in the caption of Figure 1 and 2 of the submitted paper. Here, we describe the details of these experiments. All experiments are uniformly based on the following training settings, unless otherwise stated in the figures of the submitted paper. ",
+        "bbox": [
+            174,
+            816,
+            825,
+            871
+        ],
+        "page_idx": 20
+    },
+    {
+        "type": "image",
+        "img_path": "images/6508040aaf3244b00e296a32f96523bf382296f4e5e20aaa6643b2a33c97b5fb.jpg",
+        "image_caption": [
+            "Figure 7: Investigate numerical instability of spectral transformation using power functions for SSL. The numbers in the legend represent embedding dimensions and the batch size is fixed to 512. (a) trains models on ImageNet with ResNet-50; (b) trains models on CIFAR-10 with ResNet-18; The models are trained for 6000 iterations, and we track the inverse of condition number $\\begin{array} { r } { ( c ^ { - 1 } = \\frac { \\lambda _ { d } } { \\lambda _ { 1 } } ) } \\end{array}$ ) in logarithmic scale with base 10 to judge whether the the covariance matrix is ill-conditioned. The models that were interrupted before the end of the training indicate training crash caused by numerical instability. "
+        ],
+        "image_footnote": [],
+        "bbox": [
+            199,
+            88,
+            790,
+            237
+        ],
+        "page_idx": 21
+    },
+    {
+        "type": "text",
+        "text": "Training Settings. We use the ResNet-18 as the encoder (the dimension of encoding is 512.), a two layer MLP with ReLU and BN appended as the projector (the dimension of the hidden layer and embedding are 1024 and 128 respectively). The model is trained on CIFAR-10 with a batch size of 256, using Adam optimizer (Kingma & Ba, 2014) with a learning rate of $3 \\times 1 0 ^ { - 3 }$ , and learning rate warm-up for the first 500 iterations and a 0.2 learning rate drop at the last 50 and 25 epochs. The weight decay is set as $1 0 ^ { - 6 }$ . All transformations are performed with 2 positives extracted per image with standard data argumentation (see Section E.3 for details). We use the same evaluation protocol as in W-MSE (Ermolov et al., 2021). ",
+        "bbox": [
+            173,
+            367,
+            825,
+            473
+        ],
+        "page_idx": 21
+    },
+    {
+        "type": "text",
+        "text": "Method Settings. We use MSE of $L _ { 2 }$ −normalized vectors to be the loss function in all experiments. Specifically, in Figure 3 of the paper for the experiments of training the models with INTL, we simply set the trade-off parameter $\\beta$ between MSE and INTL as follows: $\\beta = 0 . 0 5$ for $T = 5$ , $\\beta = \\bar { 0 } . \\bar { 5 }$ for $T = 3$ and $\\beta = 5$ for $T = 1$ without fine-tuning. The details of INTL algorithm please refer to Section C. ",
+        "bbox": [
+            174,
+            488,
+            825,
+            555
+        ],
+        "page_idx": 21
+    },
+    {
+        "type": "text",
+        "text": "D.3 NUMERICAL INSTABILITY OF SPECTRAL TRANSFORMATION USING POWER FUNCTIONS ",
+        "bbox": [
+            176,
+            579,
+            821,
+            594
+        ],
+        "page_idx": 21
+    },
+    {
+        "type": "text",
+        "text": "One issue with employing the spectral transformation $g ( \\lambda ) = \\lambda ^ { - p }$ (where $p$ is approximately 0.5) is the risk of numerical instability during the calculation of eigenvalues $\\lambda$ and eigenvectors U via eigen-decomposition. This instability can arise when dealing with an ill-conditioned covariance matrix, as noted in (Paszke et al., 2019). In this study, we empirically validate the existence of this phenomenon in the context of self-supervised pre-training. It’s important to mention that we primarily focus on the special case of $p = 0 . 5$ , referred to as hard whitening, as similar phenomena are observed when $p$ is set near 0.5. ",
+        "bbox": [
+            174,
+            608,
+            825,
+            702
+        ],
+        "page_idx": 21
+    },
+    {
+        "type": "text",
+        "text": "To assess the generality of this phenomenon, we conduct experiments on both ImageNet with ResNet50 and CIFAR-10 with ResNet-18. We maintain a fixed batch size of 512 and manipulate the shape of the covariance matrix by adjusting the embedding dimension $d$ (where the covariance matrix has a shape of ${ \\mathrm { ~ d ~ } } \\times { \\mathrm { ~ d } } )$ . The models undergo 6000 iterations, and we monitor the inverse of the condition number $\\begin{array} { r } { ( c ^ { - 1 } = \\frac { \\lambda _ { d } } { \\lambda _ { 1 } } ) } \\end{array}$ to ascertain the ill-conditioned nature of the covariance matrix. The experimental results, depicted in Figure 7, lead to the following key observations: ",
+        "bbox": [
+            174,
+            708,
+            825,
+            792
+        ],
+        "page_idx": 21
+    },
+    {
+        "type": "text",
+        "text": "(a) Training crashes when the embedding dimension exceeds the batch size (e.g., $d = 1 0 2 4$ or 2048). In such cases, the covariance matrix becomes theoretically singular, and computing the inverse of the eigenvalues introduces numerical errors. However, in practice, the minimum eigenvalue of the covariance matrix is likely a very small non-zero value due to precision rounding or the use of a small constant. Consequently, the covariance matrix may already be ill-conditioned from the start of training. Both Figure 7(a) and (b) illustrate that when $d = 1 0 2 4$ or 2048, the inverse of the condition number is approximately $1 0 ^ { - 1 2 } \\sim 1 0 ^ { - 1 0 }$ , indicating severe ill-conditioning from the beginning, resulting in rapid training breakdown. ",
+        "bbox": [
+            174,
+            799,
+            825,
+            905
+        ],
+        "page_idx": 21
+    },
+    {
+        "type": "table",
+        "img_path": "images/a2252c5288219e04c25fbfa3de8c62ddd53c7368994fb4206c10b55942fa2606.jpg",
+        "table_caption": [
+            "Table 4: Parameters used for image augmentations on ImageNet and ImageNet-100. "
+        ],
+        "table_footnote": [],
+        "table_body": "<table><tr><td>Parameter</td><td>T1</td><td>T2</td></tr><tr><td>crop size</td><td>224 × 224</td><td>224 × 224</td></tr><tr><td>maximum scale of crops</td><td>1.0</td><td>1.0</td></tr><tr><td>minimum scale of crops</td><td>0.08</td><td>0.08</td></tr><tr><td>brightness</td><td>0.4</td><td>0.4</td></tr><tr><td>contrast</td><td>0.4</td><td>0.4</td></tr><tr><td>saturation</td><td>0.2</td><td>0.2</td></tr><tr><td>hue</td><td>0.1</td><td>0.1</td></tr><tr><td>color jitter prob</td><td>0.8</td><td>0.8</td></tr><tr><td>horizontal flip prob</td><td>0.5</td><td>0.5</td></tr><tr><td>gaussian prob</td><td>1.0</td><td>0.1</td></tr><tr><td>solarization prob</td><td>0.0</td><td>0.2</td></tr></table>",
+        "bbox": [
+            333,
+            116,
+            658,
+            263
+        ],
+        "page_idx": 22
+    },
+    {
+        "type": "text",
+        "text": "(b) Training is prone to crashing when the embedding dimension equals the batch size $\\acute { a } = 5 1 2$ ). In such cases, it’s challenging to definitively establish whether the covariance matrix is singular. However, our observations from Figure 7 suggest that the covariance matrix tends towards illconditioning when $d = 5 1 2$ . The inverse of the condition number progressively decreases during training, eventually leading to training instability. ",
+        "bbox": [
+            173,
+            292,
+            826,
+            359
+        ],
+        "page_idx": 22
+    },
+    {
+        "type": "text",
+        "text": "(c) There is a possibility of training instability when the embedding dimension is less than the batch size. In these situations, we initially observe that the covariance matrix remains well-conditioned. However, this favorable condition is not consistently maintained throughout training. We notice that well-conditioning suddenly breaks after a few iterations, leading to model collapse for $d = 6 4$ or $d = 1 2 8$ . Interestingly, training does not crash when $d = 2 5 6$ . This phenomenon was briefly discussed in (Ermolov et al., 2021), suggesting that stability can be improved by setting $m = 2 d$ . ",
+        "bbox": [
+            173,
+            366,
+            825,
+            445
+        ],
+        "page_idx": 22
+    },
+    {
+        "type": "text",
+        "text": "We confirm the presence of numerical instability when employing hard whitening (Ermolov et al., 2021), as indicated by the above analysis. While one can mitigate this instability empirically by setting $m = 2 d$ , our experiments reveal that training crashes due to numerical instability can still occur at various points during training. In our extensive experimentation (with 10 random seeds and longer training iterations), we observed instances of numerical issues—approximately 3-4 times—occurring at different stages, including early, mid, or even towards the end of training. Even though it is possible to resume training using saved checkpoints in the event of a crash, this significantly limits the practical applicability of long-term pre-training. ",
+        "bbox": [
+            173,
+            452,
+            825,
+            559
+        ],
+        "page_idx": 22
+    },
+    {
+        "type": "text",
+        "text": "E DETAILS OF EXPERIMENTS ON STANDARD SSL BENCHMARK ",
+        "text_level": 1,
+        "bbox": [
+            176,
+            580,
+            717,
+            597
+        ],
+        "page_idx": 22
+    },
+    {
+        "type": "text",
+        "text": "In this section, we provide the details of implementation and training protocol for the experiments on large-scale ImageNet (Deng et al., 2009), medium-scale ImageNet-100 (Tian et al., 2020a) and smallscale CIFAR-10/100 (Krizhevsky, 2009) classification as well as transfer learning to COCO (Lin et al., 2014) object detection and instance segmentation. We also provide computational overhead of INTL pre-training on ImageNet. ",
+        "bbox": [
+            174,
+            613,
+            825,
+            680
+        ],
+        "page_idx": 22
+    },
+    {
+        "type": "text",
+        "text": "E.1 DATASETS ",
+        "text_level": 1,
+        "bbox": [
+            173,
+            699,
+            289,
+            713
+        ],
+        "page_idx": 22
+    },
+    {
+        "type": "text",
+        "text": "• CIFAR-10 and CIFAR-100 (Krizhevsky, 2009), two small-scale datasets composed of $3 2 \\times 3 2$ images with 10 and 100 classes, respectively. ",
+        "bbox": [
+            173,
+            726,
+            821,
+            753
+        ],
+        "page_idx": 22
+    },
+    {
+        "type": "text",
+        "text": "• ImageNet-100 (Tian et al., 2020a), a random 100-class subset of ImageNet (Deng et al., 2009). ",
+        "bbox": [
+            171,
+            758,
+            803,
+            773
+        ],
+        "page_idx": 22
+    },
+    {
+        "type": "text",
+        "text": "• ImageNet (Deng et al., 2009), the well-known largescale dataset with about 1.3M training images and 50K test images, spanning over 1000 classes. ",
+        "bbox": [
+            169,
+            780,
+            821,
+            808
+        ],
+        "page_idx": 22
+    },
+    {
+        "type": "text",
+        "text": "• COCO2017 (Lin et al., 2014), a large-scale object detection, segmentation, and captioning dataset with 330K images containing 1.5 million object instances. ",
+        "bbox": [
+            173,
+            814,
+            825,
+            842
+        ],
+        "page_idx": 22
+    },
+    {
+        "type": "text",
+        "text": "E.2 EXPERIMENT ON IMAGENET ",
+        "text_level": 1,
+        "bbox": [
+            174,
+            852,
+            415,
+            866
+        ],
+        "page_idx": 22
+    },
+    {
+        "type": "text",
+        "text": "In section 5.1 of the paper, we compare our INTL to the state-of-the-art SSL methods on large-scale ImageNet classification. Here, we describe the training details of these experiments. ",
+        "bbox": [
+            171,
+            877,
+            825,
+            905
+        ],
+        "page_idx": 22
+    },
+    {
+        "type": "table",
+        "img_path": "images/ddb433abd732877b84a1f6d4a616067fc871bb3d345f33a3724fdb14dbfb1bc9.jpg",
+        "table_caption": [
+            "Table 5: Parameters used for multi-crop of INTL on ImageNet. "
+        ],
+        "table_footnote": [],
+        "table_body": "<table><tr><td>Parameter</td><td>T1</td><td>T2</td><td>T3</td><td>T4</td><td>T5</td><td>T6</td></tr><tr><td>crop size</td><td>224 × 224</td><td>224 × 224</td><td>192 × 192</td><td>160 × 160</td><td>128 × 128</td><td>96 × 96</td></tr><tr><td>maximum scale of crops</td><td>1.0</td><td>1.0</td><td>0.857</td><td>0.714</td><td>0.571</td><td>0.429</td></tr><tr><td>minimum scale of crops</td><td>0.2</td><td>0.2</td><td>0.171</td><td>0.143</td><td>0.114</td><td>0.086</td></tr><tr><td>brightness</td><td>0.4</td><td>0.4</td><td>0.4</td><td>0.4</td><td>0.4</td><td>0.4</td></tr><tr><td>contrast</td><td>0.4</td><td>0.4</td><td>0.4</td><td>0.4</td><td>0.4</td><td>0.4</td></tr><tr><td>saturation</td><td>0.2</td><td>0.2</td><td>0.2</td><td>0.2</td><td>0.2</td><td>0.2</td></tr><tr><td>hue</td><td>0.1</td><td>0.1</td><td>0.1</td><td>0.1</td><td>0.1</td><td>0.1</td></tr><tr><td>color jitter prob</td><td>0.8</td><td>0.8</td><td>0.8</td><td>0.8</td><td>0.8</td><td>0.8</td></tr><tr><td>horizontal flip prob</td><td>0.5</td><td>0.5</td><td>0.5</td><td>0.5</td><td>0.5</td><td>0.5</td></tr><tr><td>gaussian prob</td><td>0.5</td><td>0.5</td><td>0.5</td><td>0.5</td><td>0.5</td><td>0.5</td></tr><tr><td>solarization prob</td><td>0.1</td><td>0.1</td><td>0.1</td><td>0.1</td><td>0.1</td><td>0.1</td></tr></table>",
+        "bbox": [
+            173,
+            116,
+            825,
+            263
+        ],
+        "page_idx": 23
+    },
+    {
+        "type": "table",
+        "img_path": "images/009da00a2e1a5d2cd2a64861e8e980f38a3198f9479e090c531d7b269c03b045.jpg",
+        "table_caption": [
+            "Table 6: Parameters used for INTL pre-training on ImageNet-100. "
+        ],
+        "table_footnote": [],
+        "table_body": "<table><tr><td>Parameter</td><td>Value</td></tr><tr><td>max epoch</td><td>400</td></tr><tr><td>backbone</td><td>ResNet-18</td></tr><tr><td>projection layers</td><td>3</td></tr><tr><td>projection hidden dimension</td><td>4096</td></tr><tr><td>projection output dimension</td><td>4096</td></tr><tr><td>optimizer</td><td>SGD</td></tr><tr><td>SGD momentum</td><td>0.9</td></tr><tr><td>learning rate</td><td>0.5</td></tr><tr><td>learning rate warm-up</td><td>2 epochs</td></tr><tr><td>learning rate schedule</td><td>cosine decay</td></tr><tr><td>weight decay</td><td>2.5e-5</td></tr><tr><td>batch size</td><td>128</td></tr></table>",
+        "bbox": [
+            341,
+            305,
+            651,
+            463
+        ],
+        "page_idx": 23
+    },
+    {
+        "type": "text",
+        "text": "Backbone and Projection. We use the ResNet-50 (He et al., 2016) as the backbone and the output dimension is 2048. We use a 3-layers MLP as the projection: two hidden layers with BN and ReLU applied to it and a linear layer as output. We set dimensions of the hidden layer and embedding to 8192 as our initial experiments followed the settings of VICReg and Barlow Twins, both of which use a dimension of 8192 for the projection. Compared to a projection dimension of 2048, using a projection dimension of 8192 can bring about a $0 . 1 4 \\%$ improvement in top-1 accuracy for INTL. Therefore, we followed this setting in subsequent experiments on ImageNet. We report that using a projection dimension of 8192 requires approximately $1 8 \\%$ additional GPU memory and $2 \\%$ time per epoch compared to using the one of 2048. ",
+        "bbox": [
+            174,
+            489,
+            825,
+            609
+        ],
+        "page_idx": 23
+    },
+    {
+        "type": "text",
+        "text": "Image Transformation Details. In image transformation, We use the same augmentation parameters as BYOL (Grill et al., 2020). Each input image is transformed twice to produce the two distorted views. The image augmentation pipeline consists of the following transformations: random cropping, resizing to $2 2 4 \\times 2 2 4$ , horizontal flipping, color jittering, converting to grayscale, Gaussian blurring, and solarization. The details of parameters are shown in Table 4. ",
+        "bbox": [
+            174,
+            616,
+            825,
+            683
+        ],
+        "page_idx": 23
+    },
+    {
+        "type": "text",
+        "text": "Optimizer and Learning Rate Schedule. We apply the SGD optimizer, using a learning rate of base- $l r \\times$ BatchSize / 256 and cosine decay schedule. The base-lr for 100-epoch pre-training is 0.5, for 200(400)-epoch is 0.4 and for 800-epoch is 0.3. The weight decay is $1 0 ^ { - 5 }$ and the SGD momentum is 0.9. In addition, we use learning rate warm-up for the first 2 epochs of the optimizer. ",
+        "bbox": [
+            173,
+            699,
+            825,
+            752
+        ],
+        "page_idx": 23
+    },
+    {
+        "type": "text",
+        "text": "Evaluation Protocol. For linear classification, we train the linear classifier for 100 epochs with SGD optimizer (using a learning rate of base- $. l r \\times$ BatchSize / 256 with a base-lr of 0.2) and using MultiStepLR scheduler with $\\gamma = 0 . 1$ dropping at the last 40 and 20 epochs. Note that when combining INTL with multi-crop in the ablation experiments, the base-lr is set to 0.4. The batch size and weight decay for both are 256 and 0 respectively. ",
+        "bbox": [
+            173,
+            768,
+            825,
+            835
+        ],
+        "page_idx": 23
+    },
+    {
+        "type": "text",
+        "text": "Exponential Moving Average. In the main text, we observe that our INTL can performs even better when utilized in conjunction with the Exponential Moving Average (EMA) technique. We set the base coefficient for momentum updating to 0.996 for all-epoch training. The momentum coefficient follows a cosine increasing schedule with final value of 1.0 as BYOL (Grill et al., 2020). ",
+        "bbox": [
+            174,
+            852,
+            825,
+            905
+        ],
+        "page_idx": 23
+    },
+    {
+        "type": "table",
+        "img_path": "images/2ac1f822c8c23b861670d090623d0b53b0ddfa4195cb46f3fbdb4b0ccb998721.jpg",
+        "table_caption": [
+            "Table 7: Parameters used for INTL pre-training on CIFAR-10/100. "
+        ],
+        "table_footnote": [],
+        "table_body": "<table><tr><td>Parameter</td><td>Value</td></tr><tr><td>max epoch</td><td>1000</td></tr><tr><td>backbone</td><td>ResNet-18</td></tr><tr><td>projection layers</td><td>3</td></tr><tr><td>projection hidden dimension</td><td>2048</td></tr><tr><td>projection output dimension</td><td>2048</td></tr><tr><td>optimizer</td><td>SGD</td></tr><tr><td>SGD momentum</td><td>0.9</td></tr><tr><td>learning rate</td><td>0.3</td></tr><tr><td>learning rate warm-up</td><td>2 epochs</td></tr><tr><td>learning rate schedule</td><td>cosine decay</td></tr><tr><td>weight decay</td><td>1e-4</td></tr><tr><td>batch size</td><td>256</td></tr></table>",
+        "bbox": [
+            341,
+            107,
+            651,
+            266
+        ],
+        "page_idx": 24
+    },
+    {
+        "type": "text",
+        "text": "E.3 EXPERIMENTS FOR SMALL AND MEDIUM SIZE DATASETS ",
+        "text_level": 1,
+        "bbox": [
+            173,
+            299,
+            617,
+            314
+        ],
+        "page_idx": 24
+    },
+    {
+        "type": "text",
+        "text": "In section 5.1 of the paper, we provide the classification results of INTL pre-training on small and medium size datasets such as CIFAR-10, CIFAR-100 and ImageNet-100. Here, We describe the details of implementation and training protocol for the experiments on these datasets as follows. For fairness, most of hyper-parameters we used such as batch size, projection settings, data augmentation and so on are consistent with solo-learn (da Costa et al., 2022). ",
+        "bbox": [
+            174,
+            327,
+            825,
+            393
+        ],
+        "page_idx": 24
+    },
+    {
+        "type": "text",
+        "text": "Experimental setup on ImageNet-100. Details of implementation and training protocol for INTL pre-training on ImageNet-100 are shown in Table 6. The image transformation and evaluation protocol are the same as ones on ImageNet. ",
+        "bbox": [
+            176,
+            401,
+            820,
+            443
+        ],
+        "page_idx": 24
+    },
+    {
+        "type": "text",
+        "text": "Experimental setup on CIFAR-10/100. Then Details of implementation and training protocol for INTL pre-training on CIFAR-10/100 are shown in Table 7. The details of image transformation are shown in Table 8. For evaluation, we use the same setup of protocol as in W-MSE (Ermolov et al., 2021): training the linear classifier for 500 epochs using the Adam optimizer and the labeled training set of each specific dataset, without data augmentation; the learning rate is exponentially decayed from $1 0 ^ { - 2 }$ to $1 0 ^ { - 6 }$ and the weight decay is $\\zeta \\times 1 0 ^ { - 6 }$ . ",
+        "bbox": [
+            174,
+            455,
+            825,
+            536
+        ],
+        "page_idx": 24
+    },
+    {
+        "type": "text",
+        "text": "In addition, we also evaluate the accuracy of a $\\mathbf { k }$ -nearest neighbors classifier ( $\\mathbf { k }$ -NN, ${ \\bf k } = 5$ ) in these experiments. For other methods, we evaluate the models provided by (da Costa et al., 2022) to obtain k-NN accuracy which does not require additional parameters and training. ",
+        "bbox": [
+            174,
+            542,
+            823,
+            583
+        ],
+        "page_idx": 24
+    },
+    {
+        "type": "text",
+        "text": "E.4 EXPERIMENTS FOR TRANSFER LEARNING ",
+        "text_level": 1,
+        "bbox": [
+            173,
+            607,
+            508,
+            621
+        ],
+        "page_idx": 24
+    },
+    {
+        "type": "text",
+        "text": "In this part, we describe the training details of experiments for transfer learning. Our implementation is based on the released codebase of MoCo (He et al., 2020) 4 for transfer learning to object detection and instance segmentation tasks. We use the default hyper-parameter configurations from the training scripts provided by the codebase for INTL, using our 200-epoch and 800-epoch pre-trained model on ImageNet. ",
+        "bbox": [
+            174,
+            633,
+            825,
+            703
+        ],
+        "page_idx": 24
+    },
+    {
+        "type": "text",
+        "text": "For the experiments of COCO detection and COCO instance segmentation, we use Mask R-CNN ( $1 \\times$ schedule) fine-tuned in COCO 2017 train, evaluated in COCO 2017 val. The Mask R-CNN model is with the C4-backbone. Our INTL is performed with 3 random seeds, with mean and standard deviation reported. ",
+        "bbox": [
+            176,
+            709,
+            825,
+            763
+        ],
+        "page_idx": 24
+    },
+    {
+        "type": "text",
+        "text": "E.5 COMPUTATIONAL OVERHEAD ",
+        "text_level": 1,
+        "bbox": [
+            176,
+            786,
+            421,
+            801
+        ],
+        "page_idx": 24
+    },
+    {
+        "type": "text",
+        "text": "In Table 9, we report compute and GPU memory requirements based on our implementation for different settings on ImageNet with ResNet-50. The batch size is 256, and we train each model with 2 A100-PCIE-40GB GPUs, using mixed precision and py-torch optimized version of synchronized batch-normalization layers. ",
+        "bbox": [
+            174,
+            815,
+            825,
+            868
+        ],
+        "page_idx": 24
+    },
+    {
+        "type": "table",
+        "img_path": "images/2a4454d3a0431ce320280b983b2b60cd54974f1d5f145d765b90418d48906b8d.jpg",
+        "table_caption": [
+            "Table 8: Parameters used for image augmentations on CIFAR-10/100. "
+        ],
+        "table_footnote": [],
+        "table_body": "<table><tr><td>Parameter</td><td>T1</td><td>T2</td></tr><tr><td>crop size</td><td>32 × 32</td><td>32 × 32</td></tr><tr><td>maximum scale of crops</td><td>1.0</td><td>1.0</td></tr><tr><td>minimum scale of crops</td><td>0.08</td><td>0.08</td></tr><tr><td>brightness</td><td>0.4</td><td>0.4</td></tr><tr><td>contrast</td><td>0.4</td><td>0.4</td></tr><tr><td>saturation</td><td>0.2</td><td>0.2</td></tr><tr><td>hue</td><td>0.1</td><td>0.1</td></tr><tr><td>color jitter prob</td><td>0.8</td><td>0.8</td></tr><tr><td>horizontal flip prob</td><td>0.5</td><td>0.5</td></tr><tr><td>gaussian prob</td><td>0</td><td>0</td></tr><tr><td>solarization prob</td><td>0.0</td><td>0.2</td></tr></table>",
+        "bbox": [
+            325,
+            116,
+            668,
+            263
+        ],
+        "page_idx": 25
+    },
+    {
+        "type": "table",
+        "img_path": "images/8d6d5cdadb0aa466b8ac924558701bf76805262c247a68c952b46e378c734472.jpg",
+        "table_caption": [
+            "Table 9: Computational cost. We report time and GPU memory requirements of our implementation for INTL trained per epoch on ImageNet with ResNet-50. "
+        ],
+        "table_footnote": [],
+        "table_body": "<table><tr><td>Method</td><td>EMA</td><td>Multi-Crop</td><td>time / 1 epoch</td><td>peak memory / GPU</td></tr><tr><td rowspan=\"4\">INTL</td><td>No</td><td>No</td><td>29min11</td><td>16.0 G</td></tr><tr><td>Yes</td><td>No</td><td>24min46</td><td>11.8 G</td></tr><tr><td>No</td><td>Yes</td><td>57min33</td><td>25.9 G</td></tr><tr><td>Yes</td><td>Yes</td><td>50min52</td><td>21.2 G</td></tr></table>",
+        "bbox": [
+            254,
+            314,
+            738,
+            378
+        ],
+        "page_idx": 25
+    },
+    {
+        "type": "text",
+        "text": "F ABLATION STUDY ",
+        "text_level": 1,
+        "bbox": [
+            174,
+            392,
+            357,
+            409
+        ],
+        "page_idx": 25
+    },
+    {
+        "type": "text",
+        "text": "In this section, we conduct a comprehensive set of ablation experiments to assess the robustness and versatility of our INTL. These experiments cover various aspects, including batch sizes, embedding dimensions, the use of multi-crop augmentation, semi-supervised training, the choice of Vision Transformer (ViT) backbones and adding trace loss to other methods. ",
+        "bbox": [
+            173,
+            422,
+            825,
+            477
+        ],
+        "page_idx": 25
+    },
+    {
+        "type": "text",
+        "text": "Batch size. Most SSL methods, including certain whitening-based methods, are known to be sensitive to batch sizes, e.g. SimCLR (Chen et al., 2020a), SwAV (Caron et al., 2020) and W-MSE (Ermolov et al., 2021) all require a large batch size (e.g. 4096) to work well. We then test the robustness of INTL to batch sizes. We train INTL on ImageNet for 100 epochs with various batch sizes ranging from 32 to ",
+        "bbox": [
+            173,
+            491,
+            508,
+            597
+        ],
+        "page_idx": 25
+    },
+    {
+        "type": "table",
+        "img_path": "images/4be0d0900ffc47188e12d2d2ebf1a5f925f341e1e0803c8771f9dc4508d16eee.jpg",
+        "table_caption": [
+            "Table 10: Effect of batch sizes for INTL. We train 100 epoch on ImageNet and provide the Top-1 accuracy using linear evaluation. The embedding dimension is fixed to 8192. "
+        ],
+        "table_footnote": [],
+        "table_body": "<table><tr><td>Bs</td><td>32</td><td>64</td><td>128</td><td>256</td><td>512</td><td>1024</td></tr><tr><td>acc.(%)</td><td>64.2</td><td>66.4</td><td>68.1</td><td>68.7</td><td>69.5</td><td>69.7</td></tr></table>",
+        "bbox": [
+            519,
+            554,
+            839,
+            582
+        ],
+        "page_idx": 25
+    },
+    {
+        "type": "text",
+        "text": "1024. As shown in Table. 10, even if the batch size is as low as 32 or 64, INTL still maintains good performance. At the same time, when the batch size increases, the accuracy of INTL is also improved. These results indicate that INTL has good robustness to batch sizes and can adapt to various scenarios that constrain the training batch size. ",
+        "bbox": [
+            173,
+            597,
+            826,
+            650
+        ],
+        "page_idx": 25
+    },
+    {
+        "type": "text",
+        "text": "Embedding dimension. Embedding dimension, the output dimension of the projection, is also a key element for most self-supervised learning methods, which may have a significant impact on training results. As illustrated in (Zbontar et al., 2021), Barlow Twins is very sensitive to embedding dimension and it requires a large dimension (e.g. 8192 or 16384) to work well. We also test the robustness of INTL to embedding dimensions. Following the setup of (Chen et al., 2020a) and (Zbontar et al., 2021), we train INTL on ImageNet for 300 epochs with the dimension ranging from 64 to 16384. As shown in Figure. 8, even when the embedding dimension is low as 64 or 128, INTL still achieves good results. These results show that INTL also has strong robustness to embedding dimensions. ",
+        "bbox": [
+            174,
+            665,
+            508,
+            854
+        ],
+        "page_idx": 25
+    },
+    {
+        "type": "image",
+        "img_path": "images/b4b2b41c8b64815b7843a48390a42de7a1cb75abf0849cc3c69ae9a901a7355b.jpg",
+        "image_caption": [
+            "Figure 8: Ablation experiments for varying embedding dimensions. The batch size is fixed to 256. "
+        ],
+        "image_footnote": [],
+        "bbox": [
+            527,
+            664,
+            810,
+            800
+        ],
+        "page_idx": 25
+    },
+    {
+        "type": "text",
+        "text": "",
+        "bbox": [
+            174,
+            849,
+            805,
+            863
+        ],
+        "page_idx": 25
+    },
+    {
+        "type": "text",
+        "text": "Multi-Crop. In the main text experiments, we employ the standard augmentation, which generates two augmented views for each sample. It’s worth noting that multi-crop strategies, such as the one used by SwAV (Caron et al., 2020), are widely recognized for enhancing the performance of SSL methods. For instance, SwAV achieves a remarkable Top-1 accuracy of $7 5 . 3 \\%$ with multi-crop. Therefore, we also conduct experiments with INTL using multi-crop. We apply an efficient multi-crop approach that generates 6 views for each image, with sizes of $\\bar { 2 ^ { \\times } } \\times 2 2 4 \\bar { + } 1 9 2 + 1 6 0 + 1 2 8 + 9 \\bar { 6 }$ , which is similar to the approach used by CLSA (Wang & Qi, 2022). (Detailed parameter settings are provided in Table 5). The results are shown in Table 11. When INTL is paired with multi-crop augmentation, it consistently achieve notable improvements in top-1 accuracy. For instance, after 800 epochs of pre-training, INTL attains an impressive top-1 accuracy of $7 6 . { \\dot { 6 } } \\%$ , even surpassing the common supervised baseline of $7 6 . 5 \\%$ . The incorporation of multi-crop augmentation enhances the performance of INTL, making it a promising method for self-supervised representation learning across a range of experimental setups. ",
+        "bbox": [
+            171,
+            878,
+            821,
+            906
+        ],
+        "page_idx": 25
+    },
+    {
+        "type": "table",
+        "img_path": "images/4e3a74071941070ba5a3afc72641f5ef1ec5051213128b1340540be33e763942.jpg",
+        "table_caption": [
+            "Table 11: Ablation experiments on ImageNet linear classification with EMA and multi-crop. All are based on ResNet-50 backbone. "
+        ],
+        "table_footnote": [],
+        "table_body": "<table><tr><td>Method</td><td>Bs</td><td>EMA</td><td>Multi-Crop</td><td>100 eps</td><td>200 eps</td><td>400 eps</td><td>800 eps</td></tr><tr><td>SwAV</td><td>4096</td><td>No</td><td>No</td><td>66.5</td><td>69.1</td><td>70.7</td><td>71.8</td></tr><tr><td>INTL (ours)</td><td>512</td><td>No</td><td>No</td><td>69.5</td><td>71.1</td><td>72.4</td><td>73.1</td></tr><tr><td>SwAV</td><td>4096</td><td>No</td><td>Yes</td><td>72.1</td><td>73.9</td><td>74.6</td><td>75.3</td></tr><tr><td>SwAV</td><td>256</td><td>No</td><td>Yes</td><td>-</td><td>72.7</td><td>74.3</td><td>-</td></tr><tr><td>INTL (ours)</td><td>256</td><td>No</td><td>Yes</td><td>72.4</td><td>74.3</td><td>74.9</td><td></td></tr><tr><td>CLSA</td><td>256</td><td>Yes</td><td>No</td><td>-</td><td>69.4</td><td>-</td><td>72.2</td></tr><tr><td>INTL (ours)</td><td>256</td><td>Yes</td><td>No</td><td>69.2</td><td>71.5</td><td>73.7</td><td>74.3</td></tr><tr><td>DINO</td><td>4080</td><td>Yes</td><td>Yes</td><td>-</td><td></td><td>-</td><td>75.3</td></tr><tr><td>CLSA</td><td>256</td><td>Yes</td><td>Yes</td><td>-</td><td>73.3</td><td>-</td><td>76.2</td></tr><tr><td>INTL (ours)</td><td>256</td><td>Yes</td><td>Yes</td><td>73.5</td><td>75.2</td><td>76.1</td><td>76.6</td></tr></table>",
+        "bbox": [
+            220,
+            127,
+            769,
+            265
+        ],
+        "page_idx": 26
+    },
+    {
+        "type": "table",
+        "img_path": "images/a15fe27073c2d98bbe83bbacf20ad049df93f8e1b4fbf1a9b5060d6c934e85f4.jpg",
+        "table_caption": [
+            "Table 12: Semi-supervised classification on top of the fine-tuned representations from $1 \\%$ and $10 \\%$ of ImageNet samples. "
+        ],
+        "table_footnote": [],
+        "table_body": "<table><tr><td rowspan=\"2\">Method</td><td rowspan=\"2\">Epoch</td><td rowspan=\"2\">Bs</td><td colspan=\"4\">Semi-supervised</td></tr><tr><td>Top-1</td><td></td><td>Top-5</td><td></td></tr><tr><td></td><td></td><td>256</td><td>1%</td><td>10%</td><td>1%</td><td>10%</td></tr><tr><td>Supervised</td><td>120</td><td></td><td>25.4</td><td>56.4</td><td>48.4</td><td>80.4</td></tr><tr><td>SimCLR</td><td>800</td><td>4096 4096</td><td>48.3</td><td>65.6</td><td>75.5</td><td>87.8</td></tr><tr><td>BYOL</td><td>1000</td><td></td><td>53.2</td><td>68.8</td><td>78.4</td><td>89.0</td></tr><tr><td>SwAV</td><td>800</td><td>4096</td><td>53.9</td><td>70.2</td><td>78.5</td><td>89.9</td></tr><tr><td>Barlow Twins</td><td>1000 1000</td><td>2048 2048</td><td>55.0</td><td>69.7</td><td>79.2</td><td>89.3</td></tr><tr><td>VICReg INTL (ours)</td><td>800</td><td>512</td><td>54.8 55.0</td><td>69.5 69.4</td><td>79.4 80.8</td><td>89.5 89.8</td></tr></table>",
+        "bbox": [
+            276,
+            313,
+            717,
+            440
+        ],
+        "page_idx": 26
+    },
+    {
+        "type": "text",
+        "text": "",
+        "bbox": [
+            173,
+            459,
+            825,
+            606
+        ],
+        "page_idx": 26
+    },
+    {
+        "type": "text",
+        "text": "Semi-supervised training. For semi-supervised classification, we fine-tune our pre-trained INTL backbone and train the linear classifier on ImageNet for 20 epochs. We employ subsets of size $1 \\%$ and $1 0 \\%$ , following the same split as SimCLR. The optimization is performed using the SGD optimizer with a base learning rate of 0.006 for the backbone and 0.2 for the classifier, along with a cosine decay schedule. The semi-supervised results on the ImageNet validation dataset are presented in Table 12, demonstrating that INTL performs well in semi-supervised training scenarios. ",
+        "bbox": [
+            173,
+            621,
+            825,
+            702
+        ],
+        "page_idx": 26
+    },
+    {
+        "type": "text",
+        "text": "Vison Transformer backbones. We conduct additional experiments using vision transformer (ViT) backbones for INTL. For comparison, we reproduce five other method under the same settings. The results are shown in Figure 9, illustrating that INTL maintains strong performance when ViTs are used as backbones. This suggests that INTL exhibits robust generalization capabilities across different network architectures. ",
+        "bbox": [
+            174,
+            717,
+            825,
+            784
+        ],
+        "page_idx": 26
+    },
+    {
+        "type": "text",
+        "text": "Barlow Twins/VICReg with Trace loss. We conducte experiments on CIFAR-10/100 and ImageNet-100 to assess the impact of adding trace loss to Barlow Twins and VICReg, following the experimental setup outlined in Table 2 of our paper. We trained the models on CIFAR-10/100 for 200 epochs and on ImageNet-100 for 100 epochs. The coefficient of trace loss was set to 0.01, an empirically suitable value for both methods. The results are presented in the Table 13. We observed that adding trace loss to Barlow Twins had a minor positive effect on performance, while introducing it to VICReg significantly reduced performance, particularly on ImageNet-100. We hypothesize that this discrepancy may arise from the influence of trace loss on the regularization strength of these methods. It can either disrupt the existing balance, leading to reduced performance, or achieve a more favorable balance, resulting in improved performance. ",
+        "bbox": [
+            174,
+            799,
+            825,
+            905
+        ],
+        "page_idx": 26
+    },
+    {
+        "type": "image",
+        "img_path": "images/a5bf018ae176ca70862a9e66dd3ead9317fe9acb30ab11829d413de7d3b3d1aa.jpg",
+        "image_caption": [
+            "Figure 9: Abalation experiments using vision transformer (ViT) backbones. We train our INTL as well as other 5 methods (including SimCLR, W-MSE, DINO, Barlow Twins, and VICReg) for comparison when using ViTs as backbones. Our training setup involved ViT-tiny for 200 epochs on CIFAR-10/100 and ViT-small for 100 epochs on ImageNet-100. The settings were kept consistent with DINO, with the exception of the embedding dimension for W-MSE, which was set to 64, while other methods used 2048. We evaluated their classification performance using both a linear classifier and a 5-nearest neighbors classifier. The results for CIFAR-10, CIFAR-100, and ImageNet-100 are presented in panels (a), (b), and (c) respectively. "
+        ],
+        "image_footnote": [],
+        "bbox": [
+            192,
+            88,
+            785,
+            196
+        ],
+        "page_idx": 27
+    },
+    {
+        "type": "table",
+        "img_path": "images/b53a6792e1b59fe4f210b3eedbfcefa77309a798db758845bfe6992467ec8b30.jpg",
+        "table_caption": [
+            "Table 13: Evaluate the performance of adding trace loss to BarlowTwins/VICReg. "
+        ],
+        "table_footnote": [],
+        "table_body": "<table><tr><td rowspan=\"2\">Method</td><td colspan=\"2\">CIFAR-10</td><td colspan=\"2\">CIFAR-100</td><td colspan=\"2\">ImageNet-100</td></tr><tr><td>top-1</td><td>5-nn</td><td>top-1</td><td>5-nn</td><td>top-1</td><td>5-nn</td></tr><tr><td>Barlow Twins</td><td>80.43</td><td>76.68</td><td>51.60</td><td>42.71</td><td>58.34</td><td>50.21</td></tr><tr><td>Barlow Twins + trace loss</td><td>80.45</td><td>76.32</td><td>51.66</td><td>43.94</td><td>59.78</td><td>50.45</td></tr><tr><td>VICReg</td><td>83.14</td><td>79.62</td><td>55.96</td><td>46.71</td><td>66.01</td><td>57.76</td></tr><tr><td>VICReg + trace loss</td><td>81.67</td><td>78.74</td><td>54.75</td><td>46.24</td><td>63.54</td><td>55.18</td></tr></table>",
+        "bbox": [
+            228,
+            353,
+            764,
+            430
+        ],
+        "page_idx": 27
+    },
+    {
+        "type": "text",
+        "text": "",
+        "bbox": [
+            174,
+            445,
+            825,
+            474
+        ],
+        "page_idx": 27
+    },
+    {
+        "type": "text",
+        "text": "G LICENSES OF DATASETS ",
+        "text_level": 1,
+        "bbox": [
+            176,
+            492,
+            411,
+            510
+        ],
+        "page_idx": 27
+    },
+    {
+        "type": "text",
+        "text": "ImageNet (Deng et al., 2009) is subject to the ImageNet terms of access: (contributors, 2020) COCO (Lin et al., 2014). The annotations are under the Creative Commons Attribution 4.0 License. The images are subject to the Flickr terms of use (Flickr, 2020). ",
+        "bbox": [
+            171,
+            523,
+            826,
+            573
+        ],
+        "page_idx": 27
+    }
+]

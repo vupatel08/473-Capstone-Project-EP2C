@@ -22,7 +22,11 @@
       symbols: "{{ symbols_url }}",
       chunks:  "{{ chunks_url }}",
       matches: "{{ matches_url }}",
-      pdf:     "{{ pdf_url }}"
+      pdf:     "{{ pdf_url }}",
+      planning: "/data/planning.md",
+      analysis: "/data/analysis.md",
+      coding: "/data/coding.md",
+      explanation: "/data/explanation.md"
     };
   </script>
 
@@ -154,6 +158,47 @@
     position:fixed; left:14px; bottom:12px; color:var(--muted); font-size:.85rem;
     opacity:.9; user-select:none; z-index:20;
   }
+
+  .phase-view {
+    display: none;
+    padding: 20px;
+    overflow-y: auto;
+    height: 100%;
+    color: var(--text);
+    line-height: 1.6;
+  }
+  .phase-view.active {
+    display: block;
+  }
+  .phase-view h1, .phase-view h2, .phase-view h3 {
+    color: #cfe0ff;
+    margin-top: 1.5em;
+    margin-bottom: 0.5em;
+  }
+  .phase-view code {
+    background: #0b0f14;
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-family: 'Monaco', 'Menlo', monospace;
+    font-size: 0.9em;
+  }
+  .phase-view pre {
+    background: #0b0f14;
+    padding: 12px;
+    border-radius: 6px;
+    overflow-x: auto;
+    border: 1px solid var(--stroke);
+  }
+  .phase-view pre code {
+    background: transparent;
+    padding: 0;
+  }
+  .phase-view blockquote {
+    border-left: 3px solid var(--brand);
+    padding-left: 12px;
+    margin-left: 0;
+    color: var(--muted);
+  }
 </style>
 </head>
 <body>
@@ -165,6 +210,30 @@
       <div class="explorer-header">EXPLORER</div>
       <div class="workspace-title">Repository</div>
       <ul id="fileTree" class="vscode-tree"></ul>
+      
+      <div class="workspace-title" style="margin-top: 20px; border-top: 1px solid var(--stroke); padding-top: 10px;">Pipeline Phases</div>
+      <ul id="phaseTree" class="vscode-tree">
+        <li class="vscode-item phase" data-phase="planning">
+          <button class="vscode-row">
+            <span>📋 Planning</span>
+          </button>
+        </li>
+        <li class="vscode-item phase" data-phase="analysis">
+          <button class="vscode-row">
+            <span>🔍 Analysis</span>
+          </button>
+        </li>
+        <li class="vscode-item phase" data-phase="coding">
+          <button class="vscode-row">
+            <span>💻 Coding</span>
+          </button>
+        </li>
+        <li class="vscode-item phase" data-phase="explanation">
+          <button class="vscode-row">
+            <span>📚 Explanation</span>
+          </button>
+        </li>
+      </ul>
     </aside>
 
     <main class="code-pane">
@@ -177,6 +246,7 @@
       <div class="code-frame" id="codeFrame">
         <div id="codeLines" class="code-lines"></div>
         <div id="overlayLayer" class="overlay-layer"></div>
+        <div id="phaseView" class="phase-view"></div>
       </div>
     </main>
 
@@ -187,7 +257,16 @@
   <div class="tm">© 2025 CMSC473 EP2C Team™</div>
 
   <script>
-    const fileList = (() => { try { return JSON.parse(document.getElementById('files-data').textContent) || []; } catch { return []; } })();
+    const fileList = (() => { try { return JSON.parse(document.getElementById('files-data').textContent) || []; } catch(e) { console.error("[EP2C] JSON.parse failed:", e); return []; } })();
+    console.log("[EP2C] ===== FILE LIST DEBUG =====");
+    console.log("[EP2C] fileList length:", fileList.length);
+    console.log("[EP2C] fileList:", fileList);
+    if (fileList.length > 0) {
+      console.log("[EP2C] First file object:", fileList[0]);
+      console.log("[EP2C] First file keys:", Object.keys(fileList[0]));
+    } else {
+      console.warn("[EP2C] PROBLEM: fileList is empty!");
+    }
 
     let SYMBOLS = [];
     let MATCH_MAP = new Map();
@@ -209,8 +288,13 @@
     };
 
     function buildTree(list) {
+      console.log("[EP2C] buildTree() called with", list.length, "files");
       const root = {};
       for (const f of list) {
+        if (!f || !f.path) {
+          console.warn("[EP2C] buildTree: invalid file object", f);
+          continue;
+        }
         const parts = f.path.split('/');
         let cur = root;
         for (let i = 0; i < parts.length; i++) {
@@ -221,20 +305,25 @@
           else cur = cur[part].__children;
         }
       }
+      console.log("[EP2C] buildTree result keys:", Object.keys(root));
+      console.log("[EP2C] buildTree complete, root:", root);
       return root;
     }
     function iconSVG(kind) {
       if (kind === 'folder') return '<svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M10 4l2 2h8a2 2 0 012 2v1H2V6a2 2 0 012-2h6z"></path><path d="M2 9h22v9a2 2 0 01-2 2H4a2 2 0 01-2-2V9z"></path></svg>';
       return '<svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M6 2h9l5 5v13a2 2 0 01-2 2H6a2 2 0 01-2-2V4a2 2 0 012-2z"></path></svg>';
     }
-    function renderTree(container, tree) {
+    function renderTree(container, tree, depth = 0) {
+      const indent = "  ".repeat(depth);
       const entries = Object.entries(tree).filter(([k]) => !k.startsWith('__'));
+      console.log(indent + "[EP2C] renderTree: depth=", depth, "entries=", entries.length, "container:", container.id || container.className);
       entries.sort((a,b) => {
         const A = tree[a[0]], B = tree[b[0]];
         if (A.__isFile !== B.__isFile) return A.__isFile ? 1 : -1;
         return a[0].localeCompare(b[0]);
       });
       for (const [name,node] of entries) {
+        console.log(indent + "  [EP2C] rendering item:", name, "isFile:", node.__isFile);
         const li = document.createElement('li');
         if (node.__isFile) {
           li.className = 'vscode-item file';
@@ -253,28 +342,48 @@
               <span class="label">${name}</span>
             </button>
             <ul class="vscode-children"></ul>`;
-          renderTree(li.querySelector('.vscode-children'), node.__children);
+          const childrenContainer = li.querySelector('.vscode-children');
+          console.log(indent + "    [EP2C] rendering folder children for:", name);
+          renderTree(childrenContainer, node.__children, depth + 1);
         }
         container.appendChild(li);
       }
     }
     function setupTree() {
+      console.log("[EP2C] ===== SETUP TREE START =====");
       const treeRoot = document.getElementById('fileTree');
-      renderTree(treeRoot, buildTree(fileList));
-      treeRoot.querySelectorAll('[data-toggle="folder"]').forEach(btn => {
+      if (!treeRoot) {
+        console.error("[EP2C] ERROR: fileTree element not found!");
+        return;
+      }
+      console.log("[EP2C] fileTree element found:", treeRoot);
+      const tree = buildTree(fileList);
+      console.log("[EP2C] About to render tree with root keys:", Object.keys(tree));
+      renderTree(treeRoot, tree);
+      const folderBtns = treeRoot.querySelectorAll('[data-toggle="folder"]');
+      console.log("[EP2C] Found", folderBtns.length, "folder toggle buttons");
+      folderBtns.forEach(btn => {
         btn.addEventListener('click', () => {
           const li = btn.closest('.vscode-item.folder');
           li.classList.toggle('open');
           btn.querySelector('.twisty').textContent = li.classList.contains('open') ? '▾' : '▸';
         });
       });
-      treeRoot.querySelectorAll('.vscode-item.file .vscode-row').forEach(btn => {
+      const fileBtns = treeRoot.querySelectorAll('.vscode-item.file .vscode-row');
+      console.log("[EP2C] Found", fileBtns.length, "file buttons");
+      if (fileBtns.length === 0) {
+        console.warn("[EP2C] WARNING: No file buttons found! Check buildTree and renderTree logic.");
+      }
+      fileBtns.forEach((btn, idx) => {
+        console.log("[EP2C] File button", idx + 1, "URL:", btn.dataset.url);
         btn.addEventListener('click', async () => {
+          console.log("[EP2C] File clicked:", btn.dataset.url);
           await loadFile(btn.dataset.url);
           treeRoot.querySelectorAll('.vscode-row.active').forEach(el => el.classList.remove('active'));
           btn.classList.add('active');
         });
       });
+      console.log("[EP2C] ===== SETUP TREE COMPLETE =====");
     }
 
     function renderCode(container, codeHTML) {
@@ -753,6 +862,82 @@
 
       await loadPDF();
     })();
+
+    // Phase documentation viewer
+    const phaseView = document.getElementById('phaseView');
+    const codeFrame = document.getElementById('codeFrame');
+    const codeLines = document.getElementById('codeLines');
+    let currentPhase = null;
+
+    async function loadPhase(phaseName) {
+      const endpoint = EP2C_ENDPOINTS[phaseName];
+      if (!endpoint) return;
+
+      try {
+        const res = await fetch(endpoint);
+        if (!res.ok) {
+          phaseView.innerHTML = `<p style="color: var(--muted); padding: 20px;">${phaseName.charAt(0).toUpperCase() + phaseName.slice(1)} documentation not available.</p>`;
+          return;
+        }
+        const markdown = await res.text();
+        
+        // Simple markdown to HTML conversion (basic)
+        let html = markdown
+          .replace(/^# (.*$)/gim, '<h1>$1</h1>')
+          .replace(/^## (.*$)/gim, '<h2>$1</h2>')
+          .replace(/^### (.*$)/gim, '<h3>$1</h3>')
+          .replace(/^#### (.*$)/gim, '<h4>$1</h4>')
+          .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+          .replace(/\*(.*?)\*/g, '<em>$1</em>')
+          .replace(/`([^`]+)`/g, '<code>$1</code>')
+          .replace(/```(\w+)?\n([\s\S]*?)```/g, '<pre><code>$2</code></pre>')
+          .replace(/\n\n/g, '</p><p>')
+          .replace(/^(.+)$/gm, '<p>$1</p>');
+        
+        phaseView.innerHTML = html;
+        phaseView.classList.add('active');
+        codeLines.style.display = 'none';
+        currentPhase = phaseName;
+      } catch (e) {
+        console.error('Error loading phase:', e);
+        phaseView.innerHTML = `<p style="color: #ff6b6b; padding: 20px;">Error loading ${phaseName} documentation.</p>`;
+      }
+    }
+
+    function showCodeView() {
+      phaseView.classList.remove('active');
+      codeLines.style.display = 'block';
+      currentPhase = null;
+    }
+
+    // Setup phase buttons
+    document.querySelectorAll('.vscode-item.phase .vscode-row').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const phaseItem = btn.closest('.vscode-item.phase');
+        const phaseName = phaseItem.dataset.phase;
+        
+        // Toggle active state
+        document.querySelectorAll('.vscode-item.phase .vscode-row').forEach(b => b.classList.remove('active'));
+        if (currentPhase === phaseName) {
+          showCodeView();
+          btn.classList.remove('active');
+        } else {
+          btn.classList.add('active');
+          loadPhase(phaseName);
+        }
+      });
+    });
+
+    // Allow clicking file tree items to return to code view
+    document.querySelectorAll('.vscode-item.file .vscode-row').forEach(btn => {
+      btn.addEventListener('click', () => {
+        if (currentPhase) {
+          document.querySelectorAll('.vscode-item.phase .vscode-row').forEach(b => b.classList.remove('active'));
+          showCodeView();
+        }
+      });
+    });
   </script>
 </body>
 </html>

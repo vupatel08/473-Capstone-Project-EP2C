@@ -60,16 +60,16 @@ class MissingInfoDetector:
         """
         missing_info = []
         
-        # Detect missing hyperparameters
+        # Detect missing hyperparameters (used in code/config but not in paper)
         missing_info.extend(self.detect_missing_hyperparameters(paper_content, generated_config))
         
-        # Detect missing dataset information
+        # Detect missing dataset information (dataset code exists but paper doesn't specify)
         missing_info.extend(self.detect_missing_dataset_info(paper_content, code_files))
         
-        # Detect missing implementation details
+        # Detect missing implementation details (TODOs, placeholders, etc.)
         missing_info.extend(self.detect_missing_implementation_details(paper_content, code_files))
         
-        # Detect missing hardware/performance specs
+        # Detect missing hardware/performance specs (GPU requirements, etc.)
         missing_info.extend(self.detect_missing_performance_info(paper_content, code_files))
         
         return missing_info
@@ -88,21 +88,21 @@ class MissingInfoDetector:
             return missing
         
         for param in self.HYPERPARAMETERS:
-            # Check if parameter is mentioned in paper
+            # Check if parameter is mentioned in paper (try both underscore and space variants)
             param_mentioned = (
                 param in paper_lower or
                 param.replace("_", " ") in paper_lower
             )
             
-            # If parameter exists in config but not in paper
+            # If parameter exists in config but not mentioned in paper, flag it
             if param in config and not param_mentioned:
                 missing.append({
                     "type": "hyperparameter",
                     "parameter": param,
                     "description": f"Hyperparameter '{param}' is used in code but not explicitly specified in paper",
-                    "current_value": str(config[param]),
-                    "severity": self._determine_severity(param),
-                    "suggestion": self._get_hyperparameter_suggestion(param)
+                    "current_value": str(config[param]),  # Current value from config
+                    "severity": self._determine_severity(param),  # High/medium/low based on importance
+                    "suggestion": self._get_hyperparameter_suggestion(param)  # Helpful suggestion
                 })
         
         return missing
@@ -115,31 +115,32 @@ class MissingInfoDetector:
         """Identify missing dataset specifications."""
         missing = []
         
-        # Check if dataset download/loading code exists
+        # Check if dataset download/loading code exists in any file
         has_dataset_loader = any(
             "load" in content.lower() or "dataset" in content.lower()
             for content in code_files.values()
         )
         
         if not has_dataset_loader:
-            return missing
+            return missing  # No dataset code, nothing to check
         
         # Check if dataset is mentioned in paper
         paper_lower = paper_content.lower()
         dataset_mentioned = any(term in paper_lower for term in self.DATASET_TERMS)
         
         if not dataset_mentioned:
+            # Dataset code exists but paper doesn't mention it
             missing.append({
                 "type": "dataset",
                 "parameter": "dataset",
                 "description": "Dataset loading code exists but dataset is not clearly specified in paper",
-                "severity": "high",
+                "severity": "high",  # High severity - dataset is critical
                 "suggestion": "Verify dataset compatibility with paper's experimental setup"
             })
         
-        # Check for common dataset issues
+        # Check for common dataset issues (hardcoded paths, etc.)
         for file_path, content in code_files.items():
-            # Check for hardcoded paths
+            # Detect hardcoded absolute paths (security/maintainability issue)
             if re.search(r'["\']/[^"\']+["\']', content):
                 missing.append({
                     "type": "dataset_path",

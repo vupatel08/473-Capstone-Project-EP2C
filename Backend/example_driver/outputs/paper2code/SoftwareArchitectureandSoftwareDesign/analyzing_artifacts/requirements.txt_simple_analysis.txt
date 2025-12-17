@@ -1,0 +1,46 @@
+# requirements.txt
+
+# Overview:
+This requirements.txt file enumerates all necessary Python dependencies to enable the development, testing, and deployment of the system described in the plan, consistent with the paper’s architectural principles, the detailed design, and the provided configuration. The dependencies are selected to support key functionalities including web API handling, asynchronous event-driven messaging, background task processing, and environment reproducibility.
+
+# Dependencies:
+
+- **fastapi==0.78.0**  
+  - Core framework for designing HTTP RESTful APIs following the specifications in the full API schema.  
+  - Provides routing, request parsing, and response handling necessary for the API endpoints (`/orders`, `/orders/{order_id}`).
+
+- **uvicorn==0.20.0**  
+  - ASGI server for running the FastAPI application.  
+  - Ensures efficient, production-ready server capabilities for local testing and deployment.
+
+- **celery==5.2.7**  
+  - Distributed task queue for handling background jobs such as payment processing and notifications.  
+  - Supports asynchronous, scalable task execution aligned with event-driven architecture.
+
+- **redis==4.5.1**  
+  - Redis client library for Python used by Celery as a message broker and backend storage.  
+  - Facilitates pub/sub messaging, task queue management, and state persistence.
+
+- **pydantic==1.10.7**  
+  - Data validation and settings management, used internally in FastAPI to validate request payloads and configuration data.  
+  - Ensures type safety and schema enforcement for API inputs and outputs.
+
+- **pytest==7.2.0**  
+  - Testing framework for writing and executing unit and integration tests.  
+  - Supports validation of individual modules and overall system behaviors, crucial for reproducibility and correctness.
+
+- **httpx==0.23.3**  
+  - HTTP client for testing and simulating HTTP requests to the API endpoints during development and testing phases.  
+  - Useful for automating API tests, validating endpoints, and mocking external interactions if needed.
+
+# Additional Notes:
+- **Environment Reproducibility:** Locking specific versions ensures consistent environment configuration across different systems and over time.
+- **Compatibility:** Selected versions are compatible with each other and with typical development environments supporting FastAPI, Celery, and Redis.
+- **Expandability:** Additional packages may be added in future iterations (e.g., logging, monitoring) but are not necessary for the core system as per the current design.
+
+# Final remark:
+Ensure that these dependencies are installed in a clean virtual environment, and that Redis server (instance listening on localhost:6379) is operational prior to running the system components. This guarantees that implementation, testing, and experimentation mirror the designed architecture and principles derived from the paper.
+
+---
+
+This completes the detailed, structured 'requirements.txt' for reproducing the entire system aligned with the specified architecture, design, and configuration.

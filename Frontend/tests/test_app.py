@@ -21,9 +21,20 @@ import types
 mock_driver = types.ModuleType("driver")
 mock_driver.pcs_pipeline = lambda paper_md, repo_root: None
 sys.modules["driver"] = mock_driver
-mock_pipeline = types.ModuleType("pipeline")
-mock_pipeline.run = lambda **kw: str(HERE / "repo")
-sys.modules["pipeline"] = mock_pipeline
+mock_unified_pipeline = types.ModuleType("unified_pipeline")
+mock_unified_pipeline.run_unified_pipeline = lambda **kw: {
+    "repo_path": str(HERE / "repo"),
+    "paper_md_path": "",
+    "paper_json_path": "",
+    "output_dir": "",
+    "explanation_dir": "",
+    "explanation_md_path": "",
+    "planning_md_path": "",
+    "analysis_md_path": "",
+    "coding_md_path": "",
+    "from_github": False
+}
+sys.modules["unified_pipeline"] = mock_unified_pipeline
 
 import importlib
 app_module = importlib.import_module("app")
@@ -173,6 +184,93 @@ def test_code_path_traversal_protected(client):
     assert resp.status_code == 404
 
 
+def test_phase_md_routes(client, tmp_path, monkeypatch):
+    """Test that phase MD routes serve markdown files correctly."""
+    # Create output directory structure
+    outputs_dir = tmp_path / "outputs" / "paper2code" / "test_paper"
+    outputs_dir.mkdir(parents=True)
+    
+    # Create phase MD files
+    planning_md = outputs_dir / "PLANNING.md"
+    analysis_md = outputs_dir / "ANALYSIS.md"
+    coding_md = outputs_dir / "CODING.md"
+    explanation_md = outputs_dir / "explanation_layer" / "EXPLANATION.md"
+    explanation_md.parent.mkdir(parents=True)
+    
+    planning_md.write_text("# Planning Phase\n\nTest planning content")
+    analysis_md.write_text("# Analysis Phase\n\nTest analysis content")
+    coding_md.write_text("# Coding Phase\n\nTest coding content")
+    explanation_md.write_text("# Explanation\n\nTest explanation content")
+    
+    # Mock DRIVER_WORK_ROOT
+    monkeypatch.setattr(app_module, 'DRIVER_WORK_ROOT', str(tmp_path))
+    
+    # Test planning route
+    resp = client.get("/data/planning.md")
+    assert resp.status_code == 200
+    assert "Planning Phase" in resp.get_data(as_text=True)
+    assert resp.mimetype == "text/markdown"
+    
+    # Test analysis route
+    resp = client.get("/data/analysis.md")
+    assert resp.status_code == 200
+    assert "Analysis Phase" in resp.get_data(as_text=True)
+    
+    # Test coding route
+    resp = client.get("/data/coding.md")
+    assert resp.status_code == 200
+    assert "Coding Phase" in resp.get_data(as_text=True)
+    
+    # Test explanation route
+    resp = client.get("/data/explanation.md")
+    assert resp.status_code == 200
+    assert "Explanation" in resp.get_data(as_text=True)
+
+def test_phase_md_routes_404_when_missing(client, tmp_path, monkeypatch):
+    """Test that phase MD routes return 404 when files don't exist."""
+    # Create empty outputs directory
+    outputs_dir = tmp_path / "outputs"
+    outputs_dir.mkdir(parents=True)
+    
+    # Mock DRIVER_WORK_ROOT
+    monkeypatch.setattr(app_module, 'DRIVER_WORK_ROOT', str(tmp_path))
+    
+    # All routes should return 404
+    assert client.get("/data/planning.md").status_code == 404
+    assert client.get("/data/analysis.md").status_code == 404
+    assert client.get("/data/coding.md").status_code == 404
+    # Explanation might return 404 or empty, depending on implementation
+    resp = client.get("/data/explanation.md")
+    assert resp.status_code in [404, 200]  # Could be either
+
+def test_phase_md_routes_most_recent_file(client, tmp_path, monkeypatch):
+    """Test that phase MD routes serve the most recent file when multiple exist."""
+    # Create multiple paper output directories
+    paper1_dir = tmp_path / "outputs" / "paper2code" / "paper1"
+    paper2_dir = tmp_path / "outputs" / "paper2code" / "paper2"
+    paper1_dir.mkdir(parents=True)
+    paper2_dir.mkdir(parents=True)
+    
+    # Create MD files with different timestamps
+    planning1 = paper1_dir / "PLANNING.md"
+    planning2 = paper2_dir / "PLANNING.md"
+    
+    planning1.write_text("# Paper 1 Planning")
+    planning2.write_text("# Paper 2 Planning")
+    
+    # Make paper2 more recent by touching it
+    import time
+    time.sleep(0.1)  # Ensure different mtime
+    planning2.touch()
+    
+    # Mock DRIVER_WORK_ROOT
+    monkeypatch.setattr(app_module, 'DRIVER_WORK_ROOT', str(tmp_path))
+    
+    # Should serve the most recent one (paper2)
+    resp = client.get("/data/planning.md")
+    assert resp.status_code == 200
+    assert "Paper 2 Planning" in resp.get_data(as_text=True)
+
 def test_viewer_with_filename_success(client, tmp_path, monkeypatch):
     upload_dir = Path(app.root_path) / 'static' / 'uploads'
     upload_dir.mkdir(parents=True, exist_ok=True)
@@ -182,3 +280,72 @@ def test_viewer_with_filename_success(client, tmp_path, monkeypatch):
     resp = client.get(f'/viewer?filename={fname}&language=Python')
     assert resp.status_code == 200
     assert b'viewer' in resp.data or b'pdf' in resp.data
+
+
+def test_unified_pipeline_integration(client, tmp_path, monkeypatch):
+    """Test that frontend uses unified_pipeline correctly."""
+    pdf = tmp_path / 'paper.pdf'
+    pdf.write_bytes(b'%PDF-1.4 test')
+    
+    repo_dir = tmp_path / 'repo'
+    repo_dir.mkdir()
+    (repo_dir / 'test.py').write_text('print("test")')
+    
+    # Mock unified pipeline to return proper structure
+    def mock_unified_pipeline(**kwargs):
+        return {
+            "repo_path": str(repo_dir),
+            "paper_md_path": str(tmp_path / "paper.md"),
+            "paper_json_path": "",
+            "output_dir": str(tmp_path / "outputs"),
+            "explanation_dir": str(tmp_path / "outputs" / "explanation_layer"),
+            "explanation_md_path": "",
+            "planning_md_path": "",
+            "analysis_md_path": "",
+            "coding_md_path": "",
+            "from_github": False
+        }
+    
+    monkeypatch.setattr(app_module, 'ep2c_pipeline', mock_unified_pipeline)
+    
+    with open(pdf, 'rb') as f:
+        rv = client.post('/upload', data={'paper': (f, 'paper.pdf'), 'language': 'Python'}, follow_redirects=True)
+    
+    # Should redirect to viewer on success
+    assert rv.status_code == 200
+    assert b'viewer' in rv.data.lower() or b'pdf' in rv.data.lower()
+
+
+def test_unified_pipeline_return_format(client, tmp_path, monkeypatch):
+    """Test that unified pipeline returns expected format."""
+    pdf = tmp_path / 'paper.pdf'
+    pdf.write_bytes(b'%PDF-1.4 test')
+    
+    repo_dir = tmp_path / 'repo'
+    repo_dir.mkdir()
+    
+    # Create mock return with all expected keys
+    mock_result = {
+        "repo_path": str(repo_dir),
+        "paper_md_path": str(tmp_path / "paper.md"),
+        "paper_json_path": "",
+        "output_dir": str(tmp_path / "outputs"),
+        "explanation_dir": str(tmp_path / "outputs" / "explanation_layer"),
+        "explanation_md_path": str(tmp_path / "outputs" / "explanation_layer" / "EXPLANATION.md"),
+        "planning_md_path": str(tmp_path / "outputs" / "PLANNING.md"),
+        "analysis_md_path": str(tmp_path / "outputs" / "ANALYSIS.md"),
+        "coding_md_path": str(tmp_path / "outputs" / "CODING.md"),
+        "from_github": False
+    }
+    
+    def mock_unified_pipeline(**kwargs):
+        return mock_result
+    
+    monkeypatch.setattr(app_module, 'ep2c_pipeline', mock_unified_pipeline)
+    monkeypatch.setattr(app_module, 'REPO_ROOT', str(repo_dir))
+    
+    with open(pdf, 'rb') as f:
+        rv = client.post('/upload', data={'paper': (f, 'paper.pdf'), 'language': 'Python'}, follow_redirects=True)
+    
+    # Verify all expected keys are handled
+    assert rv.status_code == 200

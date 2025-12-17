@@ -1,4 +1,5 @@
 from openai import OpenAI
+from openai import RateLimitError
 import json
 import os
 from tqdm import tqdm
@@ -6,6 +7,8 @@ import sys
 from pathlib import Path
 from dotenv import load_dotenv
 import copy
+import time
+import re
 
 # Load environment variables from .env file
 backend_dir = Path(__file__).parent.parent.resolve()
@@ -51,24 +54,24 @@ pdf_latex_path = args.pdf_latex_path
 output_dir = args.output_dir
     
 if paper_format == "JSON":
-    with open(f'{pdf_json_path}') as f:
+    with open(f'{pdf_json_path}', 'r', encoding='utf-8') as f:
         paper_content = json.load(f)
 elif paper_format == "LaTeX":
-    with open(f'{pdf_latex_path}') as f:
+    with open(f'{pdf_latex_path}', 'r', encoding='utf-8') as f:
         paper_content = f.read()
 else:
     print(f"[ERROR] Invalid paper format. Please select either 'JSON' or 'LaTeX.")
     sys.exit(0)
 
 
-with open(f'{output_dir}/planning_config.yaml') as f: 
+with open(f'{output_dir}/planning_config.yaml', 'r', encoding='utf-8') as f: 
     config_yaml = f.read()
 
 context_lst = extract_planning(f'{output_dir}/planning_trajectories.json')
 
 # 0: overview, 1: detailed, 2: PRD
 if os.path.exists(f'{output_dir}/task_list.json'):
-    with open(f'{output_dir}/task_list.json') as f:
+    with open(f'{output_dir}/task_list.json', 'r', encoding='utf-8') as f:
         task_list = json.load(f)
 else:
     task_list = content_to_json(context_lst[2])
@@ -157,19 +160,62 @@ You DON'T need to provide the actual code yet; focus on a thorough, clear analys
     return write_msg
 
 
-def api_call(msg):
-    if "o3-mini" in gpt_version:
-        completion = client.chat.completions.create(
-            model=gpt_version, 
-            reasoning_effort="high",
-            messages=msg
-        )
-    else:
-        completion = client.chat.completions.create(
-            model=gpt_version, 
-            messages=msg
-        )
-    return completion
+def api_call(msg, max_retries=5, base_delay=1.0):
+    """
+    Make an API call with automatic retry on rate limit errors.
+    
+    Args:
+        msg: Messages to send to the API
+        max_retries: Maximum number of retry attempts
+        base_delay: Base delay in seconds for exponential backoff
+    
+    Returns:
+        API completion response
+    """
+    for attempt in range(max_retries):
+        try:
+            if "o3-mini" in gpt_version:
+                completion = client.chat.completions.create(
+                    model=gpt_version, 
+                    reasoning_effort="high",
+                    messages=msg
+                )
+            else:
+                completion = client.chat.completions.create(
+                    model=gpt_version, 
+                    messages=msg
+                )
+            return completion
+        except RateLimitError as e:
+            if attempt == max_retries - 1:
+                # Last attempt failed, raise the error
+                raise
+            
+            # Try to extract retry-after time from error message
+            error_message = str(e)
+            retry_after = None
+            
+            # Look for "try again in X.XXXs" pattern in error message
+            match = re.search(r'try again in ([\d.]+)s', error_message, re.IGNORECASE)
+            if match:
+                retry_after = float(match.group(1))
+            
+            # If no specific retry-after found, use exponential backoff
+            if retry_after is None:
+                retry_after = base_delay * (2 ** attempt)
+            
+            # Add a small jitter to avoid thundering herd
+            jitter = retry_after * 0.1 * (0.5 + (hash(str(msg)) % 100) / 100)
+            wait_time = retry_after + jitter
+            
+            print(f"⚠️  Rate limit reached (attempt {attempt + 1}/{max_retries}). Waiting {wait_time:.2f}s before retry...")
+            time.sleep(wait_time)
+        except Exception as e:
+            # For other errors, raise immediately
+            raise
+    
+    # Should never reach here, but just in case
+    raise Exception("Failed to make API call after all retries")
 
 
 artifact_output_dir=f'{output_dir}/analyzing_artifacts'
@@ -208,7 +254,7 @@ for todo_file_name in tqdm(todo_file_lst):
     total_accumulated_cost = temp_total_accumulated_cost
 
     # save
-    with open(f'{artifact_output_dir}/{todo_file_name}_simple_analysis.txt', 'w') as f:
+    with open(f'{artifact_output_dir}/{todo_file_name}_simple_analysis.txt', 'w', encoding='utf-8') as f:
         f.write(completion_json['choices'][0]['message']['content'])
 
 
@@ -216,10 +262,46 @@ for todo_file_name in tqdm(todo_file_lst):
 
     # save for next stage(coding)
     todo_file_name = todo_file_name.replace("/", "_") 
-    with open(f'{output_dir}/{todo_file_name}_simple_analysis_response.json', 'w') as f:
+    with open(f'{output_dir}/{todo_file_name}_simple_analysis_response.json', 'w', encoding='utf-8') as f:
         json.dump(responses, f)
 
-    with open(f'{output_dir}/{todo_file_name}_simple_analysis_trajectories.json', 'w') as f:
+    with open(f'{output_dir}/{todo_file_name}_simple_analysis_trajectories.json', 'w', encoding='utf-8') as f:
         json.dump(trajectories, f)
 
 save_accumulated_cost(f"{output_dir}/accumulated_cost.json", total_accumulated_cost)
+
+# Generate ANALYSIS.md for frontend display
+print("\n📝 Generating ANALYSIS.md...")
+analysis_md = "# Analysis Phase\n\n"
+analysis_md += "This document contains the detailed logic analysis for each file in the implementation.\n\n"
+
+# Collect all analysis files
+analysis_files_found = []
+for todo_file_name in todo_file_lst:
+    if todo_file_name == "config.yaml":
+        continue
+    
+    analysis_file = f'{artifact_output_dir}/{todo_file_name}_simple_analysis.txt'
+    if os.path.exists(analysis_file):
+        analysis_files_found.append((todo_file_name, analysis_file))
+
+# Sort by filename for consistent ordering
+analysis_files_found.sort(key=lambda x: x[0])
+
+# Add each analysis to the markdown
+for todo_file_name, analysis_file in analysis_files_found:
+    analysis_md += f"## {todo_file_name}\n\n"
+    try:
+        with open(analysis_file, 'r', encoding='utf-8') as f:
+            content = f.read()
+        analysis_md += content + "\n\n"
+    except Exception as e:
+        analysis_md += f"*Error reading analysis file: {e}*\n\n"
+
+if not analysis_files_found:
+    analysis_md += "*No analysis files found.*\n"
+
+# Save ANALYSIS.md
+with open(f'{output_dir}/ANALYSIS.md', 'w', encoding='utf-8') as f:
+    f.write(analysis_md)
+print(f"✅ Saved ANALYSIS.md to {output_dir}/ANALYSIS.md")

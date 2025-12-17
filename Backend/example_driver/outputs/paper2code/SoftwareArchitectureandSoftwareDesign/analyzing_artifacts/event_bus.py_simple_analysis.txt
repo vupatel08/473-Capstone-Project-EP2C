@@ -1,0 +1,136 @@
+**Logic Analysis for `event_bus.py` Implementation**
+
+---
+
+### Overview
+
+The `event_bus.py` module implements a decoupled, event-driven message passing system using Redis Pub/Sub to facilitate communication among system components (Order Service, Payment Service, Notification Service). The core class `EventBus` provides `publish()` and `subscribe()` methods to enable components to send and listen for specific events asynchronously, following the principles outlined in the paper's discussion on event-driven architectures. This aligns with the paper’s emphasis on decoupling system components through event producers and consumers and promoting scalability, flexibility, and loose coupling.
+
+---
+
+### Core Objectives
+
+- Implement an `EventBus` class encapsulating Redis Pub/Sub functionalities.
+- Ensure that components (subscribers) can register to listen for specific event types.
+- Enable components to publish events with payloads corresponding to different stages (e.g., 'OrderCreated', 'PaymentProcessed').
+- Manage internal subscriber registration and event dispatching.
+- Maintain thread safety and concurrent behavior, allowing multiple subscribers and publishers.
+- Respect the configuration settings for Redis connection details and message topics.
+
+---
+
+### Key Functional Requirements
+
+1. **Initialization (`__init__`)**
+   - Establish a connection to Redis server using host (`redis_host`) and port (`redis_port`) as specified in the configuration (`system` section).
+   - Maintain a data structure (dict) mapping event types to lists of subscriber callback functions or objects.
+   
+2. **Publishing (`publish`)**
+   - Accept an `event_type` string and a `payload` dictionary.
+   - Publish the message to Redis Pub/Sub channel named according to `event_type`.
+   - Serialize the payload to JSON for transmission.
+   - Use the Redis `publish()` method on the channel name obtained from the configuration (`message_topics`) for consistency.
+   
+3. **Subscribing (`subscribe`)**
+   - Accept a `subscriber` object that implements an `on_event(event_type: str, payload: dict)` method.
+   - Register the subscriber to listen for specific event types.
+   - Internally, maintain a subscription model—either:
+     - a per-subscriber thread listening to relevant channels, or
+     - a centralized listener running in a background thread, dispatching messages to registered subscribers.
+   
+4. **Listening Loop**
+   - A background thread continuously listens for Redis messages.
+   - When a message on a channel is received:
+     - Deserialize JSON payload.
+     - Determine event type from the channel name.
+     - Dispatch the message to all registered subscribers for that event type.
+
+5. **Management of Subscribers**
+   - Store subscribers in an internal data structure keyed by `event_type`.
+   - Support dynamic registration/removal (if necessary).
+   
+6. **Error Handling**
+   - Gracefully handle Redis connection issues (e.g., retries on failure).
+   - Handle message deserialization errors.
+   - Ensure subscribers do not block the main listening loop excessively.
+   
+7. **Testing & Performance**
+   - Design for thread safety, enabling concurrent publish/subscribe.
+   - Minimize latency in message passing.
+   - Follow principles of loose coupling and separation of concerns consistent with the paper.
+
+---
+
+### Data Structures
+
+- **Redis Connection Object**
+  - Use `redis.Redis()` for publisher/subscriber connection.
+  - Use a dedicated Redis PubSub object (`redis_client.pubsub()`) for subscribing.
+
+- **Subscriber Registry**
+  - A dictionary: `self.subscribers = { event_type: [list of subscriber callables] }`
+  - For example:
+    ```python
+    self.subscribers = {
+        "OrderCreated": [order_service_instance],
+        "PaymentProcessed": [payment_service_instance],
+        ...
+    }
+    ```
+
+- **Channel Names & Topics**
+  - Based on configuration:
+    ```yaml
+    message_topics:
+      order_created: "OrderCreated"
+      payment_processed: "PaymentProcessed"
+      order_status_query: "OrderStatusQuery"
+    ```
+  - Use these constants for subscribing and publishing.
+
+---
+
+### Implementation Steps
+
+1. **Constructor (`__init__`)**
+   - Connect to Redis.
+   - Initialize subscribers dictionary.
+   - Spawn a dedicated background thread to listen for messages (`listen()` method).
+
+2. **`publish(event_type, payload)`**
+   - Serialize the payload using `json.dumps(payload)`.
+   - Publish on the channel (from config) associated with `event_type`.
+
+3. **`subscribe(subscriber)`**
+   - Add the subscriber to the list(s) for each relevant event type.
+   - Ensure thread-safe addition.
+
+4. **Background Listener Thread (`listen()`)**
+   - Loop indefinitely, calling `pubsub.get_message()` with a timeout.
+   - On receiving a message:
+     - Confirm it's a published message (`message['type'] == 'message'`).
+     - Deserialize payload.
+     - Retrieve list of subscribers for the event type (channel).
+     - Dispatch payload to each subscriber via `on_event()`.
+
+5. **Shutdown / Cleanup**
+   - Provide method to gracefully shut down listening thread (if needed).
+
+---
+
+### Additional Considerations
+
+- **Configuration adherence:** Extract Redis host, port, and message topics from `config.yaml`.
+- **Extensibility:** Support multiple subscribers per event type.
+- **Thread safety:** Use locks or thread-safe data structures (e.g., `threading.Lock`).
+- **Logging:** Incorporate logging for debugging and traceability.
+
+---
+
+### Summary
+
+The `EventBus` class will serve as the backbone for facilitating event-driven communication in the prototype system. It encodes the core logic aligning with the paper’s principles—decoupling components via message passing, supporting asynchronous, scalable interactions, and maintaining a clear, extendable interface for system components.
+
+---
+
+Would you like me to proceed with the code implementation based on this analysis or prepare helper functions/documentation?

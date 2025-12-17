@@ -1,0 +1,59 @@
+## principles.py
+from typing import Optional
+from components import Component
+
+class Principle:
+    """
+    Represents a software design principle, such as Single Responsibility,
+    Open-Closed, Interface Segregation, or Dependency Inversion.
+
+    Attributes:
+        name (str): Name of the principle.
+        description (str): Description explaining the principle.
+    """
+
+    def __init__(self, name: str, description: Optional[str] = None):
+        """
+        Initializes a Principle with a name and optional description.
+
+        Args:
+            name (str): The name of the principle.
+            description (Optional[str]): The detailed explanation of the principle.
+        """
+        self.name: str = name
+        self.description: str = description if description is not None else ""
+
+    def enforce(self, component: Component) -> bool:
+        """
+        Checks whether the given component complies with this principle.
+
+        This implementation provides simplified placeholder logic
+        tailored for demonstration purposes.
+
+        Args:
+            component (Component): The component to evaluate.
+
+        Returns:
+            bool: True if the component adheres to the principle, False otherwise.
+        """
+        # Placeholder enforcement logic based on principle name
+        if self.name == "Single Responsibility Principle":
+            # Assume a component with a 'purpose' attribute indicating its responsibility
+            # Since components may lack this attribute, simulate with name check
+            # For demonstration, assume components with names containing 'Service' are responsible for single purpose
+            return "Service" in component.name
+        elif self.name == "Open-Closed Principle":
+            # Assume components designed with extension points end with '_ext'
+            # For demo, check if component name ends with '_ext'
+            return component.name.endswith('_ext')
+        elif self.name == "Interface Segregation Principle":
+            # Assume components implement interfaces; here simulate by number of dependencies
+            # Components with dependencies less than or equal to 2 are adhering
+            return len(component.dependencies) <= 2
+        elif self.name == "Dependency Inversion Principle":
+            # Assume components depend on abstractions if dependencies are on 'interface' components
+            # For demo, if dependencies have names containing 'Interface', assume adherence
+            return all("Interface" in dep.name for dep in component.dependencies)
+        else:
+            # For unknown principles, default to True
+            return True
