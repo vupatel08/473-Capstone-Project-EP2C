@@ -98,22 +98,123 @@ class ExplanationGenerator:
         sections = []
         
         # Extract from paper body
-        if "body_text" in paper_json:
+        if "body_text" in paper_json and paper_json["body_text"]:
+            current_section = "Introduction"  # Default section name
+            accumulated_text = []
+            
             for item in paper_json["body_text"]:
-                if "section" in item and "text" in item:
+                text = item.get("text", "")
+                if not text:
+                    continue
+                
+                # If section field exists, use it directly
+                if "section" in item:
+                    # Save any accumulated text from previous section
+                    if accumulated_text:
+                        sections.append({
+                            "section": current_section,
+                            "text": " ".join(accumulated_text),
+                            "ontology": current_section
+                        })
+                        accumulated_text = []
+                    
                     sections.append({
                         "section": item["section"],
-                        "text": item["text"],
+                        "text": text,
                         "ontology": item.get("section")
                     })
+                    current_section = item["section"]
+                else:
+                    # No section field - check if text contains markdown headers
+                    lines = text.split('\n')
+                    found_header = False
+                    
+                    for i, line in enumerate(lines):
+                        line_stripped = line.strip()
+                        if line_stripped.startswith('#'):
+                            # Found a markdown header
+                            # Save accumulated text from previous section
+                            if accumulated_text:
+                                sections.append({
+                                    "section": current_section,
+                                    "text": " ".join(accumulated_text),
+                                    "ontology": current_section
+                                })
+                                accumulated_text = []
+                            
+                            # Extract section name from header
+                            current_section = line_stripped.lstrip('#').strip()
+                            # Use text after header as section content
+                            remaining_lines = lines[i+1:]
+                            remaining_text = '\n'.join(remaining_lines).strip()
+                            if remaining_text:
+                                accumulated_text.append(remaining_text)
+                            found_header = True
+                            break
+                    
+                    # No header found in this item - accumulate text for current section
+                    if not found_header:
+                        accumulated_text.append(text)
+            
+            # Add final accumulated section
+            if accumulated_text:
+                sections.append({
+                    "section": current_section,
+                    "text": " ".join(accumulated_text),
+                    "ontology": current_section
+                })
         
-        # Extract from abstract if available
-        if "abstract" in paper_json and paper_json["abstract"]:
+        # If no sections were extracted, create at least one from abstract or body_text
+        if not sections:
+            # Try abstract first
+            if "abstract" in paper_json and paper_json["abstract"]:
+                sections.append({
+                    "section": "Abstract",
+                    "text": paper_json["abstract"],
+                    "ontology": "abstract"
+                })
+            
+            # Then try to create sections from body_text
+            if "body_text" in paper_json and paper_json["body_text"]:
+                all_text = []
+                for item in paper_json["body_text"]:
+                    text = item.get("text", "")
+                    if text:
+                        all_text.append(text)
+                
+                if all_text:
+                    # Create sections from paragraphs (split by double newlines or limit size)
+                    combined_text = " ".join(all_text)
+                    # Split into chunks of ~500 words each
+                    words = combined_text.split()
+                    chunk_size = 500
+                    for i in range(0, len(words), chunk_size):
+                        chunk = " ".join(words[i:i+chunk_size])
+                        section_num = (i // chunk_size) + 1
+                        sections.append({
+                            "section": f"Section {section_num}",
+                            "text": chunk,
+                            "ontology": f"section_{section_num}"
+                        })
+        
+        # Always ensure we have at least one section
+        if not sections:
             sections.append({
-                "section": "Abstract",
-                "text": paper_json["abstract"],
-                "ontology": "abstract"
+                "section": "Content",
+                "text": "Paper content available but structure could not be determined.",
+                "ontology": "content"
             })
+        
+        # Extract from abstract if available (add as separate section)
+        if "abstract" in paper_json and paper_json["abstract"]:
+            # Check if abstract already added
+            has_abstract = any(s.get("section") == "Abstract" for s in sections)
+            if not has_abstract:
+                sections.insert(0, {
+                    "section": "Abstract",
+                    "text": paper_json["abstract"],
+                    "ontology": "abstract"
+                })
         
         return sections
     
