@@ -1,10 +1,12 @@
 from openai import OpenAI
+from openai import RateLimitError
 import json
 import os
 from tqdm import tqdm
 import re
 import sys
 import copy
+import time
 from pathlib import Path
 from dotenv import load_dotenv
 
@@ -157,19 +159,62 @@ Next, you must write only the "{todo_file_name}".
     return write_msg
 
 
-def api_call(msg):
-    if "o3-mini" in gpt_version:
-        completion = client.chat.completions.create(
-            model=gpt_version, 
-            reasoning_effort="high",
-            messages=msg
-        )
-    else:
-        completion = client.chat.completions.create(
-            model=gpt_version, 
-            messages=msg
-        )
-    return completion
+def api_call(msg, max_retries=5, base_delay=1.0):
+    """
+    Make an API call with automatic retry on rate limit errors.
+    
+    Args:
+        msg: Messages to send to the API
+        max_retries: Maximum number of retry attempts
+        base_delay: Base delay in seconds for exponential backoff
+    
+    Returns:
+        API completion response
+    """
+    for attempt in range(max_retries):
+        try:
+            if "o3-mini" in gpt_version:
+                completion = client.chat.completions.create(
+                    model=gpt_version, 
+                    reasoning_effort="high",
+                    messages=msg
+                )
+            else:
+                completion = client.chat.completions.create(
+                    model=gpt_version, 
+                    messages=msg
+                )
+            return completion
+        except RateLimitError as e:
+            if attempt == max_retries - 1:
+                # Last attempt failed, raise the error
+                raise
+            
+            # Try to extract retry-after time from error message
+            error_message = str(e)
+            retry_after = None
+            
+            # Look for "try again in X.XXXs" pattern in error message
+            match = re.search(r'try again in ([\d.]+)s', error_message, re.IGNORECASE)
+            if match:
+                retry_after = float(match.group(1))
+            
+            # If no specific retry-after found, use exponential backoff
+            if retry_after is None:
+                retry_after = base_delay * (2 ** attempt)
+            
+            # Add a small jitter to avoid thundering herd
+            jitter = retry_after * 0.1 * (0.5 + (hash(str(msg)) % 100) / 100)
+            wait_time = retry_after + jitter
+            
+            print(f"⚠️  Rate limit reached (attempt {attempt + 1}/{max_retries}). Waiting {wait_time:.2f}s before retry...")
+            time.sleep(wait_time)
+        except Exception as e:
+            # For other errors, raise immediately
+            raise
+    
+    # Should never reach here, but just in case
+    raise Exception("Failed to make API call after all retries")
     
 
 # testing for checking
@@ -303,68 +348,98 @@ if explanation_dir not in sys.path:
 try:
     from explainability_pipeline import ExplainabilityPipeline
     
-    # Prepare paths for explanation layer
-    # Handle both JSON and LaTeX/Markdown formats
-    if paper_format == "JSON":
-        paper_json_path = pdf_json_path
-    elif paper_format == "LaTeX":
-        # Convert markdown/LaTeX to a simple JSON structure for explanation layer
-        # Read the markdown content and create a JSON wrapper
-        if pdf_latex_path and os.path.exists(pdf_latex_path):
-            with open(pdf_latex_path, 'r', encoding='utf-8') as f:
-                markdown_content = f.read()
-            
-            # Create a simple JSON structure from markdown
-            # Split into paragraphs (simple approach)
-            paragraphs = [p.strip() for p in markdown_content.split('\n\n') if p.strip()]
-            body_text = [{"text": p} for p in paragraphs[:50]]  # Limit to first 50 paragraphs
-            
-            # Try to extract title (first line or first heading)
-            title = "Research Paper"
-            if paragraphs:
-                first_line = paragraphs[0].strip()
-                if first_line and len(first_line) < 200:  # Likely a title
-                    title = first_line
-                # Check for markdown heading
-                if first_line.startswith('#'):
-                    title = first_line.lstrip('#').strip()
-            
-            # Create JSON structure
-            paper_json_data = {
-                "title": title,
-                "abstract": paragraphs[1] if len(paragraphs) > 1 else "",
-                "authors": [],
-                "body_text": body_text,
-                "url": ""
-            }
-            
-            # Save as temporary JSON file for explanation layer
-            temp_json_path = os.path.join(output_dir, 'paper_content.json')
-            with open(temp_json_path, 'w', encoding='utf-8') as f:
-                json.dump(paper_json_data, f, ensure_ascii=False, indent=2)
-            paper_json_path = temp_json_path
-            print(f"   Created temporary JSON from markdown: {paper_json_path}")
-        else:
-            paper_json_path = None
-    else:
-        paper_json_path = None
+    # Ensure output_repo_dir exists (it should, but ensure it does)
+    os.makedirs(output_repo_dir, exist_ok=True)
     
-    generated_code_dir = output_repo_dir  # Generated code directory
+    # Prepare paths for explanation layer
+    # Strategy: Check for existing paper_content.json first (many papers already have it)
+    paper_json_path = None
+    
+    # First priority: Check if paper_content.json already exists in output_dir
+    paper_content_json_path = os.path.join(output_dir, 'paper_content.json')
+    if os.path.exists(paper_content_json_path):
+        paper_json_path = paper_content_json_path
+        print(f"   Using existing paper_content.json: {paper_json_path}")
+    
+    # Second priority: Use pdf_json_path if format is JSON and it exists
+    if not paper_json_path and paper_format == "JSON":
+        if pdf_json_path and os.path.exists(pdf_json_path):
+            paper_json_path = pdf_json_path
+            print(f"   Using JSON paper path: {paper_json_path}")
+    
+    # Third priority: Create paper_content.json from LaTeX/markdown
+    if not paper_json_path and paper_format == "LaTeX":
+        if pdf_latex_path and os.path.exists(pdf_latex_path):
+            try:
+                with open(pdf_latex_path, 'r', encoding='utf-8') as f:
+                    markdown_content = f.read()
+                
+                # Create a simple JSON structure from markdown
+                paragraphs = [p.strip() for p in markdown_content.split('\n\n') if p.strip()]
+                body_text = [{"text": p} for p in paragraphs[:50]]  # Limit to first 50 paragraphs
+                
+                # Try to extract title (first line or first heading)
+                title = "Research Paper"
+                if paragraphs:
+                    first_line = paragraphs[0].strip()
+                    if first_line and len(first_line) < 200:  # Likely a title
+                        title = first_line
+                    # Check for markdown heading
+                    if first_line.startswith('#'):
+                        title = first_line.lstrip('#').strip()
+                
+                # Create JSON structure
+                paper_json_data = {
+                    "title": title,
+                    "abstract": paragraphs[1] if len(paragraphs) > 1 else "",
+                    "authors": [],
+                    "body_text": body_text,
+                    "url": ""
+                }
+                
+                # Save as paper_content.json
+                temp_json_path = os.path.join(output_dir, 'paper_content.json')
+                with open(temp_json_path, 'w', encoding='utf-8') as f:
+                    json.dump(paper_json_data, f, ensure_ascii=False, indent=2)
+                paper_json_path = temp_json_path
+                print(f"   Created paper_content.json from markdown: {paper_json_path}")
+            except Exception as e:
+                print(f"   Warning: Could not create JSON from markdown: {e}")
+    
+    # Final fallback: Create minimal paper_content.json if nothing else worked
+    if not paper_json_path:
+        print("   Warning: No paper JSON found, creating minimal paper_content.json...")
+        minimal_json_data = {
+            "title": paper_name or "Research Paper",
+            "abstract": "",
+            "authors": [],
+            "body_text": [{"text": "Paper content not available for explanation layer."}],
+            "url": ""
+        }
+        minimal_json_path = os.path.join(output_dir, 'paper_content.json')
+        with open(minimal_json_path, 'w', encoding='utf-8') as f:
+            json.dump(minimal_json_data, f, ensure_ascii=False, indent=2)
+        paper_json_path = minimal_json_path
+        print(f"   Created minimal paper_content.json: {paper_json_path}")
+    
+    # Now set up all required paths
+    generated_code_dir = output_repo_dir  # Generated code directory (already ensured to exist above)
     planning_artifacts_path = os.path.join(output_dir, 'planning_trajectories.json')
     explanation_output_dir = os.path.join(output_dir, 'explanation_layer')
     config_path = os.path.join(output_dir, 'planning_config.yaml')
     
-    # Verify required files exist
-    if not paper_json_path or not os.path.exists(paper_json_path):
-        print(f"⚠️  Warning: Paper JSON not found at {paper_json_path}")
-        print("   Skipping explanation layer generation...")
-    elif not os.path.exists(generated_code_dir):
-        print(f"⚠️  Warning: Generated code directory not found at {generated_code_dir}")
-        print("   Skipping explanation layer generation...")
-    elif not os.path.exists(planning_artifacts_path):
-        print(f"⚠️  Warning: Planning artifacts not found at {planning_artifacts_path}")
+    # Verify required files exist - these should always exist if pipeline ran correctly
+    if not os.path.exists(planning_artifacts_path):
+        print(f"❌ Error: Planning artifacts not found at {planning_artifacts_path}")
+        print("   This file should have been created in the planning phase.")
         print("   Skipping explanation layer generation...")
     else:
+        # All required files exist - generate explanation layer
+        print(f"   Paper JSON: {paper_json_path}")
+        print(f"   Code Directory: {generated_code_dir}")
+        print(f"   Planning Artifacts: {planning_artifacts_path}")
+        print(f"   Config: {config_path if os.path.exists(config_path) else 'Not found (optional)'}")
+        
         # Create explanation layer
         explanation_pipeline = ExplainabilityPipeline()
         explanation_results = explanation_pipeline.generate_explanation_layer(
@@ -384,15 +459,15 @@ try:
         print(f"   Metrics: {explanation_output_dir}/explainability_metrics.json")
         
 except ImportError as e:
-    print(f"⚠️  Warning: Could not import explanation pipeline: {e}")
-    print("   Ensure explanation module is properly installed.")
-    print("   Continuing without explanation layer...")
+    print(f"❌ Error: Could not import explanation pipeline: {e}")
+    print("   This is a critical error. Please ensure explanation module is properly installed.")
+    raise  # Don't silently continue - this is a required component
 except Exception as e:
-    print(f"⚠️  Warning: Explanation layer generation failed: {e}")
+    print(f"❌ Error: Explanation layer generation failed: {e}")
     import traceback
     print("   Error details:")
     traceback.print_exc()
-    print("   Continuing without explanation layer...")
+    raise  # Fail loudly so we know something is wrong
 
 print("\n" + "="*60)
 print("CODING PHASE COMPLETE")

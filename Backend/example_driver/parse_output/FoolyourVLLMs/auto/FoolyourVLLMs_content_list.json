@@ -1,0 +1,1895 @@
+[
+    {
+        "type": "text",
+        "text": "Fool Your (Vision and) Language Model with Embarrassingly Simple Permutations ",
+        "text_level": 1,
+        "bbox": [
+            258,
+            109,
+            715,
+            155
+        ],
+        "page_idx": 0
+    },
+    {
+        "type": "text",
+        "text": "Yongshuo Zong 1 Tingyang $\\mathbf { V } \\mathbf { u } ^ { 2 }$ Ruchika Chavhan 1 Bingchen Zhao 1 Timothy Hospedales 1 ",
+        "bbox": [
+            155,
+            199,
+            812,
+            215
+        ],
+        "page_idx": 0
+    },
+    {
+        "type": "text",
+        "text": "Abstract ",
+        "text_level": 1,
+        "bbox": [
+            243,
+            242,
+            318,
+            258
+        ],
+        "page_idx": 0
+    },
+    {
+        "type": "text",
+        "text": "Large language and vision-language models are rapidly being deployed in practice thanks to their impressive capabilities in instruction following, in-context learning, and so on. This raises an urgent need to carefully analyse their robustness so that stakeholders can understand if and when such models are trustworthy enough to be relied upon in any given application. In this paper, we highlight a specific vulnerability in popular models, namely permutation sensitivity in multiple-choice question answering (MCQA). Specifically, we show empirically that popular models are vulnerable to adversarial permutation in answer sets for multiple-choice prompting, which is surprising as models should ideally be as invariant to prompt permutation as humans are. These vulnerabilities persist across various model sizes, and exist in very recent language and vision-language models. Code is available at https://github.com/ ys-zong/FoolyourVLLMs. ",
+        "bbox": [
+            120,
+            265,
+            442,
+            568
+        ],
+        "page_idx": 0
+    },
+    {
+        "type": "text",
+        "text": "1. Introduction ",
+        "text_level": 1,
+        "bbox": [
+            89,
+            597,
+            215,
+            613
+        ],
+        "page_idx": 0
+    },
+    {
+        "type": "text",
+        "text": "Large language models (LLMs) (Brown et al., 2020; OpenAI, 2023a; Touvron et al., 2023a) and large visionlanguage models (VLLMs) (Alayrac et al., 2022; Li et al., 2023c) have made astonishing progress in recent years. They have attained strong capabilities across a diverse array of language tasks, enabling nuanced text generation, sophisticated instruction following, and natural dialogue with multimodal input and output. One task where they demonstrate particular prowess is multiple-choice question answering (MCQA) (Robinson & Wingate, 2023). This is an important capability with many real-world applications, from education to recruitment exams. Current LLMs and VLLMs have widely utilized the task format of MCQA for benchmarking and evaluation (Hendrycks et al., 2020; Lu et al., 2022; Zhong et al., 2023; Liang et al., 2022; Schwenk et al., 2022). This has built confidence that they can generate accurate and robust answers, underpinned claims of LLM competence at professional level human qualifications such as the bar exam (OpenAI, 2023b), and even led to reports of surpassing human-level performance on various tasks. ",
+        "bbox": [
+            89,
+            623,
+            473,
+            818
+        ],
+        "page_idx": 0
+    },
+    {
+        "type": "image",
+        "img_path": "images/f5dc1196d25e1456ebb700a9e184ff886ce63fa62a5df422997d9ae5f2101ac7.jpg",
+        "image_caption": [
+            "Figure 1. a. Schematic Illustration of an MCQA permutation attack. b. Summary of MCQA adversarial attack results for both LLMs and VLLMs. The values are average accuracy across all benchmarking datasets. "
+        ],
+        "image_footnote": [],
+        "bbox": [
+            501,
+            241,
+            882,
+            443
+        ],
+        "page_idx": 0
+    },
+    {
+        "type": "text",
+        "text": "",
+        "bbox": [
+            501,
+            542,
+            885,
+            648
+        ],
+        "page_idx": 0
+    },
+    {
+        "type": "text",
+        "text": "Surprisingly, contrary to the confidence instilled by highperformance metrics on established benchmarks, these models are surprisingly brittle when subjected to simple permutations in the answer choices, i.e., randomly changing the option positions. In this paper, we show that even a simple permutation of the answer sets, as illustrated in Figure 1, can lead to a dramatic decline in accuracy for both LLMs and VLLMs in a wide range of MCQA datasets, sometimes even below the random chance levels. For instance, Llama2-13B (Touvron et al., 2023a) experiences a $3 3 . 8 9 \\%$ degradation in accuracy on the MMLU dataset (Hendrycks et al., 2020) following random permutation of option positions, with results falling below the random chance. A wide variety of popular LLMs and VLLMs, suffer significantly from this vulnerability, as summarised in Figure $^ { 1 \\mathrm { ~ b ~ } }$ . ",
+        "bbox": [
+            501,
+            657,
+            885,
+            882
+        ],
+        "page_idx": 0
+    },
+    {
+        "type": "text",
+        "text": "Furthermore, our investigations reveal an even more disconcerting aspect: the vulnerability to permutations persists in LLMs and VLLMs even when multiple distractor options are deliberately removed from the answer sets. Intuitively, one expects that by eliminating incorrect choices, the task should become simpler due to increasing chance performance, thereby enhancing the models’ performance. However, our empirical findings contradict this notion. Even with a reduced number of distractors, the performance of both LLMs and VLLMs remains susceptible to degradation, affirming the deeply ingrained nature of this vulnerability. ",
+        "bbox": [
+            500,
+            891,
+            885,
+            905
+        ],
+        "page_idx": 0
+    },
+    {
+        "type": "text",
+        "text": "",
+        "bbox": [
+            89,
+            85,
+            473,
+            236
+        ],
+        "page_idx": 1
+    },
+    {
+        "type": "text",
+        "text": "To further investigate the source of the brittleness, we demonstrate through our adversarial attack that it is not merely a selection bias towards/against certain positions, such as moving correct answers to a fixed position that a given model is biased against picking. While positional factors may moderately influence model performance, they do not explain the strength of our adversarial attack results, suggesting a more systemic issue that extends beyond simple position bias. ",
+        "bbox": [
+            89,
+            243,
+            473,
+            378
+        ],
+        "page_idx": 1
+    },
+    {
+        "type": "text",
+        "text": "This issue should be of intrinsic concern to those seeking to understand and design trustworthy and reliable LLMs and VLLMs, or emulate human capabilities. However, one might speculate that the issue could be mitigated in practice through the engineering solution of majority voting across different permutations or by employing calibration strategies as suggested in previous work (Zhao et al., 2021). However, our findings indicate that while majority voting may offer some degree of improvement, the resulting performance still lags behind the original metrics, despite incurring a $k ! \\times$ computational cost of the original inference time. Additionally, calibration techniques such as calibrate-before-use (Zhao et al., 2021) fail to alleviate this problem effectively. ",
+        "bbox": [
+            89,
+            387,
+            472,
+            582
+        ],
+        "page_idx": 1
+    },
+    {
+        "type": "text",
+        "text": "In summary, our research unveils a glaring yet often overlooked vulnerability in large language models and visionlanguage models, specifically within the domain of multiplechoice question answering (MCQA). Despite their impressive metrics on well-established benchmarks, these models reveal a disconcerting fragility when faced with simple manipulations such as option permutations. Existing mitigation strategies fall short of effectively resolving this issue. Our observations not only raise pivotal questions about the models’ robustness but also accentuate the necessity for heightened scrutiny in assessing their MCQA capabilities. We argue that stakeholders should be vigilant in relying on such models until these vulnerabilities are adequately addressed. ",
+        "bbox": [
+            89,
+            590,
+            473,
+            786
+        ],
+        "page_idx": 1
+    },
+    {
+        "type": "text",
+        "text": "2. Simple Adversarial Attack Breaks LLMs and VLLMs ",
+        "text_level": 1,
+        "bbox": [
+            88,
+            805,
+            452,
+            839
+        ],
+        "page_idx": 1
+    },
+    {
+        "type": "text",
+        "text": "In this section, we analyse the brittleness of a broad array of large language models and vision-language models to random adversarial attacks in MCQA. By simply shuffling ",
+        "bbox": [
+            88,
+            849,
+            472,
+            895
+        ],
+        "page_idx": 1
+    },
+    {
+        "type": "text",
+        "text": "answer choices, we find that these models fail to maintain their performance, revealing a critical vulnerability. ",
+        "bbox": [
+            501,
+            85,
+            883,
+            114
+        ],
+        "page_idx": 1
+    },
+    {
+        "type": "text",
+        "text": "2.1. Experiment Setup ",
+        "text_level": 1,
+        "bbox": [
+            501,
+            132,
+            656,
+            146
+        ],
+        "page_idx": 1
+    },
+    {
+        "type": "text",
+        "text": "In an ideal scenario, robust models should offer consistent predictions that are invariant to permutations that have no semantic influence on the question being posed. To test this, we simply iterate through the possible permutations of MCQ options. A robust model should be correct in every case. While there are $k !$ possible combinations in total, we cease permutation once the model produces an incorrect prediction (succumbs to the permutation attack), which usually requires far less than $k !$ attempts1. ",
+        "bbox": [
+            501,
+            156,
+            885,
+            290
+        ],
+        "page_idx": 1
+    },
+    {
+        "type": "text",
+        "text": "Formally, Given a question $q$ and an answer list $A \\ =$ $\\{ a _ { 1 } , a _ { 2 } , \\ldots , a _ { k } \\}$ , the permutation adversarial attack can be described by the Equation 1. We maximize the loss function $( \\mathcal { L } )$ with respect to all possible permutations $( \\Pi )$ of the answer list. Here, promp $( q , A )$ prompts the model with the given query and answer list, and the model’s response is then evaluated by the loss. ",
+        "bbox": [
+            501,
+            299,
+            885,
+            404
+        ],
+        "page_idx": 1
+    },
+    {
+        "type": "equation",
+        "img_path": "images/40a361e510bb075a5e9570e020305dfd90572e9b03d00629b25fe58917252297.jpg",
+        "text": "$$\n\\begin{array} { r l } { \\mathrm { M a x i m i z e : ~ } } & { \\mathcal { L } \\left( \\mathrm { p r o m p t } ( q , A ^ { * } ) \\right) } \\\\ & { \\mathrm { s . t . ~ } A ^ { * } \\in \\Pi ( A ) } \\end{array}\n$$",
+        "text_format": "latex",
+        "bbox": [
+            584,
+            412,
+            799,
+            452
+        ],
+        "page_idx": 1
+    },
+    {
+        "type": "table",
+        "img_path": "images/ec6b16a51d76415d23b316077a8d6e6b83f88a3e0f9c01f669d021bbc5b458b9.jpg",
+        "table_caption": [
+            "Table 1. Statistics of the language datasets evaluated. "
+        ],
+        "table_footnote": [],
+        "table_body": "<table><tr><td colspan=\"3\"># Choices # QA Pairs</td><td rowspan=\"2\">Task</td></tr><tr><td>MMLU</td><td>4</td><td>14079</td></tr><tr><td>ARC-c</td><td>4</td><td>1165</td><td>Aggregated Commonsense Reasoning</td></tr><tr><td>BoolQ</td><td>2</td><td>3270</td><td>Reading Comprehension</td></tr><tr><td>SocialiQA</td><td>3</td><td>1954</td><td>Commonsense Reasoning</td></tr><tr><td>MedMCQ</td><td>4</td><td>2816</td><td>Out-of-domain</td></tr></table>",
+        "bbox": [
+            506,
+            500,
+            874,
+            590
+        ],
+        "page_idx": 1
+    },
+    {
+        "type": "table",
+        "img_path": "images/0bec23ae22406882a48bd36d26af85d7ca541bdf14aa550d3638122b60a25440.jpg",
+        "table_caption": [
+            "Table 2. Statistics of the vision-language datasets evaluated. "
+        ],
+        "table_footnote": [],
+        "table_body": "<table><tr><td colspan=\"3\"># Choices # QA pairs</td><td rowspan=\"2\">Task</td></tr><tr><td>ScienceQA</td><td>2,3,4,5</td><td>2021</td></tr><tr><td>A-OKVQA</td><td>4</td><td>1145</td><td>Scientific QA Commonsense Reasoning</td></tr><tr><td>MMBench</td><td>4</td><td>4377</td><td>Aggregated</td></tr><tr><td>SEED-Bench</td><td>4</td><td>14233</td><td>Aggregated</td></tr></table>",
+        "bbox": [
+            500,
+            650,
+            882,
+            734
+        ],
+        "page_idx": 1
+    },
+    {
+        "type": "text",
+        "text": "Models We evaluate a wide range of LLMs and VLLMs of diverse sizes, different pretrained backbones, and both auto-regressive pretrained and instruction-following finetuned models. Specifically, for LLMs, we have evaluated LLaMA-2 (7B/13B) (Touvron et al., 2023b), Vicuna (7B/13B) (Chiang et al., 2023), WizardLM-13B (Xu et al., ",
+        "bbox": [
+            500,
+            753,
+            885,
+            843
+        ],
+        "page_idx": 1
+    },
+    {
+        "type": "text",
+        "text": "2023), InternLM-20B (Team, 2023a), Falcon-7B (Penedo et al., 2023), and MPT-7B (Team, 2023b). For VLLMs, InstructBLIP (Vicuna-based, 7B/13B) (Dai et al., 2023), Open-Flamingo (MPT-based, 9B) (Awadalla et al., 2023), Otter (Llama-based, MPT-based) (Li et al., 2023b), LLaVA (7B/13B) (Liu et al., 2023b), LLaVA-v1.5 (7B/13B) (Liu et al., 2023a), Emu2-Chat (Sun et al., 2024), Limber (7B) (Merullo et al., 2023), and mPLUG-Owl (pretraining, intruction) (Ye et al., 2023) are used for evaluation. ",
+        "bbox": [
+            88,
+            84,
+            473,
+            219
+        ],
+        "page_idx": 2
+    },
+    {
+        "type": "text",
+        "text": "Datasets We utilize a diverse array of language and vision-language MCQA datasets for comprehensive evaluation. These datasets cover multiple domains and require different aspects of the models to give correct answers, ensuring our findings are generalizable. Specifically, for LLMs, we utilize MMLU (Hendrycks et al., 2020), ARC challenge (ARC-c) (Clark et al., 2018), BoolQ (Clark et al., 2019), SocialiQA (Sap et al., 2019), and MedMCQA (Pal et al., 2022). For VLLMs, we use ScienceQA (Lu et al., 2022), A-OKVQA (Schwenk et al., 2022), MMBench (Liu et al., 2023c), and SEED-Bench (Li et al., 2023a). We use the questions in ScienceQA that have corresponding images, the MCQA subsets of MMBench, and the image-based MCQAs in SEED-Bench. ",
+        "bbox": [
+            88,
+            228,
+            473,
+            439
+        ],
+        "page_idx": 2
+    },
+    {
+        "type": "text",
+        "text": "Evaluations We use accuracy as our primary metric. During testing, we prompt the model to generate the possible option symbols (e.g., A to D) and extract the probability assigned to each choice in the first position. The option with the highest probability is then selected as the model’s answer for that specific question. For both LLMs and VLLMs, we use greedy decoding to ensure reproducibility. All of the datasets we use are publicly available. All of the model weights (except GPT-3.5-Turbo) can be obtained from the HuggingFace model zoo or the original official Github repositories. GPT-3.5-Turbo can be accessed from OpenAI API. Experiments are conducted on A100-80GB GPUs. ",
+        "bbox": [
+            89,
+            448,
+            473,
+            627
+        ],
+        "page_idx": 2
+    },
+    {
+        "type": "text",
+        "text": "2.2. Main Results ",
+        "text_level": 1,
+        "bbox": [
+            89,
+            645,
+            210,
+            659
+        ],
+        "page_idx": 2
+    },
+    {
+        "type": "text",
+        "text": "We present the main results in Table 3 and 4 for language and vision-language models respectively. ",
+        "bbox": [
+            88,
+            669,
+            472,
+            698
+        ],
+        "page_idx": 2
+    },
+    {
+        "type": "text",
+        "text": "Language Models In our experiments, large language models manifested a significant susceptibility to adversarial permutations, a finding consistent across various MCQA benchmarks. Our evaluation extended beyond the typical four-option MCQA datasets to include more diverse formats like the two-option BoolQ (Clark et al., 2019) and the three-option SocialIQA (Sap et al., 2019) that are naturally more resilient to the permutations. Intriguingly, the presence of only one or two distractor options did not mitigate the model’s vulnerability to permutations. For instance, Llama2-7B’s accuracy on BoolQ plummeted from $6 1 . 7 9 \\%$ to a mere $8 . 2 3 \\%$ , a performance even worse than random chance. Moreover, out of 50 experiments conducted with large language models, only 12 non-GPT-3.5-turbo models managed to perform better than random chance. And all of them, including GPT-3.5-turbo, suffer from significant performance decreases. ",
+        "bbox": [
+            89,
+            707,
+            473,
+            901
+        ],
+        "page_idx": 2
+    },
+    {
+        "type": "text",
+        "text": "",
+        "bbox": [
+            500,
+            85,
+            883,
+            145
+        ],
+        "page_idx": 2
+    },
+    {
+        "type": "text",
+        "text": "Vision-Language Models In the vision-language model evaluations, the susceptibility to adversarial permutations is also severe. Despite the presence of visual context, which may intuitively add a layer of resilience, the VLLMs were not spared from the adverse effects of our permutation attacks. Among 48 experiments, more than half of them fell below random chance performance after the adversarial attack. While InstructBLIP (Dai et al., 2023) and LLaVAv1.5 (Liu et al., 2023a) show relatively strong robustness to the adversarial attack, all of the models experienced significant accuracy drops ranging from $20 \\%$ to $45 \\%$ . ",
+        "bbox": [
+            501,
+            154,
+            885,
+            318
+        ],
+        "page_idx": 2
+    },
+    {
+        "type": "text",
+        "text": "Further Observations We note that within the same model family but with varying parameter sizes (e.g., InstructBLIP-7B v.s. InstructBLIP-13B), scaling up generally enhances both the baseline performance and resilience to adversarial attacks with relatively smaller declines in accuracy. We can also observe that models have different success rates over random chance in different datasets. For example, all of the LLMs failed the adversarial attack on MedMCQA dataset except GPT-3.5-turbo, which is also only slightly above the random chance. It shows the challenges of LLMs to generalize to out-of-domain data, and suggests caution about their use in unconstrained practical scenarios. ",
+        "bbox": [
+            501,
+            327,
+            885,
+            522
+        ],
+        "page_idx": 2
+    },
+    {
+        "type": "text",
+        "text": "2.3. Answer Set Pruning ",
+        "text_level": 1,
+        "bbox": [
+            501,
+            540,
+            671,
+            554
+        ],
+        "page_idx": 2
+    },
+    {
+        "type": "text",
+        "text": "In this subsection, we examine the impact of a stricter test condition on MCQA, specifically by reducing the number of distractor options, while obviously retaining the true answer. This is expected to improve baseline performance by increasing random chance level, but also we expected it to reduce vulnerability to adversarial permutation by substantially reducing the degrees of freedom that the permutation attack can explore. However, we found that models remain highly susceptible to even the few permutations available in the reduced set of options. ",
+        "bbox": [
+            501,
+            563,
+            885,
+            713
+        ],
+        "page_idx": 2
+    },
+    {
+        "type": "text",
+        "text": "Experiment Setup Specifically, we constrain the answer set by reducing the number of total choices from four to either three or two, inclusive of the ground-truth answer. We then compare the performance metrics between these pruned sets in both permuted and non-permuted conditions to assess the relative susceptibility of the models. ",
+        "bbox": [
+            501,
+            722,
+            885,
+            811
+        ],
+        "page_idx": 2
+    },
+    {
+        "type": "text",
+        "text": "Results We present the results of answer set pruning of MMLU datasets in Table 5 and other datasets in the appendix. As can be seen from Table 5, reducing the number of options increases the base prediction accuracy as expected, but performing adversarial permutation on the reduced answer set still dramatically reduces the accuracy even in the 2-option cases. In most cases, the performance is below the chance level given the number of options. This means that, surprisingly, even in the simplest case of a binary choice, models are not robust to whether the true answer is presented as the first or second option. ",
+        "bbox": [
+            500,
+            820,
+            885,
+            895
+        ],
+        "page_idx": 2
+    },
+    {
+        "type": "table",
+        "img_path": "images/5574944a5ea9b9526978a209045e3cce182d58adaaed1ba999dd616a53e4bef6.jpg",
+        "table_caption": [
+            "Table 3. Performance comparisons of LLMs before and after adversarial attack. Numbers in each represent original accuracy, accuracy after adversarial attack, and relative performance drop. Red shading indicates experiments where the permutation attack reduced performance below chance level. All models suffer substantially with most experiments leading to below chance performance. "
+        ],
+        "table_footnote": [],
+        "table_body": "<table><tr><td rowspan=1 colspan=4>Method         MMLU              ARC-c              BoolQ</td><td rowspan=1 colspan=1>SocialiQA</td><td rowspan=1 colspan=1>MedMCQA</td></tr><tr><td rowspan=1 colspan=1>Llama2-7B</td><td rowspan=1 colspan=3>40.91/ 6.17 (34.74 ↓) 47.04/ 7.98 (39.06 ↓) 61.79/ 8.23 (53.56 ↓)</td><td rowspan=1 colspan=1>52.00/15.71 (36.29 ↓)</td><td rowspan=1 colspan=1>37.96/ 1.60 (36.36 ↓)</td></tr><tr><td rowspan=1 colspan=1>Llama2-13B</td><td rowspan=1 colspan=1>52.22/18.33 (33.89 ↓)</td><td rowspan=1 colspan=1>61.80/21.63 (40.17 ↓)</td><td rowspan=1 colspan=1>67.16/38.29 (28.87 ↓)</td><td rowspan=1 colspan=1>61.21/34.14 (27.07 ↓)</td><td rowspan=1 colspan=1>39.78/ 7.35 (32.43 ↓)</td></tr><tr><td rowspan=1 colspan=1>Llama2-70B</td><td rowspan=1 colspan=1>64.68/33.16 (31.52 )</td><td rowspan=1 colspan=1>80.00/51.50 (28.50 ↓)</td><td rowspan=1 colspan=1>76.39/56.21 (20.18 ↓)</td><td rowspan=1 colspan=1>71.60/49.85 (21.75 ↓)</td><td rowspan=1 colspan=1>49.61/ 7.35 (32.43 ↓)</td></tr><tr><td rowspan=1 colspan=1>Vicuna-v1.5</td><td rowspan=1 colspan=2>48.57/18.09 (30.48 ↓) 58.37/23.43 (34.94 ↓)</td><td rowspan=1 colspan=1>64.04/29.60 (34.44 ↓)</td><td rowspan=1 colspan=1>64.99/38.33 (26.66 ↓)</td><td rowspan=1 colspan=1>39.28/ 7.67 (31.61 ↓)</td></tr><tr><td rowspan=1 colspan=1>Vicuna-v1.5-13B</td><td rowspan=1 colspan=2>54.68/26.27 (28.41 ↓)69.27/38.80 (30.47 ↓)</td><td rowspan=1 colspan=1>68.96/42.14 (26.82 ↓)</td><td rowspan=1 colspan=1>66.07/44.42 (21.65 ↓)</td><td rowspan=1 colspan=1>41.80/11.90 (29.90 ↓)</td></tr><tr><td rowspan=1 colspan=1>WizardLM-13B</td><td rowspan=1 colspan=2>48.60/15.87 (32.73 ↓) 58.20/21.12 (37.08 ↓)</td><td rowspan=1 colspan=1>67.49/42.11 (25.38 ↓)</td><td rowspan=1 colspan=1>63.46/31.78 (31.68 ↓)</td><td rowspan=1 colspan=1>34.87/ 6.32 (28.55 ↓)</td></tr><tr><td rowspan=1 colspan=1>InternLM-7B</td><td rowspan=1 colspan=2>45.72/10.45 (35.27 ↓56.14/17.34 (38.80 ↓)</td><td rowspan=1 colspan=1>65.83/26.41 (39.42 ↓)</td><td rowspan=1 colspan=1>59.47/30.30 (29.17 ↓)</td><td rowspan=1 colspan=1>32.63/ 2.56 (30.07 ↓)</td></tr><tr><td rowspan=1 colspan=1>InternLM-20B</td><td rowspan=1 colspan=1>59.14/29.52 (29.62 ↓)</td><td rowspan=1 colspan=1>78.28/54.42 (23.86 ↓)</td><td rowspan=1 colspan=1>85.20/82.91 ( 2.29 ↓)</td><td rowspan=1 colspan=1>79.48/65.97 (13.51 )</td><td rowspan=1 colspan=1>43.61/13.92 (29.69 ↓)</td></tr><tr><td rowspan=1 colspan=1>Falcon-7b</td><td rowspan=1 colspan=1>31.66/ 2.49 (29.17 ↓)</td><td rowspan=1 colspan=1>34.74/ 0.09 (34.65 ↓)</td><td rowspan=1 colspan=1>55.35/ 2.66 (52.69 ↓)</td><td rowspan=1 colspan=1>36.29/ 0.55 (35.74 ↓)</td><td rowspan=1 colspan=1>28.12/ 0.07 (28.05 ↓)</td></tr><tr><td rowspan=1 colspan=1>MPT-7B</td><td rowspan=1 colspan=1>35.60/ 3.52 (32.08 ↓)</td><td rowspan=1 colspan=1>37.76/ 1.06 (36.70 ↓)</td><td rowspan=1 colspan=1>58.46/ 7.03 (51.43 ↓)</td><td rowspan=1 colspan=1>41.61/ 2.53 (39.08 ↓)</td><td rowspan=1 colspan=1>26.31/ 1.60 (24.71 ↓)</td></tr><tr><td rowspan=1 colspan=1>GPT-3.5-turbo</td><td rowspan=1 colspan=1>64.81/40.39 (24.42 ↓)</td><td rowspan=1 colspan=1>82.23/61.55 (20.68 ↓) 87.92/81.35 ( 6.57 ↓)</td><td rowspan=1 colspan=1>82.23/61.55 (20.68 ↓) 87.92/81.35 ( 6.57 ↓)</td><td rowspan=1 colspan=1>70.62/56.29 (14.33 ↓)</td><td rowspan=1 colspan=1>52.22/32.07 (20.15 )</td></tr><tr><td rowspan=1 colspan=1>Random Chance</td><td rowspan=1 colspan=2>25.0                 25.0</td><td rowspan=1 colspan=1>50.0</td><td rowspan=1 colspan=1>33.33</td><td rowspan=1 colspan=1>25.0</td></tr></table>",
+        "bbox": [
+            86,
+            152,
+            882,
+            377
+        ],
+        "page_idx": 3
+    },
+    {
+        "type": "text",
+        "text": "",
+        "bbox": [
+            88,
+            410,
+            472,
+            500
+        ],
+        "page_idx": 3
+    },
+    {
+        "type": "text",
+        "text": "3. Understanding Vulnerability Causes ",
+        "text_level": 1,
+        "bbox": [
+            88,
+            520,
+            415,
+            537
+        ],
+        "page_idx": 3
+    },
+    {
+        "type": "text",
+        "text": "In this section, we delve into a detailed analysis of the potential causes behind the demonstrated vulnerability and examine related attack types and potential symbol-content spurious correlation. We also refer readers to the Appendix A.2 for the effect of different prompting and attack techniques and A.4for qualitative results. ",
+        "bbox": [
+            89,
+            546,
+            473,
+            636
+        ],
+        "page_idx": 3
+    },
+    {
+        "type": "text",
+        "text": "3.1. Posisition Bias and Other Attacks ",
+        "text_level": 1,
+        "bbox": [
+            89,
+            652,
+            352,
+            667
+        ],
+        "page_idx": 3
+    },
+    {
+        "type": "text",
+        "text": "A concurrent study to ours argued for the existence of position bias in language model MCQA (Zheng et al., 2023a). For example, in an A/B/C/D MCQ situation, a given model might have a predisposition to selecting a particular option such as “C” and an aversion to selecting some other option such as “A”, irrespective of the correctness of the answer associated with each label. Position bias could potentially explain adversarial permutation vulnerability if a model is so averse to selecting a particular option, that rotating the true answer into that slot would reliably cause it to fail. ",
+        "bbox": [
+            89,
+            676,
+            473,
+            827
+        ],
+        "page_idx": 3
+    },
+    {
+        "type": "text",
+        "text": "To analyse whether position bias can explain our results, we compare our adversarial permutation results to the performance of each LLM under position bias analysis – always rotating the correct answer to a specific slot (A/B/C/D) in ",
+        "bbox": [
+            88,
+            835,
+            473,
+            895
+        ],
+        "page_idx": 3
+    },
+    {
+        "type": "text",
+        "text": "the answer list. ",
+        "bbox": [
+            500,
+            410,
+            599,
+            424
+        ],
+        "page_idx": 3
+    },
+    {
+        "type": "text",
+        "text": "From the results in Table 6, we do see the position bias effect remarked upon by Zheng et al. (2023a). The models tested exhibit varying degrees of position bias, as results fluctuate with respect to original performance (left column). For example, Vicuna suffers limited position bias, while Falcon7B is highly position biased. Falcon-7B’s baseline accuracy of $31 \\%$ rises to $7 0 . 9 \\%$ when the true answer is placed in slot A – indicating a strong preference for choosing A; but drops to $3 . 7 \\%$ when the true answer is placed in slot B, indicating a strong aversion to selecting B. ",
+        "bbox": [
+            501,
+            433,
+            885,
+            583
+        ],
+        "page_idx": 3
+    },
+    {
+        "type": "text",
+        "text": "Comparing the observed position bias to the impact of our adversarial permutation, we can see that our adversarial permutation has a much stronger effect. The results after permutation (right column) are substantially worse than the position bias results. For example, Llama2-7B performs above chance level for answers in every possible position (A/B/C/D), but is reduced to below chance by our adversarial permutation. Thus we conclude that the impact of our adversarial permutation is not explainable by position bias. Evidently, models rely on the relationships between choices, including the distractors, which the adversarial permutation manipulates to fool them. I.e., it is not just the true answer, and the location of the true answer (position bias), but also the pattern of the distractor answers around the true answer (as explored by adversarial permutations) that determine model success or failure. This reveals a complex and concerning form of vulnerability. ",
+        "bbox": [
+            501,
+            590,
+            885,
+            848
+        ],
+        "page_idx": 3
+    },
+    {
+        "type": "text",
+        "text": "Additionally, to further investigate the potential causes of the vulnerability and compare with other types of attacks, we consider circular evaluation (CircularEval) (Liu et al., ",
+        "bbox": [
+            500,
+            856,
+            885,
+            900
+        ],
+        "page_idx": 3
+    },
+    {
+        "type": "table",
+        "img_path": "images/46fca8e36eb0bee84fabff0b1d930927b9fe71814a394f2eb1a9ea7e137caef5.jpg",
+        "table_caption": [
+            "Table 4. Performance comparisons of VLLMs before and after adversarial attack. Numbers in each cell represent original accuracy, accuracy after adversarial attack, and relative performance drop. Red shading indicates performance below chance level after the permutation attack. All models suffer substantially with most experiments leading to below chance performance. "
+        ],
+        "table_footnote": [],
+        "table_body": "<table><tr><td>Method</td><td>ScienceQA</td><td>A-OKVQA</td><td>SEED-Bench</td><td>MMBench</td></tr><tr><td>InstructBLIP-7B</td><td>59.46/33.31 (26.15 ↓)</td><td>74.06/51.62 (22.44 ↓)</td><td>51.61/25.68 (25.93 )</td><td>64.91/41.01 (23.90 ↓)</td></tr><tr><td>InstructBLIP-13B</td><td>64.15/41.84 (22.31 ↓)</td><td>77.90/55.38 (22.52 ↓)</td><td>53.65/28.79 (24.86 ↓)</td><td>67.12/45.49 (21.63 ↓)</td></tr><tr><td>OpenFlamingo</td><td>39.43/1.37 (38.06 ↓)</td><td>46.90/3.58 (43.32 ↓)</td><td>37.99/0.87 (37.12 ↓)</td><td>38.99/5.18 (33.81 )</td></tr><tr><td>Otter-Llama7B</td><td>59.92/32.54 (27.38 ↓)</td><td>57.99/28.30 (29.69 ↓)</td><td>40.77/9.91 (30.86 ↓)</td><td>55.24/19.67 (35.57 ↓)</td></tr><tr><td>Otter-MPT7B</td><td>63.11/31.38 (31.73 ↓)</td><td>68.21/43.19 (25.02 ↓)</td><td>46.76/10.82 (35.94 ↓)</td><td>61.31/36.46 (24.85 ↓)</td></tr><tr><td>LLaVA-7B</td><td>45.20/2.28 (42.92 ↓)</td><td>52.91/ 0.09 (52.82 ↓)</td><td>38.36/5.67 (43.03 ↓)</td><td>46.03/5.07 (40.96 ↓)</td></tr><tr><td>LLaVA-13B</td><td>60.63/46.53 (14.10 ↓)</td><td>63.14/25.85 (37.29 ↓)</td><td>44.00/13.68 (30.32 ↓)</td><td>59.13/31.30 (27.83 ↓)</td></tr><tr><td>LLaVA-v1.5-7B</td><td>67.78/45.61 (22.17 ↓)</td><td>81.31/36.24 (45.07 ↓)</td><td>59.17/12.44 (46.73 ↓)</td><td>69.57/27.39 (42.18 ↓)</td></tr><tr><td>LLaVA-v1.5-13B</td><td>71.60/52.55 (19.05 ↓)</td><td>83.32/47.25 (36.07 ↓)</td><td>61.50/18.95 (42.55 ↓)</td><td>72.33/58.42 (13.91 ↓)</td></tr><tr><td>Limber</td><td>49.33/14.03 (35.30 ↓)</td><td>39.57/1.22 (38.35 ↓)</td><td>31.50/0.26 (31.24 ↓)</td><td>34.93/1.62 (33.31 ↓)</td></tr><tr><td>mPLUG-Owl-pt</td><td>53.24/10.20 (43.04 ↓)</td><td>39.91/1.83 (38.08 ↓)</td><td>35.57/0.91 (34.66 ↓)</td><td>42.57/8.54 (34.03 ↓)</td></tr><tr><td>mPLUG-Owl-instr</td><td>54.87/11.43 (43.44 ↓)</td><td>37.12/2.01 (35.11 ↓)</td><td>36.74/2.72 (34.02 ↓)</td><td>43.74/6.12 (37.62 ↓)</td></tr><tr><td>Emu2-Chat</td><td>64.60/44.27 (20.33↓)</td><td>81.91/63.67 (18.24↓)</td><td>62.11/38.02 (24.09↓)</td><td>73.21/52.44 (20.77↓)</td></tr><tr><td>Random Chance</td><td>Min 20.0</td><td>25.0</td><td>25.0</td><td>25.0</td></tr></table>",
+        "bbox": [
+            102,
+            138,
+            861,
+            428
+        ],
+        "page_idx": 4
+    },
+    {
+        "type": "table",
+        "img_path": "images/3644c466972ac6b3f4948b2a734402df58bcaf39d9933cc895f9263303c8cc6a.jpg",
+        "table_caption": [
+            "Table 5. Performance of LLMs on the MMLU dataset under answer set pruning. Numbers in each cell represent original accuracy, accuracy after adversarial attack, and relative performance drop. Baseline performances improve as the number of distractors is reduced, but performance is reduced below chance after adversarial permutation. "
+        ],
+        "table_footnote": [],
+        "table_body": "<table><tr><td>Method</td><td>4 Choices</td><td>3 Choices</td><td>2 Choices</td></tr><tr><td>Llama2-7B</td><td>40.91</td><td>48.75/ 8.67 (39.08↓)</td><td>63.33/20.26 (43.07↓)</td></tr><tr><td>Llama2-13B</td><td>52.22</td><td>70.77/22.85 (47.92↓)</td><td>71.13/31.85 (39.28↓)</td></tr><tr><td>Llama2-70B</td><td>64.68</td><td>69.90/35.34 (34.56↓)</td><td>75.23/45.88 (29.35↓)</td></tr><tr><td>Vicuna-v1.5-7B</td><td>48.57</td><td>56.65/30.60 (26.97↓)</td><td>68.81/32.60 (36.21↓)</td></tr><tr><td>Vicuna-v1.5-13B</td><td>54.68</td><td>61.75/29.02 (32.66↓)</td><td>72.97/28.06 (44.91↓)</td></tr><tr><td>WizardLM-13B</td><td>48.60</td><td>56.57/17.74 (38.83↓)</td><td>69.09/28.96 (40.13↓)</td></tr><tr><td>InternLM-7B</td><td>45.72</td><td>51.76/12.39 (39.37↓)</td><td>65.88/19.65 (46.23↓)</td></tr><tr><td>InternLM-20B</td><td>59.14</td><td>65.25/30.48 (34.67↓)</td><td>76.09/43.51 (32.58↓)</td></tr><tr><td>Falcon-7b</td><td>31.66</td><td>52.88/ 5.92 (46.96↓)</td><td>58.31/11.41 (46.90↓)</td></tr><tr><td>MPT-7B</td><td>35.60</td><td>53.31/ 6.27 (47.03↓)</td><td>58.31/15.44 (42.87↓)</td></tr><tr><td>GPT-3.5-turbo</td><td>64.81</td><td>70.80/42.99 (27.81↓)</td><td>79.30/50.82 (28.48↓)</td></tr><tr><td>Random Chance</td><td>25.0</td><td>33.33</td><td>50.0</td></tr></table>",
+        "bbox": [
+            88,
+            568,
+            470,
+            760
+        ],
+        "page_idx": 4
+    },
+    {
+        "type": "text",
+        "text": "2023c) and symbol attack. Specifically, CircularEval involves rotating options while maintaining their relative positions. Symbol attack refers to using different option symbols (here we consider A/B/C/D, a/b/c/d, I/II/III/IV). In both cases, the predictions are counted as correct only if the model predicts all of the variations correctly. As shown in Table 6, while these attacks degrade performance to some extent, our adversarial attack exhibits the most substantial impact and causes the largest performance drop. ",
+        "bbox": [
+            89,
+            799,
+            473,
+            905
+        ],
+        "page_idx": 4
+    },
+    {
+        "type": "text",
+        "text": "",
+        "bbox": [
+            500,
+            459,
+            883,
+            488
+        ],
+        "page_idx": 4
+    },
+    {
+        "type": "text",
+        "text": "3.2. Symbol-Content Spurious Correlation ",
+        "text_level": 1,
+        "bbox": [
+            503,
+            506,
+            795,
+            521
+        ],
+        "page_idx": 4
+    },
+    {
+        "type": "text",
+        "text": "In this subsection, we investigate the potential existence of shortcut correlations between option symbols and content. We ask whether the permutation required to fool the model’s prediction is independent of the chosen symbols or not. Here we consider two sets of symbols, Capital letters vs. Lowercase letters, and Capital letters vs. Roman Numerals. For each set of symbols, we calculated the correlations across all permutations of test set predictions. Specifically, we examined the similarity in response patterns to permutations between different symbol sets, with a high correlation indicating similar responses to permutations across two sets, and a low correlation indicating the opposite. ",
+        "bbox": [
+            500,
+            530,
+            885,
+            710
+        ],
+        "page_idx": 4
+    },
+    {
+        "type": "text",
+        "text": "Our findings reveal a notably low correlation between the sets of capital letters (A/B/C/D) and Roman numerals (I/II/III/IV), in stark contrast to the correlation observed between capital letters (A/B/C/D) and lowercase letters (a/b/c/d). This discrepancy suggests that, while the baseline and permuted accuracies remain largely consistent across different symbol sets, their responses to permutations diverge significantly. Such behavior implies that the model might be exploiting symbol-answer shortcuts (Geirhos et al., 2020; Du et al., 2023) and spurious correlations (Sagawa et al., 2020) inadvertently learned during training, indicating another potential underlying cause of our observed vulnerability. Figure 2 illustrates these dynamics, showcasing the Llama2-13B model’s predictions and correlation across various symbol sets. ",
+        "bbox": [
+            501,
+            718,
+            885,
+            898
+        ],
+        "page_idx": 4
+    },
+    {
+        "type": "table",
+        "img_path": "images/96720037b92ece68d514a95aca4b974d04923ef60c87a91a154389a89f3cbfab.jpg",
+        "table_caption": [
+            "Table 6. Comparison of positional bias, circular evaluation, symbol attack, and our adversarial permutation on MMLU dataset. Position bias and other attacks have moderate impact. In contrast, our adversarial permutation severely degrades performance, usually below random chance level. "
+        ],
+        "table_footnote": [],
+        "table_body": "<table><tr><td>Method</td><td>Original</td><td>A</td><td>B</td><td>C</td><td>D</td><td>CircularEval</td><td>Symbol Attack</td><td>Permutation Attack</td></tr><tr><td>Llama2-7B</td><td>40.91</td><td>60.02</td><td>37.28</td><td>30.69</td><td>35.43</td><td>27.26</td><td>25.70</td><td>6.17</td></tr><tr><td>Llama2-13B</td><td>52.22</td><td>36.15</td><td>58.69</td><td>59.08</td><td>54.91</td><td>35.80</td><td>30.76</td><td>18.33</td></tr><tr><td>Llama2-70B</td><td>64.68</td><td>63.63</td><td>64.28</td><td>67.45</td><td>62.43</td><td>48.18</td><td>47.40</td><td>33.16</td></tr><tr><td>Vicuna-7B</td><td>48.57</td><td>49.83</td><td>63.22</td><td>45.46</td><td>37.85</td><td>20.23</td><td>33.85</td><td>18.09</td></tr><tr><td>Vicuna-13B</td><td>54.68</td><td>47.33</td><td>70.00</td><td>51.73</td><td>52.04</td><td>41.42</td><td>45.40</td><td>26.27</td></tr><tr><td>WizardLM-13B</td><td>48.60</td><td>34.75</td><td>56.38</td><td>45.86</td><td>57.56</td><td>22.42</td><td>29.07</td><td>15.87</td></tr><tr><td>InternLM-7B</td><td>45.72</td><td>37.23</td><td>65.12</td><td>41.49</td><td>42.33</td><td>25.23</td><td>29.38</td><td>10.45</td></tr><tr><td>InternLM-20B</td><td>59.14</td><td>51.05</td><td>68.75</td><td>53.47</td><td>62.35</td><td>34.99</td><td>47.06</td><td>29.52</td></tr><tr><td>Falcon-7B</td><td>31.66</td><td>70.86</td><td>3.77</td><td>10.52</td><td>14.85</td><td>7.69</td><td>14.38</td><td>2.49</td></tr><tr><td>MPT-7B</td><td>35.60</td><td>0.82</td><td>75.35</td><td>34.72</td><td>2.03</td><td>2.44</td><td>21.62</td><td>3.52</td></tr><tr><td>GPT-3.5-turbo</td><td>64.81</td><td>65.84</td><td>67.77</td><td>73.81</td><td>56.55</td><td>58.21</td><td>63.99</td><td>40.39</td></tr></table>",
+        "bbox": [
+            124,
+            137,
+            844,
+            353
+        ],
+        "page_idx": 5
+    },
+    {
+        "type": "text",
+        "text": "",
+        "bbox": [
+            88,
+            386,
+            473,
+            429
+        ],
+        "page_idx": 5
+    },
+    {
+        "type": "text",
+        "text": "In summary: not only are the models not invariant to permutation, but the specific way in which they are not invariant is dependent on the choice of symbols. ",
+        "bbox": [
+            88,
+            438,
+            473,
+            483
+        ],
+        "page_idx": 5
+    },
+    {
+        "type": "table",
+        "img_path": "images/62488b8e116c83f82ca2a02c6db826bcdc2ca1f92996983905f343fa81bbf1b1.jpg",
+        "table_caption": [
+            "Table 7. Comparisons of Pearson correlation scores of different symbol sets on ARC-Challenge dataset averaged over different permutations. "
+        ],
+        "table_footnote": [],
+        "table_body": "<table><tr><td>Symbol Set</td><td>Correlation</td><td>Original Acc.</td><td>Permuted Acc.</td></tr><tr><td>Capital vs. Lowercase</td><td>0.76</td><td>55.06 vs. 54.87</td><td>23.73 vs. 21.68</td></tr><tr><td>Capital vs. Roman</td><td>0.36</td><td>55.06 vs. 52.49</td><td>23.73 vs. 19.33</td></tr></table>",
+        "bbox": [
+            88,
+            573,
+            468,
+            625
+        ],
+        "page_idx": 5
+    },
+    {
+        "type": "image",
+        "img_path": "images/7391354fa0796b2779d5f8c8989772b4fc7fd2596dccc1c882a35c252b0b4bd3.jpg",
+        "image_caption": [
+            "Figure 2. The correlation analysis of Llama2-13B model’s predictions across different pairs of options symbols of each permutation reveals a notable finding: the low correlation score between permutation predictions when using capital letters and Roman numerals suggests that the model may have learned shortcuts or spurious correlations linking option symbols with answer content. "
+        ],
+        "image_footnote": [],
+        "bbox": [
+            88,
+            674,
+            472,
+            785
+        ],
+        "page_idx": 5
+    },
+    {
+        "type": "text",
+        "text": "4. Exploring Mitigation Strategies ",
+        "text_level": 1,
+        "bbox": [
+            503,
+            383,
+            784,
+            401
+        ],
+        "page_idx": 5
+    },
+    {
+        "type": "text",
+        "text": "The previous analysis of adversarial permutation vulnerability should be concerning to stakeholders interested in trustworthy and reliable AI, and suggests a new focus for researchers in developing models with improved intrinsic permutation robustness. Nevertheless, one might ask whether any post-hoc engineering fixes or fine-tuning could alleviate this issue in practice for existing models. We explore this question in this section. ",
+        "bbox": [
+            501,
+            410,
+            885,
+            530
+        ],
+        "page_idx": 5
+    },
+    {
+        "type": "text",
+        "text": "4.1. Post-hoc Mitigation Strategies ",
+        "text_level": 1,
+        "bbox": [
+            501,
+            546,
+            740,
+            563
+        ],
+        "page_idx": 5
+    },
+    {
+        "type": "text",
+        "text": "For post-hoc strategies, we consider three strategies that have previously proven effective in improving model performance, namely, majority voting (Wang et al., 2023), contextual calibration (Zhao et al., 2021) and confidence-based voting, and ask whether they can alleviate adversarial permutation vulnerability. ",
+        "bbox": [
+            501,
+            570,
+            885,
+            661
+        ],
+        "page_idx": 5
+    },
+    {
+        "type": "text",
+        "text": "Setup Majority voting (Wang et al., 2023) has been shown highly successful in self-ensembling over stochastic predictions. In our context, we apply it by obtaining the predictions for all possible permutations and then selecting the most frequent prediction. If most permutations lead to a correct prediction and there are only one or two pathological permutations that lead to an incorrect prediction, then majority voting should provide complete robustness to adversarial permutation. Contextual calibration (Zhao et al., 2021) is designed to mitigate the prior bias introduced from the in-context examples by estimating the model’s bias toward each answer with a “content-free” query and fitting a calibration parameter. Here we consider the input question and options as the language prior bias. We first feed the model with content-free options (e.g. “N/A”) as the contentfree input, and then calibrate the real prediction based on the calibration parameters calculated from the content-free input. Additionally, we also apply confidence voting by taking the output that has maximum confidence among all permutations as the final prediction (M-confidence). ",
+        "bbox": [
+            501,
+            669,
+            885,
+            895
+        ],
+        "page_idx": 5
+    },
+    {
+        "type": "text",
+        "text": "",
+        "bbox": [
+            89,
+            85,
+            472,
+            160
+        ],
+        "page_idx": 6
+    },
+    {
+        "type": "text",
+        "text": "Results From the results in Table 8 for LLMs, we can see that neither defense proved effective at restoring the original performance levels. The majority voting and Mconfidence certainly ameliorated the permutation attack as expected, but still fell short of the baseline accuracy with only very few models gaining improvement. This is despite their being highly impractical defenses due to imposing a $k !$ - fold increase in inference cost. We also additionally analyze the pattern of majority vote in Appendix Table 18 and 19. Contextual calibration, on the other hand, completely failed to make a meaningful impact on mitigating the adversarial attack. This re-confirms that the position bias is not the primary reason for models’ permutation vulnerability. ",
+        "bbox": [
+            89,
+            169,
+            473,
+            363
+        ],
+        "page_idx": 6
+    },
+    {
+        "type": "text",
+        "text": "We additionally examine whether Pride (Zheng et al., 2023a) can alleviate this issue, which introduces an inference-time debiasing method to mitigate token selection bias. Here, we debiased the prediction distribution of all possible permutations using their method and report original option order accuracy and permuted accuracy on the MMLU dataset in Table 9. Although PriDe can indeed improve accuracy for the original order, it cannot effectively restore the performance with the permutation attack. It is understandable why PriDE almost completely fails: It learns a recalibration matrix that adjusts the relative probabilities of options (A, B, C, D). But this recalibration matrix is not input dependent, making it in the end a sophisticated amelioration against fixed positional/option bias. However, as we show here, the different permutations can lead to radically different preferences over options. In this case, no single fixed recalibration matrix can possibly alleviate this attack. ",
+        "bbox": [
+            89,
+            372,
+            473,
+            627
+        ],
+        "page_idx": 6
+    },
+    {
+        "type": "text",
+        "text": "4.2. Fine-tuning on Training Set ",
+        "text_level": 1,
+        "bbox": [
+            89,
+            645,
+            312,
+            660
+        ],
+        "page_idx": 6
+    },
+    {
+        "type": "text",
+        "text": "While (V)LLMs are typically evaluated in zero-shot on the MCQ benchmarks without within-dataset fine-tuning, we study whether fine-tuning on the training set can enhance the robustness to the permutation. ",
+        "bbox": [
+            88,
+            669,
+            472,
+            728
+        ],
+        "page_idx": 6
+    },
+    {
+        "type": "text",
+        "text": "Setup As many of the benchmarks do not provide a training set, we conduct two fine-tuning experiments using Llama2-7B on two datasets that do provide training sets: ARC-Challenge (Clark et al., 2018) and MedMCQA (Pal et al., 2022). We also consider two fine-tuning variations: using the original training data and augmenting the training data with option permutations $( n ! )$ during fine-tuning. The latter is inspired by adversarial training (Madry et al., 2018), to ensure that the model learns robustness to permutations during training. We fine-tune with LoRA (Hu et al., 2022) for 1 epoch. ",
+        "bbox": [
+            89,
+            736,
+            473,
+            901
+        ],
+        "page_idx": 6
+    },
+    {
+        "type": "text",
+        "text": "Results We present the results before and after fine-tuning in Table 10. We observe that fine-tuning indeed improves the baseline accuracy and the permuted accuracy. However, regular fine-tuning is not a very effective solution because the fine-tuned models still suffer substantially from permutation vulnerability, and not all datasets have training set for fine-tuning. On the other hand, fine-tuning with permutation, while does not reliably defeat the attack, substantially alleviates it compared to the zero-shot and regular finetuning baseline. Although this is not a universal solution as we expect the model to generalize in a zero-shot manner, this shows the potential of mitigating the sensitivity during the pre-training or supervised fine-tuning stage with more robust training strategies. ",
+        "bbox": [
+            501,
+            85,
+            885,
+            296
+        ],
+        "page_idx": 6
+    },
+    {
+        "type": "text",
+        "text": "5. Related Work ",
+        "text_level": 1,
+        "bbox": [
+            500,
+            315,
+            637,
+            332
+        ],
+        "page_idx": 6
+    },
+    {
+        "type": "text",
+        "text": "Large Language Models and Vision-Language Models. In recent years, the natural language processing community has seen astonishing progress in large language models (LLMs) with billions of trained parameters, such as GPT3 (Brown et al., 2020) and Llama (Touvron et al., 2023a;b), and become more intelligent after instruction-following finetuning (Ouyang et al., 2022; Zheng et al., 2023b). With the strong capabilities of LLMs, there is a growing interest in grounding vision with LLMs to enable the models to perceive multimodal information (Yin et al., 2023; Zong et al., 2023; Li et al., 2023c), usually by utilizing pretrained language and vision encoders with trainable alignment modules to connect them. Such models have shown strong capabilities across a diverse range of tasks including multimodal generation, question-answering, dialogue, and more. ",
+        "bbox": [
+            501,
+            342,
+            885,
+            568
+        ],
+        "page_idx": 6
+    },
+    {
+        "type": "text",
+        "text": "Multiple-Choice Question Answering (MCQA). Multiple-Choice Question Answering (MCQA) requires selecting the correct option from a set of choices and is prevalent in numerous real-world applications, making it a key performance metric for both LLMs and VLLMs. Various benchmarks such as MMLU (Hendrycks et al., 2020), AGI-Eval (Zhong et al., 2023), MedMCQA (Pal et al., 2022), and SocialIQA (Sap et al., 2019) have been designed to assess MCQA proficiency across different domains. Different prompting approaches approaches have been considered for MCQA with multiple-choice prompting being the currently recommended state of the art (Robinson & Wingate, 2023). On these benchmarks, LLMs and VLLMs frequently achieve, or even surpass, human-level accuracy (Anil et al., 2023; OpenAI, 2023b), suggesting a high degree of reliability and robustness. However, we cast doubt on this presumed robustness, exposing the underlying fragility of these models in MCQA scenarios. ",
+        "bbox": [
+            500,
+            577,
+            885,
+            847
+        ],
+        "page_idx": 6
+    },
+    {
+        "type": "text",
+        "text": "Robustness of LLMs and VLLMs. Despite their impressive capabilities, concerns remain about the robustness and reliability of LLMs and VLLMs (Liu et al., 2023d). Previous studies have revealed the sensitivity of LLMs to various factors including prompt (Zhu et al., 2023), in-context examples (Liu et al., 2021; Zhao et al., 2021), irrelevant context (Shi et al., 2023), etc. Despite its significance, the robustness of MCQA has been relatively unexamined, particularly for VLLMs. Our research addresses this gap by scrutinizing a specific, yet pervasive, vulnerability to answer choice permutations in MCQA across both model types. Concurrent work (Zheng et al., 2023a) discusses positionbias in MCQA and (Liu et al., 2023c) proposes circular evaluation. Our results show that adversarial permutation vulnerability is a much deeper problem than position bias, and position calibration strategy (e.g., (Zheng et al., 2023a)) cannot solve this issue. ",
+        "bbox": [
+            500,
+            856,
+            885,
+            898
+        ],
+        "page_idx": 6
+    },
+    {
+        "type": "table",
+        "img_path": "images/d03e796b48618fb4a914c8d06ba98fa10770aa265b52d7e4beb7184c7d3c2e30.jpg",
+        "table_caption": [
+            "Table 8. Impact of majority vote, contextual calibration (C-Calibration), and maximum confidence (M-Confidence) defenses against the permutation attack on the MMLU dataset. Contextual calibration fails completely. Majority vote and M-Confidence ameliorate the attack, but do not completely restore performance. Red shading indicates below-chance results. "
+        ],
+        "table_footnote": [],
+        "table_body": "<table><tr><td rowspan=1 colspan=5>Method           Original Permutation Attack Majority Vote  C-CalibrationM-Confidence</td></tr><tr><td rowspan=1 colspan=1>Llama2-7B        40.91</td><td rowspan=1 colspan=1>6.17 (34.74 )</td><td rowspan=1 colspan=1>33.64 (7.27 ↓)</td><td rowspan=1 colspan=1>5.24 (35.67 ↓)</td><td rowspan=1 colspan=1>22.62 (18.29 )</td></tr><tr><td rowspan=1 colspan=1>Llama2-13B       52.22</td><td rowspan=1 colspan=1>18.33 (33.89 ↓)</td><td rowspan=1 colspan=1>48.53 (3.69 ↓)</td><td rowspan=1 colspan=1>20.02 (32.20 ↓)</td><td rowspan=1 colspan=1>50.83 (1.39 )</td></tr><tr><td rowspan=1 colspan=1>Llama2-70B       64.68</td><td rowspan=1 colspan=1>33.16 (31.52 ↓)</td><td rowspan=1 colspan=1>65.37 (0.69 ↑)</td><td rowspan=1 colspan=1>35.77 (28.91 ↓)</td><td rowspan=1 colspan=1>64.20 (0.48 ↓)</td></tr><tr><td rowspan=1 colspan=1>Vicuna-v1.5-7B   48.57</td><td rowspan=1 colspan=1>18.09 (30.48 ↓)</td><td rowspan=1 colspan=1>44.10 (4.47 ↓)</td><td rowspan=1 colspan=1>11.33 (37.24 ↓)</td><td rowspan=1 colspan=1>38.29 (10.28 ↓)</td></tr><tr><td rowspan=1 colspan=1>Vicuna-v1.5-13B 54.68</td><td rowspan=1 colspan=1>26.27 (28.41 )</td><td rowspan=1 colspan=1>52.03 (2.65 ↓)</td><td rowspan=1 colspan=1>18.10 (36.58 ↓)</td><td rowspan=1 colspan=1>55.58 (0.90 ↑)</td></tr><tr><td rowspan=1 colspan=1>WizardLM-13B   48.60</td><td rowspan=1 colspan=1>15.87 (32.73 ↓)</td><td rowspan=1 colspan=1>30.17 (18.43 ↓)</td><td rowspan=1 colspan=1>8.23 (40.37 ↓)</td><td rowspan=1 colspan=1>37.81 (11.21 )</td></tr><tr><td rowspan=1 colspan=1>InternLM-20B    59.14</td><td rowspan=1 colspan=1>29.52 (29.62 ↓)</td><td rowspan=1 colspan=1>60.33 (1.19 ↑)</td><td rowspan=1 colspan=1>28.94 (30.20 ↓)</td><td rowspan=1 colspan=1>64.80 (5.66 ↑)</td></tr><tr><td rowspan=1 colspan=1>Falcon-7b         31.66</td><td rowspan=1 colspan=1>2.49 (29.17 ↓)</td><td rowspan=1 colspan=1>4.38 (27.28 ↓)</td><td rowspan=1 colspan=1>3.59 (28.07 ↓)</td><td rowspan=1 colspan=1>21.10 (10.56 ↓)</td></tr><tr><td rowspan=1 colspan=1>MPT-7B          35.60</td><td rowspan=1 colspan=2>3.52 (32.08 ↓)        13.80 (21.80 ↓)</td><td rowspan=1 colspan=1>6.24 (29.36 ↓) 21.42 (14.18 ↓)</td><td rowspan=1 colspan=1>6.24 (29.36 ↓) 21.42 (14.18 ↓)</td></tr></table>",
+        "bbox": [
+            125,
+            138,
+            846,
+            343
+        ],
+        "page_idx": 7
+    },
+    {
+        "type": "table",
+        "img_path": "images/b39e2b73bc504c987bf372e09402e3ebef91abd17cd686f2f3063c61f47129f9.jpg",
+        "table_caption": [
+            "Table 9. Baseline and permuted accuracy with PriDe on MMLU. Pride cannot alleviate the vulnerability caused by full permutation. "
+        ],
+        "table_footnote": [],
+        "table_body": "<table><tr><td>Models</td><td>PriDe (Baseline/Permuted Accuracy)</td></tr><tr><td>Llama2-7B</td><td>42.60/ 6.43 (36.17↓)</td></tr><tr><td>Llama2-13B</td><td>52.41/19.26 (33.15↓)</td></tr><tr><td>Vicuna-7B</td><td>49.37/18.42 (30.95↓)</td></tr><tr><td>Vicuna-13B</td><td>55.27/27.68 (27.59%)</td></tr></table>",
+        "bbox": [
+            91,
+            428,
+            468,
+            520
+        ],
+        "page_idx": 7
+    },
+    {
+        "type": "table",
+        "img_path": "images/024def25993fe94e25da81c90e4b8686320878bda61555b64c141b390a618c1c.jpg",
+        "table_caption": [
+            "Table 10. Comparison of baseline and permuted accuracy for different fine-tuning strategies across two benchmarks with Llama2-7B. Fine-tuning with permutation can enhance the robustness to the permutation attacks compared to the zero-shot and regular fine-tuning baseline. "
+        ],
+        "table_footnote": [],
+        "table_body": "<table><tr><td>Fine-tuning Strategy</td><td>ARC-Challenge</td><td>MedMCQA</td></tr><tr><td>Zero-shot</td><td>47.04/ 7.98 (39.06↓)</td><td>37.96/ 1.60 (36.36↓)</td></tr><tr><td>Regular Fine-tuning</td><td>51.42/15.02 (36.40↓)</td><td>45.03/14.38 (30.65↓)</td></tr><tr><td>Fine-tuning with Permutation</td><td>67.64/47.73 (19.91↓)</td><td>46.78/26.07 (20.71↓)</td></tr></table>",
+        "bbox": [
+            89,
+            638,
+            470,
+            691
+        ],
+        "page_idx": 7
+    },
+    {
+        "type": "text",
+        "text": "",
+        "bbox": [
+            89,
+            724,
+            473,
+            905
+        ],
+        "page_idx": 7
+    },
+    {
+        "type": "text",
+        "text": "",
+        "bbox": [
+            500,
+            375,
+            883,
+            404
+        ],
+        "page_idx": 7
+    },
+    {
+        "type": "text",
+        "text": "6. Discussion ",
+        "text_level": 1,
+        "bbox": [
+            500,
+            424,
+            607,
+            440
+        ],
+        "page_idx": 7
+    },
+    {
+        "type": "text",
+        "text": "In this paper, we present a comprehensive empirical analysis that unveils a critical but often overlooked vulnerability in both large language models (LLMs) and large visionlanguage models (VLLMs) in the context of multiple-choice question answering (MCQA). Despite their seemingly robust performance on established MCQA benchmarks, these models are highly susceptible to simple manipulations like option permutations. Our findings raise concerns about the widespread practice of evaluating and deploying these models based on MCQA tasks, urging caution in interpreting high benchmark scores as evidence of robust capabilities. We highlight the need for future work to develop training strategies and/or architectures that lead to intrinsic robustness to such adversarial attacks and develop parameter-efficient tuning approaches that can fine-tune or align existing pretrained LLMs and VLLMs to be invariant to permutations. Notably, although we do not offer a solution, we believe that our findings will be of interest to many researchers in the field and spur future works. Furthermore, these insights are crucial for industry professionals, particularly when deploying Large Language Models (LLMs) and Vision-Language Models (VLLMs) in real-world scenarios. ",
+        "bbox": [
+            501,
+            450,
+            885,
+            781
+        ],
+        "page_idx": 7
+    },
+    {
+        "type": "text",
+        "text": "Impact Statement ",
+        "text_level": 1,
+        "bbox": [
+            501,
+            801,
+            650,
+            818
+        ],
+        "page_idx": 7
+    },
+    {
+        "type": "text",
+        "text": "As a large number of LLM and VLLM benchmarks are based on multiple-choice question answering, the finding in our paper, that the MCQ evaluation is highly unstable and can be easily brought to below chance level through very simple permutations, is like to have a high impact on encouraging researchers to rethink the evaluation protocols and re-assess the capabilities of the developed LLMs and VLLMs. ",
+        "bbox": [
+            500,
+            828,
+            885,
+            904
+        ],
+        "page_idx": 7
+    },
+    {
+        "type": "text",
+        "text": "",
+        "bbox": [
+            88,
+            85,
+            472,
+            128
+        ],
+        "page_idx": 8
+    },
+    {
+        "type": "text",
+        "text": "Acknowledgement ",
+        "text_level": 1,
+        "bbox": [
+            89,
+            150,
+            243,
+            166
+        ],
+        "page_idx": 8
+    },
+    {
+        "type": "text",
+        "text": "Yongshuo Zong is supported by the United Kingdom Research and Innovation (grant EP/S02431X/1), UKRI Centre for Doctoral Training in Biomedical AI at the University of Edinburgh, School of Informatics. For the purpose of open access, the author has applied a creative commons attribution (CC BY) licence to any author accepted manuscript version arising. ",
+        "bbox": [
+            89,
+            176,
+            473,
+            281
+        ],
+        "page_idx": 8
+    },
+    {
+        "type": "text",
+        "text": "References ",
+        "text_level": 1,
+        "bbox": [
+            89,
+            300,
+            181,
+            316
+        ],
+        "page_idx": 8
+    },
+    {
+        "type": "text",
+        "text": "Alayrac, J.-B., Donahue, J., Luc, P., Miech, A., Barr, I., Hasson, Y., Lenc, K., Mensch, A., Millican, K., Reynolds, M., et al. Flamingo: a visual language model for few-shot learning. NeurIPS, 2022.   \nAnil, R., Dai, A. M., Firat, O., Johnson, M., Lepikhin, D., Passos, A., Shakeri, S., Taropa, E., Bailey, P., Chen, Z., et al. Palm 2 technical report. arXiv preprint arXiv:2305.10403, 2023.   \nAwadalla, A., Gao, I., Gardner, J., Hessel, J., Hanafy, Y., Zhu, W., Marathe, K., Bitton, Y., Gadre, S., Sagawa, S., Jitsev, J., Kornblith, S., Koh, P. W., Ilharco, G., Wortsman, M., and Schmidt, L. Openflamingo: An opensource framework for training large autoregressive visionlanguage models. arXiv preprint arXiv:2308.01390, 2023.   \nBrown, T., Mann, B., Ryder, N., Subbiah, M., Kaplan, J. D., Dhariwal, P., Neelakantan, A., Shyam, P., Sastry, G., Askell, A., et al. Language models are few-shot learners. NeurIPS, 2020.   \nChen, L., Davis, J. Q., Hanin, B., Bailis, P., Stoica, I., Zaharia, M., and Zou, J. Are more llm calls all you need? towards scaling laws of compound inference systems. arXiv, 2024.   \nChiang, W.-L., Li, Z., Lin, Z., Sheng, Y., Wu, Z., Zhang, H., Zheng, L., Zhuang, S., Zhuang, Y., Gonzalez, J. E., et al. Vicuna: An open-source chatbot impressing gpt-4 with $9 0 \\% *$ chatgpt quality. See https://vicuna. lmsys. org (accessed 14 April 2023), 2023.   \nClark, C., Lee, K., Chang, M.-W., Kwiatkowski, T., Collins, M., and Toutanova, K. BoolQ: Exploring the surprising difficulty of natural yes/no questions. In NAACL, 2019.   \nClark, P., Cowhey, I., Etzioni, O., Khot, T., Sabharwal, A., Schoenick, C., and Tafjord, O. Think you have solved question answering? try arc, the ai2 reasoning challenge. arXiv preprint arXiv:1803.05457, 2018.   \nDai, W., Li, J., Li, D., Tiong, A. M. H., Zhao, J., Wang, W., Li, B., Fung, P., and Hoi, S. Instructblip: Towards general-purpose vision-language models with instruction tuning. In NeurIPS, 2023.   \nDu, M., He, F., Zou, N., Tao, D., and Hu, X. Shortcut learning of large language models in natural language understanding. Communications of the ACM (CACM), 2023.   \nGeirhos, R., Jacobsen, J.-H., Michaelis, C., Zemel, R., Brendel, W., Bethge, M., and Wichmann, F. A. Shortcut learning in deep neural networks. Nature Machine Intelligence, 2(11):665–673, 2020.   \nHendrycks, D., Burns, C., Basart, S., Zou, A., Mazeika, M., Song, D., and Steinhardt, J. Measuring massive multitask language understanding. arXiv preprint arXiv:2009.03300, 2020.   \nHu, E. J., Shen, Y., Wallis, P., Allen-Zhu, Z., Li, Y., Wang, S., Wang, L., and Chen, W. Lora: Low-rank adaptation of large language models. ICLR, 2022.   \nLi, B., Wang, R., Wang, G., Ge, Y., Ge, Y., and Shan, Y. Seed-bench: Benchmarking multimodal llms with generative comprehension. arXiv preprint arXiv:2307.16125, 2023a.   \nLi, B., Zhang, Y., Chen, L., Wang, J., Yang, J., and Liu, Z. Otter: A multi-modal model with in-context instruction tuning. arXiv preprint arXiv:2305.03726, 2023b.   \nLi, J., Li, D., Savarese, S., and Hoi, S. Blip-2: Bootstrapping language-image pre-training with frozen image encoders and large language models. ICML, 2023c.   \nLiang, P., Bommasani, R., Lee, T., Tsipras, D., Soylu, D., Yasunaga, M., Zhang, Y., Narayanan, D., Wu, Y., Kumar, A., et al. Holistic evaluation of language models. arXiv preprint arXiv:2211.09110, 2022.   \nLiu, H., Li, C., Li, Y., and Lee, Y. J. Improved baselines with visual instruction tuning. arXiv preprint arXiv:2310.03744, 2023a.   \nLiu, H., Li, C., Wu, Q., and Lee, Y. J. Visual instruction tuning. arXiv:2304.08485, 2023b.   \nLiu, J., Shen, D., Zhang, Y., Dolan, B., Carin, L., and Chen, W. What makes good in-context examples for gpt-3? arXiv preprint arXiv:2101.06804, 2021.   \nLiu, Y., Duan, H., Zhang, Y., Li, B., Zhang, S., Zhao, W., Yuan, Y., Wang, J., He, C., Liu, Z., et al. Mmbench: Is your multi-modal model an all-around player? arXiv preprint arXiv:2307.06281, 2023c. ",
+        "bbox": [
+            84,
+            315,
+            477,
+            906
+        ],
+        "page_idx": 8
+    },
+    {
+        "type": "text",
+        "text": "",
+        "bbox": [
+            498,
+            64,
+            887,
+            910
+        ],
+        "page_idx": 8
+    },
+    {
+        "type": "text",
+        "text": "Liu, Y., Yao, Y., Ton, J.-F., Zhang, X., Cheng, R. G. H., Klochkov, Y., Taufiq, M. F., and Li, H. Trustworthy llms: a survey and guideline for evaluating large language models’ alignment. arXiv preprint arXiv:2308.05374, 2023d. ",
+        "bbox": [
+            88,
+            85,
+            473,
+            160
+        ],
+        "page_idx": 9
+    },
+    {
+        "type": "text",
+        "text": "Lu, P., Mishra, S., Xia, T., Qiu, L., Chang, K.-W., Zhu, S.-C., Tafjord, O., Clark, P., and Kalyan, A. Learn to explain: Multimodal reasoning via thought chains for science question answering. Advances in Neural Information Processing Systems, 35:2507–2521, 2022. ",
+        "bbox": [
+            88,
+            170,
+            473,
+            244
+        ],
+        "page_idx": 9
+    },
+    {
+        "type": "text",
+        "text": "Madry, A., Makelov, A., Schmidt, L., Tsipras, D., and Vladu, A. Towards deep learning models resistant to adversarial attacks. In ICLR, 2018. ",
+        "bbox": [
+            88,
+            256,
+            473,
+            301
+        ],
+        "page_idx": 9
+    },
+    {
+        "type": "text",
+        "text": "Merullo, J., Castricato, L., Eickhoff, C., and Pavlick, E. Linearly mapping from image to text space. ICLR, 2023. ",
+        "bbox": [
+            88,
+            311,
+            475,
+            342
+        ],
+        "page_idx": 9
+    },
+    {
+        "type": "text",
+        "text": "OpenAI. Introducing chatgpt. https://openai.com/ blog/chatgpt, 2023a. ",
+        "bbox": [
+            88,
+            352,
+            473,
+            381
+        ],
+        "page_idx": 9
+    },
+    {
+        "type": "text",
+        "text": "OpenAI, R. Gpt-4 technical report. arXiv, pp. 2303–08774, 2023b. ",
+        "bbox": [
+            88,
+            392,
+            475,
+            421
+        ],
+        "page_idx": 9
+    },
+    {
+        "type": "text",
+        "text": "Ouyang, L., Wu, J., Jiang, X., Almeida, D., Wainwright, C., Mishkin, P., Zhang, C., Agarwal, S., Slama, K., Ray, A., et al. Training language models to follow instructions with human feedback. Advances in Neural Information Processing Systems, 2022. ",
+        "bbox": [
+            88,
+            433,
+            475,
+            507
+        ],
+        "page_idx": 9
+    },
+    {
+        "type": "text",
+        "text": "Pal, A., Umapathi, L. K., and Sankarasubbu, M. Medmcqa: A large-scale multi-subject multi-choice dataset for medical domain question answering. In Conference on Health, Inference, and Learning. PMLR, 2022. ",
+        "bbox": [
+            86,
+            518,
+            475,
+            578
+        ],
+        "page_idx": 9
+    },
+    {
+        "type": "text",
+        "text": "Penedo, G., Malartic, Q., Hesslow, D., Cojocaru, R., Cappelli, A., Alobeidli, H., Pannier, B., Almazrouei, E., and Launay, J. The refinedweb dataset for falcon llm: outperforming curated corpora with web data, and web data only. arXiv preprint arXiv:2306.01116, 2023. ",
+        "bbox": [
+            88,
+            588,
+            475,
+            664
+        ],
+        "page_idx": 9
+    },
+    {
+        "type": "text",
+        "text": "Robinson, J. and Wingate, D. Leveraging large language models for multiple choice question answering. In The Eleventh International Conference on Learning Representations, 2023. ",
+        "bbox": [
+            86,
+            674,
+            473,
+            734
+        ],
+        "page_idx": 9
+    },
+    {
+        "type": "text",
+        "text": "Sagawa, S., Raghunathan, A., Koh, P. W., and Liang, P. An investigation of why overparameterization exacerbates spurious correlations. In International Conference on Machine Learning, pp. 8346–8356. PMLR, 2020. ",
+        "bbox": [
+            88,
+            744,
+            473,
+            804
+        ],
+        "page_idx": 9
+    },
+    {
+        "type": "text",
+        "text": "Sap, M., Rashkin, H., Chen, D., Le Bras, R., and Choi, Y. Social IQa: Commonsense reasoning about social interactions. In Proceedings of the 2019 Conference on Empirical Methods in Natural Language Processing and the 9th International Joint Conference on Natural Language Processing (EMNLP-IJCNLP), 2019. ",
+        "bbox": [
+            88,
+            815,
+            473,
+            905
+        ],
+        "page_idx": 9
+    },
+    {
+        "type": "text",
+        "text": "Schwenk, D., Khandelwal, A., Clark, C., Marino, K., and Mottaghi, R. A-okvqa: A benchmark for visual question answering using world knowledge. In European Conference on Computer Vision, pp. 146–162. Springer, 2022. ",
+        "bbox": [
+            500,
+            85,
+            885,
+            159
+        ],
+        "page_idx": 9
+    },
+    {
+        "type": "text",
+        "text": "Shi, F., Chen, X., Misra, K., Scales, N., Dohan, D., Chi, E. H., Scharli, N., and Zhou, D. Large language models ¨ can be easily distracted by irrelevant context. In International Conference on Machine Learning, pp. 31210– 31227. PMLR, 2023. ",
+        "bbox": [
+            500,
+            172,
+            887,
+            247
+        ],
+        "page_idx": 9
+    },
+    {
+        "type": "text",
+        "text": "Sun, Q., Cui, Y., Zhang, X., Zhang, F., Yu, Q., Luo, Z., Wang, Y., Rao, Y., Liu, J., Huang, T., et al. Generative multimodal models are in-context learners. CVPR, 2024. ",
+        "bbox": [
+            500,
+            261,
+            887,
+            306
+        ],
+        "page_idx": 9
+    },
+    {
+        "type": "text",
+        "text": "Team, I. Internlm: A multilingual language model with progressively enhanced capabilities. https://github. com/InternLM/InternLM, 2023a. ",
+        "bbox": [
+            500,
+            319,
+            887,
+            363
+        ],
+        "page_idx": 9
+    },
+    {
+        "type": "text",
+        "text": "Team, M. N. Introducing mpt-7b: A new standard for open-source, commercially usable llms, 2023b. URL www.mosaicml.com/blog/mpt-7b. ",
+        "bbox": [
+            500,
+            377,
+            885,
+            422
+        ],
+        "page_idx": 9
+    },
+    {
+        "type": "text",
+        "text": "Touvron, H., Lavril, T., Izacard, G., Martinet, X., Lachaux, M.-A., Lacroix, T., Roziere, B., Goyal, N., Hambro, E., \\` Azhar, F., et al. Llama: Open and efficient foundation language models. arXiv preprint arXiv:2302.13971, 2023a. ",
+        "bbox": [
+            500,
+            435,
+            887,
+            496
+        ],
+        "page_idx": 9
+    },
+    {
+        "type": "text",
+        "text": "Touvron, H., Martin, L., Stone, K., Albert, P., Almahairi, A., Babaei, Y., Bashlykov, N., Batra, S., Bhargava, P., Bhosale, S., et al. Llama 2: Open foundation and finetuned chat models. arXiv preprint arXiv:2307.09288, 2023b. ",
+        "bbox": [
+            501,
+            508,
+            885,
+            582
+        ],
+        "page_idx": 9
+    },
+    {
+        "type": "text",
+        "text": "Wang, X., Wei, J., Schuurmans, D., Le, Q. V., Chi, E. H., Narang, S., Chowdhery, A., and Zhou, D. Selfconsistency improves chain of thought reasoning in language models. In The Eleventh International Conference on Learning Representations, 2023. URL https: //openreview.net/forum?id $\\underline { { \\underline { { \\mathbf { \\Pi } } } } } =$ 1PL1NIMMrw. ",
+        "bbox": [
+            500,
+            595,
+            887,
+            686
+        ],
+        "page_idx": 9
+    },
+    {
+        "type": "text",
+        "text": "Xu, C., Sun, Q., Zheng, K., Geng, X., Zhao, P., Feng, J., Tao, C., and Jiang, D. Wizardlm: Empowering large language models to follow complex instructions. arXiv preprint arXiv:2304.12244, 2023. ",
+        "bbox": [
+            498,
+            699,
+            885,
+            758
+        ],
+        "page_idx": 9
+    },
+    {
+        "type": "text",
+        "text": "Ye, Q., Xu, H., Xu, G., Ye, J., Yan, M., Zhou, Y., Wang, J., Hu, A., Shi, P., Shi, Y., Jiang, C., Li, C., Xu, Y., Chen, H., Tian, J., Qi, Q., Zhang, J., and Huang, F. mplug-owl: Modularization empowers large language models with multimodality. 2304.14178, 2023. ",
+        "bbox": [
+            500,
+            772,
+            887,
+            847
+        ],
+        "page_idx": 9
+    },
+    {
+        "type": "text",
+        "text": "Yin, S., Fu, C., Zhao, S., Li, K., Sun, X., Xu, T., and Chen, E. A survey on multimodal large language models. arXiv preprint arXiv:2306.13549, 2023. ",
+        "bbox": [
+            500,
+            861,
+            885,
+            905
+        ],
+        "page_idx": 9
+    },
+    {
+        "type": "text",
+        "text": "Zhao, Z., Wallace, E., Feng, S., Klein, D., and Singh, S. Calibrate before use: Improving few-shot performance of language models. In ICML, 2021.   \nZheng, C., Zhou, H., Meng, F., Zhou, J., and Huang, M. On large language models’ selection bias in multi-choice questions. arXiv preprint arXiv:2309.03882, 2023a.   \nZheng, L., Chiang, W.-L., Sheng, Y., Zhuang, S., Wu, Z., Zhuang, Y., Lin, Z., Li, Z., Li, D., Xing, E. P., Zhang, H., Gonzalez, J. E., and Stoica, I. Judging llm-as-a-judge with mt-bench and chatbot arena, 2023b.   \nZhong, W., Cui, R., Guo, Y., Liang, Y., Lu, S., Wang, Y., Saied, A., Chen, W., and Duan, N. Agieval: A human-centric benchmark for evaluating foundation models. arXiv preprint arXiv:2304.06364, 2023.   \nZhu, K., Wang, J., Zhou, J., Wang, Z., Chen, H., Wang, Y., Yang, L., Ye, W., Gong, N. Z., Zhang, Y., et al. Promptbench: Towards evaluating the robustness of large language models on adversarial prompts. arXiv preprint arXiv:2306.04528, 2023.   \nZong, Y., Mac Aodha, O., and Hospedales, T. Selfsupervised multimodal learning: A survey. arXiv, 2023. ",
+        "bbox": [
+            86,
+            85,
+            477,
+            458
+        ],
+        "page_idx": 10
+    },
+    {
+        "type": "text",
+        "text": "A. Appendix ",
+        "text_level": 1,
+        "bbox": [
+            89,
+            83,
+            196,
+            101
+        ],
+        "page_idx": 11
+    },
+    {
+        "type": "text",
+        "text": "A.1. Additional Results on Answer Set Pruning ",
+        "text_level": 1,
+        "bbox": [
+            88,
+            109,
+            418,
+            125
+        ],
+        "page_idx": 11
+    },
+    {
+        "type": "text",
+        "text": "We present the additional results of the answer set pruning of all language and vision-language datasets in Table 11 to 16. ",
+        "bbox": [
+            96,
+            132,
+            879,
+            148
+        ],
+        "page_idx": 11
+    },
+    {
+        "type": "text",
+        "text": "A.2. Additional Results on Different Prompting and Attack Strategies ",
+        "text_level": 1,
+        "bbox": [
+            91,
+            164,
+            573,
+            179
+        ],
+        "page_idx": 11
+    },
+    {
+        "type": "text",
+        "text": "In this subsection, we investigate the effect of different prompting techniques on the models’ vulnerability to MCQA. The findings are summarized below. ",
+        "bbox": [
+            93,
+            188,
+            887,
+            217
+        ],
+        "page_idx": 11
+    },
+    {
+        "type": "text",
+        "text": "• Table 17 presents the average number of permutations needed to break the predictions of ARC-Challenge and MedMCQA datasets. Observations are two fold: (1) stronger LLMs require a larger number of permutations to break, and (2) LLMs are easier to break on more difficult datasets (ARC-Challenge is relatively easier than MedMCQA for LLMs).   \n• Table 18 and 19 analyze the reason for the seemingly counterintuitive ineffectiveness of the majority vote with Llama2- 7B (decrease with majority vote) and InternLM-20B (increase with majority vote). The intuitive summary is as follows (consistent with (Chen et al., 2024)): For easy queries where an LLM call’s output is correct more than $50 \\%$ of the time, the probability of a correct majority vote goes 1 with infinite LLM calls. Conversely, for hard queries (e.g., with less than a $50 \\%$ correctness rate), the majority vote’s accuracy trends towards 0 as LLM calls increase.   \n• Table 20 compares the performance before and after adversarial attack with in-context learning. Although in-context learning can improve the original performance, the models still suffer substantially from the performance drop after adversarial permutations.   \n• Table 21 to Table 25 presents different attack strategies with in-context learning, i.e. permutation of in-context examples and searching for worst-case in-context examples. While they can decrease the performance, our adversarial attack has the biggest impact on the final performance and causes the largest performance drop.   \n• Table 26 compares different sampling strategies and temperatures. The performance of the other decoding strategies is even worse before and after the permutations compared to the greedy decoding we adopted. Therefore we can ensure our experiments were conducted properly and the findings can generalize to other decoding strategies.   \n• Table 27 to Table 29 presents the effect of in-context learning on the position bias. Our findings indicate that while the original model exhibited a preference for option B, this preference persisted even after introducing in-context examples with answers set to positions A, B, C, and D. This suggests that while in-context examples can modify the distribution across various options, they do not entirely override the inherent position bias of the model. ",
+        "bbox": [
+            99,
+            236,
+            890,
+            613
+        ],
+        "page_idx": 11
+    },
+    {
+        "type": "text",
+        "text": "A.3. Further Analysis on Vision-Language Dataset ",
+        "text_level": 1,
+        "bbox": [
+            89,
+            630,
+            441,
+            645
+        ],
+        "page_idx": 11
+    },
+    {
+        "type": "text",
+        "text": "We present analysis on vision-language dataset A-OKVQA (Schwenk et al., 2022) in Table 30 and 31 about position bias and different strategies for mitigation. The additional analysis further ensures that our findings on LLMs can also be generalized to VLLMs. ",
+        "bbox": [
+            89,
+            654,
+            885,
+            699
+        ],
+        "page_idx": 11
+    },
+    {
+        "type": "text",
+        "text": "A.4. Qualitative Results ",
+        "text_level": 1,
+        "bbox": [
+            89,
+            715,
+            254,
+            731
+        ],
+        "page_idx": 11
+    },
+    {
+        "type": "text",
+        "text": "To illustrate the permutation attack, we present qualitative results for LLMs in Table 32 and VLLMs in Fig. 3. ",
+        "bbox": [
+            89,
+            738,
+            805,
+            755
+        ],
+        "page_idx": 11
+    },
+    {
+        "type": "text",
+        "text": "Language Models In Table 32, we showcase an MCQA example from the ARC-challenge dataset (Clark et al., 2018), with the original answer order alongside two permutations. The ground-truth answer is underlined in each configuration. We use Llama-13B for this experiment. The model gives the correct prediction for the original option order. For permutation 1, if we only swap the position of option C and D, i.e., moving the ground-truth position to C, the model can still successfully give the prediction. However, for permutation 2, even if we do not move the ground-truth answer but only swap option A and B, the model incorrectly predicts A as the answer. This qualitative example underscores that the model’s vulnerability extends beyond mere positional bias and even minor changes in option ordering can result in completely different predictions. ",
+        "bbox": [
+            88,
+            761,
+            887,
+            867
+        ],
+        "page_idx": 11
+    },
+    {
+        "type": "text",
+        "text": "Vision-Language Models In Appendix Figure 3, we present a visual MCQA example from ScienceQA dataset using Otter-Llama model. In this example, we simply move the ground truth “Asia” from option A to option C. However, the model still predicts the answer to be A and shows strong confidence in terms of the token probabilities (right part of the figure). This might show the model’s preference for the first option as a recency bias. ",
+        "bbox": [
+            91,
+            875,
+            883,
+            905
+        ],
+        "page_idx": 11
+    },
+    {
+        "type": "text",
+        "text": "",
+        "bbox": [
+            91,
+            85,
+            887,
+            114
+        ],
+        "page_idx": 12
+    },
+    {
+        "type": "text",
+        "text": "Analysis on Permutation Distribution While our main focus has been on the permutation-robustness of LLMs and VLMs, we can also ask about the distribution of responses as a function of permutation. For example, is there only one specific pathological permutation among all $k !$ options, or are there many mistake-inducing permutations? To analyse this we report in Figure 4, a histogram over the questions in ARC-challenge where each bin represents the number of questions where the specified proportion of permutations led to the correct answer that are originally correctly answered. For example, we see that Llama2-70B has a large number of questions that succeed for almost all permutations, while several models have a substantial batch of questions that are only correctly answered for around $30 \\%$ of the potential permutations. Interestingly, most models have a substantial minority of questions that are only correctly answered for a small fraction of the permutations (leftmost bin). ",
+        "bbox": [
+            88,
+            122,
+            885,
+            257
+        ],
+        "page_idx": 12
+    },
+    {
+        "type": "table",
+        "img_path": "images/5262aceb2d8911d6b0fdee4a1d292874c141f39f60bbcd2f6464aeb28a4312e3.jpg",
+        "table_caption": [
+            "Table 11. Results of answer Set Pruning on ARC (challenge) Dataset. "
+        ],
+        "table_footnote": [],
+        "table_body": "<table><tr><td>Method</td><td>Original 4 Choices 3 Choices</td><td></td><td>2 Choices</td></tr><tr><td>Llama2-7B</td><td>47.04</td><td>52.13/25.67 (26.46↓)</td><td>69.44/27.04 (42.40↓)</td></tr><tr><td>Llama2-13B</td><td>61.80</td><td>68.07/27.55 (40.52↓) 77.08/39.57 (37.51↓)</td><td></td></tr><tr><td>Llama2-70B</td><td>80.00</td><td>83.09/45.88 (37.21↓)</td><td>84.21/66.01 (18.20↓)</td></tr><tr><td>Vicuna-v1.5-7B</td><td>58.37</td><td>68.07/29.70 (38.37↓)</td><td>78.11/42.66 (35.45↓) </td></tr><tr><td>Vicuna-v1.5-13B</td><td>69.27</td><td></td><td>74.85/42.32 (32.53 ) 83.18/56.14 (27.04↓)</td></tr><tr><td>WizardLM-13B</td><td>58.20</td><td>67.38/28.07 (39.31↓)</td><td>76.05/4.64 (71.41↓)</td></tr><tr><td>InternLM-7B</td><td>56.14</td><td>61.37/17.42 (43.95↓)</td><td>71.93/29.44 (42.49↓)</td></tr><tr><td>InternLM-20B</td><td>78.28</td><td>82.06/48.58 (33.48↓)</td><td>84.81/56.03 (28.78↓)</td></tr><tr><td>Falcon-7B</td><td>34.74</td><td>31.76/0.00 (31.76↓)</td><td>48.58/0.43 (48.15↓)</td></tr><tr><td>MPT-7B</td><td>37.76</td><td>40.43/12.15 (28.28↓) 50.47/0.09 (50.38↓)</td><td></td></tr><tr><td>Random Chance</td><td>25.0</td><td>33.33</td><td>50.0</td></tr></table>",
+        "bbox": [
+            184,
+            108,
+            789,
+            353
+        ],
+        "page_idx": 13
+    },
+    {
+        "type": "image",
+        "img_path": "images/7ddda538051e1c99aef2a4b277d7d2fdea1b125c1043af304500b4b6f0e5a529.jpg",
+        "image_caption": [
+            "Figure 3. Qualitative results of permutations of answer options and the corresponding model (Otter-Llama) predictions. The example is selected from the ScienceQA dataset. "
+        ],
+        "image_footnote": [],
+        "bbox": [
+            88,
+            381,
+            880,
+            553
+        ],
+        "page_idx": 13
+    },
+    {
+        "type": "table",
+        "img_path": "images/f6650b548a04c3dc1fd7f411037b4b482e2f1c3f6ebffa45ac7748159f414866.jpg",
+        "table_caption": [
+            "Table 12. Results of answer set pruning on SocialiQA Dataset. "
+        ],
+        "table_footnote": [],
+        "table_body": "<table><tr><td>Method</td><td>Original 4 Choices 2 Choices</td><td></td></tr><tr><td>Llama2-7B</td><td>52.00</td><td>68.42/29.58 (38.84↓)</td></tr><tr><td>Llama2-13B</td><td>61.21</td><td>73.64/45.91 (27.73↓)</td></tr><tr><td>Llama2-70B</td><td>71.60</td><td>81.88/53.99 (27.89↓)</td></tr><tr><td>Vicuna-v1.5-7B</td><td>64.99</td><td>73.29/41.56 (31.73↓)</td></tr><tr><td>Vicuna-v1.5-13B</td><td>66.07</td><td>78.25/53.48 (24.77↓)</td></tr><tr><td>WizardLM-13B</td><td>79.48</td><td>69.75/30.91 (38.84↓)</td></tr><tr><td>InternLM-7B</td><td>59.47</td><td>76.41/53.02 (23.39↓)</td></tr><tr><td>InternLM-20B</td><td>36.29</td><td>86.8/72.82 (13.98↓)</td></tr><tr><td>Falcon-7B</td><td>41.61</td><td>55.83/0.85 (54.98↓)</td></tr><tr><td>MPT-7B</td><td>70.62</td><td>60.08/4.52 (55.56↓)</td></tr><tr><td>Random Chance</td><td>25.0</td><td>50.0</td></tr></table>",
+        "bbox": [
+            264,
+            108,
+            709,
+            354
+        ],
+        "page_idx": 14
+    },
+    {
+        "type": "table",
+        "img_path": "images/0f1ced6e84d9400071ddee306b426c76510287c7cb2ad3ae8a78c5d3fa98b11a.jpg",
+        "table_caption": [
+            "Table 13. Results of answer set Pruning on MedMCQ Dataset. "
+        ],
+        "table_footnote": [],
+        "table_body": "<table><tr><td>Method</td><td>Original 4 Choices</td><td>3 Choices</td><td>2 Choices</td></tr><tr><td>Llama2-7B</td><td>37.96</td><td>47.94/2.63 (45.31↓)</td><td>62.29/5.68 (56.61↓)</td></tr><tr><td>Llama2-13B</td><td>39.78</td><td>50.02/19.35 (30.67↓)</td><td>10.37/37.45 (-27.08↓)</td></tr><tr><td>Llama2-70B</td><td>49.61</td><td>55.33/17.86 (37.47↓)</td><td>65.66/28.76 (36.90↓)</td></tr><tr><td>Vicuna-v1.5-7B</td><td>39.28</td><td>46.27/10.55 (35.72↓)</td><td>59.62/22.13 (37.49↓)</td></tr><tr><td>Vicuna-v1.5-13B</td><td>41.80</td><td>50.33/24.72 (25.61↓)</td><td>61.23/28.70 (32.53↓)</td></tr><tr><td>WizardLM-13B</td><td>34.87</td><td>40.39/8.37 (32.02↓)</td><td>52.46/10.79 (41.67↓)</td></tr><tr><td>InternLM-7B</td><td>56.14</td><td>38.49/2.66 (35.83↓)</td><td>52.02/8.42 (43.60↓)</td></tr><tr><td>InternLM-20B</td><td>43.61</td><td>60.05/17.59 (42.46↓)</td><td>65.08/30.61 (34.47↓)</td></tr><tr><td>Falcon-7B</td><td>28.12</td><td>36.18/1.05 (35.13↓)</td><td>51.30/5.23 (46.07↓)</td></tr><tr><td>MPT-7B</td><td>26.31</td><td>38.33/3.07 (35.26↓)</td><td>53.50/9.71 (43.79↓)</td></tr><tr><td>Random Chance</td><td>25.0</td><td>33.33</td><td>50.0</td></tr></table>",
+        "bbox": [
+            181,
+            393,
+            790,
+            640
+        ],
+        "page_idx": 14
+    },
+    {
+        "type": "image",
+        "img_path": "images/dcf04bd67f9543733b79e84921f3cabb1e906b0dda097778c9899884ebba8f9a.jpg",
+        "image_caption": [
+            "Figure 4. Analysis on permutation distribution. The histogram shows the number of questions for which the corresponding proportion of permutations leads to the correct answer (ideal is a full bar at the $100 \\%$ bin, indicating that all permutations are correctly answered for all questions). The distribution of bins suggests that many questions have multiple adversarial permutations. "
+        ],
+        "image_footnote": [],
+        "bbox": [
+            122,
+            656,
+            846,
+            856
+        ],
+        "page_idx": 14
+    },
+    {
+        "type": "table",
+        "img_path": "images/140b72deb2fa83b08ae6892183b75db5465068eea193260b8757e5406b1471b7.jpg",
+        "table_caption": [
+            "Table 14. Results of answer set pruning on A-OKVQA dataset. Numbers in each cell represent original accuracy, accuracy after adversaria permutation attack, and relative performance drop. "
+        ],
+        "table_footnote": [],
+        "table_body": "<table><tr><td>Method</td><td>4 Choices</td><td>3 Choices</td><td>2 Choices</td></tr><tr><td>InstructBLIP7B</td><td>74.06</td><td>79.21/45.92 (33.29↓)</td><td>85.07/54.85 (30.22↓)</td></tr><tr><td>InstructBLIP13B</td><td>77.90</td><td>81.66/48.33 (33.33↓)</td><td>88.56/56.52 (32.04↓)</td></tr><tr><td>OpenFlamingo</td><td>46.90</td><td>54.18/4.88 (49.30↓)</td><td>66.90/5.09 (61.81↓)</td></tr><tr><td>Otter-Llama7B</td><td>57.99</td><td>64.98/33.10 (31.88↓)</td><td>75.02/39.74 (35.28↓)</td></tr><tr><td>Otter-MPT7B</td><td>68.21</td><td>76.16/46.11 (30.05↓)</td><td>81.48/51.44 (30.04↓)</td></tr><tr><td>Llava-7B</td><td>52.91</td><td>42.86/9.44 (33.42↓)</td><td>63.55/12.90 (50.65↓)</td></tr><tr><td>Llava-13B</td><td>63.14</td><td>71.09/33.37 (37.72↓)</td><td>76.24/41.22 (35.02↓)</td></tr><tr><td>Limber</td><td>39.91</td><td>49.69/4.54 (45.15↓)</td><td>65.68/18.08 (47.60↓)</td></tr><tr><td>mPLUG-Owl-pt</td><td>39.91</td><td>45.59/4.95 (40.64↓)</td><td>56.42/10.57 (45.85↓)</td></tr><tr><td>mPLUG-Owl-instr</td><td>37.12</td><td>47.86/5.15 (42.71↓)</td><td>58.92/16.77 (42.15↓)</td></tr><tr><td>Random Chance</td><td>25.0</td><td>33.33</td><td>50.0</td></tr></table>",
+        "bbox": [
+            212,
+            180,
+            761,
+            428
+        ],
+        "page_idx": 15
+    },
+    {
+        "type": "table",
+        "img_path": "images/456ffe9a6a5970207cf08bb5cc7d5a0dcc3e39a1f76f63b8343aad87cafc08fe.jpg",
+        "table_caption": [
+            "Table 15. Results of answer set pruning on SEED-Bench dataset. Numbers in each cell represent original accuracy, accuracy afte adversarial permutation attack, and relative performance drop. "
+        ],
+        "table_footnote": [],
+        "table_body": "<table><tr><td>Model</td><td>Original 4 Choices</td><td>3 Choices</td><td>2 Choices</td></tr><tr><td>InstructBLIP7B</td><td>51.61</td><td>59.83/38.12(21.71 ↓)</td><td>70.69/55.62(15.07 ↓)</td></tr><tr><td>InstructBLIP13B</td><td>53.65</td><td>61.22/42.97(18.25 )</td><td>72.79/57.18(15.61 ↓)</td></tr><tr><td>OpenFlamingo</td><td>37.99</td><td>39.64/10.25(29.39 ↓)</td><td>55.31/28.35(26.96 ↓)</td></tr><tr><td>Otter-Llama7B</td><td>50.77</td><td>49.46/13.48(35.98↓)</td><td>63.57/18.86(44.71 ↓)</td></tr><tr><td>Otter-MPT7B</td><td>46.76</td><td>54.18/17.42(36.76 ↓)</td><td>66.43/28.35(38.08 ↓)</td></tr><tr><td>Llava-7B</td><td>38.36</td><td>43.30/6.11(37.19 ↓)</td><td>57.50/7.48(50.02 ↓)</td></tr><tr><td>Llava-13B</td><td>44.00</td><td>52.51/17.25(35.26 ↓)</td><td>63.37/25.24(38.13 ↓)</td></tr><tr><td>Limber</td><td>31.50</td><td>38.76/1.13(37.63 ↓)</td><td>55.58/0.06(55.52 ↓)</td></tr><tr><td>mPLUG-Owl-pt</td><td>35.57</td><td>42.08/1.79(40.29 ↓)</td><td>57.72/3.88(53.84 ↓)</td></tr><tr><td>mPLUG-Owl-instr</td><td>36.74</td><td>44.35/2.94(41.41 ↓)</td><td>56.61/7.53(49.08 ↓)</td></tr><tr><td>Random Chance</td><td>25.0</td><td>33.33</td><td>50.0</td></tr></table>",
+        "bbox": [
+            178,
+            592,
+            794,
+            839
+        ],
+        "page_idx": 15
+    },
+    {
+        "type": "table",
+        "img_path": "images/0cca4513318aba240c38fb5a982eacdddd63eb6b28416fcd3c4e368249c3a093.jpg",
+        "table_caption": [
+            "Table 16. Results of answer set pruning on MMBench dataset. Numbers in each represent original accuracy, accuracy after adversarial attack, and relative performance drop. "
+        ],
+        "table_footnote": [],
+        "table_body": "<table><tr><td>Method</td><td>Original 4 Choices</td><td>3 Choices</td><td>2 Choices</td></tr><tr><td>InstructBLIP7B</td><td>64.91</td><td>72.61/45.28(27.33 )</td><td>79.62/51.15(28.47 )</td></tr><tr><td>InstructBLIP13B</td><td>67.12</td><td>72.79/50.42(22.37 )</td><td>81.27/57.30(23.97 ↓)</td></tr><tr><td>OpenFlamingo</td><td>38.99</td><td>46.58/3.81(42.77 ↓)</td><td>59.65/7.42(52.23 ↓)</td></tr><tr><td>Otter-Llama7B</td><td>55.24</td><td>61.73/25.11(36.62 ↓)</td><td>73.02/32.99(40.03 )</td></tr><tr><td>Otter-MPT7B</td><td>61.31</td><td>66.71/28.53(38.18 ↓)</td><td>75.28/46.06(29.22 ↓)</td></tr><tr><td>Llava-7B</td><td>46.03</td><td>45.37/2.14(43.23 ↓)</td><td>59.42/3.66(55.76 ↓)</td></tr><tr><td>Llava-13B</td><td>59.13</td><td>65.20/35.66(29.54 ↓)</td><td>73.13/42.49(30.64 ↓)</td></tr><tr><td>Limber</td><td>34.93</td><td>44.23/2.56(41.67 ↓)</td><td>61.00/12.75(48.25 ↓)</td></tr><tr><td>mPLUG-Owl-pt</td><td>42.57</td><td>53.17/12.24(40.93 ↓)</td><td>56.42/16.90(39.52 ↓)</td></tr><tr><td>mPLUG-Owl-instr</td><td>43.74</td><td>50.17/11.15(39.02 ↓)</td><td>61.48/18.97(42.51 ↓)</td></tr><tr><td>Random Chance</td><td>25.0</td><td>33.33</td><td>50.0</td></tr></table>",
+        "bbox": [
+            179,
+            135,
+            794,
+            386
+        ],
+        "page_idx": 16
+    },
+    {
+        "type": "table",
+        "img_path": "images/75f4d5cb5c91e937c1dafb2f178dcead67957084a9a10df753613b4341bbdfff.jpg",
+        "table_caption": [
+            "Table 17. Average number of permutations needed to break the predictions of ARC-Challenge and MedMCQA datasets. In each cell, the first number is the average number of all samples, and the second number is the average number of permutations needed when the question in the original order is answered correctly. "
+        ],
+        "table_footnote": [],
+        "table_body": "<table><tr><td>Models</td><td>ARC-C</td><td>MedMCQA</td></tr><tr><td>Llama2-7B</td><td>3.73/7.96</td><td>2.01/5.26</td></tr><tr><td>Llama2-13B</td><td>7.53/12.19</td><td>3.40/8.90</td></tr><tr><td>Llama2-70B</td><td>13.80/17.16</td><td>5.46/11.10</td></tr><tr><td>Vicuna-v1.5</td><td>7.47/12.80</td><td>3.18/8.14</td></tr><tr><td>Vicuna-v1.5-13B</td><td>10.77/15.55</td><td>4.42/10.60</td></tr><tr><td>WizardLM-13B</td><td>7.19/12.35</td><td>2.73/8.08</td></tr><tr><td>InternLM-7B</td><td>6.00/10.69</td><td>1.58/4.84</td></tr><tr><td>InternLM-20B</td><td>14.19/18.13</td><td>4.72/10.82</td></tr><tr><td>Falcon-7b</td><td>1.31/5.83</td><td>1.88/5.71</td></tr><tr><td>MPT-7B</td><td>1.59/2.87</td><td>0.58/2.18</td></tr></table>",
+        "bbox": [
+            284,
+            479,
+            681,
+            694
+        ],
+        "page_idx": 16
+    },
+    {
+        "type": "table",
+        "img_path": "images/a117d5f7d6f259d8a88dd228778b56dd0146909537b94bb9d02e7a2a1c5749cd.jpg",
+        "table_caption": [
+            "Table 18. Majority vote performance when considering the easy sample with respect to a certain model to be the ones where $50 \\%$ of the permutations are correct. If we consider the easy sample with respect to a certain model to be the ones where $50 \\%$ of the permutations are correct, the majority vote accuracy of easy samples will be $100 \\%$ , and we calculate the accuracy of the majority of the difficult samples. For both Llama2-7B and InternLM-20B, the majority vote accuracies of difficult samples are very low. However, there are more easy samples wrt InternLM-20B compared to Llama2-7B, and therefore InternLM-20B overall improves with the majority vote while the accuracy of Llama2-7B decreases with the majority vote. "
+        ],
+        "table_footnote": [],
+        "table_body": "<table><tr><td>Model</td><td>Performance (original/majority vote) Easy sample Acc. (# samples) Difficult sample Acc. (# samples)</td><td></td><td></td></tr><tr><td>Llama2-7B</td><td>40.91/33.64</td><td>100 (4148)</td><td>16.56 (9334)</td></tr><tr><td>InternLM-20B</td><td>59.14/60.33</td><td>100 (9957)</td><td>10.69 (3512)</td></tr></table>",
+        "bbox": [
+            86,
+            830,
+            882,
+            888
+        ],
+        "page_idx": 16
+    },
+    {
+        "type": "text",
+        "text": "Table 19. Majority vote performance when considering the easy sample with respect to a certain model to be the ones where $2 5 \\%$ of the permutations are correct on the MMLU dataset. If we consider the easy sample with respect to a certain model to be the ones where $2 5 \\%$ of the permutations are correct, the majority vote accuracy of difficult samples will be $0 \\%$ , and we calculate the accuracy for majority vote on the easy samples. As shown in the table, both models have improved with majority vote on easy samples but the final performance may or may not be improved overall when considering the average accuracy across both easy and difficult samples. ",
+        "bbox": [
+            88,
+            97,
+            885,
+            167
+        ],
+        "page_idx": 17
+    },
+    {
+        "type": "table",
+        "img_path": "images/e6d9b1aee384e3599c1073c84a63074e2ff80cbbd2c41ca933caad0743f9a1eb.jpg",
+        "table_caption": [
+            "Table 20. Performance comparisons of LLMs before and after adversarial attack with in-context learning prompt. Numbers in each represent original accuracy, accuracy after adversarial attack, and relative performance drop. Red shading indicates experiments where the permutation attack reduced performance below chance level. All models suffer substantially with most experiments leading to below chance performance. "
+        ],
+        "table_footnote": [],
+        "table_body": "<table><tr><td>Model</td><td>Performance (original/majority vote) Easy sample Acc. (# samples) Difficult sample Acc. (# samples)</td><td></td><td></td></tr><tr><td>Llama2-7B</td><td>40.91/33.64</td><td>46.08 (10252)</td><td>0 (3790)</td></tr><tr><td>InternLM-20B</td><td>59.14/60.33</td><td>75.28 (11530)</td><td>0 (2512)</td></tr></table>",
+        "bbox": [
+            86,
+            178,
+            882,
+            236
+        ],
+        "page_idx": 17
+    },
+    {
+        "type": "table",
+        "img_path": "images/7d795eb0ab87f716ceeb09f5031a21dc9413920e189fb11ca31291fd2c1c43fd.jpg",
+        "table_caption": [],
+        "table_footnote": [],
+        "table_body": "<table><tr><td>Method</td><td>MMLU</td><td>ARC-c</td><td>BoolQ</td><td>SocialiQA</td><td>MedMCQA</td></tr><tr><td>Llama2-7B</td><td>45.80/11.16 (34.64 ↓)</td><td>47.04/ 7.98 (39.06 ↓)</td><td>61.79/ 8.23 (53.56 ↓)</td><td>52.00/15.71 (36.29 ↓)</td><td>37.96/ 1.60 (36.36 ↓)</td></tr><tr><td>Llama2-13B</td><td>55.37/21.69 (33.68↓)</td><td>61.80/21.63 (40.17 ↓)</td><td>67.16/38.29 (28.87 ↓)</td><td>61.21/34.14 (27.07 ↓)</td><td>39.78/ 7.35 (32.43 ↓)</td></tr><tr><td>Llama2-70B</td><td>68.86/41.30 (27.56↓)</td><td>80.00/51.50 (28.50 ↓)</td><td>76.39/56.21 (20.18 ↓)</td><td>71.60/49.85 (21.75 ↓)</td><td>49.61/ 7.35 (42.26 ↓)</td></tr><tr><td>Vicuna-v1.5</td><td>49.89/19.61 (30.28↓)</td><td>58.37/23.43 (34.94 ↓)</td><td>64.04/29.60 (34.44 ↓)</td><td>64.99/38.33 (26.66 ↓)</td><td>39.28/ 7.67 (31.61 ↓)</td></tr><tr><td>Vicuna-v1.5-13B</td><td>55.80/27.33 (28.47↓)</td><td>69.27/38.80 (30.47 ↓)</td><td>68.96/42.14 (26.82 ↓)</td><td>66.07/44.42 (21.65 ↓)</td><td>41.80/11.90 (29.90 ↓)</td></tr><tr><td>WizardLM-13B</td><td>48.93/14.40 (34.53↓)</td><td>58.20/21.12 (37.08 ↓)</td><td>67.49/42.11 (25.38 ↓)</td><td>63.46/31.78 (31.68 ↓)</td><td>34.87/ 6.32 (28.55 ↓)</td></tr><tr><td>InternLM-7B</td><td>48.36/15.90 (32.46↓)</td><td>56.14/17.34 (38.80 ↓)</td><td>65.83/26.41 (39.42 ↓)</td><td>59.47/30.30 (29.17 ↓)</td><td>32.63/ 2.56 (30.07 ↓)</td></tr><tr><td>InternLM-20B</td><td>60.50/32.14 (28.36↓)</td><td></td><td>78.28/54.42 (23.86 ↓) 85.20/82.91 ( 2.29 ↓)</td><td>)79.48/65.97 (13.51 )</td><td>43.61/13.92 (29.69 ↓)</td></tr><tr><td>Falcon-7b</td><td>26.95/ 0.00 (26.95↓)</td><td>34.74/ 0.09 (34.65 ↓)</td><td>55.35/ 2.66 (52.69 ↓)</td><td>36.29/ 0.55 (35.74 ↓)</td><td>28.12/ 0.07 (28.05 ↓)</td></tr><tr><td>MPT-7B</td><td>38.73/ 5.21 (33.52 ↓)</td><td></td><td>37.76/ 1.06 (36.70 ↓) 58.46/ 7.03 (51.43 ↓) 41.61/ 2.53 (39.08 ↓)</td><td></td><td>26.31/ 1.60 (24.71 ↓)</td></tr><tr><td>Random Chance</td><td>25.0</td><td>25.0</td><td>50.0</td><td>33.33</td><td>25.0</td></tr></table>",
+        "bbox": [
+            86,
+            342,
+            880,
+            551
+        ],
+        "page_idx": 17
+    },
+    {
+        "type": "table",
+        "img_path": "images/f9add908a80cf685598d8dafff746357609541c000a4c0c3da1e709a1fe778c1.jpg",
+        "table_caption": [
+            "Table 21. Comparisons of different attacks on the MMLU Dataset. In-context learning (ICL) improves the zero-shot performance, and attacks on in-context examples can decrease the performance. However, our adversarial attack has the biggest impact on the final performance (largest drop). "
+        ],
+        "table_footnote": [],
+        "table_body": "<table><tr><td>Model</td><td>Original 0-shot</td><td>ICL</td><td>ICL Permutation</td><td>ICL Search</td><td>Permutation Attack</td></tr><tr><td>Llama2-7B</td><td>40.91</td><td>45.80</td><td>35.09</td><td>34.46</td><td>6.17</td></tr><tr><td>Llama2-13B</td><td>52.22</td><td>55.37</td><td>46.65</td><td>46.07</td><td>18.33</td></tr><tr><td>Llama2-70B</td><td>64.68</td><td>68.86</td><td>59.82</td><td>59.68</td><td>33.16</td></tr><tr><td>Vicuna-v1.5</td><td>48.57</td><td>49.89</td><td>40.85</td><td>41.92</td><td>18.09</td></tr><tr><td>Vicuna-v1.5-13B</td><td>54.68</td><td>55.80</td><td>54.65</td><td>49.17</td><td>26.27</td></tr><tr><td>WizardLM-13B</td><td>48.60</td><td>48.93</td><td>39.98</td><td>48.27</td><td>15.87</td></tr><tr><td>InternLM-7B</td><td>45.72</td><td>48.36</td><td>37.35</td><td>38.17</td><td>10.45</td></tr><tr><td>InternLM-20B</td><td>59.14</td><td>60.50</td><td>54.94</td><td>54.45</td><td>29.52</td></tr><tr><td>Falcon-7b</td><td>31.66</td><td>26.95</td><td>27.18</td><td>26.79</td><td>2.49</td></tr><tr><td>MPT-7B</td><td>35.60</td><td>38.73</td><td>30.51</td><td>27.33</td><td>3.52</td></tr></table>",
+        "bbox": [
+            86,
+            636,
+            882,
+            891
+        ],
+        "page_idx": 17
+    },
+    {
+        "type": "table",
+        "img_path": "images/f828275973f3c7fd00b64fbc51ef07a1875bb7c3c1600acde01be3b7ec237a04.jpg",
+        "table_caption": [
+            "Table 22. Comparisons of different attacks on the ARC-Challenge Dataset. In-context learning (ICL) improves the zero-shot performance, and the attack on in-context examples can decrease the performance. However, our adversarial attack has the biggest impact on the final performance (largest performance drop). "
+        ],
+        "table_footnote": [],
+        "table_body": "<table><tr><td>Model</td><td>Original 0-shot</td><td>ICL</td><td>ICL Permutation</td><td>ICL Search</td><td>Permutation Attack</td></tr><tr><td>Llama2-7B</td><td>47.04</td><td>54.16</td><td>45.75</td><td>38.20</td><td>7.98</td></tr><tr><td>Llama2-13B</td><td>61.80</td><td>66.70</td><td>59.31</td><td>53.91</td><td>21.63</td></tr><tr><td>Llama2-70B</td><td>80.00</td><td>84.55</td><td>80.00</td><td>79.23</td><td>51.5</td></tr><tr><td>Vicuna-v1.5</td><td>58.37</td><td>60.60</td><td>54.33</td><td>50.64</td><td>23.43</td></tr><tr><td>Vicuna-v1.5-13B</td><td>69.27</td><td>72.02</td><td>66.44</td><td>60.52</td><td>38.8</td></tr><tr><td>WizardLM-13B</td><td>58.20</td><td>59.74</td><td>49.01</td><td>43.26</td><td>21.12</td></tr><tr><td>InternLM-7B</td><td>56.14</td><td>65.06</td><td>55.54</td><td>51.59</td><td>17.34</td></tr><tr><td>InternLM-20B</td><td>78.28</td><td>80.52</td><td>76.74</td><td>74.33</td><td>54.42</td></tr><tr><td>Falcon-7b</td><td>34.74</td><td>37.98</td><td>28.46</td><td>22.15</td><td>0.09</td></tr><tr><td>MPT-7B</td><td>37.76</td><td>41.26</td><td>31.99</td><td>26.37</td><td>1.06</td></tr></table>",
+        "bbox": [
+            86,
+            185,
+            882,
+            440
+        ],
+        "page_idx": 18
+    },
+    {
+        "type": "table",
+        "img_path": "images/ddd27d7d815975ab483f1b5fc1648281edf71e214561d1c9bf3ef2fa54249b3b.jpg",
+        "table_caption": [
+            "Table 23. Comparisons of different attacks on the BoolQ Dataset. In-context learning (ICL) improves the zero-shot performance, and the attack on in-context examples can decrease the performance. However, our adversarial attack has the biggest impact on the final performance (largest performance drop). "
+        ],
+        "table_footnote": [],
+        "table_body": "<table><tr><td>Model</td><td>Original 0-shot</td><td>ICL</td><td>ICL Permutation</td><td>ICL Search</td><td>Permutation Attack</td></tr><tr><td>Llama2-7B</td><td>61.79</td><td>63.85</td><td>51.49</td><td>40.09</td><td>8.23</td></tr><tr><td>Llama2-13B</td><td>67.16</td><td>65.84</td><td>54.95</td><td>54.27</td><td>38.29</td></tr><tr><td>Llama2-70B</td><td>76.39</td><td>84.62</td><td>66.42</td><td>55.29</td><td>56.21</td></tr><tr><td>Vicuna-v1.5</td><td>64.04</td><td>69.51</td><td>61.47</td><td>57.71</td><td>29.60</td></tr><tr><td>Vicuna-v1.5-13B</td><td>68.96</td><td>80.24</td><td>71.90</td><td>68.23</td><td>42.14</td></tr><tr><td>WizardLM-13B</td><td>67.49</td><td>76.33</td><td>55.62</td><td>54.14</td><td>42.11</td></tr><tr><td>InternLM-7B</td><td>65.83</td><td>57.55</td><td>48.56</td><td>51.43</td><td>26.41</td></tr><tr><td>InternLM-20B</td><td>85.20</td><td>86.33</td><td>83.79</td><td>81.41</td><td>82.91</td></tr><tr><td>Falcon-7b</td><td>55.35</td><td>57.61</td><td>53.47</td><td>39.45</td><td>2.66</td></tr><tr><td>MPT-7B</td><td>58.46</td><td>58.99</td><td>55.15</td><td>44.02</td><td>7.03</td></tr></table>",
+        "bbox": [
+            84,
+            602,
+            882,
+            854
+        ],
+        "page_idx": 18
+    },
+    {
+        "type": "table",
+        "img_path": "images/dc064eafa8af4563d637333c9a1b357efdd133b8d4496ce2569c16ab5e320083.jpg",
+        "table_caption": [
+            "Table 24. Comparisons of different attacks on the SocialIQA Dataset. In-context learning (ICL) improves the zero-shot performance, and the attack on in-context examples can decrease the performance. However, our adversarial attack has the biggest impact on the final performance (largest performance drop). "
+        ],
+        "table_footnote": [],
+        "table_body": "<table><tr><td>Model</td><td>Original 0-shot</td><td>ICL</td><td>ICL Permutation</td><td>ICL Search</td><td>Permutation Attack</td></tr><tr><td>Llama2-7B</td><td>52.00</td><td>57.63</td><td>46.37</td><td>33.52</td><td>15.71</td></tr><tr><td>Llama2-13B</td><td>61.21</td><td>67.14</td><td>55.78</td><td>45.75</td><td>34.14</td></tr><tr><td>Llama2-70B</td><td>71.60</td><td>75.64</td><td>66.99</td><td>64.53</td><td>49.85</td></tr><tr><td>Vicuna-v1.5</td><td>64.99</td><td>64.38</td><td>56.81</td><td>47.80</td><td>38.33</td></tr><tr><td>Vicuna-v1.5-13B</td><td>66.07</td><td>68.58</td><td>58.96</td><td>51.07</td><td>44.42</td></tr><tr><td>WizardLM-13B</td><td>63.46</td><td>62.64</td><td>50.97</td><td>43.19</td><td>31.78</td></tr><tr><td>InternLM-7B</td><td>59.47</td><td>64.64</td><td>52.66</td><td>46.16</td><td>30.30</td></tr><tr><td>InternLM-20B</td><td>79.48</td><td>78.86</td><td>75.49</td><td>70.47</td><td>65.97</td></tr><tr><td>Falcon-7b</td><td>36.29</td><td>36.89</td><td>31.34</td><td>28.25</td><td>0.55</td></tr><tr><td>MPT-7B</td><td>41.61</td><td>42.91</td><td>33.87</td><td>20.78</td><td>2.53</td></tr></table>",
+        "bbox": [
+            86,
+            185,
+            882,
+            439
+        ],
+        "page_idx": 19
+    },
+    {
+        "type": "table",
+        "img_path": "images/2561d2c947fd83685da8c5321317333452798391cfbbe474f1c5e2deeb83447a.jpg",
+        "table_caption": [
+            "Table 25. Comparisons of different attacks on the MedMCQA Dataset. In-context learning (ICL) improves the zero-shot performance, and the attack on in-context examples can decrease the performance. However, our adversarial attack has the biggest impact on the final performance (largest performance drop). "
+        ],
+        "table_footnote": [],
+        "table_body": "<table><tr><td>Model</td><td>Original 0-shot</td><td>ICL</td><td>ICL Permutation</td><td>ICL Search</td><td>Permutation Attack</td></tr><tr><td>Llama2-7B</td><td>37.96</td><td>39.67</td><td>32.10</td><td>26.57</td><td>1.60</td></tr><tr><td>Llama2-13B</td><td>39.78</td><td>39.74</td><td>33.24</td><td>28.46</td><td>7.35</td></tr><tr><td>Llama2-70B</td><td>49.61</td><td>51.78</td><td>41.37</td><td>41.76</td><td>7.35</td></tr><tr><td>Vicuna-v1.5</td><td>39.28</td><td>38.32</td><td>30.72</td><td>27.96</td><td>7.67</td></tr><tr><td>Vicuna-v1.5-13B</td><td>41.80</td><td>43.22</td><td>36.72</td><td>30.68</td><td>11.90</td></tr><tr><td>WizardLM-13B</td><td>34.87</td><td>36.54</td><td>26.24</td><td>23.59</td><td>6.32</td></tr><tr><td>InternLM-7B</td><td>32.63</td><td>37.43</td><td>28.69</td><td>25.18</td><td>2.56</td></tr><tr><td>InternLM-20B</td><td>43.61</td><td>42.58</td><td>38.14</td><td>33.20</td><td>13.92</td></tr><tr><td>Falcon-7b</td><td>28.12</td><td>29.79</td><td>21.88</td><td>14.03</td><td>0.07</td></tr><tr><td>MPT-7B</td><td>26.31</td><td>32.24</td><td>19.64</td><td>17.05</td><td>1.60</td></tr></table>",
+        "bbox": [
+            86,
+            597,
+            883,
+            854
+        ],
+        "page_idx": 19
+    },
+    {
+        "type": "table",
+        "img_path": "images/ddb73e165fbe9f67f8fbfc85904040e4180c0dc6b4ca57082e47a5027a19c848.jpg",
+        "table_caption": [
+            "Table 26. Results of using different sampling strategies and temperatures on MMLU dataset: before/after permutation. "
+        ],
+        "table_footnote": [],
+        "table_body": "<table><tr><td>Model</td><td>Greedy Decoding</td><td>Temperature=0.5</td><td>Temperature=1.5</td><td>Top-k Sampling</td><td>Nucleus Sampling</td></tr><tr><td>Llama2-7B</td><td>40.91/6.17</td><td>28.39/0.03</td><td>10.35/0.00</td><td>21.71/0.00</td><td>21.95/0.00</td></tr><tr><td>Llama2-13B</td><td>52.22/18.33</td><td>44.00/3.67</td><td>13.94/0.00</td><td>32.54/0.00</td><td>32.42/0.02</td></tr><tr><td>Llama2-70B</td><td>64.68/33.16</td><td>58.13/12.56</td><td>17.66/0.00</td><td>44.21/0.07</td><td>44.44/0.42</td></tr><tr><td>Vicuna-v1.5</td><td>48.57/18.09</td><td>47.64/12.29</td><td>34.43/0.04</td><td>42.71/3.60</td><td>44.77/8.10</td></tr><tr><td>Vicuna-v1.5-13B</td><td>54.68/26.27</td><td>53.71/21.65</td><td>38.18/0.11</td><td>49.24/7.34</td><td>51.99/17.10</td></tr><tr><td>WizardLM-13B</td><td>48.60/15.87</td><td>47.56/12.43</td><td>38.11/0.57</td><td>44.61/5.86</td><td>45.83/10.30</td></tr><tr><td>InternLM-7B</td><td>45.72/10.45</td><td>0.01/0.00</td><td>0.53/0.00</td><td>0.16/0.00</td><td>0.07/0.00</td></tr><tr><td>InternLM-20B</td><td>59.14/29.52</td><td>33.53/3.89</td><td>19.81/0.00</td><td>30.82/0.31</td><td>31.91/1.24</td></tr><tr><td>Falcon-7B</td><td>31.66/2.49</td><td>0.02/0.00</td><td>0.46/0.00</td><td>0.06/0.00</td><td>0.01/0.00</td></tr><tr><td>MPT-7B</td><td>35.60/3.52</td><td>0.01/0.00</td><td>0.67/0.00</td><td>0.12/0.00</td><td>0.04/0.00</td></tr></table>",
+        "bbox": [
+            88,
+            128,
+            882,
+            345
+        ],
+        "page_idx": 20
+    },
+    {
+        "type": "table",
+        "img_path": "images/678dd174b1044b1c8b531774a42d56920e90bca0f39867f83b8d36cd8313fc0d.jpg",
+        "table_caption": [
+            "Table 27. Comparisons of position bias of Vicuna-13B with setting ground truth answers of in-context examples to specific positions. "
+        ],
+        "table_footnote": [],
+        "table_body": "<table><tr><td>A</td><td>B</td><td>C</td><td>D</td></tr><tr><td>Original positional bias 47.33</td><td>70.00</td><td>51.73</td><td>52.04</td></tr><tr><td>Moving ICL answers to A</td><td>57.98 63.28</td><td>55.28</td><td>47.37</td></tr><tr><td>Moving ICL answers to B 58.13</td><td>61.39</td><td>56.22</td><td>49.02</td></tr><tr><td>Moving ICL answers to C 56.81</td><td>63.61</td><td>54.49</td><td>48.68</td></tr><tr><td>Moving ICL answers to D 58.02</td><td>60.64</td><td>54.45</td><td>50.99</td></tr></table>",
+        "bbox": [
+            276,
+            409,
+            694,
+            534
+        ],
+        "page_idx": 20
+    },
+    {
+        "type": "table",
+        "img_path": "images/bbb45b22a71eae3882a07c3b5bb83f8f4ffcc1c78c1a3604c41b6d3cdc9484e0.jpg",
+        "table_caption": [
+            "Table 28. Comparisons of position bias of InternLM-7B with setting ground truth answers of in-context examples to specific positions. "
+        ],
+        "table_footnote": [],
+        "table_body": "<table><tr><td>A</td><td>B</td><td>C</td><td>D</td></tr><tr><td>Original positional bias 45.72</td><td>37.23</td><td>65.12</td><td>41.49</td></tr><tr><td>Moving ICL answers to A</td><td>31.55 74.76</td><td>44.70</td><td>43.42</td></tr><tr><td>Moving ICL answers to B</td><td>38.71 73.49</td><td>43.94</td><td>42.47</td></tr><tr><td>Moving ICL answers to C 31.58</td><td>69.05</td><td>49.27</td><td>46.47</td></tr><tr><td>Moving ICL answers to D</td><td>32.63 69.39</td><td>44.34</td><td>51.22</td></tr></table>",
+        "bbox": [
+            276,
+            588,
+            694,
+            713
+        ],
+        "page_idx": 20
+    },
+    {
+        "type": "table",
+        "img_path": "images/c5f13f5634003ccfa1e682c06606e0de489122fc8bb1d23eef230a7b95bf0485.jpg",
+        "table_caption": [
+            "Table 29. Comparisons of position bias of InternLM-20B with setting ground truth answers of in-context examples to specific positions. "
+        ],
+        "table_footnote": [],
+        "table_body": "<table><tr><td>A</td><td>B</td><td>C</td><td>D</td></tr><tr><td>Original positional bias 51.05</td><td>68.75</td><td>53.47</td><td>62.35</td></tr><tr><td>Moving ICL answers to A</td><td>51.33 72.52</td><td>62.81</td><td>55.29</td></tr><tr><td>Moving ICL answers to B 49.70</td><td>73.07</td><td>64.34</td><td>56.31</td></tr><tr><td>Moving ICL answers to C 48.01</td><td>70.00</td><td>64.36</td><td>60.61</td></tr><tr><td>Moving ICL answers to D</td><td>46.99 67.54</td><td>62.20</td><td>65.72</td></tr></table>",
+        "bbox": [
+            276,
+            767,
+            694,
+            892
+        ],
+        "page_idx": 20
+    },
+    {
+        "type": "table",
+        "img_path": "images/c29a47d0be3624fe0ce0fd8485e64d64256e109d281e80aad04332e8cf298262.jpg",
+        "table_caption": [
+            "Table 30. Comparison of positional bias and our adversarial permutation attack on A-OKVQA dataset. While position bias exists, its impact is moderate. In contrast, our adversarial method severely degrades performance, usually below random chance level. "
+        ],
+        "table_footnote": [],
+        "table_body": "<table><tr><td>Method</td><td>Original</td><td>A</td><td>B</td><td>C</td><td>D</td><td>Permutation Attack</td></tr><tr><td>InstructBLIP-7B</td><td>74.06</td><td>67.16</td><td>75.28</td><td>75.90</td><td>75.11</td><td>51.62</td></tr><tr><td>InstructBLIP-13B</td><td>77.90</td><td>77.29</td><td>72.75</td><td>80.35</td><td>73.54</td><td>55.38</td></tr><tr><td>OpenFlamingo</td><td>64.68</td><td>52.34</td><td>72.77</td><td>41.19</td><td>35.86</td><td>3.58</td></tr><tr><td>Otter-Llama7B</td><td>57.99</td><td>83.14</td><td>53.45</td><td>55.02</td><td>44.10</td><td>28.30</td></tr><tr><td>Otter-MPT7B</td><td>68.21</td><td>53.36</td><td>79.74</td><td>69.00</td><td>65.59</td><td>43.19</td></tr><tr><td>LLaVA-7B</td><td>52.91</td><td>77.18</td><td>22.71</td><td>14.85</td><td>10.94</td><td>0.09</td></tr><tr><td>LLaVA-13B</td><td>63.14</td><td>69.43</td><td>77.79</td><td>63.76</td><td>48.08</td><td>25.85</td></tr><tr><td>Limber</td><td>39.57</td><td>47.77</td><td>55.72</td><td>31.88</td><td>27.11</td><td>1.22</td></tr><tr><td>mPLUG-Owl-pt</td><td>39.91</td><td>33.26</td><td>45.16</td><td>47.57</td><td>36.49</td><td>1.83</td></tr><tr><td>mPLUG-Owl-instr</td><td>37.12</td><td>34.25</td><td>41.27</td><td>45.78</td><td>39.55</td><td>2.01</td></tr></table>",
+        "bbox": [
+            181,
+            133,
+            792,
+            361
+        ],
+        "page_idx": 21
+    },
+    {
+        "type": "table",
+        "img_path": "images/39579745ccbae8c7262e3f373cf1d6ad17f054ec7164cce4ec3caeb27548a29c.jpg",
+        "table_caption": [
+            "Table 31. Impact of majority vote, contextual calibration (C-Calibration), and maximum confidence (M-Confidence) defenses against the permutation attack on the A-OKVQA dataset. Contextual calibration fails completely. Majority vote and M-Confidence ameliorates the attack, but do not completely restore performance. Red shading indicates below-chance results. "
+        ],
+        "table_footnote": [],
+        "table_body": "<table><tr><td>Method</td><td>Original</td><td>Adversarial Attack Majority Vote</td><td></td><td>C-Calibration</td><td>M-Confidence</td></tr><tr><td>InstructBLIP-7B</td><td>74.06</td><td>51.62 (22.44 ↓)</td><td>57.47 (16.59 )</td><td>38.12 (35.94 ↓)</td><td>69.79(4.27 ↓)</td></tr><tr><td>InstructBLIP-13B</td><td>77.90</td><td>55.38 (22.52 )</td><td>60.26 (17.64 ↓)</td><td>45.99 (31.91 ↓)</td><td>70.83 (7.07 ↓)</td></tr><tr><td>OpenFlamingo</td><td>46.90</td><td>3.58 (43.32 ↓)</td><td>15.12 (31.78 )</td><td>7.98 (38.92 ↓)</td><td>44.20 (2.70 ↓)</td></tr><tr><td>Otter-Llama7B</td><td>57.99</td><td>28.30 (29.69 ↓)</td><td>27.63 (30.36 ↓)</td><td>21.33 (36.66 ↓)</td><td>38.29 (19.70 ↓)</td></tr><tr><td>Otter-MPT7B</td><td>68.21</td><td>43.19 (25.02 ↓)</td><td>55.11 (13.10 ↓)</td><td>42.46 (25.75 )</td><td>51.97 (16.24 )</td></tr><tr><td>LLaVA-7B</td><td>52.91</td><td>0.09 (52.82 ↓)</td><td>27.86 (25.05 ↓)</td><td>8.23 (44.68 ↓)</td><td>50.04 (2.87 ↓)</td></tr><tr><td>LLaVA-13B</td><td>63.14</td><td>29.52 (33.62 ↓)</td><td>53.36 (9.78 ↓)</td><td>28.94 (34.20 ↓)</td><td>64.80 (1.66 ↑)</td></tr><tr><td>Limber</td><td>39.57</td><td>1.22 (38.35 ↓)</td><td>38.69 (0.88 ↓)</td><td>3.59 (35.98 ↓)</td><td>38.14 (1.43 ↓)</td></tr><tr><td>mPLUG-Owl-pt</td><td>39.91</td><td>1.83 (38.08 ↓)</td><td>14.33 (25.58 ↓)</td><td>4.28 (35.63 ↓)</td><td>15.21 (24.70 ↓)</td></tr><tr><td>mPLUG-Owl-instr</td><td>37.12</td><td>2.01 (35.11 ↓)</td><td>12.01 (25.11 ↓)</td><td>2.19 (34.93 ↓)</td><td>13.37 (23.75 ↓)</td></tr></table>",
+        "bbox": [
+            86,
+            460,
+            880,
+            707
+        ],
+        "page_idx": 21
+    },
+    {
+        "type": "table",
+        "img_path": "images/ccb7d31f04904ec4ce89ebd29d65ee07eeb5ddc43ea71ec173b00e475a90522f.jpg",
+        "table_caption": [
+            "Table 32. Qualitative results of permutations of answer options and corresponding predictions (Llama2-7B) from ARC-challenge dataset. "
+        ],
+        "table_footnote": [],
+        "table_body": "<table><tr><td>. I  True Answer: the independent (manipulated) variable.</td></tr><tr><td>Model Prediction: D.</td></tr><tr><td>Model Prediction: C.</td></tr><tr><td>Model Prediction: A.</td></tr></table>",
+        "bbox": [
+            127,
+            765,
+            843,
+            890
+        ],
+        "page_idx": 21
+    }
+]

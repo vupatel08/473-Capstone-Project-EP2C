@@ -115,24 +115,24 @@ class ExplainabilityPipeline:
         print("\nSaving explanation layer outputs...")
         
         # Save traceability map (JSON format for programmatic access)
-        with open(f"{output_dir}/traceability_map.json", 'w') as f:
+        with open(f"{output_dir}/traceability_map.json", 'w', encoding='utf-8') as f:
             json.dump(traceability_map, f, indent=2)
         
         # Save basic README (user-facing documentation)
-        with open(f"{output_dir}/README.md", 'w') as f:
+        with open(f"{output_dir}/README.md", 'w', encoding='utf-8') as f:
             f.write(readme_content)
         
         # Save missing information alerts (JSON format)
-        with open(f"{output_dir}/missing_information.json", 'w') as f:
+        with open(f"{output_dir}/missing_information.json", 'w', encoding='utf-8') as f:
             json.dump(missing_info, f, indent=2)
         
         # Save explainability metrics (JSON format)
-        with open(f"{output_dir}/explainability_metrics.json", 'w') as f:
+        with open(f"{output_dir}/explainability_metrics.json", 'w', encoding='utf-8') as f:
             json.dump(explainability_metrics, f, indent=2)
         
         # Save human-readable evaluation report
         report = self.evaluator.generate_explanation_report(explainability_metrics)
-        with open(f"{output_dir}/explainability_report.txt", 'w') as f:
+        with open(f"{output_dir}/explainability_report.txt", 'w', encoding='utf-8') as f:
             f.write(report)
         
         # Step 5: Generate comprehensive EXPLANATION.md (combines all outputs)

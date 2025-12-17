@@ -1,10 +1,13 @@
 from openai import OpenAI
+from openai import RateLimitError
 import json
 from tqdm import tqdm
 import argparse
 import os
 import sys
 import base64
+import time
+import re
 from pathlib import Path
 from dotenv import load_dotenv
 
@@ -270,13 +273,18 @@ if paper_content_items and not paper_content:
     paper_content = "\n".join(text_parts) if text_parts else ""
 
 # Build message content with images if available
-def build_message_content_with_images(task_text: str, paper_content_items: list = None) -> list:
+def build_message_content_with_images(task_text: str, paper_content_items: list = None, gpt_version: str = None) -> list:
     """
     Build message content that can include both text and images.
     If paper_content_items contains images, use structured format with images embedded.
     Otherwise, use plain text format.
+    
+    Note: o3-mini and some other models don't support images, so images are filtered out for those models.
     """
-    has_images = paper_content_items and any(item.get("type") == "image_url" for item in paper_content_items)
+    # Check if model supports images (o3-mini doesn't)
+    supports_images = gpt_version and "o3-mini" not in gpt_version.lower()
+    
+    has_images = paper_content_items and any(item.get("type") == "image_url" for item in paper_content_items) and supports_images
     
     if has_images:
         # Use structured format with images
@@ -310,9 +318,19 @@ def build_message_content_with_images(task_text: str, paper_content_items: list 
         
         return message_content
     else:
-        # Use plain text format (backward compatible)
+        # Use plain text format (backward compatible or when images not supported)
+        # If we have paper_content_items but can't use images, extract text only
+        if paper_content_items:
+            text_parts = []
+            for item in paper_content_items:
+                if item.get("type") == "text":
+                    text_parts.append(item.get("text", ""))
+            paper_text = "\n".join(text_parts) if text_parts else paper_content
+        else:
+            paper_text = paper_content
+        
         return f"""## Paper
-{paper_content}
+{paper_text}
 
 {task_text}"""
 
@@ -333,7 +351,7 @@ task_text = """## Task
 The response should give us a strong roadmap, making it easier to write the code later."""
 
 # Build message content (with images if available)
-user_content = build_message_content_with_images(task_text, paper_content_items)
+user_content = build_message_content_with_images(task_text, paper_content_items, gpt_version)
 
 plan_msg = [
         {'role': "system", "content": f"""You are an expert researcher and strategic planner with a deep understanding of experimental design and reproducibility in scientific research. 
@@ -494,20 +512,63 @@ training:
 """
     }]
 
-def api_call(msg, gpt_version):
-    if "o3-mini" in gpt_version:
-        completion = client.chat.completions.create(
-            model=gpt_version, 
-            reasoning_effort="high",
-            messages=msg
-        )
-    else:
-        completion = client.chat.completions.create(
-            model=gpt_version, 
-            messages=msg
-        )
-
-    return completion 
+def api_call(msg, gpt_version, max_retries=5, base_delay=1.0):
+    """
+    Make an API call with automatic retry on rate limit errors.
+    
+    Args:
+        msg: Messages to send to the API
+        gpt_version: GPT model version to use
+        max_retries: Maximum number of retry attempts
+        base_delay: Base delay in seconds for exponential backoff
+    
+    Returns:
+        API completion response
+    """
+    for attempt in range(max_retries):
+        try:
+            if "o3-mini" in gpt_version:
+                completion = client.chat.completions.create(
+                    model=gpt_version, 
+                    reasoning_effort="high",
+                    messages=msg
+                )
+            else:
+                completion = client.chat.completions.create(
+                    model=gpt_version, 
+                    messages=msg
+                )
+            return completion
+        except RateLimitError as e:
+            if attempt == max_retries - 1:
+                # Last attempt failed, raise the error
+                raise
+            
+            # Try to extract retry-after time from error message
+            error_message = str(e)
+            retry_after = None
+            
+            # Look for "try again in X.XXXs" pattern in error message
+            match = re.search(r'try again in ([\d.]+)s', error_message, re.IGNORECASE)
+            if match:
+                retry_after = float(match.group(1))
+            
+            # If no specific retry-after found, use exponential backoff
+            if retry_after is None:
+                retry_after = base_delay * (2 ** attempt)
+            
+            # Add a small jitter to avoid thundering herd
+            jitter = retry_after * 0.1 * (0.5 + (hash(str(msg)) % 100) / 100)
+            wait_time = retry_after + jitter
+            
+            print(f"⚠️  Rate limit reached (attempt {attempt + 1}/{max_retries}). Waiting {wait_time:.2f}s before retry...")
+            time.sleep(wait_time)
+        except Exception as e:
+            # For other errors, raise immediately
+            raise
+    
+    # Should never reach here, but just in case
+    raise Exception("Failed to make API call after all retries") 
 
 responses = []
 trajectories = []

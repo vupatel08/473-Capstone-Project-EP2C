@@ -1,0 +1,26 @@
+[
+  {
+    "folder": "llm-detector-evasion",
+    "repo": "llm-detector-evasion_repo",
+    "paper": "llm-detector-evasion_cleaned.json",
+    "score": 2
+  },
+  {
+    "folder": "llm-pddl-planning",
+    "repo": "llm-pddl-planning_repo",
+    "paper": "llm-pddl-planning_cleaned.json",
+    "score": 2
+  },
+  {
+    "folder": "LPFInISR",
+    "repo": "LPFInISR_repo",
+    "paper": "LPFInISR_cleaned.json",
+    "score": 3
+  },
+  {
+    "folder": "mar",
+    "repo": "mar_repo",
+    "paper": "mar_cleaned.json",
+    "score": 2
+  }
+]

@@ -160,7 +160,8 @@ def run_unified_pipeline(
         paper_md_path=paper_md_path,
         paper_format=paper_format,
         work_root=work_root,
-        paper_name=paper_name
+        paper_name=paper_name,
+        output_dir=output_dir
     )
     
     # Update paper_format if PDF was parsed (PDFs become markdown, which uses "LaTeX" format)
@@ -168,7 +169,8 @@ def run_unified_pipeline(
         paper_format = updated_format
     
     # Get parse_output_dir if PDF was parsed (for accessing content_list.json with images)
-    parse_output_dir = work_root / "parse_output" if (work_root / "parse_output").exists() else None
+    # Parse output is now in the same directory as the document's regular output
+    parse_output_dir = output_dir / "parse_output" if (output_dir / "parse_output").exists() else None
     
     # STEP 3: Run full EP2C pipeline
     # Planning phase
@@ -279,7 +281,8 @@ def _parse_paper_if_needed(
     paper_md_path: Optional[str],
     paper_format: str,
     work_root: Path,
-    paper_name: str
+    paper_name: str,
+    output_dir: Path
 ) -> Tuple[Optional[str], Optional[str], Optional[str]]:
     """
     Parse PDF if input is a PDF file, otherwise use provided paths.
@@ -292,8 +295,9 @@ def _parse_paper_if_needed(
         paper_pdf_path: Path to the paper file (PDF or already parsed)
         paper_md_path: Optional pre-parsed markdown file path
         paper_format: Paper format ("JSON" or "LaTeX")
-        work_root: Working directory root for parse output
+        work_root: Working directory root
         paper_name: Name identifier for the paper
+        output_dir: Output directory where parse results should be placed
     
     Returns:
         Tuple of (pdf_json_path, pdf_latex_path, updated_format) where:
@@ -316,8 +320,8 @@ def _parse_paper_if_needed(
         print(f"Input PDF: {paper_pdf_path}")
         print(f"Paper Name: {paper_name}\n")
         
-        # Setup parse output directory
-        parse_output_dir = work_root / "parse_output"
+        # Setup parse output directory - place it in the same directory as the document's regular output
+        parse_output_dir = output_dir / "parse_output"
         parse_output_dir.mkdir(parents=True, exist_ok=True)
         
         # Import parser
@@ -629,7 +633,7 @@ if __name__ == "__main__":
         print(f"Repository:  {result.get('repo_path', 'N/A')}")
         print(f"Output Dir:  {result.get('output_dir', 'N/A')}")
         print("="*70)
-        
+    
     except Exception as e:
         print(f"\nError: {e}", file=sys.stderr)
         sys.exit(1)
