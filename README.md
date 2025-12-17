@@ -1,79 +1,35 @@
-# 473-Capstone-Project-EP2C
-Explainable Paper-to-Code
-CMSC473 – Machine Learning Capstone Project
+# EP2C: Explainable Paper-to-Code
 
+EP2C converts research papers into executable code repositories with an integrated explanation layer that links code back to paper sections.
 
-## Project Summary
-Reproducibility has become one of the biggest challenges in machine learning research. Thousands of papers are published every year, but many lack complete code or enough details to replicate results. This slows progress and makes it difficult for students and researchers to build on prior work.
+## What It Does
 
-EP2C (Explainable Paper-to-Code) aims to close this gap by:
-- Generating runnable code repositories directly from academic papers.
-- Adding an explanation layer that links code back to paper sections, highlights missing datasets/hyperparameters, and provides next-step guidance.
-- Offering new evaluation metrics that measure not only code correctness, but also explainability and usability.
+- **Generates Code**: Creates runnable Python repositories from academic papers
+- **Explains Everything**: Links code components to paper sections, highlights missing information, and provides documentation
+- **Interactive Viewer**: Side-by-side paper and code with clickable traceability
 
+## Quick Start
 
-## System Pipeline
-1. Paper Parsing – Extract metadata & structure (title, abstract, methods, equations, figures).
-2. Dataset/Code Search – Query HuggingFace API for existing repos/datasets.
-3. System Architecture Creation – Build a repository blueprint.
-4. Code Generation – Use fine-tuned LLMs (CodeLlama, StarCoder).
-5. Iterative Evaluation – Debug, lint, resolve dependencies.
-6. **Explanation Layer** – Generate README, traceability maps, missing info detection, and explainability evaluation.
-7. UI Integration – Paper/code side-by-side with clickable traceability.
-8. Exporting – Download as .zip or push to GitHub.
+cd Backend
+python unified_pipeline.py \
+    --paper_pdf path/to/paper.pdf \
+    --paper_name PaperName \
+    --gpt_version gpt-4o
+**Note:** If using `o3-mini`, images from the paper will be automatically skipped as o3-mini doesn't support vision inputs.
 
-## Explanation Layer Features
+## Key Features
 
-The EP2C Explanation Layer provides comprehensive traceability and explainability:
+- **Paper-to-Code Traceability**: See which code implements which paper sections
+- **Web Interface**: Upload papers and explore generated code interactively
 
-### 🔗 **Paper-to-Code Traceability**
-- Bidirectional mapping between code components and paper sections
-- Direct links showing which code implements which paper sections
-- Coverage score measuring how much of the paper is implemented
+## Pipeline
 
-### 📚 **Comprehensive Documentation**
-- Auto-generated README with paper references
-- Code comments linking back to paper sections, equations, and figures
-- Implementation rationale and design decisions
+1. **Parsing** - Extract paper content using MinerU
+2. **Planning** - Design repository structure and architecture
+3. **Analysis** - Define file-level logic and responsibilities
+4. **Coding** - Generate executable code files
+5. **Explanation** - Create traceability maps, documentation, and metrics
 
-### ⚠️ **Missing Information Detection**
-- Identifies hyperparameters not specified in paper
-- Highlights missing dataset information
-- Alerts for implementation gaps
-- Provides suggestions for manual configuration
+## Code
 
-### 📊 **Explainability Evaluation**
-- Traceability coverage metrics
-- Comment density analysis
-- Paper reference accuracy
-- Overall explainability score
-- Detailed recommendations for improvement
-
-## Usage
-
-### Generating Explanation Layer
-
-```bash
-cd Backend/explanation
-python explainability_pipeline.py \
-    --paper_json ../outputs/paper.json \
-    --code_dir ../outputs/generated_repo \
-    --planning_artifacts ../outputs/planning_artifacts.json \
-    --output_dir ../outputs/explanation_layer \
-    --config ../outputs/config.yaml
-```
-
-### Components
-
-- **`explanation_generator.py`** - Creates bidirectional paper-code traceability maps
-- **`readme_generator.py`** - Generates comprehensive README with links and documentation
-- **`missing_info_detector.py`** - Detects missing information and configuration gaps
-- **`explanation_evaluator.py`** - Evaluates explainability quality metrics
-- **`explainability_pipeline.py`** - Orchestrates the complete explanation layer generation
-
-
-## Project Timeline
-- Month 1: Initial setup + MVP (Flask prototype, pipeline design, dataset collection).
-- Month 2: Complete MVP + evaluation (UI integration, debugging, testing).
-- Final Weeks: Case studies, benchmarking, polish UI, and deliverables.
-- Planned completion: December 2025
+Available at: https://github.com/vupatel08/473-Capstone-Project-EP2C
