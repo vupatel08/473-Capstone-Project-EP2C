@@ -28,7 +28,6 @@ UPLOAD_FOLDER = os.path.join(app.root_path, "static", "uploads")
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
 ALLOWED_EXTENSIONS = {".pdf", ".json", ".latex", ".md"}
-LANGUAGES = ["Python", "Java", "C++", "JavaScript", "TypeScript"]
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
@@ -105,7 +104,7 @@ def _allowed_file(filename):
 
 @app.route("/", methods=["GET"])
 def index():
-    return render_template("index.html", languages=LANGUAGES)
+    return render_template("index.html")
 
 @app.route("/export")
 def export_repo():
@@ -134,11 +133,10 @@ def export_repo():
 
 @app.route("/upload", methods=["POST"])
 def upload():
-    language = request.form.get("language", "").strip()
     file = request.files.get("paper")
 
-    if not language or not file or file.filename == "":
-        flash("Please upload a paper and choose a language.")
+    if not file or file.filename == "":
+        flash("Please upload a paper.")
         return redirect(url_for("index"))
 
     filename = secure_filename(file.filename)
@@ -220,15 +218,14 @@ def upload():
         # Don't redirect - allow viewer to work without PaperCodeSync
 
 
-    return redirect(url_for("viewer", filename=unique_name, language=language))
+    return redirect(url_for("viewer", filename=unique_name))
     
 
 @app.route("/viewer", methods=["GET"])
 def viewer():
     print(f"\n[EP2C] ===== VIEWER ROUTE START =====", flush=True)
     filename = request.args.get("filename")
-    language = request.args.get("language", "")
-    print(f"[EP2C] viewer() received filename={filename} language={language}", flush=True)
+    print(f"[EP2C] viewer() received filename={filename}", flush=True)
 
     # CRITICAL: Log REPO_ROOT state at viewer entry
     current_repo = app.config.get('REPO_ROOT', REPO_ROOT)
@@ -290,7 +287,6 @@ def viewer():
         chunks_url=url_for("serve_chunks"),
         matches_url=url_for("serve_matches"),
         explanation_md_path=explanation_md_path,  # Pass to template
-        chosen_language=language,
     )
 
 @app.route("/data/explanation.md")
