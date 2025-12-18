@@ -1,0 +1,144 @@
+```python
+## main.py
+import os
+import sys
+import yaml
+import logging
+from tqdm import tqdm
+import torch
+
+# Import custom modules - ensure they are in the same directory or package
+from dataset_loader import DatasetLoader
+from detector import Detector
+from model import Model
+from trainer import Trainer
+from evaluation import Evaluation
+
+def main():
+    # Set up logging
+    logging.basicConfig(level=logging.INFO, format='[%(asctime)s] %(levelname)s: %(message)s')
+    
+    # Load configuration from 'config.yaml'
+    config_path = 'config.yaml'
+    if not os.path.exists(config_path):
+        logging.error(f"Configuration file '{config_path}' not found.")
+        sys.exit(1)
+    with open(config_path, 'r') as f:
+        config = yaml.safe_load(f)
+        
+    # -----------------------------
+    # 1. Initialize Detectors
+    # -----------------------------
+    detector_list: list = []
+    detectors_cfg = config.get("detectors", {})
+    # Handle open-source detectors
+    for det_name in detectors_cfg.get("open_source", []):
+        detector = Detector(name=det_name, device=config.get('model', {}).get('device', 'cuda'))
+        detector_list.append(detector)
+        logging.info(f"Loaded open-source detector: {det_name}")
+    # Handle commercial detectors
+    for det_name in detectors_cfg.get("commercial", []):
+        api_key = None
+        # If API keys are supplied in config, set here
+        # e.g., detectors_cfg[det_name].get('api_key')
+        detector = Detector(name=det_name, api_key=api_key, device=config.get('model', {}).get('device', 'cuda'))
+        detector_list.append(detector)
+        logging.info(f"Loaded commercial detector: {det_name}")
+    
+    # -----------------------------
+    # 2. Load Dataset and Generate Preference Dataset
+    # -----------------------------
+    dataset_loader = DatasetLoader(config)
+    preference_data = dataset_loader.create_preference_dataset(
+        num_pairs=config.get('dataset', {}).get('size_pref_pairs', 30000)
+    )
+    logging.info(f"Generated {len(preference_data)} preference pairs.")
+    # Optionally, save preference dataset for reproducibility
+    # For example, save as JSON
+    import json
+    with open('preference_dataset.json', 'w') as f:
+        json.dump(preference_data, f, indent=2)
+    
+    # -----------------------------
+    # 3. Initialize Pre-trained Model
+    # -----------------------------
+    model_name = config.get('model', {}).get('name', 'Llama-2-7b')
+    device = config.get('model', {}).get('device', 'cuda')
+    load_from_checkpoint = config.get('model', {}).get('load_from_checkpoint', False)
+    model = Model(model_name, device=device)
+    if load_from_checkpoint:
+        # Load from previous checkpoint if applicable
+        # e.g., model.load('path_to_checkpoint')
+        # For now, assuming training from scratch
+        pass
+    
+    # -----------------------------
+    # 4. Fine-tune Model with DPO
+    # -----------------------------
+    trainer = Trainer(
+        model=model,
+        dataset=preference_data,
+        detectors=detector_list,
+        beta=config.get('training', {}).get('beta', 0.5),
+        learning_rate=config.get('training', {}).get('learning_rate', 1e-5),
+        batch_size=config.get('training', {}).get('batch_size', 256),
+        epochs=config.get('training', {}).get('epochs', 3),
+        max_response_tokens=config.get('training', {}).get('max_response_tokens', 250),
+        generation_temperature=config.get('training', {}).get('generation_temperature', 1.0)
+    )
+    logging.info("Starting fine-tuning with DPO...")
+    trainer.train()
+
+    # Save final model checkpoint
+    save_dir = 'evading_llama2'
+    if not os.path.exists(save_dir):
+        os.makedirs(save_dir)
+    model.save(save_path=save_dir)
+    logging.info(f"Model saved to {save_dir}.")
+
+    # -----------------------------
+    # 5. Evaluation of the Fine-tuned Model
+    # -----------------------------
+    evaluation = Evaluation(config, model)
+    # Generate responses for evaluation
+    eval_prompts = evaluation._get_evaluation_prompts()
+    responses = []
+    for prompt in tqdm(eval_prompts, desc='Generating eval responses'):
+        resp = model.generate(prompt, temperature=config.get('training', {}).get('generation_temperature', 1.0),
+                              max_tokens=config.get('training', {}).get('max_response_tokens', 250))
+        responses.append(resp)
+
+    # Run comprehensive evaluation
+    results = evaluation.run_full_evaluation(
+        test_prompt_responses=[(p, r) for p, r in zip(eval_prompts, responses)],
+        responses_generated=responses,
+        out_texts=None  # optional: can set to longer outputs for perplexity
+    )
+
+    # Log evaluation results
+    import json
+    with open('evaluation_results.json', 'w') as f:
+        json.dump(results, f, indent=2)
+    logging.info("Evaluation complete. Results saved to 'evaluation_results.json'.")
+
+    # -----------------------------
+    # 6. Optional: Human Evaluation (if flagged)
+    # -----------------------------
+    if config.get('evaluation', {}).get('human_evaluation', False):
+        # Placeholder for human eval
+        # Ideally, generate responses, send to annotators, and collect ratings
+        # For now, log the intent
+        logging.info("Human evaluation flagged but not implemented in this script.")
+        # Implement external process or API call as needed
+
+    # -----------------------------
+    # 7. Additional Robustness/Transferability Checks (Optional)
+    # -----------------------------
+    # e.g., test transferability against other detectors, longer sequences
+    # Implemented as needed; for now, skipped.
+
+    logging.info("Experiment pipeline completed successfully.")
+
+if __name__ == "__main__":
+    main()
+```

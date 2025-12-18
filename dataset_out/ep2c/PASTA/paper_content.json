@@ -1,0 +1,158 @@
+{
+  "title": "TELL YOUR MODEL WHERE TO ATTEND: POST-HOC ATTENTION STEERING FOR LLMS",
+  "abstract": "Qingru Zhang†∗, Chandan Singh⋄, Liyuan Liu⋄, Xiaodong $\\mathbf { L i u } ^ { \\diamond }$ , Bin $\\mathbf { V } \\mathbf { u } ^ { \\ddag }$ ,   \nJianfeng Gao⋄, Tuo Zhao†   \n†Georgia Institute of Technology ‡University of California, Berkeley ⋄Microsoft Research   \n{qingru.zhang,tourzhao}@gatech.edu   \nbinyu@berkeley.edu   \n{chansingh,lucliu,xiaodl,jfgao}@microsoft.com",
+  "authors": [],
+  "body_text": [
+    {
+      "text": "# TELL YOUR MODEL WHERE TO ATTEND: POST-HOC ATTENTION STEERING FOR LLMS"
+    },
+    {
+      "text": "Qingru Zhang†∗, Chandan Singh⋄, Liyuan Liu⋄, Xiaodong $\\mathbf { L i u } ^ { \\diamond }$ , Bin $\\mathbf { V } \\mathbf { u } ^ { \\ddag }$ ,   \nJianfeng Gao⋄, Tuo Zhao†   \n†Georgia Institute of Technology ‡University of California, Berkeley ⋄Microsoft Research   \n{qingru.zhang,tourzhao}@gatech.edu   \nbinyu@berkeley.edu   \n{chansingh,lucliu,xiaodl,jfgao}@microsoft.com"
+    },
+    {
+      "text": "# ABSTRACT"
+    },
+    {
+      "text": "In human-written articles, we often leverage the subtleties of text style, such as bold and italics, to guide the attention of readers. These textual emphases are vital for the readers to grasp the conveyed information. When interacting with large language models (LLMs), we have a similar need – steering the model to pay closer attention to user-specified information, e.g., an instruction. Existing methods, however, are constrained to process plain text and do not support such a mechanism. This motivates us to introduce PASTA – Post-hoc Attention STeering Approach, a method that allows LLMs to read text with user-specified emphasis marks. To this end, PASTA identifies a small subset of attention heads and applies precise attention reweighting on them, directing the model attention to user-specified parts. Like prompting, PASTA is applied at inference time and does not require changing any model parameters. Experiments demonstrate that PASTA can substantially enhance an LLM’s ability to follow user instructions or integrate new knowledge from user inputs, leading to a significant performance improvement on a variety of tasks, e.g., an average accuracy improvement of $22 \\%$ for LLAMA-7B. Our code is publicly available at https://github.com/QingruZhang/PASTA."
+    },
+    {
+      "text": "# 1 INTRODUCTION"
+    },
+    {
+      "text": "The advent of large language models (LLMs) has marked a significant milestone in natural language processing (NLP) and artificial intelligence (AI), showcasing exceptional performance across a wide range of tasks (Vaswani et al., 2017; Brown et al., 2020a; OpenAI, 2023). Efforts to further refine these models have been relentless, aiming to enable them to process and respond to natural and programming languages with human-like expertise (Stiennon et al., 2020; Yao et al., 2023)."
+    },
+    {
+      "text": "Despite their remarkable achievements, LLMs often encounter challenges in understanding their contextual inputs during interactions with users (Shen et al., 2023; Lu et al., 2021). This difficulty becomes particular evident when they are presented prompts1 containing extensive background contexts or complex user instructions. Lengthy contexts can overwhelm LLMs, as their attention modules, learned from data, are unable to fully capture crucial details (Liu et al., 2023). Complex instructions can further inhibit the model from focusing on the user’s intentions, resulting in undesired outputs (Wei et al., 2022). Additionally, for time-sensitive data, such as news articles, there can exist factual knowledge within contexts, which contradicts with model prior beliefs induced from outdated pre-training. As a result, a model may generate outputs conditioned on its pre-existing belief instead of attending to new facts within the contexts (Meng et al., 2022a;b; Mitchell et al., 2022; Hernandez et al., 2023). All of these challenges contribute to LLMs struggling to comprehend user intentions."
+    },
+    {
+      "text": "Compared to LLMs, human readers rarely struggle to understand the emphases of articles and intentions of writers. Writers often leverage a variety of text styles, such as bold and italics, to emphasize specific contents. This mechanism enables writers to direct and maintain the attention of human readers, ensuring that the intended information is accurately captured. In interactions between users and LLMs, it is users also need to highlight specific information for the model. Consequently, model generation can be effectively biased in accordance with user guidance, thus addressing the challenges mentioned earlier. This feature is particularly essential when designing user-AI interfaces, and can be frequently applied in extensive conversations between users and models. Existing methods, however, do not support such a mechanism. LLMs are inherently limited to processing plain texts, devoid of any stylistic cues or emphasis markers (Brown et al., 2020b; Liu et al., 2021; Wei et al., 2022). Even when emphasis markers are added to prompts, state-of-the-art LLMs often struggle to discern weak signals from a couple of marker tokens (See evidence in Section 5.1)."
+    },
+    {
+      "text": "![](images/ff369212914e94619859ea27a655643f8af5f316895a4dd5f6a5d880ee3433bf.jpg)  \nFigure 1: PASTA uses a user-specified part of the input to steer the model generation aligning with user intentions. PASTA modifies the attention scores generated during inference, by emphasizing the scores generated at token positions corresponding to the user-specified part of the context."
+    },
+    {
+      "text": "Motivated by the need to convey user emphasis, we introduce PASTA (Post-hoc Attention STeering Approach), a post-hoc method2 that enables users to highlight specific information, e.g., an instruction as in Figure 1, and steer models to interpret emphasized texts like human readers. Specifically, PASTA selects a small subset of attention heads and applies precise attention reweighting on them. As illustrated in Figure 1, PASTA upweights the attention scores of the user-specified tokens while downweighting the other tokens at specific attention heads. Our method is inspired by the observation that attention modules exhibit various token-attending patterns across different heads (Michel et al., 2019; Voita et al., 2019; Clark et al., 2019). These attention patterns can be interpreted as encoding diverse semantic or syntactic information, and altering them can substantially influence model behaviors (Shi et al., 2023a; Hu et al., 2021b). Through steering attention modules, PASTA directs the model to pay close attention to the user-specified parts and hence generate the desired output aligning with the highlighted contents. Notably, PASTA is applied after training and does not require changing any model parameters; PASTA only requires access to the attention scores of specific heads of an LLM."
+    },
+    {
+      "text": "Since attention heads can serve different functions (Tenney et al., 2019; Deb et al., 2023), we introduce an efficient model profiling algorithm to identify which heads are effective for steering. Specifically, we subsample small training sets from multiple tasks and evaluate the performance of attention steering for each individual head across these tasks. PASTA selects the attention heads that, when steered, generally improve the multi-task performance. We empirically observe that steering these heads not only benefits the existing tasks but also enhances the performance on unseen tasks. Notably, the model profiling is performed only once for an LLM. The selected attention heads can be regarded as a model-level profile, effective for steering the LLM on unseen tasks."
+    },
+    {
+      "text": "We conduct experiments on diverse tasks to demonstrate the effectiveness of PASTA. Specifically, we evaluate PASTA using GPT-J-6B (Wang & Komatsuzaki, 2021) and LLAMA-7B (Touvron et al., 2023) on tasks that span complex instructions, lengthy contexts, and knowledge conflicts within contexts. The results demonstrate that PASTA consistently provides a significant performance improvement over baseline prompting strategies. For example, PASTA achieve an average accuracy improvement of $22 \\%$ over few-shot prompting for LLAMA-7B across 4 challenging tasks."
+    },
+    {
+      "text": "# 2 BACKGROUND"
+    },
+    {
+      "text": "Problem description In standard LLM prompting, we are given a pre-trained LLM and a text prompt $_ { \\textbf { \\em x } }$ . In our setting, we additionally require (i) access to attention scores produced by attention modules in the $\\mathrm { L L M } ^ { 3 }$ and (ii) we are provided a user-specified subset of the prompt $\\boldsymbol { x } _ { g } \\subset \\boldsymbol { x }$ to be emphasized."
+    },
+    {
+      "text": "As in the example in Figure 1, $_ { \\textbf { \\em x } }$ can be a string that ends in an instruction, such as Mary is a doctor but used to be a nurse...Return her occupation in json format. If a user emphasizes the instruction, $\\scriptstyle { \\mathbf { { \\pmb x } } _ { g } }$ can simply be the final instruction Return her occupation in json format. In evaluation datasets, we assume that the user-specified part of each example is already provided by enclosing at its both ends in some emphasis markers, like $\\cdot _ { * } \\cdot$ marker in Markdown. Generating these well-structured data often incurs little overhead. For example, in the dataset tailored for evaluting model ability to follow user instruction, we can simply mark the final instruction for every example, which are fixed and shared across examples. When it comes to user-LLM interface, users can specify $\\scriptstyle { \\pmb { x } } _ { g }$ by enclosing it with the same emphasis markers. $\\scriptstyle { \\pmb { x } } _ { g }$ can be specified flexibly. Namely, it need not be a continuous span, and can be used to emphasize diverse information."
+    },
+    {
+      "text": "Multi-Head Attention. A typical transformer model consists of $L$ stacked layers, where each layer contains two submodules: a multi-head attention (MHA) and a fully connected feed-forward network (FFN). Given the input $\\ b { X } \\in \\mathbb { R } ^ { n \\times d }$ , MHA of the layer $l$ performs the attention function in parallel $H$ heads: $\\mathbf { M H A } ^ { ( l ) } \\left( \\boldsymbol { X } \\right) = \\mathbf { C o n c a t } ( \\pmb { H } ^ { ( l , 1 ) } , . . . , \\pmb { H } ^ { ( l , H ) } ) \\pmb { W _ { o } }$ where"
+    },
+    {
+      "text": "$$\n{ \\pmb H } ^ { ( l , h ) } = { \\pmb A } ^ { ( l , h ) } { \\pmb V } = \\mathrm { S o f t m a x } \\left( { \\pmb Q } { \\pmb K } ^ { \\top } / \\sqrt { d _ { h } } \\right) { \\pmb V }\n$$"
+    },
+    {
+      "text": "where $Q \\ : = \\ : X W _ { q _ { h } } , K \\ : = \\ : X W _ { k _ { h } } , V \\ : = \\ : X W _ { v _ { h } }$ and $W _ { \\boldsymbol { q } _ { h } } , W _ { \\boldsymbol { k } _ { h } } , W _ { \\boldsymbol { v } _ { h } } \\ \\in \\ \\mathbb { R } ^ { d \\times d _ { h } }$ are learnable projection matrices of head $h$ . $d _ { h }$ is typically set to $\\dot { d } / H$ . Specifically, denote the attention scores at the head $h$ of the $l$ -th layer as $\\mathbf { \\delta A } ^ { ( l , h ) }$ ."
+    },
+    {
+      "text": "# 3 METHOD"
+    },
+    {
+      "text": "PASTA (Algorithm 1) consists of two components: (i) post-hoc attention steering, which emphasizes the user-specified parts of the input during inference, see Section 3.1 and (ii) multi-task model profiling, which selects the effective attention heads for steering, see Section 3.2."
+    },
+    {
+      "text": "# Algorithm 1 PASTA: Post-hoc Attention Steering Approach"
+    },
+    {
+      "text": "# Multi-task model profiling (Section 3.2)"
+    },
+    {
+      "text": "1: Input: small training sets $\\{ \\mathcal { D } ^ { ( i ) } \\} _ { i = 1 } ^ { m }$ , the hyperparameters $\\alpha , k$ ;   \n2: for $1 \\leq i \\leq m$ do   \n3: for $1 \\leq l \\leq L , 1 \\leq h \\leq H$ do   \n4: Evaluate the model performance on $\\mathcal { D } ^ { ( i ) }$ when steering the head $( l , h )$ by (2);   \n5: Return the evaluation result of steering $( l , h )$ on $\\mathcal { D } ^ { ( i ) }$ ;   \n6: end for   \n7: Collect the steering results of all heads and return the task profiling $R ^ { ( i ) }$ ;   \n8: end for9: Output: The attention head set $\\mathcal { H } = \\cap _ { i = 1 } ^ { m } R _ { 1 : k } ^ { ( i ) }$ ."
+    },
+    {
+      "text": "# Inference-time steering (Section 3.1)"
+    },
+    {
+      "text": "1: Input: text inputs $_ { \\textbf { \\em x } }$ , user-underlined segments $\\mathcal { G }$ , coefficient $\\alpha$ ;   \n2: Output: the model generations while steering every head $( l , h )$ in $\\mathcal { H }$ by (2)."
+    },
+    {
+      "text": "# 3.1 POST-HOC ATTENTION STEERING"
+    },
+    {
+      "text": "PASTA emphasizes the user-specified input subset by downweighting the attention scores of tokens that are not specified by the user. Specifically, given the index set of highlighted input spans as $\\mathcal { G }$ PASTA emphasizes these user-specified tokens by an attention projection $\\tau$ :"
+    },
+    {
+      "text": "$$\n\\pmb { H } ^ { ( l , h ) } = \\mathcal { T } ( \\pmb { A } ^ { ( l , h ) } ) \\pmb { V } , \\mathrm { ~ w h e r e ~ } [ \\mathcal { T } ( \\pmb { A } ) ] _ { i j } = \\left\\{ \\begin{array} { l l } { \\alpha A _ { i j } / C _ { i } } & { \\mathrm { ~ i f ~ } j \\in \\mathcal { G } ^ { - } } \\\\ { \\pmb { A } _ { i j } / C _ { i } } & { \\mathrm { ~ o t h e r w i s e } . } \\end{array} \\right.\n$$"
+    },
+    {
+      "text": "where $0 \\leq \\alpha < 1$ is a scaling coefficient and $\\mathcal { G } ^ { - } = [ n ] - \\mathcal { G }$ is the index set of tokens that are not in $\\mathcal { G }$ . The term $\\begin{array} { r } { C _ { i } = \\sum _ { j \\in \\mathcal { G } } A _ { i j } ^ { - } + \\sum _ { j \\in \\mathcal { G } ^ { - } } \\alpha A _ { i j } } \\end{array}$ normalizes the scores so that they sum to one. The attention steering (2) is conducted during the inference time and does not require any training."
+    },
+    {
+      "text": "(2) steers the model attention by scaling down the scores of tokens that are not highlighted by the user. When the coefficient $\\alpha$ is set very small, user-specified segments are highlighted given their increased attention scores after renormalization. Consequently, we can direct the model to concentrate more on the user-specified tokens, biasing the generation to align with the specified contents."
+    },
+    {
+      "text": "PASTA scales down the attention scores of non-specified tokens by $\\alpha$ . As renormalization is followed, it is equivalent to scaling up the attention scores of user-specified tokens by $1 / \\alpha$ . The reason of selecting (2) is that it can be more numerically stable compared to scaling up scores. Alternatively, one can also scale the attention scores by adding a positive constant to the underlined tokens $\\mathcal { G }$ . The reason of we select multiplication in (2) instead of addition is that it preserves the difference on attention magnitude among the highlighted tokens. As such, the steering operation only adjusts overall attention scales of two groups of tokens. In contrast, addition by a large constant to the highlighted tokens results in their attention scores almost uniformly distributed, leading to unnecessary information loss and performance degeneration."
+    },
+    {
+      "text": "# 3.2 MULTI-TASK MODEL PROFILING"
+    },
+    {
+      "text": "Empirically, we find that applying attention steering in (2) to all attention heads performs worse than applying it only to specific heads (see Section 5.3). It is important to specify the correct attention heads, given that different heads serve distinctive roles in encoding semantic/syntactic information. To this end, we propose a multi-task model profiling algorithm to identify the effective attention heads for steering. Specifically, given $m$ tasks involving user emphases, we subsample a small training set $\\mathcal { D } ^ { ( i ) }$ (e.g., $| \\mathcal { D } ^ { ( i ) } | = 1 0 0 0 )$ from each task $i$ . Then, we evaluate the performance of steering every individual attention head $( l , h )$ $( 1 \\leq l \\leq L , 1 \\leq h \\leq H )$ on each small subset $\\mathcal { D } ^ { ( i ) }$ $1 \\leq i \\leq m )$ . For every task $i$ , we rank all of heads according to their steering performance on $\\mathcal { D } ^ { ( i ) }$ and regard set the ranking $\\mathcal { H }$ for steering as the intersection of top- $R ^ { ( i ) } = [ ( l _ { 1 } , h _ { 1 } ) , ( l _ { 2 } , h _ { 2 } ) , \\dots ]$ as the profiling of task $k$ performing heads, $i$ $\\mathcal { H } = \\cap _ { i = 1 } ^ { m } R _ { 1 : k } ^ { ( i ) }$ . We then set the attention head (see Section 5.3 for alternative choices). Intuitively, we expect performance to improve as the number of tasks increases."
+    },
+    {
+      "text": "Like attention steering, model profiling requires only access to attention scores, in addition to its inputs and outputs (model weights and gradients are not required). Importantly, this process needs to be performed only once for a LLM, similar to finetuning. However, unlike finetuning, model steering does not modify model weights and, more importantly, generalizes to new tasks. The resulting head set $\\mathcal { H }$ can be regarded as a model-level profile. Once it is determined, we can apply the attention steering on $\\mathcal { H }$ to both existing tasks and unseen tasks to enhance model contextual understanding and benefit downstream performance."
+    },
+    {
+      "text": "# 4 EXPERIMENTAL SETUP"
+    },
+    {
+      "text": "Evaluation tasks and metrics. We implement PASTA for two pre-trained models: GPT-J (6 billion parameters, (Wang & Komatsuzaki, 2021)) and LLaMA-7B (7 billion parameters, (Touvron et al., 2023)). We evaluate the effectiveness of PASTA at (i) handling complex user instructions, (ii) interpreting lengthy contexts, and (iii) resolving in-context knowledge conflicts. For (i), we introduce two new tasks: JSON formatting and Pronouns changing. For (ii) and (iii), we study Bias in Bios (De-Arteaga et al., 2019) and CounterFact (Meng et al., 2022a). For each task, we provide a description, describing which part of the input we emphasize, and what metrics we use for evaluation (see Appendix A for full dataset details)."
+    },
+    {
+      "text": "• JSON Formatting is a new task that evaluates an LLM’s ability to produce outputs in a userdesired format (JSON). This is an important usecase for LLMs when their output is being used in a downstream process. This task utilizes the biographical data from BiasBios (described below) but appends a different instruction to the end of contexts: answer the occupation of {person} and generate the answer as JSON format. The instruction prompts models to generate outputs in JSON format."
+    },
+    {
+      "text": "We emphasize the final instruction"
+    },
+    {
+      "text": "Metrics: (a) Format accuracy (F. Acc.) measures the accuracy at generating valid JSON. (b) Prediction accuracy (P. Acc.) measures the accuracy at generating the correct target in JSON values after loading the JSON-formatted generations."
+    },
+    {
+      "text": "• Pronouns changing is a new task that evaluates an LLM’s ability to follow a difficult user instruction. It again uses the biographical contexts from BiasBios but instead instructs models to: substitute ‘she’ and ‘he’ with ‘they’ and generate the occupation of {person} after changing pronouns."
+    },
+    {
+      "text": "We emphasize the final instruction."
+    },
+    {
+      "text": "Metrics: (a) Accuracy evaluates the ratio that ‘she/he’ are successfully changed to ‘they’ in model generations. (b) All-changed accuracy (A. Acc.) is the ratio that models replace all corresponding pronouns, i.e., changing she/he/her/him/hers/his to they/them/their/theirs."
+    },
+    {
+      "text": "• CounterFact measures an LLM’s ability to generate text consistent with a new fact. Each example consists of (subject, relation, old target, new target), e.g., (Kevin Garnett, is a professional, basketball player, baseball player). We present the model both old and new facts following the prompt: Previously, $\\{ o l d f a c t \\}$ , but currently, {new fact}. {question}. This change in facts over time often confuses LLMs, resulting in random guesses on two of them when answering the {question}."
+    },
+    {
+      "text": "We emphasize the input span containing the new fact."
+    },
+    {
+      "text": "Metrics: we evaluate metrics following (Meng et al., 2022a): (a) Efficacy score (ES) is the portion of cases for which the model has $P _ { \\mathrm { L L M } }$ (new target) $> P _ { \\mathrm { L L M } }$ (old target); (b) Paraphrase score (PS) is the same as ES but changes the $\\{ q u e s t i o n \\}$ with a set of rephrased questions to assess the generalization"
+    },
+    {
+      "text": "• BiasBios consists of professional biographies of non-famous people, originally introduced to investigate gender bias in occupations. Each example includes biographical context and a label of target occupation. The first sentence mentions the person’s occupation, and subsequent sentences describe the individual’s career history but may not be directly related to the prediction, potentially distracting the model attention. At the end of the context, we append the question: {person} has the occupation of ."
+    },
+    {
+      "text": " We emphasize the first sentence, as it carries the most information about the occupation."
+    },
+    {
+      "text": "Metrics: following (Hernandez et al., 2023), we compute Accuracy by checking whether the probability assigned to the target occupation is the highest among the 28 candidate occupations."
+    },
+    {
+      "text": "For Pronouns changing, CounterFact, and BiasBios, we additionally measure Fluency as the average bi-gram and tri-gram entropy of generations, designed to be low for degenerated or repetitive texts (Meng et al., 2022a). We filter out any results receiving a fluency below 3.0 (see full results including fluency in Appendix B.1)."
+    },
+    {
+      "text": "Baselines. We compare PASTA to the following baselines:"
+    }
+  ],
+  "url": ""
+}

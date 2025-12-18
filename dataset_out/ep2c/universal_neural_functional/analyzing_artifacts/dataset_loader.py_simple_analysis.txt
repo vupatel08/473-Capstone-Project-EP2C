@@ -1,0 +1,139 @@
+### Logic Analysis for `dataset_loader.py`
+
+#### Objective
+Implement functions:
+- `load_training_data()`
+- `load_validation_data()`
+- `load_test_data()`
+
+that load datasets (e.g., FashionMNIST, CIFAR-10, LM1B) into a format compatible with JAX, applying relevant preprocessing. These datasets should be partitioned according to the specified training, validation, and test splits, and formatted as `Tensor` objects (arrays). Additionally, support synthetic datasets for weight prediction when specified.
+
+---
+
+### 1. Understanding Dataset Requirements & Usage in the Context
+- For **image datasets** (FashionMNIST, CIFAR-10):
+  - Load images and labels.
+  - Resize or normalize images as needed.
+  - Flatten images if `flatten: true` in config.
+  - Split into train/validation/test according to proportions in config.
+
+- For **language datasets** (LM1B):
+  - Load sequences of tokens or characters.
+  - Tokenize and possibly pad sequences.
+  - Create train/validation/test splits.
+
+- For **synthetic weight prediction datasets**:
+  - Generate or load datasets simulating neural network weights (tensors).
+  - Labels would be tasks like success rate, accuracy, or other metrics.
+  - For the current scope, assume synthetic data generation if needed.
+
+---
+
+### 2. Requisite Steps & Data Handling
+
+#### 2.1 Dataset Selection & Specification
+- Depending on `architecture.model_type`, determine which dataset to load.
+- Use the `dataset.name` parameter; default to standard datasets unless a synthetic dataset is specified.
+  
+#### 2.2 Data Loading
+- Use existing libraries (e.g., `tensorflow_datasets` or `torchvision`) to load datasets:
+  - **FashionMNIST** and **CIFAR-10**: via `tensorflow_datasets.load()` or `torchvision.datasets`.
+  - **LM1B**: via custom download and tokenization; possibly using `tensorflow_datasets` or load preprocessed data.
+- For synthetic datasets, generate data dynamically using predefined functions.
+
+#### 2.3 Preprocessing
+- Convert data to `np.ndarray` or `jax.numpy.DeviceArray`.
+- Normalize images:
+  - For images: scale pixel values to [0, 1] or mean/variance normalization.
+- For FashionMNIST and CIFAR-10:
+  - Resize if needed (e.g., in config, specify `image_size`).
+  - If `flatten: true`, reshape images into flat vectors.
+- For LM1B:
+  - Sequence tokenization and batching.
+  - Padding sequences if necessary.
+
+#### 2.4 Data Partitioning
+- Based on `dataset.train_split`, `validation_split`, and `test_split`, partition the dataset.
+- Maintain consistent random seed (`sample.seed`) to ensure reproducible splits.
+- Shuffle data consistently.
+
+#### 2.5 Data Output
+- Return datasets as `Dataset` objects:
+  - Structure: `{inputs: [Tensor], labels: [Tensor]}`.
+- Ensure data is in `jax.numpy` arrays for compatibility with JAX.
+
+---
+
+### 3. Implementation Details & Considerations
+
+#### 3.1 Dataset download
+- For common datasets:
+  - Use `tensorflow_datasets` (`import tensorflow_datasets as tfds`) or `torchvision`.
+  - Use `tfds.load()` specifying `split=` for train, validation, test.
+- For LM1B:
+  - Possibly download raw text data.
+  - Implement tokenization (using, e.g., `sentencepiece`, `tokenizer`).
+
+#### 3.2 Preprocessing functions
+- Create helper functions:
+  - `normalize_images(images)`: scale pixel values.
+  - `resize_images(images, target_size)`: resize images (if needed).
+  - `flatten_images(images)`: reshape to [batch_size, flattened_dim].
+  - `tokenize_sequences(seq_list)`: convert text data to integer token IDs.
+  - `pad_sequences(sequences, maxlen)`: pad sequences for batching.
+
+#### 3.3 Dataset splits
+- For datasets provided with predefined splits:
+  - Use these splits directly.
+- For custom splits:
+  - Shuffle dataset with fixed seed.
+  - Slice according to proportions (train: 80%, validation: 10%, test: 10%).
+
+#### 3.4 Data return
+- Return as a `Dataset` object:
+```python
+Dataset(inputs=inputs_array, labels=labels_array)
+```
+- Maintain data types compatible with JAX (`np.ndarray` or `jax.numpy.DeviceArray`).
+
+---
+
+### 4. Supporting Synthetic Datasets
+- When specified (e.g., for weight prediction), generate datasets with:
+  - Random tensors matching the shape specs in architecture.
+  - Labels: random or based on some function of the tensors (e.g., success rate).
+- Structure similar to real datasets: `inputs` as a list of tensors, `labels` as array(s).
+
+---
+
+### 5. Practical Implementation Outline
+- **Function: `load_dataset()`**
+  - Input: `dataset_name, dataset_split, seed, image_size, flatten`
+  - Output: `Dataset` object with processed data
+
+- **Inside `load_dataset()`:**
+  - For real datasets:
+    - Load data via `tfds.load` or other libraries.
+    - Apply preprocessing (normalize, resize, flatten).
+    - Shuffle with seed.
+    - Split if necessary.
+  - For synthetic:
+    - Generate tensors with the desired shape.
+    - Compose labels.
+    - Shuffle and split.
+
+- **`load_training_data()`**, **`load_validation_data()`**, **`load_test_data()`**:
+  - Call `load_dataset()` with split spec and return dataset object.
+
+---
+
+### 6. Final Notes
+- Maintain consistent data formats (dtype, shape).
+- Enable reproducibility via fixed seeds.
+- Encapsulate dataset-specific logic with configuration flags.
+- Use minimal external dependencies, rely on `tensorflow_datasets` or `torchvision` where possible.
+- Clearly document assumptions or dataset-specific quirks.
+
+---
+
+This detailed logic will guide the implementation of `dataset_loader.py`. Subsequent coding should translate these plans into modular, tested functions aligning with the architecture and experimental design outlined in the paper and plan.

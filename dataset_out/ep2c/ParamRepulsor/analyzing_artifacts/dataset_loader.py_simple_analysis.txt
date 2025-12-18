@@ -1,0 +1,153 @@
+**Logic Analysis for `dataset_loader.py`: Implementation of `DatasetLoader` class**
+
+---
+
+### **Purpose of `DatasetLoader`**
+
+- To load various datasets (MNIST, COIL-20, COIL-100, USPS, biological datasets).
+- To preprocess datasets (normalize features, possibly PCA reduction).
+- To build and store neighbor graphs (k-NN graphs).
+- To generate and provide auxiliary information essential for pair sampling during training:
+  - k-NN indices and distances.
+  - Mid-near (MN) pairs.
+  - Farthest negatives (FP) samples.
+- To serve as an interface for downstream modules to access data and clustering info.
+
+---
+
+### **Inputs and Configuration Parameters**
+
+- The class constructor receives a dictionary (probably from the config.yaml) with:
+  - dataset name (e.g., MNIST, COIL-20, etc.).
+  - feature dimensions (either use raw features or PCA-reduce to `feature_dim`).
+  - data path (file path or method to load the dataset).
+- Additional parameters may include:
+  - `neighbor_count`: number of nearest neighbors (`k=15` as default).
+  - Preprocessing options like normalization and PCA.
+
+---
+
+### **High-Level Workflow**
+
+1. **Loading Data**
+   - Based on dataset name, load data from provided data path.
+   - Data may be in various formats:
+     - For MNIST/F-MNIST/USPS: images flattened into 2D arrays.
+     - For COB-20, COIL-100: image feature vectors.
+     - For biological datasets: matrices (cells x genes).
+     - Additional datasets: preprocessed feature matrices.
+   - Ensure data is in `np.ndarray` of shape `(N, D)`.
+
+2. **Preprocessing**
+   - Normalize features:
+     - Commonly: zero mean and unit variance scaling per feature (column-wise).
+     - For biological data: may include log normalization or scaling, based on prior standards.
+   - Dimensionality reduction:
+     - If `feature_dim` is specified as a number > original dimension, apply PCA.
+     - If set to `'auto'`, decide based on dataset:
+       - For large datasets, reduce to 50–100 dims.
+       - For smaller datasets, keep original or perform PCA to reduce computational load.
+
+3. **Neighbor Graph Construction**
+   - Use scikit-learn's `NearestNeighbors`:
+     - Fit on the normalized (and possibly PCA-reduced) data.
+     - Obtain:
+       - `knn_indices`: array of shape `(N, k)`.
+       - `knn_distances`: array of shape `(N, k)`.
+   - Store these for neighbor-based sampling.
+
+4. **Generation of Mid-Near (MN) Pairs**
+   - For each point `i`:
+     - Randomly sample 6 points uniformly from the dataset.
+       - To avoid bias, do sampling without replacement; if dataset is small, use sampling with replacement.
+     - For these sampled points, find the nearest neighbor to `i` among the 6 sampled points:
+       - Use the precomputed distances to select the second closest from the sampled points.
+       - Record the index as the mid-near (MN) pair for `i`.
+   - Store `MN` pairs efficiently, e.g., as an array `(N, 1)` of indices indicating the MN partner.
+
+5. **Generation of Farthest Negatives (FP)**
+   - For each point `i`:
+     - Sample uniformly from data points **not** in the NN set of `i`.
+     - To limit computational load, precompute a global set or sample dynamically:
+       - For each batch (during training), randomly select points from the dataset as FP candidates.
+       - Or pre-sample a fixed number per point if dataset size permits.
+   - Store the `FP` indices as a large array `(N, n_FP)` or generate on-the-fly during batch sampling.
+
+6. **Data Storage and Accessibility**
+   - Store all data components:
+     - Original data matrix (`X`).
+     - Normalized data.
+     - PCA-reduced data if applied.
+     - NN graph data (`knn_indices`, `knn_distances`).
+     - MN pairs.
+     - FP indices.
+   - Provide methods:
+     - `load_data()`: returns data array.
+     - `get_neighbors()`: returns neighbor graph info.
+     - `get_pairs()`: returns MN, FP pairs for a given sampling or batch.
+     - Optional: functions for visualization or debugging.
+
+7. **Reproducibility & Seed Control**
+   - Use a fixed random seed (`random_seed=42`) throughout data shuffling and sampling to ensure reproducibility.
+   - Allow seed as an input parameter.
+
+8. **Additional Considerations**
+   - For large datasets, use approximate nearest neighbor libraries (FAISS) if scalability is a concern.
+   - For biological datasets:
+     - Standard normalization may be tailored (log normalization + scaling).
+   - Handle datasets with missing or irregular data formats gracefully.
+
+---
+
+### **Technical Details and Implementation Notes**
+
+- **Data loading**:
+  - Use dataset-specific loaders if datasets are available in scikit-learn, torchvision, or custom formats.
+  - For built-in datasets (MNIST etc.), either load from files or via torchvision/datasets and convert to numpy arrays.
+
+- **Normalization**:
+  - Implement feature scaling: subtract mean, divide by std per feature.
+  - Could include optional PCA via `scikit-learn.PCA`.
+
+- **kNN Construction**:
+  - Use `sklearn.neighbors.NearestNeighbors(n_neighbors=k+1)` (including the point itself; ignore in indexing).
+  - For large datasets, consider approximate methods.
+
+- **Mid-near pairs**:
+  - For each point:
+    - Randomly select 6 points (`np.random.choice`) from dataset indices.
+    - Compute distances to these points.
+    - Identify second closest among these 6 as the MN pair.
+
+- **Farthest negative sampling (FP)**:
+  - Method:
+    - Either precompute or generate dynamically.
+    - For simplicity, during initialization, randomly sample `n_FP` points per data point for the entire dataset.
+    - The FP sample set could be a large array or a function generating random samples at runtime.
+
+- **Output**:
+  - A class instance that keeps references to:
+    - Data array.
+    - Normalized and PCA-reduced data.
+    - NN neighbors.
+    - MN pairs.
+    - FP samples.
+  - As well as getter methods for these, to be used by other modules.
+
+---
+
+### **Summary**
+
+- The `DatasetLoader` class should **encapsulate** dataset loading, normalization, PCA, neighbor graph creation, and pair generation.
+- It must **produce**:
+  - Clean data arrays.
+  - Neighbor indices/distances.
+  - Arrays or structures of MN pairs.
+  - Tools for batch sampling of network training.
+- Implementation should ensure **reproducibility** via fixed seeds.
+- Efficient data handling (e.g., precomputing and storing neighbor info) is critical for training speed and quality.
+- Modular design facilitates integration with training scripts, evaluation modules, and visualization.
+
+---
+
+This thorough logic analysis guides the systematic implementation of `DatasetLoader.py` consistent with the paper's methodology and experimental structure.

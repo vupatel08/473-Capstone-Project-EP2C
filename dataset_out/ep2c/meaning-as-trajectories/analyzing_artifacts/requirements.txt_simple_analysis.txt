@@ -1,0 +1,32 @@
+# requirements.txt
+
+# Core dependencies for model loading, sampling, likelihood evaluation, and computations:
+transformers==4.29.1        # For loading pre-trained autoregressive models (GPT-2, LLaMA via custom wrappers, multimodal models)
+datasets==2.11.0            # For dataset handling (prompt pairs, multimodal inputs)
+numpy==1.23.5               # For numerical operations, array manipulations
+scipy==1.10.1               # For statistical divergence computations and advanced math functions
+pandas==1.5.3               # For data management and dataset manipulation
+tqdm==4.65.0                # For progress bars during sampling and evaluation
+torch==2.0.0                # Underlying deep learning framework for model inference, GPU acceleration
+PyYAML==6.0                 # For configuration parsing from YAML files
+
+# Additional utilities (if used):
+# (Note: Strictly none specified for third-party packages beyond core dependencies)
+
+# Ensure reproducibility and seed control:
+# (This will be handled programmatically via Python's random, numpy, torch.manual_seed)
+
+# Note:
+# - The above packages cover the detailed model, data, and numerical function libraries 
+# - No specialized or proprietary external API clients are required as per plan.
+# - For multimodal models, ensure the respective model repositories (like LLaVA) are compatible via transformers or custom wrappers.
+
+# Summary:
+# The code will set up a modular system fully based on these standard packages, following the interfaces and logic described, enabling sampling, likelihood evaluation, diversity computation, and evaluation metrics as specified in the paper's methodology.
+
+# Additional Remarks:
+# - Do not include dependencies unrelated to core logic (e.g., visualization libraries), unless desired.
+# - Hardware dependencies (like CUDA) are managed via torch, not a third-party package.
+# - For reproducibility, seed management is programmatically handled in the code base, not via external packages.
+
+# End of requirements.txt

@@ -1,0 +1,281 @@
+## trainer.py
+import torch
+import torch.nn as nn
+import torch.optim as optim
+import torch.nn.functional as F
+from typing import Dict, List, Tuple, Optional, Any
+import math
+import time
+import os
+import numpy as np
+
+from dataset import PascalVOCScribbleDataset
+from model import ScribbleSegModel
+
+class Trainer:
+    """
+    Manages the training loop for scribble-supervised semantic segmentation with prototype-based feature augmentation.
+    Handles prototype extraction, global prototype updates, loss scheduling, and model optimization.
+    """
+    def __init__(self, 
+                 model: nn.Module,
+                 train_loader: torch.utils.data.DataLoader,
+                 val_loader: torch.utils.data.DataLoader,
+                 config: Dict[str, Any],
+                 device: torch.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')):
+        self.model = model.to(device)
+        self.train_loader = train_loader
+        self.val_loader = val_loader
+        self.device = device
+
+        # Load configuration params
+        training_cfg = config.get('training', {})
+        model_cfg = config.get('model', {})
+        loss_cfg = config.get('loss', {})
+        proto_cfg = config.get('prototypes', {})
+        inference_cfg = config.get('inference', {})
+
+        # Hyperparameters
+        self.learning_rate = training_cfg.get('learning_rate', 3e-5)
+        self.batch_size = training_cfg.get('batch_size', 16)
+        self.epochs = training_cfg.get('epochs', 100)
+        self.lr_decay_epoch = training_cfg.get('lr_decay_epoch', 80)
+        self.lr_decay_factor = training_cfg.get('lr_decay_factor', 0.01)
+
+        self.num_classes = model_cfg.get('num_classes', 21)
+        self.prototypes_per_class = model_cfg.get('proto_num_per_class', 5)
+        self.proto_momentum = model_cfg.get('proto_momentum', 0.99)
+        self.prototype_topk = model_cfg.get('prototype_extraction_topk', 0.5)
+
+        self.partial_ce_scale = loss_cfg.get('partial_ce_scale', 1.0)
+        self.lambda_local = loss_cfg.get('lambda_local', 0.02)
+        self.lambda_global = loss_cfg.get('lambda_global', 0.05)
+
+        self.warmup_epochs = proto_cfg.get('warmup_epochs', 10)
+        self.interaction_topk = proto_cfg.get('interaction_topk', 0.5)
+
+        self.use_prototypes_in_infer = inference_cfg.get('use_prototypes', True)
+        self.class_guidance_in_infer = inference_cfg.get('class_guidance', False)
+
+        # Initialize optimizer and scheduler
+        self.optimizer = optim.AdamW(self.model.parameters(), lr=self.learning_rate)
+        self.scheduler = optim.lr_scheduler.MultiStepLR(self.optimizer, milestones=[self.lr_decay_epoch], gamma=self.lr_decay_factor)
+
+        # Initialize prototype memory bank
+        self.proto_bank = PrototypeMemoryBank(
+            num_classes=self.num_classes,
+            prototypes_per_class=self.prototypes_per_class,
+            feature_dim=256,
+            momentum=self.proto_momentum
+        )
+
+        # Track training phase
+        self.current_epoch = 0
+        self.global_prototypes_full = False
+        self.train_phase = 'warmup'  # can be 'warmup', 'local_proto', 'full_proto'
+
+        # Prototype placeholders
+        self.local_prototypes: Dict[int, torch.Tensor] = {}  # {class_idx: tensor [D]}
+        self.global_prototypes: torch.Tensor = torch.zeros(
+            (self.num_classes, self.prototypes_per_class, 256), device=self.device)
+
+    def _update_training_phase(self):
+        """
+        Manages transition of phases based on epoch count and prototype bank fill status.
+        """
+        if self.current_epoch < self.warmup_epochs:
+            self.train_phase = 'warmup'
+        else:
+            # After warm-up, depending on whether global prototypes are full
+            if not self.global_prototypes_full:
+                # Check if all classes' prototypes in memory are full
+                self.global_prototypes_full = self._check_global_prototypes_full()
+                if self.global_prototypes_full:
+                    self.train_phase = 'full_proto'
+                else:
+                    self.train_phase = 'local_proto'
+            else:
+                self.train_phase = 'full_proto'
+
+    def _check_global_prototypes_full(self) -> bool:
+        """
+        Checks if all class prototypes in memory bank are fully filled.
+        """
+        return all(self.proto_bank.full_mask.tolist())
+
+    def _adjust_loss_weights(self):
+        """
+        Returns the current weights of the loss components based on phase.
+        """
+        if self.train_phase == 'warmup':
+            return {'pce': self.partial_ce_scale, 'con_l': 0.0, 'con_g': 0.0}
+        elif self.train_phase == 'local_proto':
+            return {'pce': self.partial_ce_scale, 'con_l': self.lambda_local, 'con_g': 0.0}
+        else:  # 'full_proto'
+            return {'pce': self.partial_ce_scale, 'con_l': self.lambda_local, 'con_g': self.lambda_global}
+
+    def train(self):
+        """
+        Main training loop over epochs.
+        """
+        for epoch in range(1, self.epochs + 1):
+            self.current_epoch = epoch
+            self._update_training_phase()
+            loss_weights = self._adjust_loss_weights()
+
+            print(f"Epoch {epoch}/{self.epochs} - Phase: {self.train_phase}")
+            epoch_loss_pce = 0.0
+            epoch_loss_con_l = 0.0
+            epoch_loss_con_g = 0.0
+            epoch_miou = 0.0
+
+            self.model.train()
+            start_time = time.time()
+
+            for batch_idx, batch in enumerate(self.train_loader):
+                images = batch['image'].to(self.device)
+                labels = batch['label'].to(self.device)
+
+                # Forward pass
+                preds, extra_outputs = self.model(images, labels=labels, training_phase=self.train_phase)
+
+                # Compute partial cross-entropy loss
+                loss_pce = self.compute_partial_ce_loss(preds, labels)
+                total_loss = loss_weights['pce'] * loss_pce
+
+                # Extract features for prototypes
+                feats = self.model.encoder.extract_features(images)
+                feats_proj = [layer(feats[i]) for i, layer in enumerate(self.model.proj_layers)]
+                last_feat = feats_proj[-1]
+                pred_probs = F.softmax(preds, dim=1)
+
+                # Prototype extraction and update
+                if self.train_phase != 'warmup':
+                    class_mask = labels.unique()
+                    class_mask = class_mask[class_mask != 255].tolist()
+                    # Extract local prototypes
+                    local_proto_dict = self.model.prototype_extractor.compute_prototypes(
+                        last_feat, pred_probs, labels, class_mask)
+                    self.local_prototypes = local_proto_dict
+
+                    # Update global prototypes if full
+                    if self.train_phase == 'full_proto':
+                        class_idxs, proto_list = [], []
+                        for c in class_mask:
+                            if c in local_proto_dict:
+                                class_idxs.append(c)
+                                proto_list.append(local_proto_dict[c])
+                        if len(class_idxs) > 0:
+                            self.proto_bank.update(class_idxs, torch.stack(proto_list))
+                            self.global_prototypes = self.proto_bank.get()
+                            # If all classes are full, set flag
+                            if self._check_global_prototypes_full():
+                                self.global_prototypes_full = True
+
+                # Prototype-based augmentation if applicable
+                feats_for_aug = feats_proj.copy()
+                if self.use_prototypes_in_infer and self.train_phase != 'warmup':
+                    # Augment with local prototypes
+                    for c, proto in self.local_prototypes.items():
+                        class_mask_map = (labels == c).to(torch.long).squeeze(1)  # B x H x W
+                        for lvl in range(len(feats_for_aug)):
+                            feats_for_aug[lvl] = self.model.local_augmenter.augment_with_prototypes(
+                                feats_for_aug[lvl], proto.unsqueeze(0), class_mask_map)
+                    # Augment with global prototypes if full
+                    if self.global_prototypes_full:
+                        for c in range(self.num_classes):
+                            proto_set = self.global_prototypes[c]  # [K, D]
+                            class_mask_map = (labels == c).to(torch.long).squeeze(1)
+                            for lvl in range(len(feats_for_aug)):
+                                feats_for_aug[lvl] = self.model.global_augmenter.augment_with_prototypes(
+                                    feats_for_aug[lvl], proto_set, class_mask_map)
+
+                # Generate augmented predictions
+                preds_aug, _ = self.model.decoder(feats_for_aug), None
+                # Compute consistency or auxiliary losses
+                if self.train_phase != 'warmup':
+                    # Obtain probability maps of initial predictions
+                    probs_initial = F.softmax(preds.detach(), dim=1)
+                    probs_aug = F.softmax(preds_aug, dim=1)
+                    loss_con_l = self.compute_consistency_loss(probs_initial, probs_aug)
+                    total_loss += loss_weights['con_l'] * loss_con_l
+                    loss_con_g = 0.0
+                    if self.global_prototypes_full:
+                        # Additionally apply global prototype augmentation
+                        probs_aug_g, _ = self.model.decoder(feats_for_aug), None
+                        probs_initial_g = F.softmax(preds.detach(), dim=1)
+                        loss_con_g = self.compute_consistency_loss(probs_initial_g, probs_aug_g)
+                        total_loss += loss_weights['con_g'] * loss_con_g
+                else:
+                    loss_con_l = 0.0
+                    loss_con_g = 0.0
+
+                # Backprop and optimize
+                self.optimizer.zero_grad()
+                total_loss.backward()
+                self.optimizer.step()
+
+                epoch_loss_pce += loss_pce.item()
+                epoch_loss_con_l += loss_con_l if isinstance(loss_con_l, float) else loss_con_l.item()
+                epoch_loss_con_g += loss_con_g if isinstance(loss_con_g, float) else loss_con_g.item()
+
+            # Step LR scheduler
+            self.scheduler.step()
+            epoch_time = time.time() - start_time
+            print(f" Epoch {epoch} completed in {epoch_time:.2f}s")
+            # Periodically validate
+            if epoch % 5 == 0 or epoch == self.epochs:
+                miou = self.evaluate()
+                print(f"Validation mIoU at epoch {epoch}: {miou:.2f}%")
+            # Save checkpoints if desired
+            # (not shown here for brevity)
+
+    def compute_partial_ce_loss(self, preds: torch.Tensor, labels: torch.Tensor) -> torch.Tensor:
+        """
+        Compute partial cross-entropy loss on labeled pixels only.
+        """
+        # Mask labeled pixels
+        mask = (labels != 255)
+        if mask.sum() == 0:
+            return torch.tensor(0.0, device=self.device)
+        preds_masked = preds.permute(0,2,3,1)[mask]  # BxHxWxC -> NxC
+        labels_masked = labels[mask]
+        loss = F.cross_entropy(preds_masked, labels_masked, reduction='mean')
+        return loss
+
+    def compute_consistency_loss(self, prob1: torch.Tensor, prob2: torch.Tensor) -> torch.Tensor:
+        """
+        Compute mean squared error (MSE) between probability maps.
+        """
+        return F.mse_loss(prob1, prob2)
+
+    def evaluate(self) -> float:
+        """
+        Run inference on validation set and compute mean IoU.
+        """
+        self.model.eval()
+        total_inter = np.zeros(self.num_classes)
+        total_union = np.zeros(self.num_classes)
+        with torch.no_grad():
+            for batch in self.val_loader:
+                images = batch['image'].to(self.device)
+                labels = batch['ground_truth'].to(self.device)
+                preds, _ = self.model(images)
+                preds_label = torch.argmax(preds, dim=1)
+                for i in range(images.size(0)):
+                    pred_np = preds_label[i].cpu().numpy()
+                    label_np = labels[i].cpu().numpy()
+                    # Compute per class intersection and union
+                    for c in range(self.num_classes):
+                        pred_mask = (pred_np == c)
+                        label_mask = (label_np == c)
+                        inter = np.logical_and(pred_mask, label_mask).sum()
+                        union = np.logical_or(pred_mask, label_mask).sum()
+                        total_inter[c] += inter
+                        total_union[c] += union
+            # Compute per class IoU
+            ious = total_inter / (total_union + 1e-6)
+            mean_iou = np.nanmean(ious) * 100
+        return mean_iou
+
+    # Additional functions and cleanup can be added as needed; including save/load checkpoints.

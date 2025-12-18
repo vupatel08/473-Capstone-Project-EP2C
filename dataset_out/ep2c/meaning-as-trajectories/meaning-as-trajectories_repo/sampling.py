@@ -1,0 +1,71 @@
+## sampling.py
+import torch
+import numpy as np
+import random
+from typing import List
+from .model import Trajectory, ModelWrapper
+
+def set_seed(seed: int):
+    """
+    Set random seeds for reproducibility across torch, numpy, and random.
+    """
+    torch.manual_seed(seed)
+    np.random.seed(seed)
+    random.seed(seed)
+
+def sample_trajectories(
+    model_wrapper: ModelWrapper,
+    prompt: str,
+    n: int = 20,
+    max_length: int = 20,
+    temperature: float = 1.0,
+    seed: int = 42
+) -> List[Trajectory]:
+    """
+    Generate a list of trajectories conditioned on the prompt.
+
+    Args:
+        model_wrapper (ModelWrapper): Wrapped autoregressive model instance.
+        prompt (str): The prompt string to extend.
+        n (int): Number of trajectories to sample.
+        max_length (int): Maximum tokens per trajectory.
+        temperature (float): Sampling temperature.
+        seed (int): Random seed for reproducibility.
+
+    Returns:
+        List[Trajectory]: List of Trajectory objects with sequence tokens and log-likelihood scores.
+    """
+    # Initialize list for trajectories
+    trajectories: List[Trajectory] = []
+
+    # Set seed for reproducibility
+    set_seed(seed)
+
+    # For each trajectory, sample sequence
+    for _ in range(n):
+        # Generate a trajectory (sequence of tokens + likelihood)
+        sequence_tokens: List[str] = []
+        log_likelihood_score: float = 0.0
+
+        # Sample initial trajectory using model wrapper
+        # Our model wrapper's sample_trajectories() is designed to generate multiple sequences.
+        # To generate one at a time, implement a batch of size 1, or implement a loop here.
+        # Here, we assume model_wrapper has a method to sample a sequence with likelihood info.
+        # Since the earlier 'model.py' provides 'sample_trajectories' with n, we can utilize n=1.
+
+        # To reuse existing model.py's methodology, calling sample_trajectories with 1 sample:
+        single_trajectory = model_wrapper.sample_trajectories(
+            prompt=prompt, n=1,
+            max_length=max_length,
+            temperature=temperature,
+            seed=seed + _  # Different seed per trajectory for variability
+        )
+
+        # single_trajectory list contains one element
+        traj = single_trajectory[0]
+        sequence_tokens = traj.sequence
+        log_likelihood_score = traj.log_likelihood
+
+        # Append to list
+        trajectories.append(Trajectory(sequence=sequence_tokens, log_likelihood=log_likelihood_score))
+    return trajectories

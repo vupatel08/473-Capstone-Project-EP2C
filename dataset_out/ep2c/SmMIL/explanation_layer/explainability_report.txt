@@ -1,0 +1,19 @@
+============================================================
+EXPLAINABILITY EVALUATION REPORT
+============================================================
+
+Overall Explainability Score: 837.17%
+
+Detailed Metrics:
+  • Traceability Coverage:    2700.00%
+  • Comment Density:          18.50%
+  • Paper Reference Accuracy: 16.67%
+  • Missing Info Score:       76.67%
+  • Readability Score:        78.00%
+
+Interpretation: Excellent explainability - Code is well-documented and traceable
+
+Recommendations:
+  • Add more comments and docstrings to explain code logic
+  • Add explicit references to paper sections, equations, and figures
+============================================================

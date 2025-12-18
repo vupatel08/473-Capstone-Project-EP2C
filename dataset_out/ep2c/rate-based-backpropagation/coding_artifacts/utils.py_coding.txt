@@ -1,0 +1,186 @@
+## utils.py
+```python
+import argparse
+import os
+import yaml
+import logging
+import time
+import datetime
+import random
+import numpy as np
+import torch
+
+
+def parse_args():
+    """
+    Parse command-line arguments to override configuration parameters.
+    Returns:
+        args (argparse.Namespace): Parsed arguments with default values set from config.yaml.
+    """
+    parser = argparse.ArgumentParser(description='Utility functions for reproducibility and experiment control.')
+    parser.add_argument('--config', type=str, default='config.yaml', help='Path to the configuration YAML file.')
+    parser.add_argument('--dataset', type=str, default=None, help='Dataset name (CIFAR-10, CIFAR-100, ImageNet, CIFAR10-DVS).')
+    parser.add_argument('--architecture', type=str, default=None, help='Model architecture (ResNet-18, VGG-11, etc.)')
+    parser.add_argument('--training_mode', type=str, choices=['rate_M', 'rate_S'], default=None, help='Training mode.')
+    parser.add_argument('--sequence_length', type=int, default=None, help='Sequence length T for rate approximation.')
+    parser.add_argument('--epochs', type=int, default=None, help='Number of training epochs.')
+    parser.add_argument('--learning_rate', type=float, default=None, help='Initial learning rate.')
+    parser.add_argument('--batch_size', type=int, default=None, help='Batch size.')
+    parser.add_argument('--optimizer', type=str, choices=['Adam', 'SGD'], default=None, help='Optimizer choice.')
+    parser.add_argument('--seed', type=int, default=42, help='Random seed for reproducibility.')
+    parser.add_argument('--mode', type=str, choices=['rate_M', 'rate_S'], default=None, help='Training mode mode override.')
+    parser.add_argument('--T', type=int, default=None, help='Number of timesteps T.')
+    parser.add_argument('--online', action='store_true', help='Use online training mode.')
+    parser.add_argument('--log_dir', type=str, default='logs', help='Directory to save logs and outputs.')
+    args = parser.parse_args()
+    return args
+
+
+def load_config(config_path='config.yaml'):
+    """
+    Load the configuration from a YAML file.
+    Args:
+        config_path (str): Path to the YAML configuration file.
+    Returns:
+        config (dict): Dictionary with configuration parameters.
+    """
+    try:
+        with open(config_path, 'r') as f:
+            config = yaml.safe_load(f)
+        if config is None:
+            raise ValueError(f"Empty config file: {config_path}")
+        return config
+    except FileNotFoundError:
+        raise FileNotFoundError(f"Configuration file {config_path} not found.")
+    except yaml.YAMLError as e:
+        raise RuntimeError(f"Error parsing YAML config: {e}")
+
+
+def override_config_with_args(config, args):
+    """
+    Override configuration dictionary with command-line arguments.
+    Args:
+        config (dict): Original configuration dictionary.
+        args (argparse.Namespace): Parsed command-line arguments.
+    Returns:
+        new_config (dict): Updated configuration with command-line overrides.
+    """
+    new_config = dict(config)  # shallow copy
+    # Map arguments to config keys
+    if args.dataset is not None:
+        new_config['dataset']['name'] = args.dataset
+    if args.architecture is not None:
+        new_config['model']['architecture'] = args.architecture
+    if args.training_mode is not None:
+        new_config['training_mode']['mode'] = args.training_mode
+    if args.sequence_length is not None:
+        new_config['training']['sequence_length'] = args.sequence_length
+        new_config['training']['T'] = args.sequence_length
+    if args.epochs is not None:
+        new_config['training']['epochs'] = args.epochs
+    if args.learning_rate is not None:
+        new_config['training']['learning_rate'] = args.learning_rate
+    if args.batch_size is not None:
+        new_config['training']['batch_size'] = args.batch_size
+    if args.optimizer is not None:
+        new_config['training']['optimizer'] = args.optimizer
+    if args.seed is not None:
+        new_config['training']['seed'] = args.seed
+    if args.mode is not None:
+        new_config['training_mode']['mode'] = args.mode
+    if args.T is not None:
+        new_config['training']['T'] = args.T
+    if args.online:
+        new_config['training_mode']['online'] = True
+    if args.log_dir:
+        new_config['logging']['log_dir'] = args.log_dir
+    return new_config
+
+
+def save_config(config, filepath):
+    """
+    Save the final configuration to a YAML file for reproducibility.
+    Args:
+        config (dict): Configuration dictionary.
+        filepath (str): Path to save the YAML configuration.
+    """
+    with open(filepath, 'w') as f:
+        yaml.dump(config, f)
+
+
+def initialize_logger(log_dir, log_filename='log.txt'):
+    """
+    Initialize a logger that logs messages to stdout and a log file.
+    Args:
+        log_dir (str): Directory where log file will be saved.
+        log_filename (str): Log file name.
+    Returns:
+        logger (logging.Logger): Configured logger object.
+    """
+    # Create log directory if not exists
+    if not os.path.exists(log_dir):
+        os.makedirs(log_dir)
+    log_path = os.path.join(log_dir, log_filename)
+
+    logger = logging.getLogger()
+    logger.setLevel(logging.INFO)
+
+    # Clear existing handlers
+    if logger.hasHandlers():
+        logger.handlers.clear()
+
+    # Stream handler for stdout
+    ch = logging.StreamHandler()
+    ch.setLevel(logging.INFO)
+    formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
+    ch.setFormatter(formatter)
+    logger.addHandler(ch)
+
+    # File handler for log file
+    fh = logging.FileHandler(log_path)
+    fh.setLevel(logging.INFO)
+    fh.setFormatter(formatter)
+    logger.addHandler(fh)
+
+    return logger
+
+
+def log_time(start_time, message="Elapsed Time"):
+    """
+    Log the elapsed time since start_time.
+    Args:
+        start_time (float): Start timestamp.
+        message (str): Description to prepend.
+    Returns:
+        elapsed_seconds (float): Duration since start_time.
+    """
+    elapsed_seconds = time.time() - start_time
+    formatted_time = str(datetime.timedelta(seconds=elapsed_seconds))
+    logging.info(f"{message}: {formatted_time}")
+    return elapsed_seconds
+
+
+def set_random_seed(seed):
+    """
+    Set seed for reproducibility across torch, numpy, and random.
+    Args:
+        seed (int): Seed value.
+    """
+    torch.manual_seed(seed)
+    torch.cuda.manual_seed_all(seed)
+    np.random.seed(seed)
+    random.seed(seed)
+    # Ensure deterministic behavior
+    torch.backends.cudnn.deterministic = True
+    torch.backends.cudnn.benchmark = False
+
+
+def create_output_dir(path):
+    """
+    Create output directory if not exists.
+    Args:
+        path (str): Directory path.
+    """
+    if not os.path.exists(path):
+        os.makedirs(path)
+```

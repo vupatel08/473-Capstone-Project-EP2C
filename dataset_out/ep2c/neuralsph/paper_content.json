@@ -1,0 +1,158 @@
+{
+  "title": "Neural SPH: Improved Neural Modeling of Lagrangian Fluid Dynamics",
+  "abstract": "Artur P. Toshev 1 Jonas A. Erbesdobler 1 Nikolaus A. Adams 1 2 Johannes Brandstetter 3 4",
+  "authors": [],
+  "body_text": [
+    {
+      "text": "# Neural SPH: Improved Neural Modeling of Lagrangian Fluid Dynamics"
+    },
+    {
+      "text": "Artur P. Toshev 1 Jonas A. Erbesdobler 1 Nikolaus A. Adams 1 2 Johannes Brandstetter 3 4"
+    },
+    {
+      "text": "# Abstract"
+    },
+    {
+      "text": "Smoothed particle hydrodynamics (SPH) is omnipresent in modern engineering and scientific disciplines. SPH is a class of Lagrangian schemes that discretize fluid dynamics via finite material points that are tracked through the evolving velocity field. Due to the particle-like nature of the simulation, graph neural networks (GNNs) have emerged as appealing and successful surrogates. However, the practical utility of such GNN-based simulators relies on their ability to faithfully model physics, providing accurate and stable predictions over long time horizons – which is a notoriously hard problem. In this work, we identify particle clustering originating from tensile instabilities as one of the primary pitfalls. Based on these insights, we enhance both training and rollout inference of state-of-the-art GNNbased simulators with varying components from standard SPH solvers, including pressure, viscous, and external force components. All Neural SPH-enhanced simulators achieve better performance than the baseline GNNs, often by orders of magnitude in terms of rollout error, allowing for significantly longer rollouts and significantly better physics modeling. Code available under https://github.com/tumaer/neuralsph."
+    },
+    {
+      "text": "# 1. Introduction"
+    },
+    {
+      "text": "In the sciences, considerable efforts have led to the development of highly complex mathematical models of our world, with many naturally formulated as partial differential equations (PDEs). Over the past years, deep neural network-based PDE surrogates have gained significant momentum as a more computationally efficient solution methodology (Thuerey et al., 2021; Brunton & Kutz, 2023), transforming amongst others computational fluid dynamics (Guo et al., 2016; Kochkov et al., 2021; Li et al., 2021; Gupta & Brandstetter, 2022; Alkin et al., 2024), weather forecasting (Rasp & Thuerey, 2021; Weyn et al., 2020; Sønderby et al., 2020; Pathak et al., 2022; Lam et al., 2022; Nguyen et al., 2023; Bodnar et al., 2024), and molecular modeling (Gasteiger et al., 2021; Batzner et al., 2022; Batatia et al., 2022; Zeni et al., 2023; Merchant et al., 2023)."
+    },
+    {
+      "text": "![](images/247970361845304a1af8378c45d5a8cb3608b244a8a301e658e65c722ee8ce36.jpg)  \nFigure 1. Neural SPH improves Lagrangian fluid dynamics, showcased by physics modeling of the 2D dam break example after 80 rollout steps. Different models exhibit different physics behaviors. From top to bottom: GNS (Sanchez-Gonzalez et al., 2020), GNS with corrected force only $( \\mathrm { G N S } _ { g } )$ ), full SPH enhanced GNS $( \\mathrm { G N S } _ { g , p } )$ , and the ground truth SPH simulation. The colors correspond to the density deviation from the reference density; the system is considered physical within 0.98-1.02."
+    },
+    {
+      "text": "In computational fluid dynamics (CFD), we broadly categorize numerical simulation methods into two distinct families: particle-based and grid-based, better known as Lagrangian and Eulerian discretization schemes. In Eulerian schemes, space is discretized, i.e., fixed finite nodes or control volumes lead to grid-based or mesh-based models. In Lagrangian schemes, the discretization happens on finite material points, commonly known as particles, which dynamically move with the local deformation of the continuum. One of the most prominent Lagrangian discretization schemes is smoothed particle hydrodynamics (SPH), originally proposed by Lucy (1977) and Gingold & Monaghan (1977) for applications in astrophysics. In contrast to grid- and mesh-based approaches, SPH approximates the field properties using radial kernel interpolations over adjacent particles. The strength of the SPH method is that it does not require connectivity constraints, e.g., meshes, which is particularly useful for simulating systems with large deformations. Since its foundation, SPH has been greatly extended and is the preferred method to simulate problems with (a) free surfaces (Marrone et al., 2011; Violeau & Rogers, 2016), (b) complex boundaries (Adami et al., 2012), (c) multi-phase flows (Hu & Adams, 2007), and (d) fluid-structure interactions (Antoci et al., 2007)."
+    },
+    {
+      "text": "In deep learning, graph neural networks (GNNs) (Scarselli et al., 2008; Kipf & Welling, 2017) are an obvious fit to model particle-based dynamics. Often, predicted accelerations at the nodes are numerically integrated to model the time evolution of the particles or the mesh, i.e., dynamics are updated in a hybrid neural-numerical fashion (SanchezGonzalez et al., 2020; Pfaff et al., 2020; Mayr et al., 2023). Most recent applications of GNN-based simulators involve Lagrangian fluid simulations (Toshev et al., 2023a; 2024a; Winchenbach & Thuerey, 2024). One downside of these simulators is the risk of non-physical instabilities during rollout, which affects the neural and numerical components."
+    },
+    {
+      "text": "It is known that already standard SPH schemes exhibit tensile instability, i.e., numerical errors leading to particle clumping and void regions when negative pressure occurs within what should be an incompressible fluid (Price, 2012). This has led to the development of improved SPH schemes explicitly targeting regularity of particle distribution (Adami et al., 2013; Zhang et al., 2017b). A review of SPH literature indicates that even methods seeking to improve other properties, like reducing artificial dissipation (Zhang et al., 2017a) or handling violent water flows (Marrone et al., 2011), may also improve the particle distribution."
+    },
+    {
+      "text": "In this work, we present a large-scale analysis of Lagrangian physical modeling capabilities of various GNN-based simulators, i.e., a non-equivariant and an equivariant one. We identify a shared pitfall, i.e., particle clustering effects that are similar to those known from SPH schemes. Particle clustering in GNN-based simulators limits stable rollouts and accurate physics modeling. Based on these insights, we draw inspiration from numerical SPH solvers and enhance both training and inference of state-of-the-art GNN-based simulators with varying components from standard SPH solvers, including (i) pressure, (ii) viscous, and (iii) external force components – all implemented in JAX (Bradbury et al., 2018). Methodologically, our main contributions are two:"
+    },
+    {
+      "text": "(a) novel external force treatment during training, and (b) an additional SPH relaxation routine during inference."
+    },
+    {
+      "text": "We demonstrate the efficacy of Neural SPH-enhanced Lagrangian simulators by achieving better performance on seven diverse 2D and 3D Lagrangian datasets – sometimes by orders of magnitude in terms of rollout error – than the baseline GNN, allowing for significantly better physical modeling capabilities. We note that the introduced Neural SPH techniques may apply to a wide range of physics scenarios beyond GNNs and SPH. Our source code is available at https://github.com/tumaer/neuralsph."
+    },
+    {
+      "text": "# 2. Simulating Lagrangian dynamics"
+    },
+    {
+      "text": "Smoothed particle hydrodynamics. Smoothed particle hydrodynamics (SPH) approximates the incompressible Navier-Stokes equations (NSE) by the so-called weakly compressible NSE. This is necessary because the density of the fluid is defined by radial kernel summation $\\begin{array} { r } { \\rho _ { i } = \\sum _ { j } m _ { j } W ( r _ { i j } | h ) } \\end{array}$ , where $m _ { j }$ represents the mass of the adjacent particles $j$ , and $W$ the radial interpolation kernel with smoothing length $h$ that operates on the scalar distance $r _ { i j }$ . This summation may violate strict incompressibility. However, the weak compressibility assumption typically allows for up to $\\sim 1 \\%$ density deviation (Monaghan, 2005). This $\\sim 1 \\%$ is also enforced for the weakly compressible SPH method, while evolving density and momentum:"
+    },
+    {
+      "text": "$$\n\\begin{array} { r l } & { \\frac { \\mathrm { d } } { \\mathrm { d } t } ( \\rho ) = - \\rho \\left( \\nabla \\cdot \\mathbf { u } \\right) , } \\\\ & { \\frac { \\mathrm { d } } { \\mathrm { d } t } ( \\mathbf { u } ) = \\underbrace { - \\frac { 1 } { \\rho } \\nabla p } _ { \\mathrm { p r e s s u r e } } + \\underbrace { \\frac { \\nu } { V _ { r e f } L _ { r e f } } \\nabla ^ { 2 } \\mathbf { u } } _ { \\mathrm { v i s c o s i t y } } + \\underbrace { \\mathbf { g } } _ { \\mathrm { e x t . ~ f o r c e } } . } \\end{array}\n$$"
+    },
+    {
+      "text": "Herein, $\\rho$ is the density, $\\mathbf { u }$ the velocity vector, $p$ the pressure, g the external force, $\\nu$ the viscosity, and $U _ { r e f } , L _ { r e f }$ the reference velocity and length scale. Without loss of generality, we consider $U _ { r e f } = 1$ , $L _ { r e f } = 1$ . We note that either density summation with kernel averaging, or density evolution (Eq. (1)) is used to compute the density, and as we explain later, the former is the preferred and the latter the more general approach. To evolve the system in time, the above equation(s) are integrated in time by, e.g., semiimplicit Euler (see Appendix F). However, solving these equations with standard SPH methods may still produce artifacts, most notably when particle clumping exceeds the $1 \\%$ density-fluctuation requirement (Adami et al., 2013)."
+    },
+    {
+      "text": "SPH particle redistribution. The term responsible for a homogeneous particle distribution in the SPH method is the pressure gradient term ${ \\scriptstyle { \\frac { 1 } { \\rho } } } \\nabla p$ in the momentum equation Eq. (2). In weakly compressible SPH, the pressure is computed from density through the equation of state"
+    },
+    {
+      "text": "$$\np ( \\rho ) = p _ { r e f } \\left( \\frac { \\rho } { \\rho _ { r e f } } - 1 \\right) .\n$$"
+    },
+    {
+      "text": "Thus, for a reliable approximation of the density $\\rho$ , the pressure term ensures a repulsive force of scale $p _ { r e f }$ whenever the density exceeds the given reference value $\\rho _ { r e f }$ where typically $\\rho _ { r e f } \\ = \\ 1$ . However, the pressure term is not necessarily sufficient for producing a good particle distribution, as we can see in the bottom part of Fig. 9 in Toshev et al. (2024a). For this reason, more advanced SPH schemes have been developed, distinguishing between the physical velocity field and the velocity by which particles are shifted (Adami et al., 2013; Zhang et al., 2017b). These schemes are related to Arbitrary Lagrangian-Eulerian methods (Hirt et al., 1974) instead of being fully Lagrangian."
+    },
+    {
+      "text": "Challenges of density computation at free surfaces. Accurately computing the density at free surfaces is a difficult task for SPH methods. In the standard SPH formulation, the density at each particle is calculated by a kernel-weighted summation of the mass of adjacent particles (Gingold & Monaghan, 1977). However, particles at free surfaces have low density when using density summation, which leads to incorrect pressure values (Monaghan, 1994). The lowdensity inconsistency can be corrected for by globally and locally conservative least-squares interpolation (Dilts, 2000), adaptive kernel estimation procedure (Sigalotti et al., 2006), or by initializing the simulation by first evolving particles with a heavily damped version of the momentum conservation (Becker & Teschner, 2007). However, most SPH methods for free surface flows resort to the continuity equation to represent the rate of change in density (Monaghan, 1994; Bonet & Lok, 1999). In this density evolution formulation, density derivatives are integrated over time (see Eq. (1)). On top of the density evolution, density filters, such as periodic re-initialization, are applied (Gomez-Gesteira et al., 2010; Colagrossi & Landrini, 2003; Shepard, 1968)."
+    },
+    {
+      "text": "GNN-based simulators. The formulation of the learning problem is based on LagrangeBench (Toshev et al., 2024a). We look at the task of autoregressive acceleration prediction of a Lagrangian particle system, which we then integrate twice using semi-implicit Euler integration to evolve the system over time (see Appendix F). The datasets consist of particle types per particle and particle coordinates $\\mathbf { P } ^ { t _ { k } }$ over $k \\in ( 0 , K )$ steps, where each frame $\\mathbf { P } ^ { t }$ is made up of $n \\in ( 1 , N )$ particles $\\mathbf { p } _ { n } ^ { t } \\in \\mathbb { R } ^ { d }$ in dimension $d$ . The inputs to the learned surrogate are state vectors $\\mathbf { X } ^ { t _ { k - H } : t _ { k } }$ , with history size $H$ , each of which contains the past velocities $\\mathbf { U } _ { k } = [ \\mathbf { u } _ { k , 1 } , . . . , \\mathbf { u } _ { k , N } ]$ inferred using the finite difference approximation of past coordinates, as well as optional features like external force vector g, e.g., gravity."
+    },
+    {
+      "text": "We use the default configuration files from LagrangeBench for training, including random walk noise (Pfaff et al., 2020) and the pushforward trick (Brandstetter et al., 2022b). These default configurations provide the baseline models, on top of which we add our methods."
+    },
+    {
+      "text": "Pathological particle clustering during long rollouts for GNN-based simulators. The entering point to our analysis is the realization that simulated rollouts of a learned Graph Network-based Simulators (GNS) (Sanchez-Gonzalez et al., 2020) severely violate the $1 \\%$ compressibility requirement present in weakly compressible SPH methods – see top part of Fig. 1. This figure shows compression of as much as $1 . 4 \\cdot \\rho _ { r e f }$ in the left part, which is not only unphysical regarding the density itself but might also lead to unphysical dynamics in the sense of periodic compressions and expansions later in the rollout, see Section 4. The violation – although much worse – resembles pressure inaccuracies in classical numerical SPH solvers."
+    },
+    {
+      "text": "To qualitatively understand clustering, in Fig. 2, we plot the histogram of the per-particle number of neighbors corresponding to the left graphic of the 2D lid-driven cavity from Fig. 5, which also has regions with high particle density. In Fig. 2, we see a pronounced increase in the number of particles with 8-10 neighbors, indicating clustering artifacts."
+    },
+    {
+      "text": "![](images/eef9650b4bade1848b611ae895f101ed49cd41fbb892e6196c69cb801e4e5d01.jpg)  \nFigure 2. Number of neighbors mismatch due to particle clustering. Histogram of the number of neighbors of the 2D lid-driven cavity experiment after 400 rollout steps (average over all test rollouts)."
+    },
+    {
+      "text": "The problem of external forces. We observe that in roughly 8 out of 25 dam break test trajectories at step 80, the front of the wave spreads out as if a virtual wall exists way in front of the actual wall – see Fig. 1 and Appendix A. Such behavior has been discussed in literature (Klimesch et al., 2022), and the current consensus is that the GNNbased simulators learn to infer the dynamics from velocity correlations. Thus, when the velocity reaches a given threshold, it has learned to model the presence of a wall. In the following, we demonstrate that by forcing the network to predict a target acceleration that excludes the external force part, the overall dynamics become more physical, and significantly fewer artifacts occur."
+    },
+    {
+      "text": "# 3. Neural SPH"
+    },
+    {
+      "text": "In this section, we introduce Neural SPH, which improves both training and rollout inference of temporally coarsened GNN-based simulators. Neural SPH comprises a routine to correct for induced modeling errors due to external forces, and inference-time refinement steps of the system state based on SPH relaxation methods."
+    },
+    {
+      "text": "Correction of external forces. In the learning problem formulation by Toshev et al. (2024a), the GNN-based simulators receive as node inputs a time sequence of the $H$ most recent historic velocities stacked to $\\mathbf { u } _ { k - H : k } = [ \\mathbf { u } _ { k - H } , . . . \\mathbf { u } _ { k } ]$ and an optional external force vector. Consequently, the GNN-based simulators are confronted with the underlying instantaneous force and not the effective force, i.e., the force that acts on the particles upon temporal coarsening. We make two observations:"
+    },
+    {
+      "text": "1. The impact of the external force $\\mathbf { g }$ is already included in the dynamics given by the past velocities ${ \\bf u } _ { k - H : k }$ Thus, providing a constant force vector, i.e., gravitational force, as model input might be necessary when training equivariant models, but as Sanchez-Gonzalez et al. (2020) show in their appendix C2, the GNS model does not improve when external force information is added. However, in the general case of systems with spatially varying forces, having force vectors as inputs is crucial. An example is the reverse Poiseuille flow, which has a positive force in $x$ direction when $y > 1$ and a negative force when $y < 1$ (see Appendix D)."
+    },
+    {
+      "text": "2. By predicting the full acceleration a, the GNN-based simulators are forced to model gravity implicitly. One might argue that gravity is just a bias term in the last decoder layer, and thus, a GNN-based simulator should be able to model gravitational effects quite easily. However, we observe that for a GNS model trained on dam break (see Fig. 1 top part), the bias term in the last layer is more than an order of magnitude smaller than the respective gravitational acceleration."
+    },
+    {
+      "text": "Especially the latter observation indicates that GNN-based simulators indeed mainly learn velocity correlations as suggested by Klimesch et al. (2022). Referring to the structure of Eq. (2), and motivated by operator splitting, we suggest to bracket terms on the right-hand side of this equation as $[ \\ldots ] + \\mathbf { g }$ . If considering temporal coarsening of GNN-based simulators over $M$ SPH steps, and given that the dataset is generated by running an SPH simulation with a constant time step $\\Delta t _ { S P H }$ , the steps over which the GNN-based simulator integrates are $M \\Delta t _ { S P H }$ . In the case of a constant force $\\mathbf { g }$ , this leads to an effective external force after $M$ SPH steps of $\\mathbf { g } _ { M } ^ { F D } = ( M \\Delta t _ { S P H } ) ^ { 2 } \\mathbf { g }$ , as by double integration of acceleration to positions with a finite difference time step $\\Delta t ^ { F D } = 1$ , see Appendix F. Thus, when removing the accumulated external force from the full acceleration, i.e.,"
+    },
+    {
+      "text": "$$\n\\begin{array} { r } { \\mathbf { a } = \\mathrm { G N N } \\big ( \\mathbf { X } ^ { t _ { k - H - 1 } : t _ { k } } , \\mathbf { g } \\big ) + \\mathbf { g } _ { M } ^ { F D } \\ , } \\end{array}\n$$"
+    },
+    {
+      "text": "the model is forced to disentangle the interactions between external forces and internal dynamics, i.e., the other two terms on the right-hand side of Eq. (2). We attain a powerful formulation of the learning problem since the dynamics are controlled more explicitly, as shown in Fig. 1 and in Figs. 6 to 9 of Appendix A."
+    },
+    {
+      "text": "However, if the force $\\mathbf { g }$ varies over space or time, it cannot be independently integrated over $M$ time steps. In this case, modeling the correct effective external force requires (i) precise information on the forces that act on a given particle over each of the $M$ steps we want to coarse-grain over,i.e., gFDM $\\begin{array} { r } { { \\bf g } _ { M } ^ { F D } = ( M \\bar { \\Delta t } _ { S P H } ) ^ { 2 } \\frac { 1 } { M } \\bar { \\sum _ { m = 1 } ^ { M } } { \\bf g } _ { m } } \\end{array}$ PMm=1 gm se contributions,. Since we typically do not have access to such information, we propose a convolution-based solution. In the case of a spatially varying but constant in time force field, we use the standard deviation of velocities over the dataset $\\sigma _ { u }$ as a proxy of how much a particle moves perpendicularly to the force field, as this perpendicular motion is what we want to smoothen for. We then convolve the force function with a Gaussian distribution $\\textstyle \\mathcal { N } ( 0 , \\sigma _ { u } ^ { 2 } )$ with the standard deviation $\\sigma _ { u }$ and thus smoothen the force function to account for the effective force exerted on a particle that moves across regions with variable forcing."
+    },
+    {
+      "text": "This convolution can be implemented in two ways: (i) If the function is simple enough, i.e., an analytical solution exists, we can use it directly. (ii) Alternatively, we may evaluate the instantaneous external force at the current particle coordinates and then apply an SPH kernel convolution, which is very similar to a convolution with a Gaussian, except that it has compact support. Applying a kernel $W ( r | h )$ with $h = \\sigma _ { u }$ enables us to effectively smoothen any given force function. As a side remark, applying a convolution with an SPH kernel $W ( \\cdot | h )$ of a particular $h$ over the mass of each adjacent particle is exactly what density summation does."
+    },
+    {
+      "text": "Correction of particle distribution via SPH relaxation. In order to correct the pathological particle clustering of learned GNN-based simulators, we add an intermediate step during the rollout of a learned Lagrangian solver, namely an SPH relaxation step. The idea is that if the learned solver pushes the system to an unphysical particle configuration, we can reduce density fluctuations by running an SPH relaxation simulation of up to 5 steps. By SPH relaxation, we refer to the process of taking the point cloud right after the temporal update of the learned model, and then – solely based on the particle coordinates – applying an SPH update with the assumption of zero initial velocities (Litvinov et al., 2015; Fan et al., 2024). We can apply SPH relaxation using the pressure term in Eq. (2) or the viscous term in Eq. (2). One update step of relaxation corresponds to"
+    },
+    {
+      "text": "$$\n\\begin{array} { l } { \\displaystyle \\mathbf { a } = \\alpha \\frac { - 1 } { \\rho } \\nabla p + \\alpha \\beta \\nabla ^ { 2 } \\mathbf { u } \\ : , } \\\\ { \\displaystyle \\mathbf { p } = \\mathbf { p } + \\mathbf { a } \\ : , } \\end{array}\n$$"
+    },
+    {
+      "text": "where we hide the time step and the pre-factors in the hyperparameters $\\alpha$ and $\\beta$ . Adding and fine-tuning these hyperparameters is essential for various reasons: (a) in SPH, it proves challenging to identify a reference velocity, which is needed for determining the time step size; (b) adhering to the Courant-Friedrichs-Lewy (CFL) condition (Courant et al., 1928) would most certainly result in smaller time steps, and most importantly, (c) the step size is implicitly determined by how much the GNN-based simulator distorts the system. This largest distortion depends on many factors, such as temporal coarsening steps $M$ and the choice of the GNN-based simulator. We propose fine-tuning these hyperparameters as shown later in this section."
+    },
+    {
+      "text": "Correction of density at walls and free surfaces. Recall that also existing SPH methods encounter challenges when predicting the density at free surfaces. On the one hand, density summation, which is the preferred method for density computation due to implicit mass conservation, is not directly applicable to free surfaces since it encounters density inconsistencies. On the other hand, density-transport equations abandon exact mass conservation."
+    },
+    {
+      "text": "For GNN-based simulators, we propose a novel way of estimating the density of a system at free surfaces. Our approach combines the SPH requirement that density fluctuations should not exceed $\\sim 1 \\%$ – which we round up to $2 \\%$ – with density summation. We extend density summation by (a) setting all values $< 0 . 9 8 \\rho _ { r e f }$ to $\\rho _ { r e f }$ , and (b) clipping all values $> 1 . 0 2 \\rho _ { r e f }$ , i.e. setting them to $1 . 0 2 \\rho _ { r e f }$ . Modification (a) guarantees that particles at free surfaces are set to the reference condition, preventing surface instabilities. Modification (b) truncates large outliers akin to gradient clipping when training a neural network, stabilizing the relaxation dynamics. Our approach is closely related to cavitation modeling, where it is common to use tensile instability control (TIC) (Sun et al., 2018) to avoid negative pressure values that increase the particle disorder and eventually lead to the occurrence of particle clustering and clumping (Lyu et al., 2022). The main idea of TIC is to change the pressure gradient formulation according to the particle location, e.g., at a free surface, and the sign of its pressure value (Sun et al., 2018). With this novel density computation routine, we can easily work with wall discretizations consisting of one wall layer, whereas standard SPH typically requires three or more wall layers (Adami et al., 2012). To complete the discussion on wall boundaries, we use the generalized wall boundary condition approach by Adami et al. (2012) to enforce the impermeability of the walls."
+    },
+    {
+      "text": "SPH Relaxation parameter tuning. We propose a threestep parameter-tuning process for the SPH relaxation parameters (see Appendix G.2 for examples):"
+    },
+    {
+      "text": "1. Tune $\\alpha$ while number of relaxation steps $l = 1$ and $\\beta = 0$ . Typically, $\\alpha \\in ( 0 . 0 0 5 , 0 . 0 5 )$ ."
+    },
+    {
+      "text": "2. Tune $l$ with optimal $\\alpha$ and $\\beta = 0$ . Typically, $l \\in ( 1 , 5 )$"
+    },
+    {
+      "text": "3. Tune $\\beta$ with optimal $\\alpha$ and $l$ . Typically, $\\beta \\in ( 0 . 1 , 1 )$ ."
+    },
+    {
+      "text": "The measures we use while tuning are the position MSE, Sinkhorn divergence, kinetic energy MSE, MAE of density deviation from the reference $\\rho _ { r e f }$ , Dirichlet energy (Zhou & Scholkopf ¨ , 2005) of the density field, and Chamfer distance, see Appendix G for more details."
+    },
+    {
+      "text": "Related work. We want to stress that except for the proposed treatment of external forces, our method does not require retraining the GNN-based simulator. This differentiates our work from an orthogonal line of research, which has experienced a surge in recent years, namely using differentiable solvers as part of the machine learning model (Um et al., 2020). On the spectrum of classical numerical solvers to black-box end-to-end ML models, one also finds the class of hybrid models, which are ML models utilizing algorithmic ideas from classical solvers (Toshev et al., 2023b; Lienen & Gunnemann ¨ , 2022; Karlbauer et al., 2022; Kochkov et al., 2021; Li & Farimani, 2022; Brandstetter et al., 2022b). Yet, all of these approaches construct a neural network that needs to be trained, whereas our SPH relaxation happens only during inference."
+    },
+    {
+      "text": "Conceptually closest to our work is the recent PDE-Refiner model class (Lippe et al., 2024). PDE-Refiner draws inspiration from diffusion models to apply a small number of refinement steps on learned Eulerian solvers. The refinement steps substantially improve the modeling of high frequency components, which yields more stable long-term predictions and better physics modeling, at the cost of increased inference time and a dedicated training routine. We point out that because PDE-Refiner is designed for Eulerian systems, it does not have the notion of dynamic particle coordinates underlying Lagrangian methods. Thus, extending PDE-Refiner to the Lagrangian description is not trivial, as one could choose to refine the accelerations or velocities or directly the particle coordinates, and such investigations are beyond the scope of this work. Furthermore, for particle systems, we do not have efficient ways to accurately evaluate high spatial frequencies over point clouds akin to the FFT on grids, and additionally, the physical setup of our problems does not involve high spatial frequencies."
+    },
+    {
+      "text": "# 4. Experiments"
+    }
+  ],
+  "url": ""
+}

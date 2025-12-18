@@ -1,0 +1,125 @@
+# Logic Analysis for `evaluation.py`
+
+This analysis delineates the precise logic and implementation considerations necessary to develop the `EvaluationMetrics` class, which computes evaluation metrics—RMSE, ACC, SSR—over forecast horizons with support for regridding and pressure-based weighting, relying on torch and numpy libraries.
+
+---
+
+# 1. Purpose & Scope
+- **Goal**: Develop a class `EvaluationMetrics` to evaluate weather forecast model outputs against ground truth, supporting:
+  - Computation of key metrics:
+    - **RMSE** (Root Mean Square Error)
+    - **ACC** (Anomaly Correlation Coefficient)
+    - **SSR** (Spatial Similarity Score; to be defined)
+  - Handling multi-variable, multi-lead-time evaluation
+  - Regridding forecast and ground truth data to a common spatial grid
+  - Applying pressure-level weighting based on the variable's pressure level
+  - Support for latitude-weighted metrics
+- **Context**: Applied post-inference, on model predictions stored as tensors, compared to ground truth tensors, over the forecast lead times.
+
+# 2. Input Data & Preprocessing
+- **Inputs for metrics calculation**:
+  - `preds`: list of forecast tensors, shape `(N_samples, V, H, W)` (or batched) or a single forecast tensor.
+  - `targets`: ground truth tensor `(V, H, W)` (or `(N_samples, V, H, W)` if batch)
+- **Ground truth and forecast tensors**:
+  - Variables (`V`) include multiple atmospheric variables defined in the config (e.g., T2m, U10, V10, etc.)
+  - Spatial grid resolution may differ from forecast to evaluation reference; **regridding** needed before metric calculation.
+- **Regridding**:
+  - If regridding is enabled (`regrid_data==True`), resample both forecasts and ground truths onto the common grid `(128, 256)` (from config).
+  - Use a suitable method: `xarray`, `scipy.interpolate`, or similar; likely, nearest-neighbor or bilinear interpolation.
+  - **Note**: Regridding is crucial for spatially consistent evaluation metrics.
+
+# 3. Handling Pressure Variables
+- **Pressure weighting**:
+  - For pressure-level variables, weights are assigned proportional to pressure levels (e.g., `w=1` at 50hPa, `w=0.1` at surface variables).
+  - **Implementation**:
+    - Maintain a mapping/dictionary: `pressure_weights = {50:1, 100:1, ... , 1000:0.1}`
+    - For each pressure level variable, multiply the squared error or covariance metrics by the corresponding weight.
+  - **Variable weights**:
+    - For surface variables (T2m, U10, V10, MSLP), apply default weights (e.g., 1.0 for T2m, 0.1 for others).
+
+# 4. Latitudinal weighting
+- **Purpose**: To account for the non-uniformity of grid cells in spherical coordinates.
+- **Implementation**:
+  - Use latitude grid (`lat`) as a vector of size `H` (height index/latitude index).
+  - Calculate latitude weights as `cos(lat)` or other common scheme.
+  - Apply these weights to metrics over the latitudes, normalizing so weights sum to unity for unbiased estimate.
+
+# 5. Metric Computation
+Definitions:
+- **RMSE**:
+  \[
+  RMSE = \sqrt{\frac{1}{N} \sum_{i=1}^{N} (\hat{X}_i - X_i)^2}
+  \]
+  applied per variable, possibly over all spatial points, weighted by latitude.
+  
+- **ACC (Anomaly Correlation Coefficient)**:
+  \[
+  ACC = \frac{\sum_{i} (\hat{X}_i - \bar{\hat{X}})(X_i - \bar{X})}{\sqrt{\sum_{i} (\hat{X}_i - \bar{\hat{X}})^2 \sum_{i} (X_i - \bar{X})^2}}
+  \]
+  where \(\bar{\hat{X}}\) and \(\bar{X}\) are means over relevant spatial points, weighted appropriately.
+  
+- **SSR (Spatial Similarity Score)**:
+  - **Definition needed**, but assuming it measures spatial pattern similarity—possibly a normalized spatial correlation or a measure like Structural Similarity Index (SSIM).
+  - **Implementation**:
+    - For each variable, compute a normalized spatial correlation between forecast and truth.
+    - Averaged over samples/ensemble members if needed.
+  
+**Note**: Due to the lack of explicit SSR from the paper, assume a placeholder metric using spatial Pearson correlation or a simple index.
+
+---
+
+# 6. Implementation Details & Constraints
+- **Batch processing**:
+  - Support batch inputs for `preds` and `targets` for efficiency.
+  - Loop over samples if ensemble forecast; average metrics for ensemble output.
+- **Weighted masking**:
+  - Compose a mask array if some regions or variables need exclusion.
+  - Apply latitude and pressure weights during metric calculation for each variable.
+  
+- **Multiple lead times**:
+  - Input forecast data should be structured accordingly (e.g., separate evaluation for 1-day, 3-day, etc.).
+  - Provide functions accepting lead time as a parameter.
+
+- **Variable index mapping**:
+  - Map variable names to index positions for clarity.
+  - Use config or input parameters for variable list and pressure levels.
+
+---
+
+# 7. Output Specification
+- **Return values**:
+  - For each metric, produce a dictionary:
+    ```python
+    {
+      'variable_name': {
+        'rmse': value,
+        'acc': value,
+        'ssr': value # assumed metric
+      },
+      ...
+    }
+    ```
+- **Overall scores**:
+  - Optionally, aggregate over all variables with weights for a global metric.
+
+---
+
+# 8. Additional Considerations
+- **Diagnostics & validation**:
+  - Plot sample error maps.
+  - Log per-variable vs. overall metrics.
+- **Robustness**:
+  - Handle missing data or NaNs cautiously (skip or mask).
+  - Ensure no divide-by-zero errors in correlation calculations.
+
+---
+
+# Summary:
+- Utilize provided utilities for pressure weighting and positional encoding.
+- Regrid forecast and target if necessary.
+- Compute mean squared errors, spatial correlations, and anomalies.
+- Apply pressure and latitude weights during calculations.
+- Output metrics as structured dictionaries, supporting batch/ensemble inputs.
+- Design the class to be adaptable for different lead times and variables, ensuring compatibility with the evaluation protocol as outlined.
+
+This structured outline provides the complete, detailed logical flow necessary for accurate implementation of `EvaluationMetrics`. Follow this plan to develop a robust, reproducible evaluation module aligned with the paper’s experimental protocol.

@@ -1,0 +1,14 @@
+# requirements.txt
+
+torch==1.13.1
+torchvision==0.14.1
+numpy==1.21.0
+PyYAML==6.0
+
+# Explanation:
+# - torch: core deep learning framework for model definition, training, and loss computation.
+# - torchvision: datasets (CIFAR, ImageNet), models (ResNet, MobileNet, ShuffleNet), and image transforms.
+# - numpy: numerical operations and probability normalization needed for the power transform and statistical calculations.
+# - PyYAML: loading configuration parameters from 'config.yaml' for hyperparameters, dataset paths, and model options.
+
+# These dependencies directly support dataset loading, model instantiation, loss functions (like KL, CE), and training routines dictated by the described methodology and experimental framework.

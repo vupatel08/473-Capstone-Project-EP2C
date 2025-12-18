@@ -1,0 +1,42 @@
+training:
+  learning_rate: 1e-5  # Initial learning rate; to be tuned further
+  batch_size: 16  # Based on GPU memory capacity
+  epochs: 2  # Full finetuning epochs for Wikipedia dataset
+  loss_masking: true  # Use custom masked relation loss regularizer
+  relation_masking_M: 100  # Average relation occurrences (dataset-dependent, tune as needed)
+  mask_mask_prob: 0.5  # Mask probability base, adjustable
+  gradient_clipping_norm: 1.0  # Optional, for training stability
+
+model:
+  base_model_name: "mistral-7b-v0.2"  # Huggingface model identifier
+  use_lora: true
+  lora_rank: 32
+  finetune_on_dataset: "wikipedia"  # or "arxiv" for transfer step
+  loRA_init_from_pretrained: true
+
+prompt:
+  chain_of_thought_template: |
+    <Insert chain-of-thought prompt template here, matching paper's style>
+  direct_prompt_template: |
+    <Insert direct prompt template here, matching paper's style>
+  instruction_prompt_template: |
+    <Insert instruction prompt template here, matching paper's style>
+
+sampling:
+  temperature: 0.1
+  top_p: 0.9
+  max_tokens: 512
+
+post_processing:
+  prune_alpha_threshold: 0.5  # Threshold for relation confidence pruning, tune via validation
+  prune_beta_threshold: 0.5  # Threshold for relation similarity pruning
+  cycle_removal_strategy: "greedy"  # Strategy for cycle removal
+
+evaluation:
+  semantic_similarity_threshold: 0.436  # Median cosine similarity from WordNet for concept matching
+  motif_k: 3  # Motif size (3-node subgraphs)
+  validation_metric: "Graph F1"  # Main validation metric, can be switched based on experiments
+
+misc:
+  hardware_requirements: "At least one GPU with 16GB+ memory for training and evaluation"
+  seed: 42  # Random seed for reproducibility

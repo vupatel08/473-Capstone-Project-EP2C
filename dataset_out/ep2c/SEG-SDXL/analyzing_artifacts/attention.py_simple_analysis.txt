@@ -1,0 +1,46 @@
+{
+  "attention.py": [
+    {
+      "component": "AttentionLayer class",
+      "purpose": "Encapsulate self-attention with optional Gaussian blur on queries or keys, supporting varying sigma values at inference to implement Smoothed Energy Guidance (SEG).",
+      "details": [
+        "Design an AttentionLayer class that handles the core self-attention operation, integrating optional Gaussian blurring of attention tensors.",
+        "The class should provide a method, e.g., 'compute_attention', which takes query (Q), key (K), value (V), guidance parameters (including sigma), and a mode indicator for whether to apply Gaussian blurring.",
+        "Implement a dedicated 'apply_gaussian_blur' method that blurs tensors (Q or K) using a 2D Gaussian kernel with a specified sigma. This method must be efficient and scalable.",
+        "The Gaussian blur should be realized via separable convolution (e.g., 1D convolve along height and width separately) if possible, to reduce computational cost from \(O(n^2)\) to \(O(n)\) per tensor, where \(n\) is the number of tokens or spatial size.",
+        "The 'apply_gaussian_blur' function should be flexible to handle different sigma values, with sigma being provided dynamically during inference depending on experimental schedule or user input.",
+        "In the 'compute_attention' method, depending on configuration (e.g., during inference with SEG enabled), blur either Q or K (preferably Q for consistency with the paper) before computing scaled dot-product attention.",
+        "The attention computation pipeline should thus be: (a) optionally blur Q or K, (b) compute raw attention scores as QK^T / \(\sqrt{d}\), (c) apply softmax to obtain attention weights, (d) use these weights to compute output values V.",
+        "Throughout, ensure that the code distinguishes between standard attention and smoothed attention, controlled via a parameter or flag.",
+        "The class should interface smoothly with the overall model, exposing methods or attributes to set sigma values at inference time, and enable toggling between raw and blurred attention modes."
+      ],
+      "Implementation considerations": [
+        "Use PyTorch functions for convolutions, e.g., 'torch.nn.functional.conv2d' or 'torch.nn.functional.conv1d' with Gaussian kernels generated on-the-fly.",
+        "Generate Gaussian kernels for different \(\sigma\) dynamically or precompute them for small set of \(\sigma\) values, to speed up inference.",
+        "For tensors Q/K with shape [batch_size, num_heads, tokens, d_head], reshape or permute appropriately to apply 2D Gaussian convolution along spatial dimensions (tokens).",
+        "Ensure that the Gaussian kernel is normalized (sum equals 1) to preserve mean, per Lemma 3.1 in the paper.",
+        "Keep the convolution operation efficient; perhaps cache kernels or use separable convolutions in 1D along height and width if the tensor has spatial structure (e.g., image patches).",
+        "A fallback is to implement custom convolution routines if needed, but use torch's built-in functions for simplicity and GPU compatibility."
+      ],
+      "Operational flow": [
+        "During each attention call in the model forward pass:",
+        "1. Receive input Q, K, V tensors and sigma parameter.",
+        "2. Call 'apply_gaussian_blur' on Q (or K) if appropriate, passing the specific sigma value.",
+        "3. Compute the attention scores as usual: scores = (Q_blurred @ K^T) / sqrt(d).",
+        "4. Apply softmax over the scores to obtain attention weights.",
+        "5. Compute the output as the weighted sum over V, as per standard self-attention.",
+        "6. Return attention output tensor to the next layer.",
+        "In inference, switch sigma values dynamically according to the guidance schedule, and apply the blurring step accordingly.",
+        "In training or evaluation, allow static or varying sigma depending on experimental setup."
+      ],
+      "Additional notes": [
+        "Make sure that the 'apply_gaussian_blur' method is flexible and can handle batch dimensions efficiently.",
+        "Unit tests or validation should verify that the mean of tensors remains unchanged after blurring, and variance decreases as sigma increases, consistent with Lemma 3.1.",
+        "Carefully handle edge effects during convolution, possibly padding tensors appropriately to maintain tensor shape.",
+        "Design the class interface so that the blurring process can be toggled or adjusted without requiring major modifications elsewhere."
+      ],
+      "Summary": "By implementing an AttentionLayer class with a dedicated 'apply_gaussian_blur' method that performs efficient, sigma-dependent blurring on Q/K tensors, the module will support the SEG technique described in the paper. This will allow dynamic control of attention smoothness during inference, enabling the reduction of energy landscape curvature for improved image generation quality with less side effects."
+    }
+  ],
+  "Anything UNCLEAR": "Clarification needed on the specific tensor shapes during attention computations in the codebase (e.g., whether batch, head, token, channel dimensions are ordered as expected). Also, whether to blur queries or keys during inference—preferably queries as per the paper. Further guidance on kernel generation and caching strategies would be helpful."
+}

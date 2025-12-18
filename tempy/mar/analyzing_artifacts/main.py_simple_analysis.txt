@@ -1,0 +1,156 @@
+# Logic Analysis for `main.py`
+
+This script serves as the central orchestrator that coordinates data loading, model initialization, training, sampling, and evaluation based on the provided configuration. It should follow a clear, modular structure, enabling flexibility between training and inference modes and ensuring reproducibility aligned with the paper’s methodology.
+
+## Key Responsibilities
+1. **Parse Configurations**  
+   - Load `config.yaml` file and parse hyperparameters and path settings.  
+   - Support command-line arguments or environment variables for override if needed.
+
+2. **Set Up Environment**  
+   - Fix random seed for reproducibility (`torch.manual_seed`, `numpy.random.seed`).  
+   - Determine device (`cuda` if available, otherwise `cpu`).  
+   - Configure mixed precision if enabled (`torch.cuda.amp`).  
+
+3. **Initialize Data Loader (`DatasetLoader`)**  
+   - Use specified dataset paths (`dataset_path`, `val_dataset_path`) for training and validation sets.  
+   - Load images, preprocess (resize to 256×256), normalize as per ImageNet standards if necessary.  
+   - Instantiate tokenizer via `tokenizer_utils.py` based on `tokenizer_type` (VQ-16, KL-16).  
+   - Encode images to token sequences and store in Dataset objects allowing batch sampling.
+
+4. **Initialize Model Components**  
+   - Instantiate the `TransformerModel` with parameters:
+     - Number of layers: 32
+     - Model width: 1024
+     - Attention mode: causal (for autoregressive) or bidirectional (for MAR)
+     - Positional embeddings: sine or learned
+   - Instantiate `DiffusionHead` (small MLP) with `input_dim=1024` (or as specified).
+   - Instantiate diffusion schedule with cosine shape, 1000 steps for training.
+   - For inference, use `sampling.diffusion_steps=100` or as per config.
+   
+5. **Setup Optimizer and EMA**  
+   - Use AdamW with specified hyperparameters (lr, betas, weight decay).  
+   - Initialize EMA model parameters with decay 0.9999, if applicable.
+
+6. **Instantiate Trainer or Load Checkpoints**  
+   - Depending on mode (train or inference), initialize `trainer.py`:
+     - **Training mode:** Call `trainer.train()`.
+     - **Inference mode:** Prepare for sampling (no training).  
+   - For training:
+     - Pass Dataset, model, diffusion head, optimizer, EMA, and schedule.
+     - Log training progress, save checkpoints periodically.
+   - For inference:
+     - Load trained model weights if checkpoints exist.
+     - Use `sampling.py` routines for image generation.
+
+7. **Generation/Sampling**  
+   - For **causal autoregressive sampling**:
+     - For each token i in sequence:
+       - Compute conditioning vector `z` (via the autoregressive transformer).
+       - Run diffusion reverse process conditioned on `z` to generate token.
+       - Append generated token to sequence.
+   - For **masked autoregressive (MAR)**:
+     - Use scheduled masking ratio reduction.
+     - Batch predict multiple tokens simultaneously with bidirectional attention.
+     - Use diffusion process conditioned on known tokens.
+     - Repeat for the number of steps (e.g., 64 steps).
+   - Optional: incorporate guidance scale (`ω`) and temperature (`τ`) during sampling.
+
+8. **Decode Generated Tokens to Images**  
+   - Use `tokenizer_utils.py` to decode sequences back to images.  
+   - Save or display generated images.
+
+9. **Evaluation**  
+   - Load generated images.
+   - Compute FID, IS, Precision/Recall via `evaluation.py`.
+   - Save metrics to logs or output files for comparison.
+
+10. **Logging and Checkpointing**  
+    - Log training progress, losses, and evaluation metrics.
+    - Save model checkpoints at configured intervals.
+    - Save final trained models and inference outputs in structured directories.
+
+## Implementation Details & Flow
+- **Main Function Skeleton:**
+```python
+def main():
+    # Load configuration
+    config = load_config('config.yaml')
+    
+    # Set seed
+    set_random_seed(config.misc.seed)
+    
+    # Setup device and mixed precision
+    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+    use_amp = config.misc.use_mixed_precision
+    
+    # Initialize dataset
+    dataset = DatasetLoader(config.data.dataset_path, config.data.tokenizer_type, ...)
+    val_dataset = DatasetLoader(config.data.val_dataset_path, config.data.tokenizer_type, ...)
+    
+    # Initialize tokenizer
+    tokenizer = load_tokenizer(config.data.tokenizer_type, config.data.tokenizer_path)
+    
+    # Create DataLoader
+    train_loader = DataLoader(dataset, batch_size=config.training.batch_size, shuffle=True, ...)
+    val_loader = DataLoader(val_dataset, batch_size=config.evaluation.evaluation_batch_size, ...)
+    
+    # Initialize model
+    model = TransformerModel(config.model.transformer).to(device)
+    diffusion_head = DiffusionHead(config.model.diffusion_head.input_dim).to(device)
+    diffusion_schedule = CosineDiffusionSchedule(num_timesteps=1000)
+    
+    # Setup optimizer
+    optimizer = torch.optim.AdamW(model.parameters(), lr=config.training.learning_rate, betas=config.training.optimizer_params.betas, weight_decay=config.training.weight_decay)
+    
+    # EMA model setup
+    ema_model = copy.deepcopy(model)
+    ema_decay = 0.9999
+    
+    # Load checkpoint if resuming
+    if resume_checkpoint_exists:
+        load_checkpoint(ema_model, optimizer, checkpoint_path)
+    
+    # Instantiate trainer
+    trainer = Trainer(model, diffusion_head, diffusion_schedule, train_loader, optimizer, ema_model)
+    
+    if mode == 'train':
+        # Run training
+        trainer.train()
+    elif mode == 'sample':
+        # Load trained model
+        load_checkpoint(model, optimizer, checkpoint_path)
+        # Generate images
+        sampler = Sampler(model, diffusion_head, diffusion_schedule, config.sampling)
+        generated_sequences = sampler.generate_sequence(...)
+        # Decode images
+        images = [tokenizer.decode(seq) for seq in generated_sequences]
+        # Save or display images
+        save_images(images, output_dir)
+        # Evaluate
+        evaluate_images(images, validation_data)
+```
+
+- **Flow control based on a command-line flag or argument** to switch between 'train' and 'sample' modes.
+
+- **Ensure modularity:**
+   - Separate scripting of training, sampling, and evaluation.
+   - Reuse functions/classes in respective modules per the design.
+
+- **Hyperparameters and options:**
+   - Use values from `config.yaml` and support command-line overriding for quick experimentation.
+
+---
+
+## Critical Points and Checks
+- Confirm that the diffusion steps are consistent: 1000 during training, 100 during inference.
+- Confirm the attention mode (causal vs. bidirectional) aligns with mode.
+- Make sure to properly load pre-trained tokenizers and models for reproducibility.
+- Validate tokenization and decoding pipeline.
+- Properly implement diffusion loss as per the pseudo code and equations.
+- Handle class conditional guidance if needed (not mandatory for reproduction).
+- Save images in standard formats for evaluation consistency.
+
+---
+
+This detailed logic analysis ensures `main.py` will coordinate all components seamlessly, resulting in a faithful implementation of the methodology described in the paper, aligned with the provided plan and configuration.

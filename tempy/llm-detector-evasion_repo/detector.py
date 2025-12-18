@@ -1,0 +1,183 @@
+## detector.py
+import os
+import requests
+import torch
+from transformers import AutoTokenizer, AutoModelForSequenceClassification
+from typing import List, Tuple, Optional
+import logging
+
+# Set up logging for debugging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
+class Detector:
+    """
+    Detector class abstracts different machine-generated text detection methods,
+    including open-source models and commercial APIs.
+    """
+    def __init__(self, name: str, api_key: Optional[str] = None, device: str = 'cuda'):
+        self.name = name.lower()
+        self.api_key = api_key
+        self.device = device
+        self.model = None
+        self.tokenizer = None
+
+        # Determine detector type based on name
+        open_source_detectors = ['roberta-large', 'roberta-base', 'log_probability', 'log_rank']
+        api_detectors = ['gptzero', 'originality.ai', 'winston ai', 'detectgpt', 'detectllm']
+
+        if self.name in open_source_detectors:
+            self._load_local_model()
+        elif self.name in [d.lower() for d in api_detectors]:
+            # For API-based detectors, store endpoint info
+            self._initialize_api()
+        else:
+            raise ValueError(f"Unknown detector: {name}")
+
+    def _load_local_model(self):
+        """
+        Load local transformer model for detection.
+        Assumes models are named accordingly and are available locally or from HuggingFace.
+        """
+        # Map detector name to model identifier
+        model_map = {
+            'roberta-large': 'roberta-large',
+            'roberta-base': 'roberta-base',
+            'log_probability': 'textattack/roberta-base-imdb',  # Example: replace with appropriate model
+            'log_rank': 'textattack/roberta-base-imdb'        # Placeholder; replace with correct if available
+        }
+        model_id = model_map.get(self.name)
+        if model_id is None:
+            raise ValueError(f"Model ID not found for detector {self.name}")
+        try:
+            logger.info(f"Loading model {model_id} for detector {self.name}")
+            self.tokenizer = AutoTokenizer.from_pretrained(model_id)
+            self.model = AutoModelForSequenceClassification.from_pretrained(model_id)
+            self.model.to(self.device)
+            self.model.eval()
+        except Exception as e:
+            logger.error(f"Failed to load model {model_id}: {str(e)}")
+            raise
+
+    def _initialize_api(self):
+        """
+        Set API endpoint info based on detector name.
+        """
+        # Placeholder URLs; replace with actual endpoints and API details
+        api_endpoints = {
+            'gptzero': 'https://api.gptzero.me/v2/predict',  # hypothetical endpoint
+            'originality.ai': 'https://api.originality.ai/v1/detect',
+            'winston ai': 'https://api.gowinston.ai/v1/detect',
+            'detectgpt': 'https://api.detectgpt.com/v1/detect',  # hypothetical
+            'detectllm': 'https://api.detectllm.com/v1/detect'   # hypothetical
+        }
+        self.api_url = api_endpoints.get(self.name)
+        if self.api_url is None:
+            raise ValueError(f"API endpoint not configured for {self.name}")
+        if self.api_key is None:
+            logger.warning(f"No API key provided for {self.name}. Requests may fail.")
+
+    def score_response(self, prompt: str, response: str) -> float:
+        """
+        Compute a 'human-ness' score for a single prompt-response pair.
+        For open-source, use model likelihood; for API, send request.
+        """
+        if self.model is not None:
+            # Open-source local model inference
+            return self._score_with_local_model(prompt, response)
+        else:
+            # API call
+            return self._score_with_api(prompt, response)
+
+    def batch_score(self, prompts_responses: List[Tuple[str, str]]) -> List[float]:
+        """
+        Batch score multiple prompt-response pairs.
+        For open-source models, process in batches if supported.
+        For APIs, iterate with batching limits.
+        """
+        scores = []
+        # Here, for simplicity, process sequentially.
+        # For efficiency, implement batching for open-source models.
+        for prompt, response in prompts_responses:
+            score = self.score_response(prompt, response)
+            scores.append(score)
+        return scores
+
+    def _score_with_local_model(self, prompt: str, response: str) -> float:
+        """
+        Compute likelihood-based score for local models.
+        Concatenate prompt and response, compute log probs.
+        """
+        try:
+            combined_input = prompt + response
+            inputs = self.tokenizer(combined_input, return_tensors='pt')
+            input_ids = inputs['input_ids'].to(self.device)
+            attention_mask = inputs['attention_mask'].to(self.device)
+
+            with torch.no_grad():
+                outputs = self.model(input_ids, attention_mask=attention_mask, output_hidden_states=False)
+                # Get the logits
+                logits = outputs.logits
+                # Compute negative log likelihood
+                # Note: For likelihood, use the labels shifted by one
+                # Since we want sequence likelihood, traditionally process token by token
+                # Here, simplified: compute sum of log softmax probabilities
+                token_log_probs = torch.nn.functional.log_softmax(logits, dim=-1)
+                # Shift input_ids by one for labels
+                labels = input_ids
+                # Get log probs for the true labels
+                sequence_log_prob = 0.0
+                for i in range(input_ids.shape[1]):  # tokens in sequence
+                    token_id = input_ids[0, i]
+                    log_prob = token_log_probs[0, i, token_id]
+                    sequence_log_prob += log_prob.item()
+                # Compute per-token average
+                avg_log_prob = sequence_log_prob / input_ids.shape[1]
+                # Return negative likelihood as score (higher means more human-like)
+                return avg_log_prob
+        except Exception as e:
+            logger.error(f"Error computing likelihood: {str(e)}")
+            return -1e6  # Return very low score on failure
+
+    def _score_with_api(self, prompt: str, response: str) -> float:
+        """
+        Send request to external API detector and parse score.
+        """
+        headers = {}
+        if self.api_key:
+            # Example header; replace with actual API key header
+            headers['Authorization'] = f'Bearer {self.api_key}'
+        payload = {}
+        # Construct payload depending on detector API specifics
+        # Placeholder example:
+        payload = {
+            'prompt': prompt,
+            'response': response
+        }
+        try:
+            response_obj = requests.post(self.api_url, headers=headers, json=payload, timeout=10)
+            response_obj.raise_for_status()
+            data = response_obj.json()
+            # Parse score depending on API response structure
+            # Here, assume the detector returns a probability or score between 0 and 1
+            # For example, data['score']
+            score = data.get('score') or data.get('probability')  # replace with actual keys
+            if score is None:
+                logger.warning(f"No score found in API response for {self.name}")
+                return 0.5  # default neutral score
+            # Convert probability to a score (higher means more human-like)
+            # If score is probability of human, use directly
+            if isinstance(score, (float, int)):
+                return float(score)
+            else:
+                # If score is a string, try to parse
+                return float(score)
+        except Exception as e:
+            logger.error(f"API request failed for detector {self.name}: {str(e)}")
+            # Return neutral or conservative score on failure
+            return 0.5
+
+# Example usage:
+# detector = Detector('RoBERTa-large', device='cuda')
+# score = detector.score_response("Prompt here", "Response here")
+# batch_scores = detector.batch_score([("prompt1", "response1"), ("prompt2", "response2")])

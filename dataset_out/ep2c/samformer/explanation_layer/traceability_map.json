@@ -1,0 +1,268 @@
+{
+  "code_to_paper": {
+    "dataset_loader.py:DatasetLoader": [
+      "Dataset Preparation",
+      "Methodology",
+      "Implementation Details"
+    ],
+    "dataset_loader.py:__init__": [
+      "The provided paper sections do not seem to contain any relevant information related to the code component. Please provide the correct paper sections."
+    ],
+    "evaluation.py:Evaluation": [
+      "Evaluation",
+      "Results and Discussion",
+      "Methodology"
+    ],
+    "evaluation.py:__init__": [
+      "\"Model Evaluation\"",
+      "\"Experimental Setup\"",
+      "\"Implementation Details\""
+    ],
+    "main.py:set_seed": [
+      "The provided paper sections do not seem to contain any relevant information related to the code component. Please provide more relevant paper sections."
+    ],
+    "main.py:main": [
+      "The provided information is insufficient to determine the most relevant paper sections for the code component. Please provide more details about the function in the file main.py."
+    ],
+    "model.py:ReversibleIN": [
+      "The provided paper sections do not seem to be relevant to the code component. The section provided appears to be the author list rather than the content sections of the paper. Please provide the content sections of the paper for a proper analysis."
+    ],
+    "model.py:ChannelWiseAttention": [
+      "The code component description does not provide enough information to accurately link it to specific paper sections. Please provide more detailed information."
+    ],
+    "model.py:SAMTransformer": [
+      "The provided paper sections do not seem to contain any relevant information related to the code component. Please provide more relevant paper sections."
+    ],
+    "model.py:__init__": [
+      "The paper sections are not clearly defined in the provided information. Please provide the titles of the paper sections."
+    ],
+    "trainer.py:SAMOptimizer": [
+      "The paper sections are not clearly defined in the provided information. Please provide the titles of the paper sections."
+    ],
+    "trainer.py:Trainer": [
+      "The provided information is insufficient to determine the most relevant paper sections for the code component. Please provide more details about the code component or the paper sections."
+    ],
+    "trainer.py:__init__": [
+      "The paper sections are not provided in the question. Please provide the paper sections to proceed."
+    ],
+    "trainer.py:set_seed": [
+      "The provided information is insufficient to determine the most relevant paper sections for the code component. Please provide more details about the function in the trainer.py file or the content of the paper sections."
+    ],
+    "utils.py:plot_attention_heatmaps": [
+      "Methods",
+      "Results",
+      "Discussion"
+    ],
+    "utils.py:plot_loss_landscape": [
+      "Methods",
+      "Results",
+      "Discussion"
+    ],
+    "utils.py:plot_performance_comparison": [
+      "The provided paper sections do not seem to match the code component. The only section provided is the \"Abstract\" which typically provides a summary of the paper and may not directly relate to specific code components. More relevant sections could be \"Methodology\"",
+      "\"Results\"",
+      "or \"Data Analysis\". Please provide more relevant paper sections."
+    ]
+  },
+  "paper_to_code": {
+    "Dataset Preparation": [
+      {
+        "component": "dataset_loader.py:DatasetLoader",
+        "description": "Handles dataset loading, preprocessing, normalization (RevIN), sequence generation,\n    and data batching for multiple datasets as specified in the configuration.",
+        "file": "dataset_loader.py"
+      }
+    ],
+    "Methodology": [
+      {
+        "component": "dataset_loader.py:DatasetLoader",
+        "description": "Handles dataset loading, preprocessing, normalization (RevIN), sequence generation,\n    and data batching for multiple datasets as specified in the configuration.",
+        "file": "dataset_loader.py"
+      },
+      {
+        "component": "evaluation.py:Evaluation",
+        "description": "Handles evaluation of trained models on test datasets, computes metrics (MSE, MAE),\n    visualizes attention matrices, loss landscapes, and prediction results.",
+        "file": "evaluation.py"
+      }
+    ],
+    "Implementation Details": [
+      {
+        "component": "dataset_loader.py:DatasetLoader",
+        "description": "Handles dataset loading, preprocessing, normalization (RevIN), sequence generation,\n    and data batching for multiple datasets as specified in the configuration.",
+        "file": "dataset_loader.py"
+      }
+    ],
+    "The provided paper sections do not seem to contain any relevant information related to the code component. Please provide the correct paper sections.": [
+      {
+        "component": "dataset_loader.py:__init__",
+        "description": "Initializes the DatasetLoader with dataset configuration.\n        Args:\n            config (Dict): Configuration dictionary for datasets, containing\n                list of datasets with properties:\n                - name\n                - path\n                - features (int)\n                - sequence_length (int)\n                - prediction_horizon (int)\n                - granularity (str)",
+        "file": "dataset_loader.py"
+      }
+    ],
+    "Evaluation": [
+      {
+        "component": "evaluation.py:Evaluation",
+        "description": "Handles evaluation of trained models on test datasets, computes metrics (MSE, MAE),\n    visualizes attention matrices, loss landscapes, and prediction results.",
+        "file": "evaluation.py"
+      }
+    ],
+    "Results and Discussion": [
+      {
+        "component": "evaluation.py:Evaluation",
+        "description": "Handles evaluation of trained models on test datasets, computes metrics (MSE, MAE),\n    visualizes attention matrices, loss landscapes, and prediction results.",
+        "file": "evaluation.py"
+      }
+    ],
+    "\"Model Evaluation\"": [
+      {
+        "component": "evaluation.py:__init__",
+        "description": "Initializes evaluation with trained model, data loader, normalization layer,\n        device, configuration, and saving options.\n        Args:\n            model (torch.nn.Module): trained model instance (e.g., SAMformer)\n            test_loader (torch.utils.data.DataLoader): test dataset loader\n            revin_layer (ReversibleIN): normalization layer used during training\n            device (torch.device): computation device\n            config (dict): configuration dict for metrics, visualization options\n            model_name (str): identifier for the model (for plotting titles)\n            save_dir (str): directory to save plots and metrics",
+        "file": "evaluation.py"
+      }
+    ],
+    "\"Experimental Setup\"": [
+      {
+        "component": "evaluation.py:__init__",
+        "description": "Initializes evaluation with trained model, data loader, normalization layer,\n        device, configuration, and saving options.\n        Args:\n            model (torch.nn.Module): trained model instance (e.g., SAMformer)\n            test_loader (torch.utils.data.DataLoader): test dataset loader\n            revin_layer (ReversibleIN): normalization layer used during training\n            device (torch.device): computation device\n            config (dict): configuration dict for metrics, visualization options\n            model_name (str): identifier for the model (for plotting titles)\n            save_dir (str): directory to save plots and metrics",
+        "file": "evaluation.py"
+      }
+    ],
+    "\"Implementation Details\"": [
+      {
+        "component": "evaluation.py:__init__",
+        "description": "Initializes evaluation with trained model, data loader, normalization layer,\n        device, configuration, and saving options.\n        Args:\n            model (torch.nn.Module): trained model instance (e.g., SAMformer)\n            test_loader (torch.utils.data.DataLoader): test dataset loader\n            revin_layer (ReversibleIN): normalization layer used during training\n            device (torch.device): computation device\n            config (dict): configuration dict for metrics, visualization options\n            model_name (str): identifier for the model (for plotting titles)\n            save_dir (str): directory to save plots and metrics",
+        "file": "evaluation.py"
+      }
+    ],
+    "The provided paper sections do not seem to contain any relevant information related to the code component. Please provide more relevant paper sections.": [
+      {
+        "component": "main.py:set_seed",
+        "description": "Set seeds for reproducibility.",
+        "file": "main.py"
+      },
+      {
+        "component": "model.py:SAMTransformer",
+        "description": "Implements a shallow transformer with channel-wise attention, residual,\n    spectral normalization, and RevIN normalization.",
+        "file": "model.py"
+      }
+    ],
+    "The provided information is insufficient to determine the most relevant paper sections for the code component. Please provide more details about the function in the file main.py.": [
+      {
+        "component": "main.py:main",
+        "description": "",
+        "file": "main.py"
+      }
+    ],
+    "The provided paper sections do not seem to be relevant to the code component. The section provided appears to be the author list rather than the content sections of the paper. Please provide the content sections of the paper for a proper analysis.": [
+      {
+        "component": "model.py:ReversibleIN",
+        "description": "Implements Reversible Instance Normalization (RevIN) as described in Kim et al. (2021b).\n    It normalizes input sequences per batch during training and allows denormalization.",
+        "file": "model.py"
+      }
+    ],
+    "The code component description does not provide enough information to accurately link it to specific paper sections. Please provide more detailed information.": [
+      {
+        "component": "model.py:ChannelWiseAttention",
+        "description": "Implements the channel-wise attention as per Eq. (4), with softmax row-wise.\n    Stores the attention matrix for analysis.",
+        "file": "model.py"
+      }
+    ],
+    "The paper sections are not clearly defined in the provided information. Please provide the titles of the paper sections.": [
+      {
+        "component": "model.py:__init__",
+        "description": "Computes mean/std per batch and normalizes input sequence.\n        Args:\n            x (Tensor): shape (B, L, D) or (B, D, L)\n        Returns:\n            normalized (Tensor): same shape as input",
+        "file": "model.py"
+      },
+      {
+        "component": "trainer.py:SAMOptimizer",
+        "description": "Wraps an optimizer to perform Sharpness-Aware Minimization (SAM).",
+        "file": "trainer.py"
+      }
+    ],
+    "The provided information is insufficient to determine the most relevant paper sections for the code component. Please provide more details about the code component or the paper sections.": [
+      {
+        "component": "trainer.py:Trainer",
+        "description": "",
+        "file": "trainer.py"
+      }
+    ],
+    "The paper sections are not provided in the question. Please provide the paper sections to proceed.": [
+      {
+        "component": "trainer.py:__init__",
+        "description": "Performs the ascent step: move parameters in the direction of the loss gradient.",
+        "file": "trainer.py"
+      }
+    ],
+    "The provided information is insufficient to determine the most relevant paper sections for the code component. Please provide more details about the function in the trainer.py file or the content of the paper sections.": [
+      {
+        "component": "trainer.py:set_seed",
+        "description": "",
+        "file": "trainer.py"
+      }
+    ],
+    "Methods": [
+      {
+        "component": "utils.py:plot_attention_heatmaps",
+        "description": "Visualizes a collection of attention matrices as heatmaps.\n    Args:\n        attention_matrices (list or np.ndarray): List or array of attention matrices of shape (N, D, D),\n            where N is number of samples, D is feature dimension.\n        dataset_name (str): Dataset identifier for plot titles.\n        horizon (str): Horizon identifier for plot titles.\n        save_path (str, optional): If provided, saves plots to the specified path.\n        show (bool): Whether to display plots inline.",
+        "file": "utils.py"
+      },
+      {
+        "component": "utils.py:plot_loss_landscape",
+        "description": "Plots a 2D loss landscape given evaluated loss over a grid of parameters.\n    Args:\n        loss_grid (np.ndarray): 2D array of shape (len(x_vals), len(y_vals)).\n        x_vals (np.ndarray): 1D array of grid points along x-direction.\n        y_vals (np.ndarray): 1D array along y-direction.\n        save_path (str, optional): Path to save the plot.\n        show (bool): Whether to display plot inline.",
+        "file": "utils.py"
+      }
+    ],
+    "Results": [
+      {
+        "component": "utils.py:plot_attention_heatmaps",
+        "description": "Visualizes a collection of attention matrices as heatmaps.\n    Args:\n        attention_matrices (list or np.ndarray): List or array of attention matrices of shape (N, D, D),\n            where N is number of samples, D is feature dimension.\n        dataset_name (str): Dataset identifier for plot titles.\n        horizon (str): Horizon identifier for plot titles.\n        save_path (str, optional): If provided, saves plots to the specified path.\n        show (bool): Whether to display plots inline.",
+        "file": "utils.py"
+      },
+      {
+        "component": "utils.py:plot_loss_landscape",
+        "description": "Plots a 2D loss landscape given evaluated loss over a grid of parameters.\n    Args:\n        loss_grid (np.ndarray): 2D array of shape (len(x_vals), len(y_vals)).\n        x_vals (np.ndarray): 1D array of grid points along x-direction.\n        y_vals (np.ndarray): 1D array along y-direction.\n        save_path (str, optional): Path to save the plot.\n        show (bool): Whether to display plot inline.",
+        "file": "utils.py"
+      }
+    ],
+    "Discussion": [
+      {
+        "component": "utils.py:plot_attention_heatmaps",
+        "description": "Visualizes a collection of attention matrices as heatmaps.\n    Args:\n        attention_matrices (list or np.ndarray): List or array of attention matrices of shape (N, D, D),\n            where N is number of samples, D is feature dimension.\n        dataset_name (str): Dataset identifier for plot titles.\n        horizon (str): Horizon identifier for plot titles.\n        save_path (str, optional): If provided, saves plots to the specified path.\n        show (bool): Whether to display plots inline.",
+        "file": "utils.py"
+      },
+      {
+        "component": "utils.py:plot_loss_landscape",
+        "description": "Plots a 2D loss landscape given evaluated loss over a grid of parameters.\n    Args:\n        loss_grid (np.ndarray): 2D array of shape (len(x_vals), len(y_vals)).\n        x_vals (np.ndarray): 1D array of grid points along x-direction.\n        y_vals (np.ndarray): 1D array along y-direction.\n        save_path (str, optional): Path to save the plot.\n        show (bool): Whether to display plot inline.",
+        "file": "utils.py"
+      }
+    ],
+    "The provided paper sections do not seem to match the code component. The only section provided is the \"Abstract\" which typically provides a summary of the paper and may not directly relate to specific code components. More relevant sections could be \"Methodology\"": [
+      {
+        "component": "utils.py:plot_performance_comparison",
+        "description": "Plots comparison of metrics over datasets and horizons.\n    Args:\n        datasets (list): List of dataset names\n        horizons (list): List of horizon values\n        metrics (dict): Nested dict with structure {dataset: {horizon: {'model_name': metric_value, ...}}}\n        title (str): Plot title\n        save_path (str, optional): Path to save plot\n        show (bool): Whether to display",
+        "file": "utils.py"
+      }
+    ],
+    "\"Results\"": [
+      {
+        "component": "utils.py:plot_performance_comparison",
+        "description": "Plots comparison of metrics over datasets and horizons.\n    Args:\n        datasets (list): List of dataset names\n        horizons (list): List of horizon values\n        metrics (dict): Nested dict with structure {dataset: {horizon: {'model_name': metric_value, ...}}}\n        title (str): Plot title\n        save_path (str, optional): Path to save plot\n        show (bool): Whether to display",
+        "file": "utils.py"
+      }
+    ],
+    "or \"Data Analysis\". Please provide more relevant paper sections.": [
+      {
+        "component": "utils.py:plot_performance_comparison",
+        "description": "Plots comparison of metrics over datasets and horizons.\n    Args:\n        datasets (list): List of dataset names\n        horizons (list): List of horizon values\n        metrics (dict): Nested dict with structure {dataset: {horizon: {'model_name': metric_value, ...}}}\n        title (str): Plot title\n        save_path (str, optional): Path to save plot\n        show (bool): Whether to display",
+        "file": "utils.py"
+      }
+    ]
+  },
+  "paper_sections": [
+    {
+      "section": "Abstract",
+      "text": "Romain Ilbert \\* 1 2 Ambroise Odonnat \\* 1 Vasilii Feofanov 1 Aladin Virmaux 1 Giuseppe Paolo 1 Themis Palpanas 2 Ievgen Redko 1",
+      "ontology": "abstract"
+    }
+  ],
+  "coverage_score": 23.0
+}

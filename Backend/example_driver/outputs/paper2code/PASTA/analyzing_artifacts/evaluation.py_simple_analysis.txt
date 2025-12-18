@@ -1,0 +1,126 @@
+# Logic Analysis for `evaluation.py`
+
+## Purpose
+The `evaluation.py` module encapsulates the `Evaluation` class, responsible for executing model inference on test datasets and calculating performance metrics as specified in the configuration. It interacts with data loading (`dataset_loader.py`) for preparing datasets and with model inference (`model_wrapper.py`) for generating outputs. It also computes various evaluation metrics (accuracy, success rates, fluency, etc.) based on generated and reference texts.
+
+---
+
+## Core Responsibilities
+1. **Loading Datasets:** Use `dataset_loader.py` to fetch test datasets, structured appropriately with tokenized inputs, emphasis span annotations, and reference outputs.
+2. **Model Inference:** Use `model_wrapper.py` to generate model outputs given input prompts, with optional inference-time attention reweighting for specified heads and emphasis spans.
+3. **Metric Computation:** Apply evaluation metrics as specified:
+    - **Format accuracy (F. Acc.):** Valid JSON output.
+    - **Prediction accuracy (P. Acc.):** Correctness against ground truth.
+    - **Pronoun accuracy and all-changed accuracy (A. Acc.):** For pronoun handling tasks.
+    - **CounterFact efficacy (ES/PS):** Effectiveness and paraphrase scores.
+    - **BiasBios accuracy:** Correct classification of occupation.
+    - **Fluency metrics:** Bigram and trigram entropy.
+4. **Reporting Results:** Aggregate metrics across datasets, produce per-task and overall summaries, and handle task-specific evaluations.
+5. **Handling Inputs & Generated Outputs:**
+    - For each sample:
+      - Input prompt with emphasis spans.
+      - Model inference with attention steering if applicable.
+      - Parse and extract generated output for metrics.
+6. **Robustness & Reproducibility:**
+    - Ensure consistent evaluation by fixed seed, batch processing.
+    - Handle potential invalid JSON or malformed outputs gracefully.
+    - Implement caching or logging as needed for traceability.
+
+---
+
+## High-Level Workflow
+### Step 1: Initialization
+- Read configuration (if needed from arguments or environment).
+- Set up evaluation parameters (metrics to compute).
+- Prepare datasets for the test split: load via `dataset_loader.py`.
+
+### Step 2: Data Loading
+- Use `DatasetLoader` class to retrieve test data.
+- Each test example should include:
+  - Input prompt text.
+  - Emphasis markers span indices or tokens.
+  - Reference output(s).
+
+### Step 3: Inference Loop
+- For each test example:
+  - Parse emphasis spans from the prompt text (via `utils.py` helper functions).
+  - Feed the prompt to `model_wrapper.py`'s `generate()`:
+    - Pass emphasis span indices.
+    - Indicate whether attention steering is active.
+  - Gather generated output string.
+
+### Step 4: Post-processing
+- Parse generated output for correctness:
+  - For JSON tasks, attempt to parse JSON; handle errors.
+  - For classification tasks, extract predicted label.
+- For pronoun changing, compare generated pronouns vs. reference.
+- For counterfact tasks, compare with referenced facts.
+- For bias tasks, determine the predicted occupation vs. ground truth.
+
+### Step 5: Metric Calculation
+- Based on task:
+  - Compute specific accuracy metrics.
+  - Count the number of valid JSON outputs and correct JSON values.
+  - Compute success rates for counterfact.
+  - Calculate fluency:
+    - Tokenize generated text.
+    - Compute bigram & trigram entropy.
+  - For consistency or other auxiliary metrics, compare generated to reference texts.
+
+### Step 6: Aggregate Results
+- Maintain counters/statistics:
+  - Total examples per task.
+  - Counts of correct/valid outputs.
+  - Sum of fluency scores.
+- After iteration:
+  - Compute final metrics (percentages, averages).
+  - Prepare task-specific report.
+
+### Step 7: Final Reporting
+- Organize results into a structured dict or printout.
+- Include per-metric and overall scores.
+- Optionally, save detailed logs or result summaries.
+
+---
+
+## Implementation Details & Nuances
+- **Metrics Specifics:**
+  - **Format accuracy:** Check JSON validity using `json.loads()`.
+  - **Prediction accuracy:** Compare generated values with reference (exact match).
+  - **Pronoun tasks:** Use regex or `utils.py` span extractor to find and replace pronouns; compare.
+  - **CounterFact:** Parse input question, compare model output with old/new facts.
+  - **BiasBios:** Implement classifier or matching logic to see if predicted occupation matches the label.
+- **Fluency:**
+  - Use n-gram entropy calculations.
+  - For each generated text, compute entropy scores for bigram/trigram.
+- **Error Handling:**
+  - Implement try-except blocks for JSON parsing, metric calculations.
+  - Log errors or skip invalid examples.
+
+---
+
+## Inputs & Outputs
+*Inputs:*
+- Dataset examples (text, emphasis spans, labels).
+- Model inference function (`model_wrapper.py`).
+- Evaluation configuration flags (`evaluation.metrics`).
+
+*Outputs:*
+- A dictionary (or serialized JSON) with all metrics per task.
+- Optional detailed logs of outputs and errors.
+- Final performance summary (overall accuracy, fluency, etc.) for reporting.
+
+---
+
+## Final Notes
+- Make the evaluation process reproducible:
+  - Use fixed random seeds.
+  - Ensure consistent tokenization.
+- Modular structure:
+  - `run()` function orchestrates dataset loading, inference, metrics.
+  - Dedicated functions for each metric to keep code organized.
+- Flexibility:
+  - Allow different tasks to specify which metrics to evaluate.
+  - Enable switching metric calculation modes via config.
+
+This detailed logic analysis guides the implementation of `evaluation.py` to faithfully emulate the evaluation process described in the paper, ensuring consistent, accurate, and comprehensive performance assessment of PASTA-enhanced LLMs.

@@ -1,0 +1,117 @@
+# Logic Analysis for `visualization.py`
+
+This module is responsible for providing visualization functionalities related to impulse responses, spectral responses, FSDS metrics, and network responses. It will utilize `matplotlib.pyplot` and possibly auxiliary utilities for plot annotations and saving images, all while maintaining consistency with the spectral analysis and response extraction performed elsewhere.
+
+---
+
+## Core Responsibilities and Functions
+
+### 1. Visualize Impulse Response (`plot_impulse_response`)
+- **Input:**  
+  - `h_resp`: `torch.Tensor` of shape `(C, H, W)` (or possibly `[H, W]` if single-channel)  
+- **Output:**  
+  - Static image (matplotlib figure) visualizing the impulse response in spatial domain.
+  - Optionally, save the figure to a predefined directory (`viz_save_dir`) or return the figure object.
+- **Logic:**  
+  - Convert tensor to numpy array.
+  - Use `matplotlib.pyplot.imshow()` with a suitable colormap (`'viridis'`, `'hot'`, or `'plasma'`) for clarity.
+  - Add colorbar for amplitude reference.
+  - Annotate with model name, size, and description.
+  - Save or return the figure for external use.
+
+### 2. Plot Spectra (`plot_spectra`)
+- **Inputs:**  
+  - `mag1`, `phase1`, `mag2`, `phase2`: `np.ndarray` (or similar after FFT processing)  
+  - (Optional) spectrum labels: e.g., "Impulse Response", "Network Output Spectrum"  
+- **Output:**  
+  - Side-by-side plots of magnitude and phase spectra for comparison.
+  - Visual aids to assess sinc-like behavior and high-frequency injection.
+- **Logic:**  
+  - Use `plt.subplot(1, 2)` per spectrum for magnitude and phase.
+  - Plot magnitude with logarithmic scale (`plt.loglog()` or `plt.imshow()` with colorbars).
+  - Plot phase using `plt.imshow()` or `plt.pcolormesh()`.
+  - Include axis labels `\(\omega_1\)` and `\(\omega_2\)`, titles, and save options.
+  
+### 3. Plot Responses: Input, Linear, Non-linear (`plot_responses`)
+- **Inputs:**  
+  - `input_img`: tensor or numpy array  
+  - `linear_response`: tensor or numpy array (convolution of input with impulse response)  
+  - `nonlinear_response`: tensor or numpy array (residual/ non-linear component)  
+- **Output:**  
+  - Visual comparison of input, linear, and non-linear responses in spatial domain.
+  - Plot waveforms side-by-side or stacked.
+  - Save images to `viz_save_dir`.
+- **Logic:**  
+  - Convert all tensors to numpy arrays.
+  - Use `imshow()` or `matplotlib` subplots for side-by-side display.
+  - Annotate with labels such as "Input", "Linear response", "Non-linear residual".
+  - Potentially include frequency spectra overlays if helpful.
+
+### 4. Save Visualizations
+- **Approach:**  
+  - Define a consistent naming convention based on model name, response type, and experiment parameters.
+  - Save images as `.png` or `.jpg`.
+  - Use `matplotlib.pyplot.savefig()` with high DPI for clarity.
+  - Ensure the save directory exists (create if missing).
+
+---
+
+## Additional Considerations
+
+- **Input Data types:**  
+  - All inputs will likely be torch tensors for intermediate responses; convert to numpy for plotting.
+  - Normalize or clip responses if necessary for visualization clarity.
+- **Color Mapping:**  
+  - Use perceptually clear colormaps (e.g., `'viridis'`, `'plasma'`) for spectrum and impulse response plots.
+  - Colorbar with appropriate labels.
+- **Visual Clarity:**  
+  - Add titles, axis labels, and annotations.
+  - Consistent font size across plots.
+  - For spectrum plots, potentially overlay grid lines or contour lines to aid interpretation.
+- **Saving & Displaying:**  
+  - Provide optional argument to either display interactively (`plt.show()`) or save to disk (`save_path`).
+  - If saving, use descriptive filenames.
+
+---
+
+## Integration with other modules
+
+- Calls are expected primarily from `main.py` or `response_analysis.py`.
+- Inputs originate from spectral analysis results or responses obtained via `ResponseAnalyzer`.
+- Be prepared to accept both raw tensors (`torch.Tensor`) and numpy arrays (`np.ndarray`) for flexibility.
+
+---
+
+## Summary of Function Signatures
+
+```python
+def plot_impulse_response(h_resp: torch.Tensor, save_path: str = None, title: str = None) -> None:
+    """
+    Visualize the impulse response in spatial domain.
+    Save to 'save_path' if provided; otherwise, display.
+    """
+    
+
+def plot_spectra(mag1: np.ndarray, phase1: np.ndarray, mag2: np.ndarray, phase2: np.ndarray, save_path: str = None, title: str = None) -> None:
+    """
+    Plot magnitude and phase spectra side-by-side for comparison.
+    """
+    
+
+def plot_responses(input_img: torch.Tensor, linear_response: torch.Tensor, nonlinear_response: torch.Tensor, save_path: str = None, titles: list = None) -> None:
+    """
+    Plot input, linear, and nonlinear responses in spatial domain.
+    """
+```
+
+---
+
+## Final notes
+
+- Utilize `matplotlib` best practices for tight layout and readability.
+- Modularize code for reusability and clarity.
+- Maintain consistent figure size and color mappings.
+- Document each plot with descriptive legends or annotations for clarity.
+- Test functions on dummy data before integrating into the main pipeline.
+
+This comprehensive analysis ensures that the visualization module aligns perfectly with the scientific goals, enabling clear interpretation of impulse responses and spectral behaviors, crucial for validating the sinc phenomenon and the HyRA framework.

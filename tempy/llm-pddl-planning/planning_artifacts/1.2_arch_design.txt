@@ -1,0 +1,27 @@
+----------------------------------------
+[Implementation approach]
+We will develop a modular Python system that automates the PDDL generation, refinement, and evaluation loop guided by the EW metric, using GPT-4 via OpenAI API for language modeling. The core components include environment API wrappers, prompt generation modules, a PDDL parser and validator, classical planner interface, and a controller orchestrating iterative refinement. Open-source libraries such as 'pyperclip' for handling prompts, 'pddlpy' for parsing/validating PDDL, and 'subprocess' for invoking FastDownward are employed. The system operates as a main script that initializes environment instances, loads NL descriptions, and runs multiple refinement iterations, collecting success metrics.
+
+----------------------------------------
+[File list]
+- app.py
+- environment.py
+- prompt_manager.py
+- pddl_utils.py
+- planner_interface.py
+- refinement_controller.py
+- datasets.py
+- utils.py
+
+----------------------------------------
+[Data structures and interfaces]
+classDiagramclass Main {+__init__(self, config: dict)+run_experiment(self) -> None}class Environment {+__init__(self, env_id: str, config: dict)+reset(self) -> None+execute_action(self, action: str) -> bool+check_executability(self, action_sequence: list) -> bool+validate_plan(self, plan: list) -> bool+get_object_list(self) -> list+get_action_interface(self) -> dict}class PromptManager {+__init__(self, templates: dict)+generate_initial_prompt(self, nl_descriptions: dict) -> str+generate_refinement_prompt(self, previous_pddl: str, feedback: str, env_feedback: str) -> str+generate_problem_prompt(self, pddl_template: str, env_objects: list, nl_task: str) -> str}class PDDLUtils {+parse_pddl(self, pddl_code: str) -> dict+validate_pddl_syntax(self, pddl_code: str) -> bool+extract_predicates(self, pddl_code: str) -> list+write_pddl_files(self, domain_str: str, problem_str: str, dir_path: str) -> None}class PlannerInterface {+__init__(self, planner_path: str)+run_planner(self, domain_file: str, problem_file: str) -> list+plan_exists(self, domain_file: str, problem_file: str) -> bool}class RefinementController {+__init__(self, environment: Environment, prompt_manager: PromptManager, pddl_utils: PDDLUtils, planner: PlannerInterface)+initialize(self, nl_descriptions: dict, nl_task: str) -> tuple+generate_candidates(self, current_domain: str, current_problem: str, n_d: int, n_p: int) -> list+sample_action_sequences(self, domain: str, problem: str, T_max: int) -> list+compute_ew_score(self, env: Environment, domain: str, problem: str, T_max: int) -> float+refine(self, current_domain: str, current_problem: str, env_objects: list, env_feedback: str) -> tuple+execute_refinement(self, nl_descriptions: dict, nl_task: str, max_iterations: int) -> dict}class DatasetLoader {+__init__(self, data_path: str)+load_environment_data(self) -> list+get_nl_descriptions(self) -> dict+get_ground_truth_pddl(self) -> dict}class Utils {+load_template_files(self, path: str) -> dict+save_pddl_files(self, domain_code: str, problem_code: str, out_dir: str) -> None+run_external_planner(self, domain_file: str, problem_file: str) -> list+run_environment_simulation(self, env: Environment, actions: list) -> bool+compute_metrics(self, success_list: list, ew_scores: list) -> dict}Main --> EnvironmentMain --> PromptManagerMain --> PDDLUtilsMain --> PlannerInterfaceMain --> RefinementControllerMain --> DatasetLoaderMain --> UtilsRefinementController --> EnvironmentRefinementController --> PromptManagerRefinementController --> PDDLUtilsRefinementController --> PlannerInterfacePlanning process involves Main initializing components, loading datasets, then calling execute_refinement(), which iteratively refines and validates PDDL models guided by environment feedback and EW scores, culminating in final success metrics.
+
+----------------------------------------
+[Program call flow]
+sequenceDiagramparticipant M as Mainparticipant DL as DatasetLoaderparticipant PM as PromptManagerparticipant PU as PDDLUtilsparticipant PI as PlannerInterfaceparticipant RC as RefinementControllerparticipant Env as Environmentparticipant Utils as UtilsM->>DL: load_environment_data()DL-->>M: environment_listM->>M: load NL descriptions, ground-truth PDDLM->>RC: initialize(env_objects, nl_descriptions, nl_task, max_iterations)RC->>RC: initialize components (PromptManager, PDDLUtils, PlannerInterface)RC->>RC: current_domain, current_problem = initialize()loop until max_iterations or convergenceRC->>RC: generate_candidates(current_domain, current_problem, n_d, n_p)RC->>RC: for each candidate, sample_action_sequences()RC->>RC: compute_ew_score()RC->>RC: select best candidate domain/problem based on EWRC->>RC: refine with environment feedback (execute actions, get feedback)RC-->>M: new domain/problem filesendM->>Utils: save final PDDL filesM->>Utils: run external planner for each problemUtils-->>M: plansM->>Env: validate plansEnv-->>M: validation success/failureM->>Utils: compute final metrics (solve rate, EW scores)M-->>Main: output results
+
+----------------------------------------
+[Anything UNCLEAR]
+Need clarification on the exact prompt templates for GPT-4, especially the precise format for initial PDDL generation and iterative refinement prompts. Also, confirmation on the environment API details for execute_action and check_executability functions.
+

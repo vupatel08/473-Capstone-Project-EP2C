@@ -1,0 +1,49 @@
+{
+  "overview": "The force_smoothing.py module focuses on implementing functions that compute smoothed external force fields based on the dataset's velocity statistics. The primary goal is to generate a spatially smooth approximation of external forces, especially when those forces vary across space and are possibly discontinuous (e.g., step functions like in reverse Poiseuille flow). This process involves calculating velocity standard deviations to estimate local particle motion, then applying a convolution with a Gaussian kernel (either analytically via erf or numerically via kernel convolution). The resulting smoothed force field can then be used as input to the GNN and SPH correction routines to improve physical stability and long-term accuracy.",
+  
+  "inputs": [
+    "Particle positions for each particle across the dataset or a snapshot.",
+    "Particle velocities over the dataset or a snapshot.",
+    "Raw external force field values at particle positions, if provided (e.g., step functions).",
+    "Velocity statistics (standard deviations) computed over the dataset.",
+    "Config parameters: sigma_scale, which scales the standard deviation to determine the kernel width."
+  ],
+  
+  "outputs": [
+    "Smoothed external force field: a spatial function or array evaluated at particle positions.",
+    "Optional: smoothed force field stored as a vector field over space, ready for injection into the simulation pipeline."
+  ],
+  
+  "steps": [
+    "1. Compute velocity standard deviations:",
+    "   - Given velocity data of particles over the dataset or a specific temporal window, compute per-component standard deviations: σ_x, σ_y, σ_z (if 3D).",
+    "   - Combine these component-wise standard deviations into an overall scalar σ, e.g., by quadratic mean: σ_total = sqrt(σ_x² + σ_y² + σ_z²).",
+    "   - This scalar reflects typical particle motion magnitude in the dataset and is used to adapt the convolution kernel width.",
+    "2. Determine the kernel bandwidth:",
+    "   - Set the Gaussian kernel's standard deviation h as the product of σ_total and a scaling factor sigma_scale (provided as a parameter, e.g., 0.025).",
+    "   - This scaling ensures that the force smoothing adapts to the dataset's typical velocity variability.",
+    "3. Choose the smoothing method:",
+    "   - If the force function is straightforward (e.g., step or analytical function), compute the smoothed version directly via the analytical convolution with erf as in Eq. (D.3).",
+    "   - If the force is complex or represented as an arbitrary discrete grid, evaluate the force at each particle location and convolve with the kernel W(r|h):",
+    "     - Use a kernel sum: force_smoothed(x) = sum_j force(x_j) * W(||x - x_j|| | h), normalized appropriately.",
+    "   - The kernel W(r|h) is the quintic spline or similar compact kernel, supported by scipy or a custom implementation.",
+    "4. Implement the smoothing algorithm:",
+    "   - For the analytical case (e.g., step functions):",
+    "     - Compute erf-based smoothing: force_smooth(y) = force_step(y) convolved with Gaussian, resulting in an erf function as in Eq. (D.3).",
+    "   - For the numerical convolution:",
+    "     - Use neighbor search routines (e.g., scipy KDTree) to identify neighboring particles within radius h.",
+    "     - Accumulate the contribution from neighbor particles scaled by W(r|h).",
+    "   - For continuous force fields defined over a domain, sample or discretize the force function, then perform the convolution accordingly.",
+    "5. Store and output smoothed force field:",
+    "   - Return the smoothed force evaluated either at particle positions or over a spatial grid if required.",
+    "   - Ensure the data structure is compatible with downstream modules, e.g., numpy arrays with shape (num_particles, dim).",
+    "6. Additional considerations:",
+    "   - Validate the force field's physical plausibility post-smoothing, e.g., check for negative pressures or discontinuities.",
+    "   - Optionally, include a threshold or outlier rejection to prevent overly large force contributions after smoothing.",
+    "   - Provide the ability to choose method via parameters, facilitating experimentation (gaussian vs erf).",
+    "7. Integration with main pipeline:",
+    "   - The function should accept raw force field inputs and velocity data, and output the smoothed version, making it reusable in dataset preprocessing, model training, and inference routines."
+  ],
+  
+  "notes": "All computations should rely on numpy, scipy, or equivalent, ensuring efficient batch operations. The module should be flexible to handle 2D and 3D datasets, as the physical models and force functions may differ accordingly. The parameters sigma_scale and method selection must be configurable via a parameter dictionary or a configuration class to support integration with the overall training and evaluation pipeline."
+}

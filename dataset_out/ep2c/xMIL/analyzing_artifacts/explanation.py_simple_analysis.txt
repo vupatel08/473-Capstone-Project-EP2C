@@ -1,0 +1,82 @@
+{
+  "explanation.py": {
+    "Purpose": "Implement the Explanation class responsible for computing instance-level relevance scores using the xMIL-LRP methodology, applicable across different MIL model types (attention, transformer, additive) in histopathology. The class enables faithful explanations that distinguish positive/negative evidence and account for instance interactions, supporting diagnostic insight and model debugging.",
+    "Inputs": {
+      "model": "The trained MIL model (attention-based, transformer-based, or additive). The model includes feature extraction, aggregation, and prediction modules.",
+      "explanation_method": "String indicating which explanation method to use (e.g., 'xMIL-LRP', 'IG', 'G×I', 'attention_rollout')."
+    },
+    "Dependencies": {
+      "Relevance rules": "Implementation of layer-wise relevance propagation (LRP) adapted rules:",
+        "linear": ["LRP-epsilon"], 
+        "attention": ["AH-rule"], 
+        "layer_norm": ["LN-rule"]
+      "Helper functions": "Relevance propagation functions for linear layers, attention modules, and layer norms, following Appendix A.2 and the paper's description.",
+      "PyTorch": "Model layers are PyTorch modules; relevance propagation proceeds by tracing relevance scores backward through the network.",
+      "Relevance hierarchy": "Relevance flows from model output → aggregation module (attention or transform) → instance features → input features.",
+      "Preprocessing": "Input features per patch are used to compute relevance, which is later aggregated into a score per instance."
+    },
+    "Outputs": {
+      "Instance relevance scores": "A vector of real-valued relevance scores per feature, aggregated across features to compute a scalar relevance per instance (epsilon score).",
+      "Heatmap generation": "Using relevance scores to produce heatmaps overlayed on input patches, illustrating support or refutation evidence for the predicted class."
+    },
+    "Core Logic Steps": [
+      {
+        "Step": "Initialize explanation",
+        "Description": "Load the trained model, set the explanation method based on config, and determine which relevance rules to use."
+      },
+      {
+        "Step": "Identify the target prediction",
+        "Description": "Select the specific prediction (e.g., class score) for which relevance is to be explained; can be the class of the predicted label or a specific class of interest."
+      },
+      {
+        "Step": "Backward relevance propagation",
+        "Description": "Relevance propagation starts at the output layer: assign the model's output score as the total relevance. Propagate relevance layer by layer according to the selected rules:"
+      },
+        "Layers": [
+          {
+            "Layer type": "Linear",
+            "Relevance rule": "Use LRP-epsilon to redistribute relevance, stabilizing numerical issues with epsilon parameter, typically small (e.g., 1e-6)."
+          },
+          {
+            "Layer type": "Attention module (e.g., in AttnMIL or TransMIL)",
+            "Relevance rule": "Apply AH-rule: relevance from attention output is distributed back to value inputs proportionally, involving attention scores as per the paper (Section 3.2)."
+          },
+          {
+            "Layer type": "LayerNorm",
+            "Relevance rule": "Use LN-rule: propagate relevance through normalized features as per Appendix A.2, which maintains conservation and accounts for the normalization operation."
+          }
+        ],
+        "Note": "Propagate relevance through each layer, updating relevance scores for neurons/features based on contribution weights and rules. For attention modules, explicitly incorporate attention weights into relevance flow."
+      },
+      {
+        "Step": "Handle non-linearity (ReLU)",
+        "Description": "Relevance scores are propagated through ReLUs by zeroing out relevance where activation is zero; for relevance. Another approach is using the deep Taylor expansion properties."
+      },
+      {
+        "Step": "Aggregate relevance at input features",
+        "Description": "At the input feature layer (instance features), sum relevance scores across feature dimension: r̂_k = Σ_d r_kd, resulting in an instance-level relevance score ε_k."
+      },
+      {
+        "Step": "Disentangle positive/negative evidence",
+        "Description": "Relevance scores are real-valued, with positive scores indicating supporting evidence and negative scores indicating refuting evidence for the class. Use thresholding or visualization color coding for interpretation."
+      },
+      {
+        "Step": "Output relevance vector",
+        "Description": "Provide per-instance relevance scores as the basis for heatmaps, ranking, or further analysis."
+      }
+    ],
+    "Implementation Notes": {
+      "Relevance rules": "Implement separate functions or classes for each relevance rule (LRP-epsilon, AH-rule, LN-rule), following the equations in Appendix A.2.",
+      "Attention modules": "For attention, extract attention weights during classification, then apply relevance distribution according to the AH-rule (Section 3.2). This may involve wrapping or extending the forward pass.",
+      "Relevance propagation": "Perform reverse traversal through the model, layer by layer, storing relevance scores. Use conservation properties to validate correctness.",
+      "Handling instances and features": "At final relevance layer, aggregate feature scores, associate relevance to patches or input image regions for heatmaps.",
+      "Numerical stability": "Use epsilon stabilization during relevance redistribution to prevent numerical issues.",
+      "Batch processing": "Allow relevance computation for multiple instances or bags in batch mode, storing relevance scores separately."
+    },
+    "Special considerations": {
+      "Layered relevance": "Ensure relevance scores are propagated accurately across complex transformer layers, involving self-attention matrices and residuals if necessary.",
+      "Class-specific explanations": "Optionally, specify class of interest to explain the relevance for that class (if multi-class)."
+    },
+    "Conclusion": "The implementation in explanation.py must faithfully reproduce the relevance flow as derived from the xMIL principles, ensuring properties like context sensitivity, distinction between positive and negative evidence, and conservation are maintained. The output relevance scores will serve both as quantitative explanations and heatmap generators to interpret model predictions on histopathology images."
+  }
+}

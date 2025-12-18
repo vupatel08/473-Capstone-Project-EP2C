@@ -1,0 +1,146 @@
+**Logic Analysis for `dataset_loader.py`**
+
+The primary purpose of `dataset_loader.py` is to facilitate data ingestion and preparation for evaluation tasks outlined in the paper. The module must load various datasets, handle dataset splits, and extract relevant data pairs (e.g., sentence pairs, word pairs) for the benchmark tasks: Semantic Textual Similarity (STS), Natural Language Inference (SNLI), WordNet relations, and CxC image-caption datasets. It must do so reliably, reproducibly, and in accordance with the datasets described in the paper.
+
+---
+
+### Core Responsibilities
+
+1. **Dataset Loading**  
+   - Support loading data from local files or URLs.
+   - Use standard NLP datasets (STS, SNLI, WordNet-derived pairs, CxC).
+   - Possibly use existing datasets from HuggingFace datasets library or local CSV/JSON files.
+2. **Data Structuring**  
+   - Organize data into pairs/tuples suitable for evaluation routines.
+   - For similarity tasks (STS, CxC): load pairs with human similarity scores.
+   - For NLI: load premise-hypothesis pairs with entailment/neural labels.
+   - For WordNet: extract word pairs with hypernym/hyponym annotations.
+3. **Dataset Splitting**  
+   - Provide methods to access specific splits: e.g., validation subset for consistency with the evaluation in the paper.
+   - Maintain reproducibility: use consistent splits, shuffle with fixed seed.
+4. **Data Preprocessing**  
+   - Clean the data if necessary (e.g., remove or adjust for punctuation).
+   - For WordNet, retrieve pairs from existing WordNet hierarchy.
+   - For CxC, sample or load selected pairs.
+5. **Interface API**  
+   - Public methods:
+     - `load_datasets()`: load all datasets based on configuration.
+     - `get_pairs(task_name: str) -> list[tuple[str, str]]`: return list of pairs for a given task.
+   - Support retrieval per split if necessary.
+   
+---
+
+### Implementation Details  
+
+#### 1. Data Sources & Formats  
+- For datasets like STS (STS-B, STS12-STS16), datasets can be fetched from the HuggingFace `datasets` library or local CSV files. These include pairs of sentences with similarity scores.
+- SNLI can be loaded from HuggingFace datasets or local JSON/CSV with pairs and labels.
+- WordNet relations: extract pairs of words with hypernym/hyponym links using NLTK WordNet interface.
+- CxC: load from local dataset files or CSVs with human similarity scores.
+
+#### 2. Lazy Loading & Cache  
+- Implement lazy loading: datasets are loaded upon first access to minimize startup time.
+- Cache loaded data structures to prevent reloading or recomputation.
+
+#### 3. Data Structures  
+- Use dictionaries keyed by dataset name or task to store loaded datasets.
+- Data format: list of tuples, e.g., `[ (string1, string2) ]` or `[ (word1, word2) ]`.
+
+#### 4. Dataset Access Functions  
+- For each dataset/task:
+  - Provide a function to retrieve pairs and associated labels/scoring metrics.
+  - Optionally, support filtering or returning specific splits.
+  
+#### 5. Reproducibility & Consistency  
+- Hardcode or parameterize seed for shuffling or sampling.
+- Support consistent ordering of dataset examples.
+
+---
+
+### Pseudocode & Logical Structure
+
+```python
+class DatasetLoader:
+    def __init__(self, dataset_paths: dict):
+        # Initialize with paths or dataset sources
+        # Example: {'STS': 'path_to_sts.csv', 'SNLI': 'path_to_snli.json', ...}
+        self.dataset_paths = dataset_paths
+        self.datasets = {}  # cache for loaded datasets
+
+    def load_datasets(self):
+        # Load datasets based on configuration or path info
+        for dataset_name in self.dataset_paths:
+            if dataset_name == 'STS':
+                self.datasets['STS'] = self._load_sts(self.dataset_paths['STS'])
+            elif dataset_name == 'SNLI':
+                self.datasets['SNLI'] = self._load_snli(self.dataset_paths['SNLI'])
+            elif dataset_name == 'WordNet':
+                self.datasets['WordNet'] = self._load_wordnet_pairs()
+            elif dataset_name == 'CxC':
+                self.datasets['CxC'] = self._load_cxc(self.dataset_paths['CxC'])
+            # extend for additional datasets
+
+    def get_pairs(self, task_name: str):
+        # Return list of (text1, text2) for the specified task
+        if task_name not in self.datasets:
+            raise ValueError(f"Dataset '{task_name}' not loaded.")
+        return self.datasets[task_name]
+
+    def _load_sts(self, path):
+        # Load STS datasets (e.g., CSV with columns: sentence1, sentence2, score)
+        # Return list of tuples
+        # Implement optional filtering or subset per configuration
+        pass
+
+    def _load_snli(self, path):
+        # Load SNLI dataset with premise, hypothesis, label
+        pass
+
+    def _load_wordnet_pairs(self):
+        # Use nltk.wordnet to extract pairs with hypernym/hyponym relations
+        import nltk
+        from nltk.corpus import wordnet as wn
+        pairs = []
+        # For a selected vocabulary subset, iterate over synsets
+        for syn in wn.all_synsets():
+            hyponyms = syn.hyponyms()
+            for hypo in hyponyms:
+                pairs.append((syn.name(), hypo.name()))
+        # Possibly filter or select subset for manageability
+        return pairs
+
+    def _load_cxc(self, path):
+        # Load CxC dataset pairs with human similarity scores
+        # Could be CSV or other format
+        pass
+```
+
+---
+
+### Additional Considerations
+
+- **Dataset Source Files:**  
+  - For reproducibility, prefer to download datasets once and store locally; or fetch from standard URLs and cache locally.
+  - For datasets available via HuggingFace datasets (`datasets` library), load directly for ease and consistency.
+
+- **Data Quality & Alignment:**  
+  - Ensuring that text is normalized (e.g., consistent casing, whitespace removal).
+  - For WordNet, focus on common vocabulary or limit to a manageable subset for computational feasibility.
+
+- **Flexibility:**  
+  - Allow user-provided dataset paths or online fetch URLs via `dataset_paths` argument.
+  - Support optional shuffling with fixed seed (`self.seed=42`).
+
+---
+
+### Summary of Implementation Logic
+
+- **Initialization**: load paths, set seed.
+- **Dataset Loading**: fetch and parse datasets, store in internal cache.
+- **Pairs Retrieval**: expose methods to retrieve lists of pairs, either with labels/scores or raw strings.
+- **Dataset API**: maintain a clear, documented interface for the evaluation routines.
+- **Reproducibility**: fixed seed, deterministic file reading, consistent splitting.
+
+---
+
+This thorough logic provides the foundation to implement `dataset_loader.py` effectively, ensuring alignment with the methodology in the paper and the evaluation tasks specified.

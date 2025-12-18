@@ -1,0 +1,180 @@
+```python
+## evaluation.py
+import numpy as np
+from sklearn.metrics import roc_auc_score
+from tqdm import tqdm
+from typing import List, Dict, Tuple, Optional
+import torch
+import scipy.stats as stats
+from detector import Detector
+from model import Model
+
+class Evaluation:
+    """
+    Provides methods to evaluate the evasiveness and quality of models against multiple detectors.
+    Includes AUROC metrics, perplexity computation, transferability tests, and optional human evaluation.
+    """
+    def __init__(self, config: dict, model: Model):
+        """
+        Initialize the Evaluation object with configuration and model reference.
+        Loads detectors as specified in the configuration.
+        """
+        self.config = config
+        self.model = model
+        # Initialize detectors
+        self.detectors = self._init_detectors()
+        # Set default device for model
+        self.device = self.model.model.device
+
+    def _init_detectors(self) -> List[Detector]:
+        """
+        Set up detector instances based on config.yaml.
+        Returns list of Detector objects.
+        """
+        detectors_list = []
+        detectors_cfg = self.config.get("detectors", {})
+        for det_name in detectors_cfg.get("open_source", []):
+            detectors_list.append(Detector(name=det_name))
+        for det_name in detectors_cfg.get("commercial", []):
+            # For commercial detectors, API keys could be set here if needed
+            detectors_list.append(Detector(name=det_name))
+        return detectors_list
+
+    def measure_auc(self, prompts_responses: List[Tuple[str, str]], detector: Detector) -> float:
+        """
+        Calculate AUROC for a set of (prompt, response) pairs given a detector.
+        Assumes higher detector score indicates more 'human' likelihood.
+        Uses the generated responses, with labels assumed as machine (response generated).
+        """
+        prompts, responses = zip(*prompts_responses)
+        scores = detector.batch_score(list(zip(prompts, responses)))
+        # Convert scores to binary labels: responses are model-generated
+        labels = [1 for _ in range(len(scores))]
+        # To evaluate detection, we need a ground-truth label: machine-generated
+        # We assume responses are from models, so label=1 (MLM) or can be extended if human labels are available
+        # Here, as a baseline, treat detector scoring as a ranking metric
+        try:
+            auroc = roc_auc_score(labels, scores)
+        except ValueError:
+            # Handle case when scores lack variation
+            auroc = 0.5
+        return auroc
+
+    def measure_perplexity(self, texts: List[str]) -> float:
+        """
+        Compute average perplexity of the model over a list of texts.
+        """
+        total_log_prob = 0.0
+        total_tokens = 0
+        for text in tqdm(texts, desc="Computing Perplexity"):
+            avg_log_prob = self.model.log_probability("", text)
+            # Note: For standalone texts, prompt can be empty string
+            # Convert average log prob to perplexity: perplexity = exp(-average_log_prob)
+            # Multiply by number of tokens in text for cumulative
+            # Here, approximate with total tokens in text
+            tokenized = self.model.tokenizer.tokenize(text)
+            n_tokens = len(tokenized)
+            total_log_prob += avg_log_prob * n_tokens
+            total_tokens += n_tokens
+        if total_tokens == 0:
+            return float('nan')
+        avg_per_token_log_prob = total_log_prob / total_tokens
+        perplexity = np.exp(-avg_per_token_log_prob)
+        return perplexity
+
+    def evaluate_transferability(self, train_model: Model, detector: Detector, detector_list: List[Detector],
+                                   prompts: List[str], responses: List[str]) -> Dict[str, float]:
+        """
+        Evaluate how well a model trained to evade one detector can evade others.
+        Returns a dict of detector name to AUROC scores.
+        """
+        results = {}
+        for det in detector_list:
+            detector_scores = det.batch_score(list(zip(prompts, responses)))
+            labels = [1 for _ in detector_scores]  # all model responses
+            try:
+                auroc = roc_auc_score(labels, detector_scores)
+            except:
+                auroc = 0.5
+            results[det.name] = auroc
+        return results
+
+    def human_evaluation(self, prompts: List[str], responses_base: List[str], responses_evaded: List[str]) -> Dict[str, float]:
+        """
+        Placeholder for human evaluation.
+        Would typically involve external annotation or user study.
+        For now, returns a dict with model names and quality scores.
+        """
+        # For a proper human evaluation, external annotation is required.
+        # Here, as placeholder, we compute average response length or fluency heuristics.
+        # Alternatively, leave unimplemented or integrate with external API.
+        return {
+            "base_model_score": np.mean([len(resp.split()) for resp in responses_base]),
+            "evaded_model_score": np.mean([len(resp.split()) for resp in responses_evaded])
+        }
+
+    def evaluate_responses(self, prompts: List[str], responses: List[str]) -> Dict[str, float]:
+        """
+        Evaluate responses on multiple detectors, compute AUROCs.
+        """
+        aucs = {}
+        for det in self.detectors:
+            detector_scores = det.batch_score(list(zip(prompts, responses)))
+            labels = [1 for _ in detector_scores]  # all responses are model-generated
+            try:
+                auroc = roc_auc_score(labels, detector_scores)
+            except:
+                auroc = 0.5
+            aucs[det.name] = auroc
+        return aucs
+
+    def evaluate_perplexity(self, texts: List[str]) -> float:
+        """
+        Wrapper for model's perplexity calculation.
+        """
+        return self.measure_perplexity(texts)
+
+    def run_full_evaluation(self, test_prompt_responses: List[Tuple[str, str]], 
+                              responses_generated: List[str],
+                              out_texts: Optional[List[str]] = None) -> Dict:
+        """
+        Run comprehensive evaluation:
+        - Per-detector AUROC
+        - Transferability
+        - Perplexity over texts
+        - Human evaluation (if enabled)
+        """
+        results = {}
+        # Detector AUROC on test responses
+        detector_aucs = self.evaluate_responses([pair for pair in test_prompt_responses])
+        results['detector_auroc'] = detector_aucs
+
+        # Transferability evaluation
+        if self.config.get("evaluation", {}).get("evaluate_transferability", False):
+            # Collect responses for transferability
+            prompts, responses = zip(*test_prompt_responses)
+            transfer_results = self.evaluate_transferability(self.model, self.detectors[0], self.detectors, list(prompts), list(responses))
+            results['transferability'] = transfer_results
+
+        # Perplexity
+        if out_texts is not None:
+            perplexity_score = self.measure_perplexity(out_texts)
+            results['perplexity'] = perplexity_score
+
+        # Human evaluation
+        if self.config.get("evaluation", {}).get("human_evaluation", False):
+            # For human eval, responses should come from human annotations or external eval
+            # Here, placeholder: compare base vs. evaded responses
+            base_responses = responses_generated  # assuming generated by base model
+            evas_responses = responses_generated  # placeholder, replace with actual evasion responses
+            human_scores = self.human_evaluation(test_prompt_responses, base_responses, evas_responses)
+            results['human_evaluation'] = human_scores
+
+        return results
+
+    def evaluate_texts_perplexity(self, texts: List[str]) -> float:
+        """
+        Evaluate the perplexity of a list of texts using the model.
+        """
+        return self.measure_perplexity(texts)
+```

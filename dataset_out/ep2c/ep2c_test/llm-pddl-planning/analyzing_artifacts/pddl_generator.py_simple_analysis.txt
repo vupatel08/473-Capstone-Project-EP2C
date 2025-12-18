@@ -1,0 +1,137 @@
+# Logic Analysis for pddl_generator.py
+
+This module is responsible for generating and refining PDDL domain and problem files from natural language descriptions, object lists, API signatures, and feedback signals, aligning with the methodology outlined in the paper. It implements three core functions:
+
+- `generate_initial_problem()`: Creates the initial problem PDDL file.
+- `generate_initial_domain()`: Creates the initial domain PDDL file.
+- `refine_domain()`: Produces a refined domain based on prior domain, environment feedback, and evaluation metrics.
+
+The design relies heavily on prompt-based input-output with large language models (LLMs) and on the use of feedback signals like EW scores to guide refinements. Below is a detailed logical breakdown to guide implementation.
+
+---
+
+## 1. `generate_initial_problem(nl_desc, object_list, api_signatures)`
+
+### Purpose
+Produce an initial, syntactically correct complete PDDL problem file based on NL description, object list, and API signatures, to set a baseline problem which can be evaluated and refined later.
+
+### Inputs
+- `nl_desc`: String containing natural language description of the environment and task.
+- `object_list`: List of objects with types and identifiers, e.g., `['robot1', 'robot2', 'ball1', 'room1', ...]`.
+- `api_signatures`: Dictionary describing action signatures, e.g.,
+  ```python
+  {
+    'move': [('? r - robot', '? from - room', '? to - room')],
+    'pick': [('? r - robot', '? o - obj', '? room - room', '? g - gripper')],
+    'drop': [('? r - robot', '? o - obj', '? room - room', '? g - gripper')]
+  }
+  ```
+### Output
+- String representing a complete, syntactically valid PDDL problem file, wrapped in markdown code block with `pddl` syntax.
+
+### Logic
+- Use a prompt template that incorporates:
+  - `nl_desc`: to provide contextual NL description.
+  - `object_list`: to list objects with explicit types.
+  - `api_signatures`: to specify available actions and their parameters.
+- The prompt instructs the LLM to `generate a complete PDDL problem file`, emphasizing syntax, object constants, initial state, and goal specification.
+- Post-processing:
+  - Parse the LLM output to validate syntax correctness (may involve syntax validation using `pddlpy`).
+  - Extract the `(:init ...)` and `(:goal ...)` sections.
+  - Ensure object list is consistent with environment simulation (if discrepancies, akin to the placeholder "trivial mismatch handling").
+- Handle variations where the LLM may omit or produce incomplete elements by re-prompting or correction loops.
+
+---
+
+## 2. `generate_initial_domain(nl_desc, api_signatures)`
+
+### Purpose
+Create an initial domain PDDL file based on NL description and API signatures, establishing types, predicates, actions, and example initial conditions.
+
+### Inputs
+- `nl_desc`: String NL description of environment.
+- `api_signatures`: Dictionary with action parameter signatures.
+
+### Output
+- String that contains a complete syntactic domain PDDL file, wrapped in markdown code block with `pddl` syntax.
+
+### Logic
+- Use a prompt template that:
+  - Summarizes the environment context, types, predicates, and actions.
+  - Incorporates `api_signatures` to explicitly detail action parameters.
+  - Explicitly states the action effects, preconditions, and parameter semantics.
+- When generating:
+  - Initialize with a template that includes:
+    - Requirements (`:strips`, `:typing`, optionally others).
+    - Types (derived from objects and typical environment knowledge).
+    - Predicates (e.g., `at`, `free`, `carry`, `on`), possibly augmented with environment-specific predicates.
+    - Actions:
+      - Move actions, including `move`, `move-up`, `move-down` with preconditions/effects.
+      - Pick/Drop actions with parameters and preconditions/effects.
+  - Call LLM with explicit instructions to generate syntactically correct PDDL domain.
+  - Post-process and validate output syntax, possibly correcting small syntax errors by re-prompt or minor patching.
+  - Ensure the action signatures conform exactly to `api_signatures`.
+
+### 3. `refine_domain(current_domain, environment, ew_feedback)`
+
+### Purpose
+Refine a given domain PDDL based on environment feedback signals and EW scores, helping the model correct previous inaccuracies or improve action modeling.
+
+### Inputs
+- `current_domain`: String of current domain PDDL.
+- `environment`: Environment object to interact with environment functions.
+- `ew_feedback`: Numeric EW score (e.g., between 0 and 1), indicating domain similarity; used to guide whether refinement is needed.
+
+### Output
+- String of the refined domain PDDL, syntactically valid, and improved based on feedback.
+
+### Logic
+- Use a prompt template:
+  - Include current domain PDDL as context.
+  - Summarize environment feedback signals:
+    - Errors identified (e.g., syntax errors, semantic inconsistencies, invalid predicates).
+    - Failures in plan execution or EW discrepancies.
+  - Instruct the LLM to:
+    - Correct identified issues.
+    - Improve action preconditions/effects based on environment feedback.
+    - Preserve the action signature (boundary conditions).
+- Incorporate a `refinement prompt template`:
+  - Example hints: "Check for missing predicates," "Ensure move actions include accurate preconditions for environment movement."
+- Use the environment (via `environment.py`) to:
+  - Sample action sequences or interact with environment for specific feedback signals (success/error logs).
+  - Incorporate these signals into the prompt to guide the correction.
+- Post-process the LLM output:
+  - Syntax validation.
+  - Possibly re-prompt with specific corrections if errors are detected.
+- Limit iteration to avoid divergence; maximum cycles guided by configuration (e.g., 20 iterations).
+
+---
+
+## 4. Cross-Module Interactions & Constraints
+- All functions must produce valid, deployable PDDL files that can be consumed by classical planners.
+- Consistency between domain and problem files is crucial, especially regarding action signatures and object parameters.
+- Feedback signals (`ew_feedback`, environment errors) must be translated into explicit instructions for the LLM (e.g., "correct move action precondition to include ...").
+- Prompts must be structured with clarity, emphasizing syntactic correctness, action semantics, and environment alignment.
+- Consider possible failure modes:
+  - Syntax errors in generated PDDL.
+  - Missing predicates or incorrect effects.
+  - Misaligned object references.
+- Re-try or re-prompt in case of failure, possibly adjusting prompts based on error signals.
+
+---
+
+## 5. Summary of Implementation Logic
+- Leverage templated prompts for initial generation.
+- Validate syntax and content after each LLM response.
+- Use environment interaction (plan execution, EW sampling) to assess realism.
+- Apply iterative correction and refinement, guided by EW scores and environment feedback.
+- Maintain traceability and logs for reproducibility, capturing:
+  - Generated PDDL files.
+  - Feedback/error signals.
+  - EW scores.
+  - Plan execution outcomes.
+- Ensure the entire process can be rerun for different environments with minimal adjustments, guided by configuration parameters.
+
+---
+
+This comprehensive logic guides systematic implementation of `pddl_generator.py` consistent with the described methodology, emphasizing robustness, validation, and iterative improvement aligned with the paper's approach.

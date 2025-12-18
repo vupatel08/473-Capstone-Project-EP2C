@@ -1,0 +1,151 @@
+# Logic Analysis for pool.py
+
+This module implements the core data structure for class-based feature pools (queues) used in supervised asymmetric non-contrastive learning (ANCL). Its primary responsibilities are managing per-class feature buffers, enabling efficient positive sampling, and supporting optional updates via exponential moving average (EMA) for stabilized feature representations. The key functionalities include enqueueing features, sampling positive features for supervised loss, and managing pool sizes to prevent memory overflow.
+
+---
+
+## 1. Purpose and Design Goals
+
+- **Manage class-specific feature pools**: Store features associated with each class label, supporting balanced sampling.
+- **Support large pool sizes**: The total memory footprint should be manageable, with configurable total pool size (`pool_size`) distributed across classes.
+- **Sampling positives**:
+  - Either sample *all* positives per class (“all positives” setting).
+  - Or sample a fixed number `M` (hyperparameter) positives per class.
+- **Pool updates**:
+  - When features are produced during training, enqueue/update them in their respective class-specific pools.
+  - Optionally, for SUPBYOL, update features via EMA (exponential weighted moving average).
+- **Efficiency**:
+  - Use numpy arrays or torch tensors for storage.
+  - Ensure enqueue and sampling operations are efficient.
+- **Flexibility**:
+  - Support different pool management strategies: class-specific queues with fixed size, or potentially prototypes (not required here).
+- **Reproducibility**:
+  - Develop deterministic updates where possible (e.g., random sampling with fixed seed).
+
+---
+
+## 2. Core Data Structures
+
+- **Per-class feature buffer**: 
+  - Implement as a dictionary `class_feature_buffers`:
+    - Key: class label (int)
+    - Value: a fixed-length deque or tensor buffer with `maxlen`=per-class buffer size, for storing features.
+  - Alternatively, initialize as a list of numpy arrays or torch tensors with shape `(buffer_size_per_class, feature_dim)` to optimize batch operations.
+- **Class sample counts**:
+  - Keep track of the number of features for each class accordingly.
+- **Global parameters**:
+  - Total pool size, number of classes (`num_classes`), per-class buffer size.
+  
+---
+
+## 3. Initialization and Configuration
+
+- Initialize buffers:
+  - Determine per-class buffer size:
+    \[
+    buffer\_size\_per\_class = \left\lfloor \frac{pool\_size}{num\_classes} \right\rfloor
+    \]
+  - For simplicity, assign same size to all classes; last class may get remaining slots if `pool_size` isn't divisible.
+  - Alternatively, use a fixed number per class, with total size boundary checked.
+- Choice of data container:
+  - Use `torch.Tensor` buffer initialized with zeros.
+  - Or pre-allocate numpy arrays for each class.
+
+---
+
+## 4. Enqueue Functionality
+
+- **Input**:
+  - `features`: tensor of shape `(batch_size, feature_dim)` for features to enqueue.
+  - `labels`: tensor of shape `(batch_size,)`, class labels corresponding to each feature.
+- **Operations**:
+  - For each sample:
+    - Identify class label `y`.
+    - Append or overwrite a feature in the buffer of class `y`.
+    - When buffer is full, implement a FIFO replacement policy (if using deques) or cyclic overwrite.
+  - **Optional EMA update**:
+    - When `update_with_ema` is true:
+      - Maintain current feature buffer as an exponential moving average of incoming features.
+      - Update feature as:
+        \[
+        z_{buffer}^{new} = m \times z_{buffer}^{old} + (1 - m) \times z_{current}
+        \]
+      - Clamp or normalize as needed.
+- **Implementation detail**:
+  - Use in-place operations for efficiency.
+  - Maintain a pointer or index for each class to identify where to insert next (cyclic overwrite).
+
+---
+
+## 5. Sampling Functionality
+
+- **Input**:
+  - `labels`: tensor (batch labels) for each query feature (anchor).
+  - `M`: number of positives to sample per class.
+- **Operation**:
+  - For each label in batch:
+    - Retrieve the corresponding class buffer.
+    - If `sampling_pos` is `"all"`, select all stored features.
+    - Else, randomly sample `M` features from class buffer.
+  - Stack sampled features into a tensor of shape `(batch_size, M, feature_dim)` (or `(batch_size, feature_dim)` if `M=1`).
+  - Ensure the features are L2 normalized — normalization applied after sampling.
+- **Handling empty buffers**:
+  - When a class buffer is empty, handle gracefully:
+    - Sample with replacement (or ignore with warning).
+    - Ensure during early training, enough features are accumulated before sampling.
+
+---
+
+## 6. Memory Management and Edge Cases
+
+- When the number of stored features exceeds `maxlen`, remove oldest entries (FIFO).
+- For classes with fewer than `M` features:
+  - Sample with replacement.
+  - Or, if in 'all' mode, return all available features.
+- Manage consistent random seed for sampling, to ensure reproducibility if needed.
+
+---
+
+## 7. Additional Considerations
+
+- **EMA update**:
+  - For SUPBYOL, features stored in the buffer are updated via EMA:
+    \[
+    z^{new} = m \times z^{old} + (1 - m) \times z^{current}
+    \]
+  - Normalize afterward.
+- **Normalization**:
+  - Store features as normalized vectors for distance calculations in loss.
+  - Can normalize upon enqueue or sampling.
+- **Thread safety / concurrency**:
+  - If multi-threaded data loading, use locks or ensure single-thread updates.
+- **Device handling**:
+  - Support storing buffers either as numpy arrays or torch tensors on CPU or GPU.
+- **Logging and debugging**:
+  - Provide functions to inspect buffer sizes, features per class.
+  - Log age/updates for debugging.
+
+---
+
+## 8. Summary of Functions
+
+| Function Name | Inputs | Outputs | Description |
+|----------------|---------|---------|--------------|
+| `__init__(size: int, num_classes: int, feature_dim: int, update_with_ema: bool, ema_m: float)` | configuration params | none | Initialize class buffers, pointers, and parameters. |
+| `enqueue(features: Tensor, labels: Tensor) -> None` | features `(batch_size, feature_dim)`, labels `(batch_size,)` | None | Insert features into class buffers, update with EMA if enabled. |
+| `sample_positive(labels: Tensor, M: int) -> Tensor` | labels `(batch_size,)`, M | `(batch_size, M, feature_dim)` | For each label, sample M features from corresponding class buffer. |
+| `get_buffer_for_class(y: int) -> Tensor` | class label | tensor of shape `(current_size, feature_dim)` | Return current features stored. |
+| `update_buffer_class(y: int, feature: Tensor) -> None` | class label, feature vector | None | Update buffer for class y (enqueue, possibly with EMA). |
+
+---
+
+## 9. Final Notes
+
+- Ensure code is modular, allowing toggling between different pool strategies.
+- Use clear and consistent normalization.
+- Document assumptions about buffer sizes and sampling behavior.
+- For extensive datasets or class imbalance, extend design to accommodate variable class buffer sizes distribution.
+
+---
+
+This thorough analysis provides a structured blueprint for implementing `pool.py`. The key points include data structure design, enqueue/sampling operations, EMA updates, normalization, efficiency considerations, and edge case handling, all aligned with the paper's methodology and your system design.

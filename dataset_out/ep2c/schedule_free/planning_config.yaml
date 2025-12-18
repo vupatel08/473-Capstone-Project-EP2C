@@ -1,0 +1,38 @@
+training:
+  learning_rate: 0.0025  # Large fixed learning rate scaled as D / G, as justified by theory, approximately 2.5e-3.
+  batch_size: 32        # Common batch size for experiments involving ResNet, DenseNet, and ImageNet.
+  epochs: 100           # Typical number of epochs for self-contained experiments on datasets like CIFAR and ImageNet.
+  warmup_steps: 4000    # Fixed warmup steps (as used in some architectures), no schedule-based decay.
+  large_learning_rate: true  # Confirmed to be used for scale-insensitive experiments.
+  hyperparams:
+    beta: 0.9           # Momentum hyperparameter, default as used in paper.
+    initial_D: 1.0      # Set based on dataset normalization (to be estimated or provided).
+    G_estimate: 1.0     # Estimated gradient norm bound; for initial runs, can be set conservatively.
+    weight_decay: 0.0001 # Default weight decay for convex problems, adjustable based on dataset.
+    optimizer: AdamW    # Optimizer type, set as default.
+  # Additional hyperparameters related to optimizer or training can be added here.
+dataset:
+  name: CIFAR10        # Dataset name; can be replaced with CIFAR100, SVHN, or ImageNet as needed.
+  data_path: ./data  # Path to dataset directory.
+  normalize:
+    mean: [0.4914, 0.4822, 0.4465]  # Dataset-specific mean for normalization.
+    std: [0.2023, 0.1994, 0.2010]   # Dataset-specific std for normalization.
+model:
+  architecture: WideResNet  # Specify architecture; replace with DenseNet, ResNet50, etc., as needed.
+  depth: 16
+  width_multiplier: 8
+  dropout: 0.3          # Dropout rate for regularization.
+optimizer:
+  type: AdamW
+  weight_decay: 0.0001
+training:
+  num_epochs: 100
+  batch_size: 32
+  seed: 42
+logging:
+  save_checkpoints: true
+  checkpoint_dir: ./checkpoints
+  log_interval: 50
+evaluation:
+  metrics: accuracy
+  evaluation_interval: 100  # Log metrics every 100 steps or epochs.

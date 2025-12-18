@@ -1,0 +1,366 @@
+{
+  "code_to_paper": {
+    "config.py:Config": [
+      "The provided information is insufficient to determine the relevance of the paper sections to the code component. Please provide more details about the code component and the paper sections."
+    ],
+    "dataset_loader.py:DatasetLoader": [
+      "The provided paper sections are not sufficient to link with the code component. Please provide more relevant paper sections such as \"Methodology\"",
+      "\"Data Preprocessing\"",
+      "\"Experimental Setup\"",
+      "etc."
+    ],
+    "dataset_loader.py:_get_transforms": [
+      "The paper sections are not provided in the question. Please provide the paper sections to proceed."
+    ],
+    "evaluation.py:Evaluation": [
+      "The paper sections are not provided in the question. Please provide the paper sections to proceed."
+    ],
+    "evaluation.py:__init__": [
+      "The provided paper sections do not seem to contain any relevant information related to the code component. Please provide more detailed sections of the paper."
+    ],
+    "main.py:main": [
+      "The provided information is insufficient to determine the most relevant paper sections for the code component. Please provide more details about the function in the main.py file and its purpose."
+    ],
+    "mask_generator.py:MaskGenerator": [
+      "The paper sections are not clearly provided in the question. However",
+      "based on the code component description",
+      "the most relevant sections could be \"Methodology\"",
+      "\"Implementation Details\"",
+      "and \"Experimental Setup\". Please provide the actual paper sections for a more accurate analysis."
+    ],
+    "mask_generator.py:__init__": [
+      "The code component provided does not match with the given paper section. Please provide relevant paper sections."
+    ],
+    "model.py:Model": [
+      "The provided paper sections are not sufficient to link with the given code component. Please provide the actual section names/titles of the paper."
+    ],
+    "model.py:__init__": [
+      "The provided paper sections are not sufficient to link with the given code component. Please provide more detailed sections such as \"Methodology\"",
+      "\"Experiment Setup\"",
+      "\"Model Architecture\"",
+      "etc."
+    ],
+    "pattern.py:Pattern": [
+      "Without specific section names",
+      "it's hard to provide an accurate answer. However",
+      "based on the code description",
+      "the most relevant sections could be something like \"Methodology\"",
+      "\"Model Architecture\"",
+      "\"Training Process\"",
+      "or \"Implementation Details\"."
+    ],
+    "pattern.py:__init__": [
+      "The code provided does not give specific details about the paper sections. However",
+      "based on the general function of the code (initializing a pattern tensor)",
+      "the most relevant sections could be \"Methodology\"",
+      "\"Implementation Details\"",
+      "or \"Experimental Setup\". Please provide more context or specific paper sections for a more accurate mapping."
+    ],
+    "trainer.py:Trainer": [
+      "The provided paper sections are not sufficient to link with the given code component. Please provide more detailed sections of the paper such as \"Methodology\"",
+      "\"Implementation Details\"",
+      "\"Experimental Setup\"",
+      "\"Results and Discussion\"",
+      "etc."
+    ],
+    "trainer.py:__init__": [
+      "The provided paper sections are not sufficient to link with the given code component. Please provide more detailed sections such as \"Methodology\"",
+      "\"Experiment Setup\"",
+      "\"Data Preparation\"",
+      "etc."
+    ],
+    "visualization.py:Visualizer": [
+      "The paper sections are not provided in the question. Please provide the paper sections to proceed."
+    ],
+    "visualization.py:__init__": [
+      "The provided paper sections are not sufficient to link with the given code component. Please provide more relevant paper sections."
+    ]
+  },
+  "paper_to_code": {
+    "The provided information is insufficient to determine the relevance of the paper sections to the code component. Please provide more details about the code component and the paper sections.": [
+      {
+        "component": "config.py:Config",
+        "description": "",
+        "file": "config.py"
+      }
+    ],
+    "The provided paper sections are not sufficient to link with the code component. Please provide more relevant paper sections such as \"Methodology\"": [
+      {
+        "component": "dataset_loader.py:DatasetLoader",
+        "description": "DatasetLoader loads datasets with specified configurations, applies resizing,\n    normalization, and returns DataLoader objects for training and testing.",
+        "file": "dataset_loader.py"
+      }
+    ],
+    "\"Data Preprocessing\"": [
+      {
+        "component": "dataset_loader.py:DatasetLoader",
+        "description": "DatasetLoader loads datasets with specified configurations, applies resizing,\n    normalization, and returns DataLoader objects for training and testing.",
+        "file": "dataset_loader.py"
+      }
+    ],
+    "\"Experimental Setup\"": [
+      {
+        "component": "dataset_loader.py:DatasetLoader",
+        "description": "DatasetLoader loads datasets with specified configurations, applies resizing,\n    normalization, and returns DataLoader objects for training and testing.",
+        "file": "dataset_loader.py"
+      },
+      {
+        "component": "trainer.py:Trainer",
+        "description": "Trainer class for training the SMM-based visual reprogramming framework.\n    Handles the training loop updating only the mask generator parameters and pattern delta.",
+        "file": "trainer.py"
+      }
+    ],
+    "etc.": [
+      {
+        "component": "dataset_loader.py:DatasetLoader",
+        "description": "DatasetLoader loads datasets with specified configurations, applies resizing,\n    normalization, and returns DataLoader objects for training and testing.",
+        "file": "dataset_loader.py"
+      },
+      {
+        "component": "model.py:__init__",
+        "description": "Loads the specified pre-trained model architecture, freezes its parameters,\n        and prepares it for inference.\n\n        Args:\n            model_name (str): Name of the model architecture. Supported values:\n                              \"ResNet50\", \"ResNet18\", \"ViT-B32\".\n            pretrained (bool): Whether to load pretrained ImageNet weights.",
+        "file": "model.py"
+      },
+      {
+        "component": "trainer.py:Trainer",
+        "description": "Trainer class for training the SMM-based visual reprogramming framework.\n    Handles the training loop updating only the mask generator parameters and pattern delta.",
+        "file": "trainer.py"
+      },
+      {
+        "component": "trainer.py:__init__",
+        "description": "Initialize the trainer with model, dataset, configs, etc.\n        Args:\n            model (torch.nn.Module): fixed pre-trained classifier (f_P).\n            mask_generator (MaskGenerator): the mask generator module with parameters phi.\n            pattern (Pattern): shared learnable pattern delta.\n            train_loader (DataLoader): training data loader.\n            val_loader (DataLoader): validation data loader, optional.\n            config (dict): configurations loaded from config.yaml.\n            device (torch.device): computation device.",
+        "file": "trainer.py"
+      }
+    ],
+    "The paper sections are not provided in the question. Please provide the paper sections to proceed.": [
+      {
+        "component": "dataset_loader.py:_get_transforms",
+        "description": "Compose transforms: resize, to Tensor, normalize.",
+        "file": "dataset_loader.py"
+      },
+      {
+        "component": "evaluation.py:Evaluation",
+        "description": "Evaluation class for testing the fixed pre-trained classifier on reprogrammed images.\n    Computes metrics such as accuracy and optionally visualizes reprogrammed images and masks.",
+        "file": "evaluation.py"
+      },
+      {
+        "component": "visualization.py:Visualizer",
+        "description": "Provides visualization utilities for original images, reprogrammed images, masks, and overlay visualizations.",
+        "file": "visualization.py"
+      }
+    ],
+    "The provided paper sections do not seem to contain any relevant information related to the code component. Please provide more detailed sections of the paper.": [
+      {
+        "component": "evaluation.py:__init__",
+        "description": "Initialize Evaluation with the classifier, optional reprogramming components, configuration.\n        Args:\n            model (torch.nn.Module): Fixed pre-trained classifier (f_P).\n            mask_generator (object): Optional, for visualizing masks if available.\n            pattern (torch.nn.Parameter): Optional, for visualizing pattern delta.\n            config (dict): Configuration dict (from YAML).\n            device (torch.device): Computation device.",
+        "file": "evaluation.py"
+      }
+    ],
+    "The provided information is insufficient to determine the most relevant paper sections for the code component. Please provide more details about the function in the main.py file and its purpose.": [
+      {
+        "component": "main.py:main",
+        "description": "",
+        "file": "main.py"
+      }
+    ],
+    "The paper sections are not clearly provided in the question. However": [
+      {
+        "component": "mask_generator.py:MaskGenerator",
+        "description": "Lightweight CNN-based mask generator for sample-specific multi-channel masks.\n    Generates a mask of reduced resolution from input images and performs patch-wise\n    upsampling via pixel repetition to match input image size.",
+        "file": "mask_generator.py"
+      }
+    ],
+    "based on the code component description": [
+      {
+        "component": "mask_generator.py:MaskGenerator",
+        "description": "Lightweight CNN-based mask generator for sample-specific multi-channel masks.\n    Generates a mask of reduced resolution from input images and performs patch-wise\n    upsampling via pixel repetition to match input image size.",
+        "file": "mask_generator.py"
+      }
+    ],
+    "the most relevant sections could be \"Methodology\"": [
+      {
+        "component": "mask_generator.py:MaskGenerator",
+        "description": "Lightweight CNN-based mask generator for sample-specific multi-channel masks.\n    Generates a mask of reduced resolution from input images and performs patch-wise\n    upsampling via pixel repetition to match input image size.",
+        "file": "mask_generator.py"
+      },
+      {
+        "component": "pattern.py:__init__",
+        "description": "Initializes the Pattern tensor.\n\n        Args:\n            shape (Tuple[int, int, int]): (channels, height, width) of the pattern.\n            init_type (str): Initialization method; default is 'zeros'.\n                             Can be extended to other methods if needed.",
+        "file": "pattern.py"
+      }
+    ],
+    "\"Implementation Details\"": [
+      {
+        "component": "mask_generator.py:MaskGenerator",
+        "description": "Lightweight CNN-based mask generator for sample-specific multi-channel masks.\n    Generates a mask of reduced resolution from input images and performs patch-wise\n    upsampling via pixel repetition to match input image size.",
+        "file": "mask_generator.py"
+      },
+      {
+        "component": "pattern.py:__init__",
+        "description": "Initializes the Pattern tensor.\n\n        Args:\n            shape (Tuple[int, int, int]): (channels, height, width) of the pattern.\n            init_type (str): Initialization method; default is 'zeros'.\n                             Can be extended to other methods if needed.",
+        "file": "pattern.py"
+      },
+      {
+        "component": "trainer.py:Trainer",
+        "description": "Trainer class for training the SMM-based visual reprogramming framework.\n    Handles the training loop updating only the mask generator parameters and pattern delta.",
+        "file": "trainer.py"
+      }
+    ],
+    "and \"Experimental Setup\". Please provide the actual paper sections for a more accurate analysis.": [
+      {
+        "component": "mask_generator.py:MaskGenerator",
+        "description": "Lightweight CNN-based mask generator for sample-specific multi-channel masks.\n    Generates a mask of reduced resolution from input images and performs patch-wise\n    upsampling via pixel repetition to match input image size.",
+        "file": "mask_generator.py"
+      }
+    ],
+    "The code component provided does not match with the given paper section. Please provide relevant paper sections.": [
+      {
+        "component": "mask_generator.py:__init__",
+        "description": "Initialize the MaskGenerator.\n        Args:\n            input_size (Tuple[int, int]): Size of input images (H, W).\n            architecture_depth (int): Number of convolutional layers.\n            kernel_size (int): Kernel size for Conv layers.\n            filters (int): Number of filters/channels in each conv layer.\n            pooling_layers (int): Number of MaxPool layers.\n            output_ratio (float): Ratio of output mask size to input size.",
+        "file": "mask_generator.py"
+      }
+    ],
+    "The provided paper sections are not sufficient to link with the given code component. Please provide the actual section names/titles of the paper.": [
+      {
+        "component": "model.py:Model",
+        "description": "Encapsulates a pre-trained backbone model (e.g., ResNet or ViT) with frozen parameters.\n    Supports loading the specified architecture with pretrained weights and provides\n    an inference interface.",
+        "file": "model.py"
+      }
+    ],
+    "The provided paper sections are not sufficient to link with the given code component. Please provide more detailed sections such as \"Methodology\"": [
+      {
+        "component": "model.py:__init__",
+        "description": "Loads the specified pre-trained model architecture, freezes its parameters,\n        and prepares it for inference.\n\n        Args:\n            model_name (str): Name of the model architecture. Supported values:\n                              \"ResNet50\", \"ResNet18\", \"ViT-B32\".\n            pretrained (bool): Whether to load pretrained ImageNet weights.",
+        "file": "model.py"
+      },
+      {
+        "component": "trainer.py:__init__",
+        "description": "Initialize the trainer with model, dataset, configs, etc.\n        Args:\n            model (torch.nn.Module): fixed pre-trained classifier (f_P).\n            mask_generator (MaskGenerator): the mask generator module with parameters phi.\n            pattern (Pattern): shared learnable pattern delta.\n            train_loader (DataLoader): training data loader.\n            val_loader (DataLoader): validation data loader, optional.\n            config (dict): configurations loaded from config.yaml.\n            device (torch.device): computation device.",
+        "file": "trainer.py"
+      }
+    ],
+    "\"Experiment Setup\"": [
+      {
+        "component": "model.py:__init__",
+        "description": "Loads the specified pre-trained model architecture, freezes its parameters,\n        and prepares it for inference.\n\n        Args:\n            model_name (str): Name of the model architecture. Supported values:\n                              \"ResNet50\", \"ResNet18\", \"ViT-B32\".\n            pretrained (bool): Whether to load pretrained ImageNet weights.",
+        "file": "model.py"
+      },
+      {
+        "component": "trainer.py:__init__",
+        "description": "Initialize the trainer with model, dataset, configs, etc.\n        Args:\n            model (torch.nn.Module): fixed pre-trained classifier (f_P).\n            mask_generator (MaskGenerator): the mask generator module with parameters phi.\n            pattern (Pattern): shared learnable pattern delta.\n            train_loader (DataLoader): training data loader.\n            val_loader (DataLoader): validation data loader, optional.\n            config (dict): configurations loaded from config.yaml.\n            device (torch.device): computation device.",
+        "file": "trainer.py"
+      }
+    ],
+    "\"Model Architecture\"": [
+      {
+        "component": "model.py:__init__",
+        "description": "Loads the specified pre-trained model architecture, freezes its parameters,\n        and prepares it for inference.\n\n        Args:\n            model_name (str): Name of the model architecture. Supported values:\n                              \"ResNet50\", \"ResNet18\", \"ViT-B32\".\n            pretrained (bool): Whether to load pretrained ImageNet weights.",
+        "file": "model.py"
+      },
+      {
+        "component": "pattern.py:Pattern",
+        "description": "Represents the learnable prompt pattern (delta) in the reprogramming framework.\n    This tensor is shared across all samples and is optimized during training.",
+        "file": "pattern.py"
+      }
+    ],
+    "Without specific section names": [
+      {
+        "component": "pattern.py:Pattern",
+        "description": "Represents the learnable prompt pattern (delta) in the reprogramming framework.\n    This tensor is shared across all samples and is optimized during training.",
+        "file": "pattern.py"
+      }
+    ],
+    "it's hard to provide an accurate answer. However": [
+      {
+        "component": "pattern.py:Pattern",
+        "description": "Represents the learnable prompt pattern (delta) in the reprogramming framework.\n    This tensor is shared across all samples and is optimized during training.",
+        "file": "pattern.py"
+      }
+    ],
+    "based on the code description": [
+      {
+        "component": "pattern.py:Pattern",
+        "description": "Represents the learnable prompt pattern (delta) in the reprogramming framework.\n    This tensor is shared across all samples and is optimized during training.",
+        "file": "pattern.py"
+      }
+    ],
+    "the most relevant sections could be something like \"Methodology\"": [
+      {
+        "component": "pattern.py:Pattern",
+        "description": "Represents the learnable prompt pattern (delta) in the reprogramming framework.\n    This tensor is shared across all samples and is optimized during training.",
+        "file": "pattern.py"
+      }
+    ],
+    "\"Training Process\"": [
+      {
+        "component": "pattern.py:Pattern",
+        "description": "Represents the learnable prompt pattern (delta) in the reprogramming framework.\n    This tensor is shared across all samples and is optimized during training.",
+        "file": "pattern.py"
+      }
+    ],
+    "or \"Implementation Details\".": [
+      {
+        "component": "pattern.py:Pattern",
+        "description": "Represents the learnable prompt pattern (delta) in the reprogramming framework.\n    This tensor is shared across all samples and is optimized during training.",
+        "file": "pattern.py"
+      }
+    ],
+    "The code provided does not give specific details about the paper sections. However": [
+      {
+        "component": "pattern.py:__init__",
+        "description": "Initializes the Pattern tensor.\n\n        Args:\n            shape (Tuple[int, int, int]): (channels, height, width) of the pattern.\n            init_type (str): Initialization method; default is 'zeros'.\n                             Can be extended to other methods if needed.",
+        "file": "pattern.py"
+      }
+    ],
+    "based on the general function of the code (initializing a pattern tensor)": [
+      {
+        "component": "pattern.py:__init__",
+        "description": "Initializes the Pattern tensor.\n\n        Args:\n            shape (Tuple[int, int, int]): (channels, height, width) of the pattern.\n            init_type (str): Initialization method; default is 'zeros'.\n                             Can be extended to other methods if needed.",
+        "file": "pattern.py"
+      }
+    ],
+    "or \"Experimental Setup\". Please provide more context or specific paper sections for a more accurate mapping.": [
+      {
+        "component": "pattern.py:__init__",
+        "description": "Initializes the Pattern tensor.\n\n        Args:\n            shape (Tuple[int, int, int]): (channels, height, width) of the pattern.\n            init_type (str): Initialization method; default is 'zeros'.\n                             Can be extended to other methods if needed.",
+        "file": "pattern.py"
+      }
+    ],
+    "The provided paper sections are not sufficient to link with the given code component. Please provide more detailed sections of the paper such as \"Methodology\"": [
+      {
+        "component": "trainer.py:Trainer",
+        "description": "Trainer class for training the SMM-based visual reprogramming framework.\n    Handles the training loop updating only the mask generator parameters and pattern delta.",
+        "file": "trainer.py"
+      }
+    ],
+    "\"Results and Discussion\"": [
+      {
+        "component": "trainer.py:Trainer",
+        "description": "Trainer class for training the SMM-based visual reprogramming framework.\n    Handles the training loop updating only the mask generator parameters and pattern delta.",
+        "file": "trainer.py"
+      }
+    ],
+    "\"Data Preparation\"": [
+      {
+        "component": "trainer.py:__init__",
+        "description": "Initialize the trainer with model, dataset, configs, etc.\n        Args:\n            model (torch.nn.Module): fixed pre-trained classifier (f_P).\n            mask_generator (MaskGenerator): the mask generator module with parameters phi.\n            pattern (Pattern): shared learnable pattern delta.\n            train_loader (DataLoader): training data loader.\n            val_loader (DataLoader): validation data loader, optional.\n            config (dict): configurations loaded from config.yaml.\n            device (torch.device): computation device.",
+        "file": "trainer.py"
+      }
+    ],
+    "The provided paper sections are not sufficient to link with the given code component. Please provide more relevant paper sections.": [
+      {
+        "component": "visualization.py:__init__",
+        "description": "Initialize the visualizer with optional configuration.\n        Args:\n            config (dict): Configuration dictionary, used to set visualization defaults. \n                           Expected keys: 'evaluation'->'visualize' (bool).",
+        "file": "visualization.py"
+      }
+    ]
+  },
+  "paper_sections": [
+    {
+      "section": "Abstract",
+      "text": "Chengyi Cai 1 Zesheng Ye 1 Lei Feng 2 Jianzhong Qi 1 Feng Liu 1",
+      "ontology": "abstract"
+    }
+  ],
+  "coverage_score": 31.0
+}

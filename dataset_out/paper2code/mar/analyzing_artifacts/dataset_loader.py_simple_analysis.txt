@@ -1,0 +1,127 @@
+**Logic Analysis for `dataset_loader.py`**
+
+---
+
+### Overview
+
+The `dataset_loader.py` module defines the `DatasetLoader` class, responsible for loading ImageNet data, applying necessary preprocessing, utilizing tokenization utilities from `tokenizer_utils.py`, and providing data batches suitable for training and evaluation. Its design must align strictly with the reproduction plan and maintain compatibility with the `main.py` orchestrator and other components. Key functionalities include loading image data, encoding images into sequence tokens, decoding tokens back to images, and providing batches for training/testing.
+
+---
+
+### Core Responsibilities
+
+1. **Data Loading:**
+   - Load ImageNet dataset from specified directory paths.
+   - Support training and validation subsets.
+   - Handle data shuffling, batching, and optional caching if necessary.
+   - Use `torchvision.datasets.ImageFolder` or equivalent PyTorch dataset loader for ease and standard practice.
+   
+2. **Preprocessing:**
+   - Resize images to `image_size` (from config: 256×256).
+   - Normalize images as per the tokenizer requirements (may depend on tokenizer type).
+   - Possibly convert images to tensors (torch tensors).
+   - Maintain the order of images for reproducibility (use a fixed random seed).
+
+3. **Tokenization:**
+   - Utilize functions from `tokenizer_utils.py`:
+     - `encode(image)`: encode an image (PIL.Image or tensor) into token sequence(s).
+     - `decode(tokens)`: decode token sequence into an image.
+   - During dataset preparation:
+     - Apply `encode` to each image to generate token sequence batches.
+     - Consider storing encoded sequences if desired for efficiency; otherwise, encode on-the-fly (but on-the-fly is slower).
+   - Ensure that the tokenization output aligns with expected sequence length (e.g., 1024 tokens for 256×256 images with stride 16, if that's the configuration).
+
+4. **Handling Token Representations:**
+   - For models with **discrete tokens**:
+     - Store sequences as integer tensors of shape `[sequence_length]`.
+   - For **continuous-valued tokens**:
+     - Store as float tensors.
+   - Based on the experiment type, choose representation:
+     - For the main diffusion-based autoregressive models, treat tokens as floating-point vectors.
+     - For models trained with discrete cross-entropy, handle integer token IDs.
+   - The code should be flexible enough to switch representations based on configuration or experiment.
+
+5. **Batching:**
+   - For each batch:
+     - Sample a set of images.
+     - Encode images into token sequences.
+     - Convert sequences into tensors (`torch.LongTensor` for discrete, `torch.FloatTensor` for continuous).
+     - Return batches of images (for evaluation), and token sequences for training.
+   - Handle padding if necessary:
+     - During training, sequences should be padded or truncated to `sequence_length`.
+     - For inference, sequences are fully intact.
+
+6. **Interface Methods:**
+   - `__init__`:
+     - Load dataset paths.
+     - Instantiate dataset object.
+     - Set batch size, shuffle mode, etc.
+   - `load_data()`:
+     - Return the dataset object (or DataLoader).
+   - `get_sample()`:
+     - Return a batch of images and token sequences.
+     - Be compatible with the training loop in `trainer.py`.
+   - Helper:
+     - `encode_image(image)`:
+       - Calls `tokenizer_utils.encode(image)`.
+     - `decode_tokens(tokens)`:
+       - Calls `tokenizer_utils.decode(tokens)`.
+
+7. **Implementation Details:**
+   - Use `torch.utils.data.DataLoader` for batching with shuffling.
+   - Set seeds for reproducibility (`torch.manual_seed(config['misc']['seed'])`).
+   - Handle dataset splits (`train` vs. `val`) via dataset folder naming conventions.
+   - Optionally, cache encoded tokens for efficiency (not mandatory).
+
+8. **Error Handling & Robustness:**
+   - Check for invalid images or encoding failures.
+   - Raise informative errors if tokenizer paths are invalid or datasets missing.
+   - Support flexible batch sizes.
+
+---
+
+### Key Decisions & Specifications
+
+- **Dataset path:** Provided via `dataset_path` or `val_dataset_path` in config; default to `path/to/imagenet/train`.
+- **Image preprocessing:**
+  - Resize to `config['data']['image_size']` (256).
+  - Normalization: optional, depending on tokenizer's training requirement.
+- **Tokenization:** Use `tokenizer_utils.py` module functions:
+  - For training: encode images into tokens on the fly during data loading.
+  - For large datasets, optionally precompute and store token sequences for efficiency, if feasible.
+- **Data Types:**
+  - Discrete tokens: tensors of shape `[sequence_length]` with `torch.LongTensor`.
+  - Continuous tokens: tensors of shape `[sequence_length, D]` with `torch.FloatTensor`.
+- **Batch Preparation:**
+  - Batch size fixed at `config['training']['batch_size']`.
+  - Sequences padded or truncated as needed.
+  - Return batch as a tuple `(images, token_sequences)`:
+    - During training: token sequences as input and target.
+    - During evaluation: decode tokens for visualization.
+
+---
+
+### Additional Notes
+
+- Maintain strict dependence on the `tokenizer_utils.py` interface.
+- Keep the code modular to allow switching between discrete and continuous token handling.
+- Ensure reproducibility by fixing the seed.
+- Use only open-source libraries like `torch`, `torchvision`, and `numpy`.
+- Design for efficient data loading, especially important given large datasets like ImageNet.
+
+---
+
+### Summary
+
+In `dataset_loader.py`:
+
+- Implement a `DatasetLoader` class.
+- In `__init__`: load ImageNet dataset, initialize tokenizers, set up data parameters.
+- In `load_data()`: instantiate `DataLoader` with appropriate dataset and batching.
+- Use `encode()` during data loading to convert images into tokens.
+- Provide `get_sample()` for fetching batches of images and tokens during training.
+- Provide `decode_tokens()` for visualizations/validation.
+- Handle different token representations based on mode (discrete or continuous).
+- Ensure scrupulous alignment with preprocessing and tokenization details specified in the plan, configuration, and paper.
+
+This structured approach guarantees faithful reproduction aligned with the authors’ methodology, with flexibility for different variant setups.

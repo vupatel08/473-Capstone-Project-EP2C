@@ -1,0 +1,256 @@
+## model.py
+import math
+import torch
+import torch.nn as nn
+import torch.nn.functional as F
+from torch.nn import TransformerEncoder, TransformerEncoderLayer
+from torch.nn.modules.normalization import LayerNorm
+
+# Import from transformers for positional encodings if desired, or define custom
+# Here, we implement sinusoidal positional embeddings manually
+# No external dependencies besides torch
+
+class SinusoidalPosEmb(nn.Module):
+    """Sinusoidal positional embedding for timestep encoding."""
+    def __init__(self, dim: int):
+        super().__init__()
+        self.dim = dim
+
+    def forward(self, t: torch.Tensor) -> torch.Tensor:
+        # t shape: [batch_size]
+        device = t.device
+        half_dim = self.dim // 2
+        freq = torch.exp(
+            -math.log(10000) * torch.arange(0, half_dim, device=device).float() / half_dim
+        )
+        # shape: [batch_size, half_dim]
+        args = t[:, None].float() * freq[None, :]
+        embedding = torch.cat([torch.sin(args), torch.cos(args)], dim=-1)
+        if self.dim % 2 == 1:
+            # pad to match dimension
+            embedding = F.pad(embedding, (0,1))
+        return embedding  # shape: [batch_size, dim]
+
+class TransformerAutoRegressive(nn.Module):
+    """
+    Transformer backbone for autoregressive modeling with support for causal and bidirectional attention.
+    Generates conditioning vectors z^i for each token position.
+    """
+    def __init__(self, config: dict):
+        """
+        Args:
+            config (dict): Configuration with transformer hyperparameters.
+                - num_layers
+                - hidden_dim
+                - num_heads
+                - dropout_rate
+                - max_sequence_length
+        """
+        super().__init__()
+        # Extract parameters from config with defaults
+        num_layers = config.get('num_layers', 32)
+        hidden_dim = config.get('hidden_dim', 1024)
+        num_heads = config.get('num_heads', 16)
+        dropout = config.get('dropout_rate', 0.1)
+        max_seq_len = config.get('max_sequence_length', 1024)
+        # Embedding layer for token inputs if discrete
+        # For continuous tokens, they can be passed directly as input features
+        # For flexibility, assume input tokens are embedded in input tensor directly
+        self.input_dim = config.get('input_dim', hidden_dim)
+        # For token embedding: either identity or an embedding for discrete tokens
+        self.is_discrete = config.get('is_discrete', True)
+        vocab_size = config.get('vocab_size', 256)
+        embed_dim = self.input_dim
+
+        if self.is_discrete:
+            self.token_embedding = nn.Embedding(vocab_size, embed_dim)
+        else:
+            # For continuous tokens, input is already in embedded form
+            self.token_embedding = nn.Identity()
+
+        # Positional embeddings (learned)
+        self.pos_embedding = nn.Parameter(
+            torch.randn(1, max_seq_len, embed_dim)
+        )
+
+        # Transformer Encoder
+        encoder_layers = TransformerEncoderLayer(
+            d_model=embed_dim,
+            nhead=num_heads,
+            dropout=dropout,
+            activation='gelu'
+        )
+        self.transformer = TransformerEncoder(encoder_layers, num_layers=num_layers)
+
+        # For producing conditioning vector z^i from each token embedding
+        # Here, simply use the transformer output at each position
+        # Optionally, can define an MLP or linear projection
+        self.z_proj = nn.Linear(embed_dim, config.get('z_dim', 1024))
+
+        # Store attention mode: 'causal' or 'bidir'
+        self.attention_mode = config.get('attention_mode', 'causal')  # default
+        self.max_seq_len = max_seq_len
+
+    def forward(self, input_tokens, attention_mask=None):
+        """
+        Args:
+            input_tokens: LongTensor or FloatTensor of shape [batch_size, seq_len]
+                - LongTensor if discrete tokens
+                - FloatTensor if continuous tokens
+            attention_mask: optional mask tensor [batch_size, seq_len], boolean
+        Returns:
+            z_seq: Tensor of shape [batch_size, seq_len, z_dim], conditioning vectors for each token
+        """
+        # Embed tokens
+        if self.is_discrete:
+            x = self.token_embedding(input_tokens)  # shape: [B, L, D]
+        else:
+            x = input_tokens  # assume already float embeddings
+
+        # Add positional embedding
+        seq_len = x.shape[1]
+        pos_emb = self.pos_embedding[:, :seq_len, :]
+        h = x + pos_emb
+
+        # Create transformer mask based on mode
+        # For causal: causal mask, for bidir: no mask or full attention
+        if self.attention_mode == 'causal':
+            # Generate causal mask
+            device = h.device
+            mask = torch.tril(torch.ones((seq_len, seq_len), device=device)).bool()
+        elif self.attention_mode == 'bidir':
+            mask = None  # no mask, full attention
+        else:
+            raise ValueError(f"Unknown attention_mode: {self.attention_mode}")
+
+        # Run through transformer encoder
+        # Note: transformer accepts attn_mask of shape [seq_len, seq_len]
+        h_encoded = self.transformer(h.permute(1,0,2), mask=mask)  # [L, B, D]
+        h_encoded = h_encoded.permute(1,0,2)  # [B, L, D]
+
+        # Produce conditioning vectors z^i for each token
+        z_seq = self.z_proj(h_encoded)  # shape: [B, L, z_dim]
+
+        return z_seq  # conditioning vectors per token
+
+class DiffusionMLP(nn.Module):
+    """
+    Small residual MLP for predicting noise in diffusion process.
+    Incorporates timestep embedding and conditioning vector z^i.
+    """
+    def __init__(self, residual_blocks: int=3, residual_width: int=1024, input_dim: int=1024, z_dim: int=1024, time_emb_dim: int=1024):
+        """
+        Args:
+            residual_blocks (int): Number of residual blocks.
+            residual_width (int): Width of residual blocks.
+            input_dim (int): Dim of input tokens (x_t).
+            z_dim (int): Dim of conditioning vector z^i.
+            time_emb_dim (int): Dim of timestep embedding.
+        """
+        super().__init__()
+        self.input_dim = input_dim
+        self.z_dim = z_dim
+        self.time_emb_dim = time_emb_dim
+
+        # Map timestep embedding to initial residual input
+        self.time_mlp = nn.Sequential(
+            nn.Linear(time_emb_dim, residual_width),
+            nn.SiLU()
+        )
+
+        # Build residual blocks
+        self.res_blocks = nn.ModuleList()
+        for _ in range(residual_blocks):
+            self.res_blocks.append(
+                ResidualMLPBlock(residual_width)
+            )
+
+        # Final linear layer to predict noise
+        self.output_layer = nn.Linear(residual_width, input_dim)
+
+    def forward(self, x, t, z):
+        """
+        Args:
+            x: Tensor [B, L, D], noisy tokens
+            t: Tensor [B], timestep indices
+            z: Tensor [B, L, z_dim], conditioning vectors per token
+        Returns:
+            epsilon_pred: Tensor [B, L, D], predicted noise
+        """
+        # Generate timestep embedding
+        t_emb = SinusoidalPosEmb(self.time_emb_dim)(t)  # [B, time_emb_dim]
+        t_emb = self.time_mlp(t_emb)  # [B, residual_width]
+        t_emb = t_emb[:, None, :].expand(-1, x.shape[1], -1)  # [B, L, residual_width]
+
+        # Concatenate or add t_emb and z to input
+        # Here, we do addition after a linear projection
+        # Alternatively, concatenate
+        # Let's add t_emb and z (projected) for simplicity
+        z_proj = nn.Linear(self.z_dim, x.shape[-1], bias=False).to(x.device)
+        z_cond = z_proj(z)  # [B, L, D]
+        # Option 1: Add
+        h = x + z_cond + t_emb
+
+        # Pass through residual blocks
+        for res_block in self.res_blocks:
+            h = res_block(h)
+
+        # Final prediction
+        epsilon_pred = self.output_layer(h)
+        return epsilon_pred
+
+class ResidualMLPBlock(nn.Module):
+    """
+    Residual block with LayerNorm, Linear, SiLU activation.
+    """
+    def __init__(self, width: int):
+        super().__init__()
+        self.norm1 = LayerNorm(width)
+        self.linear1 = nn.Linear(width, width)
+        self.norm2 = LayerNorm(width)
+        self.linear2 = nn.Linear(width, width)
+        self.activation = nn.SiLU()
+
+        # Initialize weights with Xavier
+        self._init_weights()
+
+    def _init_weights(self):
+        nn.init.xavier_uniform_(self.linear1.weight)
+        nn.init.xavier_uniform_(self.linear2.weight)
+        if self.linear1.bias is not None:
+            nn.init.zeros_(self.linear1.bias)
+        if self.linear2.bias is not None:
+            nn.init.zeros_(self.linear2.bias)
+
+    def forward(self, x):
+        residual = x
+        out = self.norm1(x)
+        out = self.linear1(out)
+        out = self.activation(out)
+        out = self.norm2(out)
+        out = self.linear2(out)
+        return residual + out
+
+class TimestepEmbedding(nn.Module):
+    """
+    Generate fixed sinusoidal embeddings for timestep t.
+    """
+    def __init__(self, dim):
+        super().__init__()
+        self.dim = dim
+
+    def forward(self, t):
+        # t shape: [B]
+        device = t.device
+        half_dim = self.dim // 2
+        freq = torch.exp(
+            -math.log(10000) * torch.arange(0, half_dim, device=device).float() / half_dim
+        )
+        args = t[:, None].float() * freq[None, :]
+        embedding = torch.cat([torch.sin(args), torch.cos(args)], dim=-1)
+        if self.dim % 2 == 1:
+            embedding = F.pad(embedding, (0, 1))
+        return embedding  # shape: [B, dim]
+
+# Utility functions or classes for scheduling, positional encodings,
+# and other helpers can be added here as needed.

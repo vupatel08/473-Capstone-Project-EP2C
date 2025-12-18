@@ -1,0 +1,195 @@
+## model.py
+import torch
+import torch.nn as nn
+import torch.nn.functional as F
+import math
+
+class TransformerEncoderLayer(nn.Module):
+    """
+    Single transformer encoder layer with multi-head self-attention and feed-forward network.
+    """
+    def __init__(self, embed_dim: int, n_heads: int, dropout: float = 0.1):
+        super().__init__()
+        self.self_attn = nn.MultiheadAttention(embed_dim, n_heads, dropout=dropout)
+        self.linear1 = nn.Linear(embed_dim, embed_dim * 4)
+        self.dropout = nn.Dropout(dropout)
+        self.linear2 = nn.Linear(embed_dim * 4, embed_dim)
+        self.norm1 = nn.LayerNorm(embed_dim)
+        self.norm2 = nn.LayerNorm(embed_dim)
+        self.activation = nn.GELU()
+
+    def forward(self, src: torch.Tensor) -> torch.Tensor:
+        # src shape: [seq_len, batch_size, embed_dim]
+        src2, _ = self.self_attn(src, src, src)
+        src = self.norm1(src + self.dropout(src2))
+        src2 = self.linear2(self.activation(self.linear1(src)))
+        src = self.norm2(src + self.dropout(src2))
+        return src
+
+class TransformerDecoderLayer(nn.Module):
+    """
+    Single transformer decoder layer with cross-attention to encoder output and feed-forward network.
+    """
+    def __init__(self, embed_dim: int, n_heads: int, dropout: float = 0.1):
+        super().__init__()
+        self.self_attn = nn.MultiheadAttention(embed_dim, n_heads, dropout=dropout)
+        self.cross_attn = nn.MultiheadAttention(embed_dim, n_heads, dropout=dropout)
+        self.linear1 = nn.Linear(embed_dim, embed_dim * 4)
+        self.dropout = nn.Dropout(dropout)
+        self.linear2 = nn.Linear(embed_dim * 4, embed_dim)
+        self.norm1 = nn.LayerNorm(embed_dim)
+        self.norm2 = nn.LayerNorm(embed_dim)
+        self.norm3 = nn.LayerNorm(embed_dim)
+        self.activation = nn.GELU()
+
+    def forward(self, tgt: torch.Tensor, memory: torch.Tensor) -> torch.Tensor:
+        # tgt shape: [seq_len, batch_size, embed_dim]
+        # memory shape: [seq_len_enc, batch_size, embed_dim]
+        tgt2, _ = self.self_attn(tgt, tgt, tgt)
+        tgt = self.norm1(tgt + self.dropout(tgt2))
+        tgt2, _ = self.cross_attn(tgt, memory, memory)
+        tgt = self.norm2(tgt + self.dropout(tgt2))
+        tgt2 = self.linear2(self.activation(self.linear1(tgt)))
+        tgt = self.norm3(tgt + self.dropout(tgt2))
+        return tgt
+
+class TransformerEncoder(nn.Module):
+    """
+    Transformer encoder with multiple layers, lead and positional embeddings.
+    """
+    def __init__(self, 
+                 num_layers: int = 8, 
+                 embed_dim: int = 64, 
+                 n_heads: int = 4, 
+                 patch_size: int = 32, 
+                 num_patches: int = 128,
+                 lead_count: int = 12,
+                 dropout_rate: float = 0.1):
+        super().__init__()
+        self.num_layers = num_layers
+        self.embed_dim = embed_dim
+        self.n_heads = n_heads
+        self.patch_size = patch_size
+        self.num_patches = num_patches
+        self.lead_count = lead_count
+
+        # Positional Embedding: learnable, shape [num_patches, embed_dim]
+        self.positional_embeddings = nn.Parameter(torch.randn(num_patches, embed_dim))
+
+        # Lead Embeddings: learnable, shape [lead_count, embed_dim]
+        self.lead_embeddings = nn.Parameter(torch.randn(lead_count, embed_dim))
+
+        # Encoder layers
+        self.layers = nn.ModuleList([
+            TransformerEncoderLayer(embed_dim, n_heads, dropout=dropout_rate) for _ in range(num_layers)
+        ])
+
+        # Layer norm
+        self.norm = nn.LayerNorm(embed_dim)
+
+    def forward(self, x: torch.Tensor, lead_ids: torch.Tensor) -> torch.Tensor:
+        """
+        Args:
+            x: Tensor of shape [batch_size, total_patches, embed_dim], patch embeddings for all leads
+            lead_ids: Tensor of shape [batch_size, total_patches], lead index per patch
+        Returns:
+            output: Tensor [batch_size, total_patches, embed_dim]
+        """
+        batch_size, total_patches, embed_dim = x.shape
+        # Add lead embeddings: for each patch, add its lead embedding
+        # lead_ids shape: [batch_size, total_patches]
+        lead_embeds = self.lead_embeddings[lead_ids]  # shape: [batch_size, total_patches, embed_dim]
+        x = x + lead_embeds
+
+        # Add positional embeddings
+        # positional_embeddings shape: [num_patches, embed_dim]
+        pos_embeds = self.positional_embeddings.unsqueeze(0).expand(batch_size, -1, -1)  # [batch, num_patches, embed_dim]
+        x = x + pos_embeds
+
+        # Transformer expects sequence in [seq_len, batch_size, embed_dim]
+        x = x.transpose(0, 1)  # [seq_len, batch, embed_dim]
+        for layer in self.layers:
+            x = layer(x)
+        x = self.norm(x)
+        x = x.transpose(0, 1)  # back to [batch_size, seq_len, embed_dim]
+        return x
+
+class TransformerDecoder(nn.Module):
+    """
+    Transformer decoder with cross-attention to encoder output, lead and positional embeddings.
+    """
+    def __init__(self, 
+                 num_layers: int = 4, 
+                 embed_dim: int = 64, 
+                 n_heads: int = 4,
+                 lead_count: int = 12,
+                 dropout_rate: float = 0.1):
+        super().__init__()
+        self.num_layers = num_layers
+        self.embed_dim = embed_dim
+        self.n_heads = n_heads
+        self.lead_count = lead_count
+
+        # Decoder layers
+        self.layers = nn.ModuleList([
+            TransformerDecoderLayer(embed_dim, n_heads, dropout=dropout_rate) for _ in range(num_layers)
+        ])
+
+        # Learnable shared mask embedding for masked patches
+        self.mask_token = nn.Parameter(torch.randn(embed_dim))
+        # Lead embeddings in decoder for potential lead-specific info
+        self.lead_embeddings = nn.Parameter(torch.randn(lead_count, embed_dim))
+        # Positional embeddings
+        self.positional_embeddings = nn.Parameter(torch.randn(128, embed_dim))  # Default max_patches=128
+
+        # Final linear layer for reconstruction
+        self.output_proj = nn.Linear(embed_dim, self.patch_size)  # Output shape: [batch, seq_len, patch_size]
+
+    def forward(self, encoded: torch.Tensor, lead_ids: torch.Tensor, 
+                masked_positions: torch.Tensor) -> torch.Tensor:
+        """
+        Args:
+            encoded: [batch_size, seq_len, embed_dim]
+            lead_ids: [batch_size, total_patches], indicates lead from which patches originate
+            masked_positions: [batch_size, total_patches], boolean tensor indicating masked patches
+        Returns:
+            reconstructed patches: tensor [batch_size, total_patches, patch_size]
+        """
+        batch_size, seq_len, embed_dim = encoded.shape
+        total_patches = lead_ids.shape[1]
+
+        # Prepare decoder input: for masked patches, replace with learnable mask token; else, zeros or original
+        # Here, during training, the decoder input mainly contains masked tokens
+        # For simplicity, create a sequence of shape [batch_size, total_patches, embed_dim]
+        decoder_input = torch.zeros_like(encoded)  # initialize with zeros
+
+        for b in range(batch_size):
+            for p in range(total_patches):
+                if masked_positions[b, p]:
+                    decoder_input[b, p, :] = self.mask_token
+                else:
+                    decoder_input[b, p, :] = encoded[b, p, :]
+
+        # Add lead embeddings: shape [lead_count, embed_dim]
+        lead_embeds = self.lead_embeddings  # [lead_count, embed_dim]
+        # To add lead embedding per patch, we expand and add
+        # But if patches are from different leads, we add lead embedding accordingly
+        lead_embeds_expanded = lead_embeds[lead_ids]  # shape: [batch, total_patches, embed_dim]
+        decoder_input = decoder_input + lead_embeds_expanded
+
+        # Add positional embeddings
+        pos_embeds = self.positional_embeddings[:total_patches].unsqueeze(0)  # [1, total_patches, embed_dim]
+        decoder_input = decoder_input + pos_embeds
+
+        # Transformer decoder expects [seq_len, batch_size, embed_dim]
+        tgt = decoder_input.transpose(0, 1)
+
+        # Here, cross-attention takes encoder output as memory
+        memory = encoded.transpose(0, 1)  # [seq_len_enc, batch, embed_dim]
+        for layer in self.layers:
+            tgt = layer(tgt, memory)
+        tgt = tgt.transpose(0, 1)  # back to [batch, seq_len, embed_dim]
+
+        # Map to reconstructed patches
+        reconstructed = self.output_proj(tgt)  # shape: [batch, seq_len, patch_size]
+        return reconstructed

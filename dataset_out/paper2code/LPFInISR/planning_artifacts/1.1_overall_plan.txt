@@ -1,0 +1,127 @@
+{
+  "reproduction_plan": {
+    "overview": "This plan aims to replicate the experimental procedures and methodologies from the paper 'Exploring the Low-Pass Filtering Behavior in Image Super-Resolution' (LPFInISR). The goal is to validate key phenomena such as the 'sinc phenomenon,' implement Hybrid Response Analysis (HyRA) and the FSDS metric, and reproduce key experiments that link low-pass filtering properties to super-resolution performance. The process involves dataset preparation, model implementation, signal processing analyses, and evaluation using both traditional and novel metrics.",
+    "1. Datasets & Data Preparation": {
+      "Primary Dataset": "DIV2K",
+      "Dataset Details": "DIV2K contains high-resolution images used for training and validation. The authors evaluated on the validation set. Download from [DIV2K official source], ensuring images are aligned with the authors' evaluation protocol.",
+      "Preprocessing Steps": [
+        "Convert images to RGB if necessary.",
+        "Normalize pixel values to [0, 1] (or [0, 255]) based on the original training condition.",
+        "For impulse response tests, generate synthetic impulse images (e.g., a 11x11 or smaller grid with a single pixel set to maximum intensity, others zero)."
+      ],
+      "Data Augmentation": "Apply standard augmentation (rotation, flip) if training models from scratch. For impulse response tests, synthetic impulses suffice.",
+      "Note": "Ensure reproducibility by fixing random seeds and document data versions."
+    },
+    "2. Model Architectures & Training Setups": {
+      "Target Architectures": [
+        "EDSR (Lim et al., 2017)",
+        "RCAN",
+        "SwinIR",
+        "Transformer-based/backbones as per paper"
+      ],
+      "Implementation Details": {
+        "Framework": "PyTorch (preferred for signal processing manipulations and community support)",
+        "Model Initialization": "Use publicly available checkpoints if possible (e.g., EDSR trained on DIV2K). Otherwise, implement models as per original configurations."
+      },
+      "Training Hyperparameters": {
+        "Loss Function": "L1 loss primarily; note that models trained with adversarial loss (e.g., ESRGAN, SwinIR-Real) exhibit different impulse responses",
+        "Optimizer": "Adam",
+        "Learning Rate": "Initial LR as in original papers, typically 1e-4 or 2e-4 with decay scheduling",
+        "Batch Size": "Set according to GPU capacity, e.g., 16 or 64",
+        "Number of Epochs": "Sufficient to converge; recommend at least 100 epochs or as per original training logs",
+        "Data Augmentation": "Horizontal/vertical flips, rotations for robustness",
+        "Validation": "Use PINNs or validation subset for early stopping or hyperparameter tuning"
+      }
+    },
+    "3. Implementing Core Methodologies": {
+      "3.1. Sinc Phenomenon Validation": [
+        "Create impulse images: e.g., 11x11 grid with a single pixel at the center set to max (255), others zero.",
+        "Feed this impulse into each trained super-resolution model.",
+        "Obtain the output SR image.",
+        "Perform Fourier Transform (FFT) on output images to analyze the impulse response.",
+        "Validate that the impulse response resembles a 2D sinc function, checking amplitude and phase spectra."
+      ],
+      "3.2. Hybrid Response Analysis (HyRA)": [
+        "Input the impulse image into the network to get N(I).",
+        "Obtain H(δ): impulse response of the linear component, computed by feeding the impulse image and analyzing its response.",
+        "Estimate H(I): convolve the impulse response H(δ) with the impulse image to get the linear response. Alternatively, directly convolve H(δ) with other inputs.",
+        "Obtain G(I): subtract H(I) from the full network response N(I).",
+        "Verify the properties: (a) linear system H(I) acting as low-pass filter, and (b) G(I) injecting high-frequency details.",
+        "Calculate the frequency spectrum of G(I) to show high-frequency injection activity.",
+        "Repeat across multiple models to compare impulse response shapes and properties."
+      ],
+      "3.3. Low-pass Filter Spectrum & Approximation": [
+        "Construct ideal 2D low-pass filters with varying cutoff frequencies ω, matching those used in experiments (e.g., ω from 40 to 50).",
+        "Upsample LR images via low-pass filtering (e.g., sinc kernel or approximations like cubic, linear, or nearest neighbor).",
+        "Measure PSNR and SSIM of the resulting images.",
+        "Identify the passband width correlating with maximum PSNR and SSIM, reproduce the plots from the paper."
+      ],
+      "3.4. Non-linear Response & High-frequency Injection": [
+        "Quantify high-frequency injection by Fourier transforming G(I).",
+        "Visualize frequency spectra and compare relative high-frequency power with the original HR images.",
+        "Analyze the phase spectrum and identify grid distortions or sharpening effects indicated in the paper."
+      ],
+      "3.5. FSDS Metric Implementation": [
+        "For each image (SR and HR), compute the 2D FFT of the pixel values.",
+        "Normalize spectra by subtracting mean and dividing by standard deviation.",
+        "Calculate D(HR) and D(SR): power spectrum distribution maps via element-wise magnitude squared.",
+        "Compute D_diff = |D(HR) - D(SR)|.",
+        "Calculate FSDS as per the formula: logarithm of the sum over all spectrum differences.",
+        "Validate that FSDS captures high-frequency discrepancies, especially using the toy examples with spectrum steganography and JPEG compression.",
+        "Compare FSDS scores with PSNR, SSIM, LPIPS on the validation set across multiple methods."
+      ]
+    },
+    "4. Experimental Protocol & Implementation Details": {
+      "Impulse Response Tests": [
+        "Design impulse images (single white pixel in black background).",
+        "Feed into each trained model, extract N(I).",
+        "Calculate the Fourier spectrum and compare with ideal sinc function."
+      ],
+      "Model Response Decomposition": [
+        "For each network: compute N(I) for impulse images.",
+        "Estimate linear part H(I) by convolving the impulse response H(δ) with input.",
+        "Estimate G(I) = N(I) - H(I).",
+        "Repeat with different impulse positions to test spatial invariance."
+      ],
+      "Frequency Spectrum Analysis": [
+        "Use FFT to analyze the frequency response of H(I) and G(I).",
+        "Plot amplitude and phase spectra to verify 'sinc' shape and high-frequency injection."
+      ],
+      "Passband & Performance Relationship": [
+        "Run a series of images through different low-pass filters with varying cutoff frequencies ω.",
+        "Calculate PSNR and SSIM metrics for each, replicate the performance curve."
+      ],
+      "Impulse Response Similarity Analysis": [
+        "Quantitatively compare the impulse responses across different models.",
+        "Measure similarity to sinc function using metrics like mean squared difference or correlation."
+      ],
+      "Visualization and Validation": [
+        "Visualize the spatial invariance, impulse responses, and spectral responses.",
+        "Replay key figures from the paper to validate your implementation."
+    },
+    "5. Evaluation & Analysis": {
+      "Metrics": [
+        "PSNR, SSIM, LPIPS for traditional evaluation.",
+        "FSDS for frequency spectrum similarity evaluation.",
+        "Impulse response similarity to sinc (may use correlation coefficients)."
+      ],
+      "Comparative Analysis": [
+        "Compare impulse responses of different models to assess sinc resemblance.",
+        "Correlate the quality measures (PSNR, SSIM, FSDS) with impulse response shape and high-frequency injection.",
+        "Reproduce key plots: map of cutoff frequency vs PSNR/SSIM, impulse responses, FSDS scores across methods."
+      ],
+      "Repeatability": "Document all hyperparameters, random seeds, dataset versions, and processing steps for reproducibility."
+    },
+    "6. Additional Notes & Clarifications": {
+      "Unclear points": [
+        "Exact implementation details of the nonlinear G(I) component estimation may need clarification; recommend approximating by subtracting the linear response from the full network output.",
+        "The specific window functions used during training to produce sinc-like impulse responses are not explicitly detailed; suggest using Hann or Blackman windows for approximations.",
+        "Details on the precise neural architectures and training schedules may need to be inferred from original repositories or train from scratch if not available.",
+        "Handling of different loss functions (L1, adversarial) impacts impulse response shapes; document each accordingly.",
+        "Implementation of the FSDS metric requires careful normalization and spectral analysis; validate implementation on toy examples as per the paper."
+      ],
+      "Tools": "Use Python with PyTorch for models and NumPy/ SciPy for signal processing and FFT operations. Visualization with Matplotlib or Seaborn.",
+      "Validation steps": "At each stage, compare spectral responses, impulse responses, and metrics with the figures and numerical values presented in the paper."
+    }
+  }
+}

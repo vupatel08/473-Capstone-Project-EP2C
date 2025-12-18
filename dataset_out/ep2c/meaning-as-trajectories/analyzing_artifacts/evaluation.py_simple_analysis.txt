@@ -1,0 +1,204 @@
+# Evaluation.py Logic Analysis
+
+This module is responsible for implementing the evaluation classes and functions necessary to quantitatively assess the quality of the distribution-based meaning representations and their derived relations, as defined in the paper. The key evaluation tasks include: 
+
+- Computing semantic similarity scores and correlating with human annotations (e.g., via Spearman correlation).
+- Classifying entailment directions between sentence pairs.
+- Predicting hyponym/hypernym relations between words.
+- Evaluating multimodal similarity scores (images, captions, or cross-modal pairs).
+
+This analysis outlines the core classes, their attributes, methods, flow, and their interactions with other module components, consistent with the paper’s methodology, task specifications, and provided configuration.
+
+---
+
+# 1. Core Classes & Functions
+
+## 1.1. class Evaluation
+
+Purpose:
+- Orchestrate the overall evaluation process.
+- Compute metrics such as Spearman correlation and classification accuracies.
+- Load relevant data, process model outputs, and compare against human annotations or ground truth labels.
+
+Attributes:
+- prediction_scores: list or array, of divergence scores between pairs of prompts (e.g., similarity scores based on likelihood divergence).
+- labels: list or array, of ground-truth similarity scores, entailment labels, or hyponym/hypernym indicators.
+
+Methods:
+- __init__(self, prediction_scores, labels): store inputs.
+- calculate_spearman(self): compute Spearman coefficient between stored scores and labels.
+- calculate_accuracy(self, binary_predictions, labels): compute classification accuracy.
+- evaluate_similarity(self, prompt_pairs, models, divergence_params): 
+   + for each pair, generate or retrieve their divergence score.
+   + compute correlation with human annotations.
+- evaluate_entailment(self, prompt_pairs, models, divergence_params): 
+   + for each pair, compute divergence scores in both directions.
+   + compare divergence-based entailment prediction against ground truth.
+- evaluate_hypernymy(self, word_pairs, models, divergence_params): 
+   + for each word pair, compute divergence scores.
+   + determine directionality (hyponym vs. hypernym).
+
+## 1.2. Supporting functions
+
+- compute_divergence(dist_type, log_likelihoods1, log_likelihoods2):  
+  + Compute the specified divergence measure (e.g., log L1, KL, L2) between two distributions represented as sequences of log-likelihood scores.  
+  + Use pairwise likelihood scores sampled for each prompt/distribution.
+
+- compute_spearman(scores, labels):  
+  + Return Spearman correlation coefficient for arrays.
+
+- compute_accuracy(predictions, labels):  
+  + Return overall accuracy.
+
+---
+
+# 2. Inputs & Data Preparation
+
+- The evaluation module receives as inputs:
+
+  a) Divergence scores for prompt pairs, generated through the process in likelihood.py (or other sampling modules). This involves comparing sampled trajectories’ likelihoods between two prompts/distributions \( M_u \) and \( M_v \).
+
+  b) Ground-truth labels:
+     - Human similarity scores (0–5 scale or scaled) for STS datasets.
+     - Entailment labels (entailment / not entailment).
+     - Hyponym/hypernym relation indicators (binary).
+
+- For dataset loading:
+  - Prompt pairs for semantic similarity evaluation.
+  - Word pairs with known hyponym/hypernym relations.
+  - Multimodal data for cross-modal evaluation.
+
+- The module uses a configuration or explicit parameters to determine dataset paths, batch sizes for evaluation, and divergence types.
+
+---
+
+# 3. Correlation Evaluation (Semantic Similarity)
+
+Method:
+- Given a list of divergence scores for pairs (e.g., from Algorithm 1), and ground-truth similarity scores, apply:
+  - `scipy.stats.spearmanr()` to obtain the correlation coefficient.
+- To facilitate multiple runs, wrap into `calculate_spearman()`.
+
+Flow:
+```
+def evaluate_similarity_scores(self, scores, ground_truth_labels):
+    return compute_spearman(scores, ground_truth_labels)
+```
+
+Notes:
+- Preprocessing of human scores may include normalization or scaling.
+- The divergence scores are derived from multiple trajectories sampled per pair.
+
+---
+
+# 4. Classification Tasks (Entailment & Hyponym-Hypernym Prediction)
+
+### 4.1. Entailment Prediction (Binary Classification)
+
+Algorithm:
+- For each prompt pair \((u, v)\):
+  1. Compute two divergence scores:
+     - \( d(M_u, M_v) \) (e.g., model from prompt u to v).
+     - \( d(M_v, M_u) \).
+
+  2. Decide entailment direction by comparing these scores:
+     - If \( d(M_u, M_v) < d(M_v, M_u) \), infer \( u \Rightarrow v \).
+     - Else, \( v \Rightarrow u \).
+
+  3. Collect predictions and compare to ground-truth labels.
+
+Evaluation:
+- Use `calculate_accuracy()` on predicted labels vs. true labels.
+  
+Implementation:
+```
+def evaluate_entailment(self, prompt_pairs, model_wrapper, divergence_params):
+    predictions = []
+    for u, v in prompt_pairs:
+        divergence_uv = compute_divergence(..., model_wrapper, u, v, divergence_params)
+        divergence_vu = compute_divergence(..., model_wrapper, v, u, divergence_params)
+        pred = 1 if divergence_uv < divergence_vu else 0
+        predictions.append(pred)
+    return predictions
+```
+
+### 4.2. Hyponym/Hypernym Prediction
+
+Algorithm:
+- For word pairs \((u, v)\):
+  1. Compute distributions \(\overline{M}_u\), \(\overline{M}_v\).
+  2. Calculate the distances \( d(\overline{M}_u, \overline{M}_v) \), \( d(\overline{M}_v, \overline{M}_u) \).
+
+  3. Use the outlined *Hyponym Test*:
+     - If \( d(\overline{M}_v, \overline{M}_u) < d(\overline{M}_u, \overline{M}_v) \), predict \( v \) is hyponym of \( u \).
+     - Else, \( u \) is hyponym of \( v \).
+
+Evaluation:
+- Use `calculate_accuracy()` with true labels indicating hyponym/hypernym relation.
+
+---
+
+# 5. Multimodal & Cross-Modal Similarity
+
+- Use the same divergence computations between the distributions associated with images, captions, or combinations.
+- For multimodal data, the same logic applies but with prompts including modality-specific context.
+
+---
+
+# 6. Implementation Details & Integration
+
+- Instantiate `Evaluation` objects with lists of divergence scores and corresponding labels.
+- Use hyperparameters (like divergence type) from `config.yaml`:
+  - divergence.type (e.g., `"log_l1"`).
+- Each method should:
+  - Handle batch processing to improve efficiency.
+  - Optionally accept other divergence settings such as normalization (via likelihood_normalization_tau).
+
+- Output:
+  - Metrics (Spearman coefficient, accuracy).
+  - Predicted relation directions (entailment, hyponym/hypernym).
+
+---
+
+# 7. Summarized Pseudocode Snippet
+
+```python
+class Evaluation:
+    def __init__(self, scores: List[float], labels: List[float]):
+        self.scores = scores
+        self.labels = labels
+
+    def compute_spearman(self):
+        return scipy.stats.spearmanr(self.scores, self.labels).correlation
+
+    def compute_accuracy(self, preds: List[int], labels: List[int]):
+        correct = sum(p == l for p, l in zip(preds, labels))
+        return correct / len(labels)
+
+    def evaluate_similarity(self):
+        return self.compute_spearman()
+
+    def evaluate_entailment(self, divergence_uvs, divergence_vus):
+        preds = [1 if d_uv < d_vu else 0 for d_uv, d_vu in zip(divergence_uvs, divergence_vus)]
+        return self.compute_accuracy(preds, true_labels)
+
+    def evaluate_hypernymy(self, divergence_us, divergence_vs, true_labels):
+        preds = [1 if d_v < d_u else 0 for d_u, d_v in zip(divergence_us, divergence_vs)]
+        return self.compute_accuracy(preds, true_labels)
+```
+
+---
+
+# 8. Additional Considerations
+
+- Ensure divergence computations and likelihood normalization are consistent with the likelihood.py implementations.
+- Batch process divergence calculations to handle large datasets efficiently.
+- Track and report confidence intervals or statistical significance if needed.
+- Possibly implement methods to aggregate divergence scores over multiple trajectory samples, as described.
+
+---
+
+**Summary:**  
+The `evaluation.py` module encapsulates all metrics for assessing how well the distributional meaning representations (via likelihood-based divergences) correspond to human judgments and linguistic relations, following the methodology in the paper. It leverages divergence measures, statistical correlations, and classification metrics, all tightly integrated with the sampling and likelihood evaluation modules.
+
+This logical blueprint ensures fidelity to the paper's approach, configuration parameters, and experimental design.

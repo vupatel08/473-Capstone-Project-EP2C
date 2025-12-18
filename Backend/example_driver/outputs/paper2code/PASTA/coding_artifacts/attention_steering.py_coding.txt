@@ -1,0 +1,265 @@
+```python
+## attention_steering.py
+import torch
+from typing import List, Tuple, Dict, Optional
+
+class AttentionSteering:
+    """
+    Implements post-hoc attention reweighting to steer a language model's attention mechanism during inference.
+    Responsible for upweighting attended tokens in user-emphasized spans by manipulating attention scores
+    in specified attention heads across layers.
+    """
+
+    def __init__(
+        self,
+        model,
+        selected_heads: List[Tuple[int, int]],
+        alpha: float = 0.01
+    ):
+        """
+        Initialize the AttentionSteering object.
+
+        Args:
+            model: The model instance supporting attention hooks (e.g., HuggingFace model).
+            selected_heads: List of (layer_idx, head_idx) tuples indicating which attention heads to steer.
+            alpha: Scaling coefficient for non-emphasized token attention scores. Default: 0.01.
+        """
+        self.model = model
+        self.selected_heads = selected_heads
+        self.alpha = alpha
+        # Mapping from (layer_idx, head_idx) to hook handle for potential removal
+        self._hook_handles: List[torch.utils.hooks.RemovableHandle] = []
+        # Register hooks for relevant attention modules
+        self._register_hooks()
+
+    def _register_hooks(self):
+        """
+        Register hooks on the model's attention modules to modify attention scores during forward pass.
+        Assumes the model's attention modules are accessible and expose inputs and outputs suitable for hooking.
+        """
+        for layer_idx, layer_module in enumerate(self._get_attention_layers()):
+            # Depending on architecture, access attention module
+            attn_module = None
+            if hasattr(layer_module, 'self_attn'):
+                attn_module = getattr(layer_module, 'self_attn')
+            elif hasattr(layer_module, 'attn'):
+                attn_module = getattr(layer_module, 'attn')
+            else:
+                continue  # skip if no attention module found
+
+            # Register hook that adjusts attention scores before softmax
+            handle = attn_module.register_forward_hook(
+                self._create_attention_hook(layer_idx)
+            )
+            self._hook_handles.append(handle)
+
+    def _get_attention_layers(self):
+        """
+        Retrieve the list of attention layers from the model, depending on architecture.
+        """
+        if hasattr(self.model, 'layers'):
+            return self.model.layers
+        elif hasattr(self.model, 'transformer') and hasattr(self.model.transformer, 'h'):
+            return self.model.transformer.h
+        else:
+            raise ValueError("Cannot find attention layers in the provided model.")
+
+    def _create_attention_hook(self, layer_idx: int):
+        """
+        Creates a hook function for modifying attention scores at a specific layer.
+        This hook replaces the attention scores in the attention module's inputs
+        during the forward pass, applying the reweighting to emphasize user-highlighted tokens.
+
+        Args:
+            layer_idx: The index of the layer whose attention scores are being modified.
+
+        Returns:
+            A hook function.
+        """
+        def hook(module, inputs, outputs):
+            """
+            Hook function to manipulate attention scores.
+
+            Args:
+                module: The attention module.
+                inputs: Tuple containing inputs to the attention module (usually the attention scores or key/query/value tensors).
+                outputs: Outputs of the attention module (not used for modification).
+            """
+            # The 'inputs' typically contain the attention scores or Q,K,V tensors or the pre-softmax scores.
+            # We assume the attention module is implemented such that it outputs attention scores
+            # or the module's forward accepts and outputs attention weights.
+            # This code presumes 'inputs' includes the attention scores as the first argument or via kwargs.
+            # The precise access depends on the model's implementation.
+            # Implementers must adapt accordingly.
+
+            # For illustration, assume the attention scores are the first positional argument in `inputs`.
+            if not inputs:
+                return  # Cannot modify if no inputs
+
+            attn_scores = inputs[0]  # Expected shape: (batch_size, num_heads, seq_len, seq_len)
+            # Retrieve the attention scores tensor
+            # Note: the shape varies depending on the implementation
+            # For common transformers, shape: (batch_size, num_heads, seq_len, seq_len)
+
+            # Reweight attention scores at specified heads
+            # Only on selected heads
+            for (l_idx, h_idx) in self.selected_heads:
+                if l_idx != layer_idx:
+                    continue
+                # Generate reweighted scores for the head h_idx
+                # Access per-head attention scores
+                # We need to ensure that 'attn_scores' shape allows slicing: shape includes layer dimension
+                # But in most implementations, layer dimension is outside attention tensor reference.
+                # Adjust accordingly: here, assume 'attn_scores' is the attention for current layer.
+
+                # Since the hook is per-layer, attn_scores corresponds to layer layer_idx
+                # verify shape
+                # Shape: (batch_size, num_heads, query_seq_len, key_seq_len)
+                # Check shape
+                if hasattr(attn_scores, 'shape'):
+                    shape = attn_scores.shape
+                else:
+                    continue  # skip if shape not available
+
+                # Create a copy to avoid in-place modification if needed
+                new_attn_scores = attn_scores
+
+                if len(shape) != 4:
+                    # Unexpected shape
+                    continue
+
+                # Clone attention scores to avoid in-place modification if necessary
+                # (Alternative: in-place modification might be acceptable)
+                # new_attn_scores = attn_scores.clone()
+
+                # Generate the mask for highlighted tokens in the sequence
+                # For batch processing, creating a mask tensor of shape (batch_size, seq_len)
+                # For simplicity, assume focusing on one input sequence at a time (batch size 1)
+                # Let's handle batch size scenario: assuming batch size=1 for simplicity
+                
+                batch_size, num_heads, seq_len_q, seq_len_k = shape
+                # Create a mask of shape (seq_len_q, seq_len_k)
+                # Initialize as ones and then scale down for non-highlighted tokens
+                # We need 'emphasis spans' at inference time
+                # Since this is callback during forward, store current emphasis spans as a class attribute or argument
+                
+                # The 'apply_reweighting' should be called with actual emphasis spans at inference time.
+                # Thus, this hook must have access to current emphasis spans.
+                # To accomplish this, class should hold 'current_emphasis_spans' as state,
+                # which is set externally at inference time.
+
+                # Thus, an external method must set 'self._current_emphasis_spans' before generation.
+
+                # Check if emphasis spans are available
+                if not hasattr(self, '_current_emphasis_spans'):
+                    # No emphasis spans set; skip reweighting
+                    continue
+
+                emphasis_token_indices = set(self._current_emphasis_spans)
+
+                # Create boolean mask for tokens
+                # For batch size 1:
+                # Sequence length is seq_len_q
+                token_mask = torch.zeros(seq_len_q, dtype=torch.bool, device=attn_scores.device)
+                # Mark tokens in emphasis span
+                token_mask[list(emphasis_token_indices)] = True
+
+                # Expand mask to shape: (1, 1, seq_len_q, seq_len_k)
+                # to broadcast over batch and head dimensions
+                mask_broadcast = token_mask.unsqueeze(0).unsqueeze(0)  # shape: (1,1,seq_len_q,1)
+
+                # For assigning, make sure to broadcast properly
+                # Repeat emphasis mask across batch and key sequence
+                # But as attention is (batch_size, num_heads, seq_len_q, seq_len_k),
+                # we should create a per-head mask for per head's key dimension.
+
+                # Generate a per-head, per-sequence position mask
+                # For simplicity, assuming the same emphasis mask applies to all heads
+                # and batch; in multi-input, process each batch dynamically.
+
+                for batch_idx in range(batch_size):  # for batch >1
+                    # For batch index, modify the attention scores
+                    # But in the hook, 'attn_scores' is the tensor; 
+                    # In-place modification is possible.
+
+                    # Generate mask for this batch
+                    # For now, assuming batch_size=1
+                    # For multiple batches, loop accordingly or vectorize
+
+                    # Create mask for current batch
+                    batch_mask = token_mask  # shape: (seq_len_q)
+                    # Expand to matching shape: (seq_len_q, seq_len_k)
+                    mask_2d = batch_mask.unsqueeze(1).expand(-1, seq_len_k)
+
+                    # Scale down scores where tokens are not emphasized
+                    # Positions where mask is False will be scaled
+                    non_emphasis_mask = (~mask_2d).to(dtype=attn_scores.dtype)  # shape: (seq_len_q, seq_len_k)
+
+                    # Apply scale: multiply non-emphasis positions by alpha
+                    # Loop over batch if batch > 1
+                    attn_for_batch = new_attn_scores[batch_idx, h_idx]
+                    attn_for_batch = attn_for_batch * torch.where(
+                        non_emphasis_mask.bool().to(attn_for_batch.device),
+                        torch.full_like(attn_for_batch, self.alpha),
+                        torch.ones_like(attn_for_batch)
+                    )
+
+                    # Assign back
+                    new_attn_scores[batch_idx, h_idx] = attn_for_batch
+
+                # After scaling non-emphasis attention weights, normalize
+                # across the key dimension (last dimension)
+                for batch_idx in range(batch_size):
+                    attn_scores_batch = new_attn_scores[batch_idx, h_idx]
+                    # Numerical stability: add epsilon to denominator
+                    sum_scores = attn_scores_batch.sum(dim=-1, keepdim=True) + 1e-9
+                    new_attn_scores[batch_idx, h_idx] = attn_scores_batch / sum_scores
+
+            # Set the modified attention scores back to inputs or internal attribute
+            # Since 'inputs' is a tuple, modify in-place if possible, or
+            # replace the tuple: i.e., set inputs[0] = modified scores
+
+            # In hook, 'inputs' is a tuple -> we must modify 'inputs' to pass modified scores downstream.
+            # But as per PyTorch's hook API, 'inputs' are read-only; to modify, we'd need to override model code.
+            # Alternatively, we can patch specific modules or store the modified attention scores in class,
+            # which the attention module then uses internally, perhaps via a custom module.
+
+            # For the purpose of this code, assume the attention module internally captures or uses the modified scores via the hook.
+            # Thus, the above modifications via in-place are placeholders for actual implementation.
+
+            # WARNING: Actual implementation depends heavily on the model's attention module design.
+            # The code here aims to illustrate the intended logic.
+
+        return None  # hooks do not return directly, but modify the input tensors.
+
+        # Note: In practice, the above approach requires the model's attention implementation
+        # to support external manipulation of attention scores during forward pass.
+        # Otherwise, a custom attention module or rewriting the model's code is necessary.
+
+        # Additionally, the hook should modify the attention scores tensor in-place,
+        # but PyTorch JIT or nesting may complicate this.
+
+    def set_current_emphasis_spans(self, emphasis_token_indices: List[int]):
+        """
+        To be called externally before inference to set current emphasis spans.
+        Args:
+            emphasis_token_indices: list of token indices highlighting user emphasized tokens.
+        """
+        self._current_emphasis_spans = emphasis_token_indices
+
+    def clear_hooks(self):
+        """
+        Remove all registered hooks.
+        """
+        for handle in self._hook_handles:
+            handle.remove()
+        self._hook_handles.clear()
+
+    def update_selected_heads(self, new_heads: List[Tuple[int, int]]):
+        """
+        Update the list of heads to steer.
+        """
+        self.selected_heads = new_heads
+
+    # Additional utility methods can be added if needed
+```

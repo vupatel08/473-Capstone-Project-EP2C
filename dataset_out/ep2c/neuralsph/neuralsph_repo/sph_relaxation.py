@@ -1,0 +1,345 @@
+## sph_relaxation.py
+"""
+SPHRelaxation: Implements particle distribution correction via SPH-based position relaxation.
+This class performs iterative position updates to reduce clustering artifacts, enforce boundary
+conditions, and stabilize long-term particle simulations. It supports configurable hyperparameters
+and utilizes neighbor search, density, pressure, and viscous force computations based on classical SPH.
+"""
+
+import numpy as np
+from scipy.spatial import KDTree
+from typing import Optional, Tuple
+
+class SPHRelaxation:
+    """
+    Performs SPH-based position relaxation to improve particle distribution.
+    Supports temperature-like pressure correction and viscosity forces.
+    """
+    def __init__(
+        self,
+        positions: np.ndarray,
+        velocities: Optional[np.ndarray] = None,
+        densities: Optional[np.ndarray] = None,
+        particle_types: Optional[np.ndarray] = None,
+        hyperparameters: dict = None,
+        boundary_mask: Optional[np.ndarray] = None
+    ):
+        """
+        Initialize the SPH relaxation routine.
+
+        Args:
+            positions (np.ndarray): Particle positions, shape (N_particles, dim).
+            velocities (np.ndarray, optional): Velocities; used for viscous term. shape (N_particles, dim).
+            densities (np.ndarray, optional): Particle densities; if None, will compute during relaxation.
+            particle_types (np.ndarray, optional): Particle types; used for boundary conditions.
+            hyperparameters (dict): Dictionary of relaxation hyperparameters:
+                - alpha: float, force scale for pressure term.
+                - beta: float, force scale for viscous term.
+                - relaxation_steps: int, number of relaxation iterations.
+                - kernel_radius: float, support radius for SPH kernels.
+                - p_ref: float, reference pressure coefficient.
+                - rho_ref: float, reference density (default: 1.0).
+            boundary_mask (np.ndarray, optional): boolean array indicating boundary/wall particles.
+        """
+        self.positions = positions
+        self.velocities = velocities if velocities is not None else np.zeros_like(positions)
+        self.densities = densities
+        self.types = particle_types
+        self.boundary_mask = boundary_mask
+
+        # Set default hyperparameters if not provided
+        default_hp = {
+            'alpha': 0.03,
+            'beta': 0.0,
+            'relaxation_steps': 3,
+            'kernel_radius': 1.5,  # typical cutoff radius
+            'p_ref': 1.0,
+            'rho_ref': 1.0
+        }
+        if hyperparameters is None:
+            hyperparameters = {}
+        self.hyperparameters = {**default_hp, **hyperparameters}
+
+        # Initialize neighbor search structures
+        self.N, self.dim = self.positions.shape
+        self.h = self.hyperparameters['kernel_radius']
+        self._build_neighbor_structure()
+
+    def _build_neighbor_structure(self):
+        """
+        Build neighbor list using KDTree for spatial searches within kernel support radius.
+        """
+        self.tree = KDTree(self.positions)
+
+    def update_positions(self) -> np.ndarray:
+        """
+        Perform a single relaxation iteration, updating positions in-place or returning new positions.
+
+        Returns:
+            np.ndarray: Updated positions array (N_particles, dim).
+        """
+        # Step 1: Neighbor search
+        neighbors_list = self._query_neighbors()
+
+        # Step 2: Compute densities if not provided
+        if self.densities is None:
+            self.densities = self._compute_density(self.positions, neighbors_list)
+
+        # Step 3: Compute pressure for each particle
+        pressure = self._compute_pressure(self.densities)
+
+        # Apply density correction/clipping for free surface stabilization
+        density_clipped = self._density_clipping(self.densities)
+
+        # Recompute pressure after density correction if needed
+        pressure = self._compute_pressure(density_clipped)
+
+        # Enforce boundary conditions on pressure if boundary mask provided
+        if self.boundary_mask is not None:
+            pressure = self._apply_boundary_conditions(pressure, neighbors_list)
+
+        # Step 4: Compute forces (pressure + viscosity)
+        pressure_force = self._compute_pressure_force(pressure, neighbors_list)
+        viscous_force = self._compute_viscous_force(neighbors_list)
+        # Scale forces with relaxation hyperparameters
+        alpha = self.hyperparameters['alpha']
+        beta = self.hyperparameters['beta']
+        total_force = alpha * pressure_force + alpha * beta * viscous_force
+
+        # Step 5: Position correction (relaxation)
+        delta_positions = total_force / (self.densities[:, None] + 1e-8)  # avoid div by zero
+        # Typically, relaxation updates positions based on force scaled by alpha
+        # Here, total_force scaled outside, so directly add delta
+        new_positions = self.positions + delta_positions
+
+        return new_positions
+
+    def relax(self, positions: np.ndarray, n_steps: int = 1, update_densities: bool = True) -> np.ndarray:
+        """
+        Perform multiple relaxation iterations.
+
+        Args:
+            positions (np.ndarray): Initial particle positions.
+            n_steps (int): Number of relaxation iterations.
+            update_densities (bool): Whether to recompute densities each iteration.
+
+        Returns:
+            np.ndarray: Relaxed particle positions.
+        """
+        current_positions = positions.copy()
+        for _ in range(n_steps):
+            self.positions = current_positions
+            self._build_neighbor_structure()
+            # Optionally update densities
+            if update_densities:
+                self.densities = self._compute_density(self.positions, self._query_neighbors())
+            # Perform one relaxation step
+            current_positions = self.update_positions()
+        return current_positions
+
+    def _query_neighbors(self) -> list:
+        """
+        Query neighbors within kernel support radius for current positions.
+
+        Returns:
+            list: list of neighbor indices per particle.
+        """
+        self.tree = KDTree(self.positions)
+        neighbors_list = self.tree.query_ball_point(self.positions, r=self.h)
+        return neighbors_list
+
+    def _compute_density(self, positions: np.ndarray, neighbors_list: list) -> np.ndarray:
+        """
+        Compute density at each particle via kernel summation (Eq. 1).
+
+        Args:
+            positions (np.ndarray): (N, dim)
+            neighbors_list (list): neighbor indices per particle
+
+        Returns:
+            np.ndarray: densities, shape (N,)
+        """
+        mass = 1.0  # assume unit mass per particle, or set accordingly
+        densities = np.zeros(self.N)
+        for i in range(self.N):
+            nbrs = neighbors_list[i]
+            if len(nbrs) == 0:
+                continue
+            r_ij = np.linalg.norm(positions[nbrs] - positions[i], axis=1)
+            W_vals = sph_kernel_quintic(r_ij, self.h)
+            densities[i] = np.sum(W_vals) * mass
+        return densities
+
+    def _compute_pressure(self, density: np.ndarray) -> np.ndarray:
+        """
+        Compute pressure using the equation of state p(rho).
+
+        Args:
+            density (np.ndarray): Densities (N,)
+
+        Returns:
+            np.ndarray: pressures (N,)
+        """
+        p_ref = self.hyperparameters['p_ref']
+        rho_ref = self.hyperparameters['rho_ref']
+        pressure = p_ref * (density / rho_ref - 1.0)
+        return pressure
+
+    def _density_clipping(self, density: np.ndarray, rho_ref: float = 1.0,
+                          tol_lower: float = 0.98, tol_upper: float = 1.02) -> np.ndarray:
+        """
+        Clip densities to enforce bounds, reducing free surface inaccuracies.
+
+        Args:
+            density (np.ndarray): Raw densities.
+            rho_ref (float): Reference density.
+            tol_lower (float): lower threshold multiplier.
+            tol_upper (float): upper threshold multiplier.
+
+        Returns:
+            np.ndarray: Corrected/clipped densities.
+        """
+        lower = rho_ref * tol_lower
+        upper = rho_ref * tol_upper
+        clamped_density = np.copy(density)
+        clamped_density[clamped_density < lower] = rho_ref
+        clamped_density[clamped_density > upper] = upper
+        return clamped_density
+
+    def _apply_boundary_conditions(self, pressure: np.ndarray, neighbors_list: list) -> np.ndarray:
+        """
+        Enforce boundary (wall) particles pressure based on neighbors to prevent penetration.
+
+        Args:
+            pressure (np.ndarray): Particle pressures.
+            neighbors_list (list): neighbor indices per particle.
+
+        Returns:
+            np.ndarray: Pressure with boundary condition enforcement.
+        """
+        if self.boundary_mask is None:
+            return pressure
+        pressure_bc = np.copy(pressure)
+        for i, is_boundary in enumerate(self.boundary_mask):
+            if is_boundary:
+                neighbor_indices = neighbors_list[i]
+                # Only consider fluid neighbors (assuming boundary particles are flagged separately)
+                neighbor_pressures = pressure[neighbor_indices]
+                pressure_bc[i] = np.mean(neighbor_pressures)
+        return pressure_bc
+
+    def _compute_pressure_force(self, pressure: np.ndarray, neighbors_list: list) -> np.ndarray:
+        """
+        Calculate pressure gradient force using pairwise pressure differences (Eq. 3).
+
+        Args:
+            pressure (np.ndarray): Particle pressures.
+            neighbors_list (list): Neighbor indices per particle.
+
+        Returns:
+            np.ndarray: Pressure force vectors (N, dim).
+        """
+        force = np.zeros_like(self.positions)
+        mass = 1.0
+        for i in range(self.N):
+            nbrs = neighbors_list[i]
+            if len(nbrs) == 0:
+                continue
+            r_i = self.positions[i]
+            p_i = pressure[i]
+            for j in nbrs:
+                if i == j:
+                    continue
+                r_j = self.positions[j]
+                r_ij = r_i - r_j
+                r_norm = np.linalg.norm(r_ij) + 1e-8
+                W_grad = sph_kernel_gradient(r_ij, r_norm, self.h)
+                # pressure difference
+                delta_p = p_i - pressure[j]
+                force_contrib = -mass * delta_p * W_grad / (self.densities[j] + 1e-8)
+                force[i] += force_contrib
+        return force
+
+    def _compute_viscous_force(self, neighbors_list: list) -> np.ndarray:
+        """
+        Compute viscous Laplacian force approximation (Eq. 4).
+
+        Args:
+            neighbors_list (list): Neighbor indices per particle.
+
+        Returns:
+            np.ndarray: Viscous force vectors (N, dim).
+        """
+        viscous_force = np.zeros_like(self.positions)
+        nu = self.hyperparameters.get('nu', 0.0)  # optional, default 0
+        h = self.h
+        for i in range(self.N):
+            nbrs = neighbors_list[i]
+            if len(nbrs) == 0:
+                continue
+            r_i = self.positions[i]
+            v_i = self.velocities[i]
+            for j in nbrs:
+                if i == j:
+                    continue
+                r_j = self.positions[j]
+                v_j = self.velocities[j]
+                r_ij = r_i - r_j
+                r_norm = np.linalg.norm(r_ij) + 1e-8
+                # Use Laplacian kernel derivative approximation
+                lap = sph_kernel_laplacian(r_norm, h)
+                visc_contrib = nu * (v_j - v_i) * lap / (self.densities[j] + 1e-8)
+                viscous_force[i] += visc_contrib
+        return viscous_force
+
+    def sph_kernel_gradient(self, r: np.ndarray, r_norm: float, h: float) -> np.ndarray:
+        """
+        Evaluate gradient of the quintic kernel for distance r.
+
+        Args:
+            r (np.ndarray): R vector.
+            r_norm (float): Norm of r.
+            h (float): Support radius.
+
+        Returns:
+            np.ndarray: Gradient vector.
+        """
+        q = r_norm / h
+        if q < 1:
+            factor = -5 * (3 - q) ** 4 + 30 * (2 - q) ** 4 - 75 * (1 - q) ** 4
+            W_grad = factor / (h * r_norm + 1e-8) * r
+        elif 1 <= q < 2:
+            factor = -5 * (3 - q) ** 4 + 30 * (2 - q) ** 4
+            W_grad = factor / (h * r_norm + 1e-8) * r
+        elif 2 <= q < 3:
+            factor = 5 * (3 - q) ** 4
+            W_grad = factor / (h * r_norm + 1e-8) * r
+        else:
+            W_grad = np.zeros_like(r)
+        return W_grad
+
+    def sph_kernel_laplacian(self, r_norm: float, h: float) -> float:
+        """
+        Evaluate the Laplacian of the kernel for particle positions.
+
+        Args:
+            r_norm (float): Distance between particles.
+            h (float): Support radius.
+
+        Returns:
+            float: Laplacian value.
+        """
+        q = r_norm / h
+        if q < 1:
+            lap = -5 * (3 - q) ** 4 + 30 * (2 - q) ** 4 - 75 * (1 - q) ** 4
+            lap /= (h ** 2)
+        elif 1 <= q < 2:
+            lap = -5 * (3 - q) ** 4 + 30 * (2 - q) ** 4
+            lap /= (h ** 2)
+        elif 2 <= q < 3:
+            lap = 5 * (3 - q) ** 4
+            lap /= (h ** 2)
+        else:
+            lap = 0.0
+        return lap
+

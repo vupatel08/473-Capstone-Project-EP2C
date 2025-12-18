@@ -1,0 +1,37 @@
+[
+  {
+    "type": "dataset_path",
+    "parameter": "data_path",
+    "description": "Hardcoded dataset path found in dataset_loader.py",
+    "severity": "medium",
+    "suggestion": "Use config.yaml or environment variables for dataset paths"
+  },
+  {
+    "type": "implementation",
+    "parameter": "placeholder",
+    "description": "Placeholder values found in diffusion_sampler.py",
+    "severity": "medium",
+    "suggestion": "Replace placeholders with actual values"
+  },
+  {
+    "type": "implementation",
+    "parameter": "placeholder",
+    "description": "Placeholder values found in model.py",
+    "severity": "medium",
+    "suggestion": "Replace placeholders with actual values"
+  },
+  {
+    "type": "implementation",
+    "parameter": "placeholder",
+    "description": "Placeholder values found in trainer.py",
+    "severity": "medium",
+    "suggestion": "Replace placeholders with actual values"
+  },
+  {
+    "type": "hardware",
+    "parameter": "gpu",
+    "description": "GPU/CUDA code found but hardware requirements not specified in paper",
+    "severity": "low",
+    "suggestion": "Verify GPU requirements match paper's experimental setup"
+  }
+]

@@ -1,0 +1,83 @@
+## model.py
+import torch
+import torch.nn as nn
+import torchvision.models as models
+
+class Model(nn.Module):
+    def __init__(self, config):
+        """
+        Initialize the Model with backbone, projection head, and optional predictor.
+        Args:
+            config (dict): Configuration dictionary with keys:
+                - backbone (str): 'ResNet-18' or 'ResNet-50'
+                - projection_dim (int): Dimension of the projection head output
+                - predictor (bool): Whether to include predictor network (for BYOL)
+                - use_mlp (bool): Whether to use MLP layers for projection/predictor
+        """
+        super().__init__()
+        
+        # Initialize backbone encoder
+        if config.backbone == 'ResNet-18':
+            self.encoder = models.resnet18(pretrained=False)
+            self.feature_dim = 512
+        elif config.backbone == 'ResNet-50':
+            self.encoder = models.resnet50(pretrained=False)
+            self.feature_dim = 2048
+        else:
+            raise ValueError(f"Unsupported backbone: {config.backbone}")
+        
+        # Remove the final FC layer to get features before classification
+        modules = list(self.encoder.children())[:-1]  # Exclude final fc
+        self.encoder = nn.Sequential(*modules)
+        
+        # Projection head: simple 1 or 2 layer MLP
+        proj_dim = config.projection_dim
+        if config.use_mlp:
+            self.projection_head = nn.Sequential(
+                nn.Linear(self.feature_dim, 512),
+                nn.BatchNorm1d(512),
+                nn.ReLU(),
+                nn.Linear(512, proj_dim)
+            )
+        else:
+            # Optional: directly use features without projection head
+            self.projection_head = nn.Identity()
+        
+        # Predictor network for BYOL; optional
+        self.predictor = None
+        if config.predictor:
+            self.predictor = nn.Sequential(
+                nn.Linear(proj_dim, 512),
+                nn.BatchNorm1d(512),
+                nn.ReLU(),
+                nn.Linear(512, proj_dim)
+            )
+
+    def forward(self, x):
+        """
+        Forward pass: produce predicted features if predictor is used,
+        else projection features.
+        Args:
+            x (Tensor): Input images, shape (batch_size, C, H, W)
+        Returns:
+            Tensor: Output features (prediction or projection)
+        """
+        features = self.extract_features(x)  # raw features before fc
+        projections = self.projection_head(features)
+        if self.predictor:
+            predictions = self.predictor(projections)
+            return predictions
+        return projections
+
+    def extract_features(self, x):
+        """
+        Extract features from backbone encoder (pre-global average pooling).
+        Args:
+            x (Tensor): Input images
+        Returns:
+            Tensor: Features vector, shape (batch_size, feature_dim)
+        """
+        feat_map = self.encoder(x)  # shape: (batch_size, C, 1, 1) or (batch_size, C, *, *)
+        # Global average pooling
+        pooled_feat = torch.flatten(feat_map, start_dim=1)  # shape: (batch_size, feature_dim)
+        return pooled_feat

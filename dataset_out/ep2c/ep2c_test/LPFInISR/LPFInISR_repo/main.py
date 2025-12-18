@@ -1,0 +1,93 @@
+# main.py
+import os
+import yaml
+import torch
+import json
+
+from dataset_loader import create_impulse_image
+from model_loader import ModelLoader
+from response_analysis import ResponseAnalyzer
+from spectral_analysis import SpectralAnalysis
+from visualization import Visualization
+from utils import fft2d, ifft2d, normalize_tensor
+
+def main():
+    # 1. Load configuration from 'config.yaml'
+    with open('config.yaml', 'r') as f:
+        config = yaml.safe_load(f)
+
+    # 2. Setup device
+    device_str = config.get('general', {}).get('device', 'cuda')
+    device = torch.device(device_str if torch.cuda.is_available() else 'cpu')
+
+    # 3. Instantiate and load the model
+    model_path = config.get('model', {}).get('pretrained_path', '')
+    model_name = config.get('model', {}).get('name', '')
+    model_loader = ModelLoader(model_path, model_name, device=device_str)
+    model = model_loader.load_model()
+
+    # 4. Instantiate utilities
+    response_analyzer = ResponseAnalyzer()
+    spect_analyzer = SpectralAnalysis()
+    visualizer = Visualization(config.get('evaluation', {}))
+
+    # 5. Generate impulse input image
+    impulse_size = tuple(config.get('impulse_image', {}).get('size', [128, 128]))
+    # Create impulse image tensor
+    impulse_img = create_impulse_image(impulse_size, device=device)
+
+    # 6. Compute the impulse response from the model
+    impulse_response = response_analyzer.compute_impulse_response(model, impulse_img)
+    # Visualize impulse response spatial pattern
+    visualizer.plot_impulse_response(impulse_response, save_path='impulse_response')
+
+    # 7. Calculate the linear response H(I) by convolving input with impulse response
+    # Although input is impulse, H(I) is just the impulse response shifted/scaled
+    # For analysis, convolve the impulse input with the impulse response
+    # The response to the impulse is the impulse response itself; just visualize
+    # For generality, we can also compute response to zero image plus impulse
+    linear_response = response_analyzer.extract_linear_response(impulse_img, impulse_response)
+
+    # 8. Obtain full network output N(I) for the impulse input
+    model.eval()
+    with torch.no_grad():
+        n_output = model(impulse_img.unsqueeze(0)).squeeze(0)  # [C, H, W]
+    # Compute G(I) = N(I) - H(I)
+    # Make sure shapes are aligned:
+    # H(I), N(I): [C, H, W], response_analyzer.extract_linear_response returns same shape
+    G_I = n_output - linear_response
+
+    # 9. Visualize the responses
+    visualizer.plot_responses(impulse_img, linear_response, G_I, save_path='response_comparison')
+
+    # 10. Spectral analysis of responses
+    spectrum_N = spect_analyzer.fft_response(n_output)
+    spectrum_H = spect_analyzer.fft_response(linear_response)
+    spectrum_G = spect_analyzer.fft_response(G_I)
+
+    # Visualize spectra for N, H, G
+    visualizer.visualize_spectra(spectrum_N, spectrum_H,
+                                 spectrum_G,
+                                 save_path_prefix='spectra_response')
+
+    # 11. Calculate and save FSDS metric comparing N(I) and H(I)
+    fsds_value = spect_analyzer.calculate_fsds(spectrum_N, spectrum_H)
+    print(f"FSDS (N vs H): {fsds_value:.2f} dB")
+    
+    # Save metrics to JSON
+    metrics_output = {
+        'model_name': model_name,
+        'fsds': fsds_value,
+        'resp_shapes': {
+            'N': list(n_output.shape),
+            'H': list(linear_response.shape),
+            'G': list(G_I.shape)
+        }
+    }
+    save_dir = config.get('evaluation', {}).get('metrics_save_path', './metrics')
+    os.makedirs(os.path.dirname(save_dir), exist_ok=True)
+    with open(save_dir, 'w') as f:
+        json.dump(metrics_output, f, indent=4)
+
+if __name__ == '__main__':
+    main()

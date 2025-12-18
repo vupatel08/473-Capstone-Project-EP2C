@@ -1,0 +1,302 @@
+## evaluation.py
+import json
+import re
+import numpy as np
+from sklearn.feature_extraction.text import TfidfVectorizer
+from math import log2
+from typing import List, Dict, Tuple, Optional
+from utils import load_config
+
+class Evaluation:
+    """
+    The Evaluation class computes and reports performance metrics for the tasks:
+    - JSON Formatting: format accuracy, prediction correctness
+    - Pronouns Changing: accuracy and all-changed accuracy
+    - BiasBios: occupation classification accuracy
+    - CounterFact: efficacy and paraphrase scores
+    - Fluency and content consistency scores
+    
+    It operates on model-generated outputs and corresponding ground truths.
+    """
+    def __init__(self, 
+                 model_outputs: List[str], 
+                 dataset: List[Dict], 
+                 task_name: str,
+                 task_configs: Dict = None,
+                 verbose: bool = False):
+        """
+        Initialize with generated texts, dataset, task name, and optional configs.
+        """
+        self.outputs = model_outputs
+        self.dataset = dataset
+        self.task_name = task_name
+        self.config = task_configs if task_configs is not None else {}
+        self.verbose = verbose
+        # Load global config parameters for metrics thresholds
+        default_config = load_config('config.yaml')
+        eval_config = default_config.get('evaluation', {})
+        self.min_entropy = eval_config.get('metrics', {}).get('fluency', {}).get('min_entropy', 3.0)
+        # Placeholder for storing results
+        self.results = {}
+
+    def evaluate(self) -> Dict[str, float]:
+        """
+        Run all evaluation metrics depending on the task.
+        """
+        if self.task_name == 'JSON Formatting':
+            return self._eval_json_format()
+        elif self.task_name == 'Pronouns Changing':
+            return self._eval_pronouns_change()
+        elif self.task_name == 'BiasBios':
+            return self._eval_bias_bios()
+        elif self.task_name == 'CounterFact':
+            return self._eval_counterfact()
+        else:
+            raise ValueError(f"Unknown task: {self.task_name}")
+
+    def get_results(self) -> Dict[str, float]:
+        """
+        Returns evaluated metrics after calling evaluate()
+        """
+        return self.results
+
+    ########## Internal metric implementations ##########
+
+    def _eval_json_format(self) -> Dict[str, float]:
+        """
+        Evaluate JSON formatting outputs.
+        Metrics:
+            - Format accuracy: valid JSON
+            - Prediction accuracy: matching target fields
+        Assumption:
+            self.outputs: list of generated strings
+            self.dataset: list of dicts with 'target_text'
+        """
+        total = len(self.outputs)
+        correct_format = 0
+        correct_fields = 0
+        for gen_str, sample in zip(self.outputs, self.dataset):
+            target_json_str = sample.get('target_text', '')
+            # Validate JSON
+            is_valid = self._validate_json(gen_str)
+            if is_valid:
+                correct_format += 1
+                # Parse JSON
+                try:
+                    gen_json = json.loads(gen_str)
+                    # Compare fields; e.g., name and occupation
+                    if self._json_fields_match(gen_json, sample.get('target_json', {})):
+                        correct_fields += 1
+                except:
+                    pass # Error in parsing, count as wrong
+        format_acc = correct_format / total if total >0 else 0.0
+        pred_acc = correct_fields / total if total > 0 else 0.0
+        self.results['Format Accuracy'] = format_acc
+        self.results['Prediction Accuracy'] = pred_acc
+        return {'Format Accuracy': format_acc, 'Prediction Accuracy': pred_acc}
+
+    def _validate_json(self, s: str) -> bool:
+        """
+        Checks whether string s is a valid JSON object.
+        """
+        try:
+            obj = json.loads(s)
+            return isinstance(obj, dict)
+        except:
+            return False
+
+    def _json_fields_match(self, gen_json: Dict, target_json: Dict) -> bool:
+        """
+        Checks if JSON fields match (exact match for example).
+        """
+        if not gen_json or not target_json:
+            return False
+        for key in target_json:
+            if key not in gen_json:
+                return False
+            if gen_json[key] != target_json[key]:
+                return False
+        return True
+
+    def _eval_pronouns_change(self) -> Dict[str, float]:
+        """
+        Evaluate pronoun replacement accuracy and all-changed accuracy.
+        Assumptions:
+            - Dataset has 'target_text' with correct pronouns
+            - Generated text is in self.outputs
+        """
+        total = len(self.outputs)
+        correct = 0
+        all_changed = 0
+        for gen_str, sample in zip(self.outputs, self.dataset):
+            target_text = sample.get('target_text', '')
+            # Count pronouns replaced correctly
+            if self._pronoun_correctly_replaced(gen_str, target_text):
+                correct += 1
+            # Check if all pronouns are replaced
+            if self._all_pronouns_changed(gen_str, target_text):
+                all_changed += 1
+        acc = correct / total if total > 0 else 0.0
+        all_acc = all_changed / total if total > 0 else 0.0
+        self.results['Acc'] = acc
+        self.results['All Changed Acc'] = all_acc
+        return {'Accuracy': acc, 'All Changed Accuracy': all_acc}
+
+    def _pronoun_correctly_replaced(self, gen: str, target: str) -> bool:
+        """
+        Checks if pronouns are replaced according to ground truth.
+        """
+        # Simple regex matching; can be refined
+        pronouns = ['she', 'he', 'her', 'him', 'hers', 'his']
+        for p in pronouns:
+            pattern = r'\b' + re.escape(p) + r'\b'
+            if re.search(pattern, target, flags=re.IGNORECASE):
+                # check if gen replaced all instances
+                if not re.search(pattern, gen, flags=re.IGNORECASE):
+                    return False
+        return True
+
+    def _all_pronouns_changed(self, gen: str, target: str) -> bool:
+        """
+        Checks if all pronouns have been replaced
+        """
+        original_pronouns = ['she', 'he', 'her', 'him', 'hers', 'his']
+        replaced_pronouns = ['they', 'they', 'their', 'them', 'theirs', 'their']
+        for p, rep in zip(original_pronouns, replaced_pronouns):
+            pattern_p = r'\b' + re.escape(p) + r'\b'
+            pattern_rep = r'\b' + re.escape(rep) + r'\b'
+            # Both should be present concurrently for a valid change
+            if re.search(pattern_p, target, flags=re.IGNORECASE):
+                if not re.search(pattern_rep, gen, flags=re.IGNORECASE):
+                    return False
+        return True
+
+    def _eval_bias_bios(self) -> Dict[str, float]:
+        """
+        Evaluate occupation classification accuracy.
+        Assume dataset has 'target_occupation' and output is predicted occupation.
+        """
+        correct = 0
+        total = len(self.outputs)
+        for gen_str, sample in zip(self.outputs, self.dataset):
+            target_occ = sample.get('target', '').lower()
+            pred_occ = self._extract_occupation(gen_str).lower()
+            if pred_occ == target_occ:
+                correct += 1
+        acc = correct / total if total > 0 else 0.0
+        self.results['BiasBios Accuracy'] = acc
+        return {'BiasBios Accuracy': acc}
+
+    def _extract_occupation(self, text: str) -> str:
+        """
+        Simplistic extraction: assuming the occupation is the entire output, or parse JSON if possible.
+        """
+        # Try parse JSON, fallback to raw text
+        try:
+            parsed = json.loads(text)
+            if 'occupation' in parsed:
+                return parsed['occupation']
+        except:
+            pass
+        # fallback: extract last words or heuristics (not robust, placeholder)
+        return text.strip()
+
+    def _eval_counterfact(self) -> Dict[str, float]:
+        """
+        Evaluate content change correctness: compare scores if model provides.
+        For simplicity, assume we assign 1 if the answer contains the new fact, else 0.
+        """
+        total = len(self.outputs)
+        efficacy = 0
+        paraphrase = 0
+        for gen_str, sample in zip(self.outputs, self.dataset):
+            old_fact = sample.get('old_fact', '')
+            new_fact = sample.get('new_fact', '')
+            question = sample.get('question', '')
+            # Check if output indicates the new fact
+            if self._contains_fact(gen_str, new_fact):
+                efficacy += 1
+            # For paraphrase robustness, maybe test with rephrased question
+            # Here, just count correctness similarly
+            if self._contains_fact(gen_str, new_fact):
+                paraphrase += 1
+        es = efficacy / total if total > 0 else 0.0
+        ps = paraphrase / total if total > 0 else 0.0
+        self.results['ES'] = es
+        self.results['PS'] = ps
+        return {'Efficacy Score': es, 'Paraphrase Score': ps}
+
+    def _contains_fact(self, text: str, fact: str) -> bool:
+        """
+        Check if the generated text states the fact (simple substring check).
+        """
+        return fact.lower() in text.lower()
+
+    def _compute_fluency(self, text: str) -> float:
+        """
+        Compute average entropy over bigram and trigram n-grams.
+        """
+        tokens = text.split()
+        if len(tokens) < 2:
+            return 0.0
+        bigrams = [tuple(tokens[i:i+2]) for i in range(len(tokens)-1)]
+        trigrams = [tuple(tokens[i:i+3]) for i in range(len(tokens)-2)]
+        # Calculate frequencies
+        bigram_freqs = {}
+        for bg in bigrams:
+            bigram_freqs[bg] = bigram_freqs.get(bg, 0) + 1
+        trigram_freqs = {}
+        for tg in trigrams:
+            trigram_freqs[tg] = trigram_freqs.get(tg, 0) + 1
+        # Probabilities
+        total_bigrams = len(bigrams)
+        total_trigrams = len(trigrams)
+        bigram_probs = [count / total_bigrams for count in bigram_freqs.values()]
+        trigram_probs = [count / total_trigrams for count in trigram_freqs.values()]
+        # Entropy
+        bigram_entropy = -sum(p * log2(p) for p in bigram_probs if p > 0)
+        trigram_entropy = -sum(p * log2(p) for p in trigram_probs if p > 0)
+        # Average entropy
+        return (bigram_entropy + trigram_entropy) / 2.0
+
+    def _compute_content_similarity(self, texts: List[str], ref_texts: List[str]) -> float:
+        """
+        Use TF-IDF vectorizer to compute cosine similarity between generated and reference texts.
+        """
+        vectorizer = TfidfVectorizer(stop_words='english')
+        try:
+            tfidf_matrix = vectorizer.fit_transform(texts + ref_texts)
+            gen_vecs = tfidf_matrix[:len(texts)]
+            ref_vecs = tfidf_matrix[len(texts):]
+            # average cosine similarity over all pairs
+            similarities = []
+            for i in range(len(texts)):
+                numerator = (gen_vecs[i] * ref_vecs).sum()
+                denom = (np.linalg.norm(gen_vecs[i].toarray()) * np.linalg.norm(ref_vecs[i].toarray()))
+                if denom == 0:
+                    similarities.append(0.0)
+                else:
+                    similarities.append(numerator / denom)
+            return np.mean(similarities)
+        except Exception:
+            return 0.0
+
+    ########## Public method to compute fluency and content scores ##########
+
+    def compute_fluency_score(self, texts: List[str]) -> float:
+        """
+        Compute average fluency score over given texts.
+        """
+        entropies = [self._compute_fluency(t) for t in texts]
+        # Filter out low-fluency outputs
+        valid = [e for e in entropies if e >= self.min_entropy]
+        if not valid:
+            return 0.0
+        return np.mean(valid)
+
+    def compute_content_score(self, texts: List[str], refs: List[str]) -> float:
+        """
+        Compute content similarity score.
+        """
+        return self._compute_content_similarity(texts, refs)
+

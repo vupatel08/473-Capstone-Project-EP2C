@@ -1,0 +1,179 @@
+```python
+## model.py
+import torch
+from transformers import AutoModelForCausalLM, AutoTokenizer
+from typing import List, Tuple
+import math
+import numpy as np
+import random
+
+# Define a simple Trajectory data class
+class Trajectory:
+    def __init__(self, sequence: List[str], log_likelihood: float):
+        self.sequence = sequence
+        self.log_likelihood = log_likelihood
+
+class ModelWrapper:
+    def __init__(self, model_name: str = "gpt2-large", model_type: str = "transformers", device: str = "cuda", verbose: bool = False):
+        """
+        Initialize the autoregressive model and tokenizer.
+        Args:
+            model_name (str): name or path of the pretrained model.
+            model_type (str): type identifier, default "transformers" (can extend for other types).
+            device (str): computation device, "cuda" or "cpu".
+            verbose (bool): verbose logging.
+        """
+        self.model_name = model_name
+        self.model_type = model_type
+        self.device = device
+        self.verbose = verbose
+
+        # Load model and tokenizer
+        self.tokenizer = AutoTokenizer.from_pretrained(self.model_name)
+        # For safety, add EOS token if missing
+        if not self.tokenizer.eos_token:
+            self.tokenizer.eos_token = ''
+        # Load model
+        self.model = AutoModelForCausalLM.from_pretrained(self.model_name)
+        self.model.to(self.device)
+        self.model.eval()
+
+        # Ensure model has padding token for batch processing if needed
+        if not self.tokenizer.pad_token:
+            self.tokenizer.pad_token = self.tokenizer.eos_token
+
+        if self.verbose:
+            print(f"Loaded model {self.model_name} on {self.device}")
+
+    def _prepare_input(self, prompt: str):
+        """
+        Tokenize prompt with special handling.
+        """
+        inputs = self.tokenizer(prompt, return_tensors="pt")
+        input_ids = inputs['input_ids'].to(self.device)
+        attention_mask = inputs['attention_mask'].to(self.device)
+        return input_ids, attention_mask
+
+    def sample_trajectories(self, prompt: str, n: int = 20, max_length: int = 20, temperature: float = 1.0, seed: int = 42) -> List[Trajectory]:
+        """
+        Sample n trajectories conditioned on prompt.
+        """
+        generated_trajectories = []
+
+        # Set seed for reproducibility
+        torch.manual_seed(seed)
+        np.random.seed(seed)
+        random.seed(seed)
+
+        # Prepare prompt input
+        input_ids, attention_mask = self._prepare_input(prompt)
+
+        for _ in range(n):
+            # Initialize sequence with prompt
+            seq_input_ids = input_ids.clone()
+            seq_tokens = self.tokenizer.convert_ids_to_tokens(seq_input_ids[0])
+            log_likelihood = 0.0
+
+            for step in range(max_length):
+                # Run model to get logits
+                outputs = self.model(input_ids=seq_input_ids)
+                logits = outputs.logits  # shape: [1, seq_length, vocab_size]
+                next_token_logits = logits[0, -1, :]
+
+                # Apply temperature
+                scaled_logits = next_token_logits / temperature
+
+                # Convert to probabilities
+                probs = torch.softmax(scaled_logits, dim=-1)
+
+                # Sample next token
+                next_token_id = torch.multinomial(probs, num_samples=1).item()
+
+                # Update sequence
+                seq_input_ids = torch.cat([seq_input_ids, torch.tensor([[next_token_id]], device=self.device)], dim=1)
+
+                # Compute log prob of selected token
+                token_prob = probs[next_token_id].item()
+                # Avoid log(0)
+                if token_prob <= 0:
+                    token_prob = 1e-12
+                log_likelihood += math.log(token_prob)
+
+                # Stop if EOS token
+                if next_token_id == self.tokenizer.eos_token_id:
+                    break
+
+            # Convert sequence ids to tokens
+            seq_ids = seq_input_ids[0].tolist()
+            seq_strs = self.tokenizer.convert_ids_to_tokens(seq_ids)
+            # Remove prompt tokens from sequence to keep only generated tokens
+            # Alternatively, store the full sequence
+            sequence = seq_strs[len(self.tokenizer.tokenize(prompt)):]
+            # Filter out special tokens like '' if present
+            sequence_tokens = [tok for tok in sequence if tok not in [self.tokenizer.eos_token, self.tokenizer.pad_token]]
+            # Store the trajectory
+            trajectory_sequence = sequence_tokens if sequence_tokens else []
+            generated_trajectories.append(Trajectory(trajectory_sequence, log_likelihood))
+        return generated_trajectories
+
+    def compute_log_likelihood(self, sequence: List[str], prompt: str) -> float:
+        """
+        Compute total log-likelihood of the sequence conditioned on the prompt.
+        """
+        # Concatenate prompt and sequence to form the full input
+        full_text = prompt + ''.join(sequence)
+        # Tokenize full sequence
+        input_ids = self.tokenizer.encode(full_text, return_tensors="pt").to(self.device)
+        seq_ids = self.tokenizer.encode(''.join(sequence), add_special_tokens=False)
+
+        # Run model
+        with torch.no_grad():
+            outputs = self.model(input_ids)
+            logits = outputs.logits  # shape: [1, seq_len, vocab_size]
+
+        # Initialize log likelihood
+        total_log_prob = 0.0
+
+        # region: compute log probs for each token in sequence
+        # We skip the prompt tokens in input_ids to get logits for sequence tokens
+        prompt_len = len(self.tokenizer.encode(prompt))  # tokens in prompt
+        for i in range(len(seq_ids)):
+            # position in input_ids: prompt tokens + previous sequence tokens
+            position = prompt_len + i
+            # Get logits for position
+            logits_i = logits[0, position, :]
+            # Get probability for the target token
+            target_id = seq_ids[i]
+            prob = torch.softmax(logits_i, dim=-1)[target_id]
+            prob = prob.item()
+            if prob <= 0:
+                prob = 1e-12  # avoid log(0)
+            total_log_prob += math.log(prob)
+        return total_log_prob
+
+    def get_token_probabilities(self, sequence: List[str], prompt: str) -> List[float]:
+        """
+        Return per-token probabilities conditioned on prompt+sequence prefix.
+        """
+        full_text = prompt + ''.join(sequence)
+        input_ids = self.tokenizer.encode(full_text, return_tensors="pt").to(self.device)
+
+        with torch.no_grad():
+            outputs = self.model(input_ids)
+            logits = outputs.logits  # shape: [1, seq_len, vocab_size]
+
+        prompt_len = len(self.tokenizer.encode(prompt))
+        token_probs = []
+
+        # Iterate over each token in sequence
+        for i in range(len(sequence)):
+            position = prompt_len + i
+            logits_i = logits[0, position, :]
+            probs = torch.softmax(logits_i, dim=-1)
+            token_id = input_ids[0, position + 1]  # Next token after position
+            prob = probs[token_id].item()
+            if prob <= 0:
+                prob = 1e-12
+            token_probs.append(prob)
+        return token_probs
+```

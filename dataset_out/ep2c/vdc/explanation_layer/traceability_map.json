@@ -1,0 +1,318 @@
+{
+  "code_to_paper": {
+    "dataset_loader.py:PoisonedDataset": [
+      "Dataset Preparation",
+      "Methodology",
+      "Experiment and Results"
+    ],
+    "dataset_loader.py:DatasetLoader": [
+      "Methodology",
+      "Dataset Description",
+      "Experiment Setup"
+    ],
+    "dataset_loader.py:__init__": [
+      "Methodology",
+      "Dataset Description",
+      "Experimental Setup"
+    ],
+    "evaluation.py:Evaluator": [
+      "Evaluation Methodology",
+      "Results and Discussion",
+      "Implementation Details"
+    ],
+    "evaluation.py:__init__": [
+      "Methodology",
+      "Experiment Setup",
+      "Results and Discussion"
+    ],
+    "main.py:PurifiedDataset": [
+      "The provided information is insufficient to determine the most relevant paper sections for the code component. Please provide more details about the code component or the paper sections."
+    ],
+    "main.py:main": [
+      "The provided information is insufficient to determine the most relevant paper sections for the code component. Please provide more details about the function in the main.py file."
+    ],
+    "model_inference.py:ModelInference": [
+      "Without more specific section titles",
+      "it's hard to accurately determine the most relevant sections. However",
+      "based on the provided information",
+      "potential relevant sections could be: \"Methodology\"",
+      "\"Implementation Details\"",
+      "\"System Architecture\"."
+    ],
+    "model_inference.py:__init__": [
+      "Methodology",
+      "Implementation Details",
+      "Experimental Setup"
+    ],
+    "prompt_generator.py:PromptGenerator": [
+      "Without the full list of paper sections",
+      "it's hard to provide an accurate answer. However",
+      "based on the code component description",
+      "potential relevant sections could be \"Methodology\"",
+      "\"Data Processing\"",
+      "\"Question Generation\". Please provide the full list of sections for a more accurate answer."
+    ],
+    "prompt_generator.py:__init__": [
+      "Without the full list of paper sections",
+      "it's hard to provide an accurate answer. However",
+      "based on the code component",
+      "the most relevant sections could be \"Methodology\"",
+      "\"Data Collection\"",
+      "or \"Implementation Details\"."
+    ]
+  },
+  "paper_to_code": {
+    "Dataset Preparation": [
+      {
+        "component": "dataset_loader.py:PoisonedDataset",
+        "description": "Custom Dataset class that wraps existing datasets, applies poisoning,\n    and keeps track of poisoned/noisy labels for evaluation.",
+        "file": "dataset_loader.py"
+      }
+    ],
+    "Methodology": [
+      {
+        "component": "dataset_loader.py:PoisonedDataset",
+        "description": "Custom Dataset class that wraps existing datasets, applies poisoning,\n    and keeps track of poisoned/noisy labels for evaluation.",
+        "file": "dataset_loader.py"
+      },
+      {
+        "component": "dataset_loader.py:DatasetLoader",
+        "description": "Responsible for loading datasets, applying poisoning or noisy labels,\n    and providing train/test splits.",
+        "file": "dataset_loader.py"
+      },
+      {
+        "component": "dataset_loader.py:__init__",
+        "description": "Responsible for loading datasets, applying poisoning or noisy labels,\n    and providing train/test splits.",
+        "file": "dataset_loader.py"
+      },
+      {
+        "component": "evaluation.py:__init__",
+        "description": "Initializes the Evaluator with configuration parameters.\n        Args:\n            config (dict): Configuration dictionary, expecting at least:\n                - 'detection': {\n                    'threshold': float, detection threshold alpha\n                }\n                - 'use_similarity_score': bool, whether to incorporate similarity scores\n                - 'similarity_weight': float, weight of similarity in combined score if used\n                - optional: other scoring hyperparameters",
+        "file": "evaluation.py"
+      },
+      {
+        "component": "model_inference.py:__init__",
+        "description": "Initialize the ModelInference with configuration.\n        Args:\n            config (dict): Configuration dictionary with necessary API keys and parameters.",
+        "file": "model_inference.py"
+      }
+    ],
+    "Experiment and Results": [
+      {
+        "component": "dataset_loader.py:PoisonedDataset",
+        "description": "Custom Dataset class that wraps existing datasets, applies poisoning,\n    and keeps track of poisoned/noisy labels for evaluation.",
+        "file": "dataset_loader.py"
+      }
+    ],
+    "Dataset Description": [
+      {
+        "component": "dataset_loader.py:DatasetLoader",
+        "description": "Responsible for loading datasets, applying poisoning or noisy labels,\n    and providing train/test splits.",
+        "file": "dataset_loader.py"
+      },
+      {
+        "component": "dataset_loader.py:__init__",
+        "description": "Responsible for loading datasets, applying poisoning or noisy labels,\n    and providing train/test splits.",
+        "file": "dataset_loader.py"
+      }
+    ],
+    "Experiment Setup": [
+      {
+        "component": "dataset_loader.py:DatasetLoader",
+        "description": "Responsible for loading datasets, applying poisoning or noisy labels,\n    and providing train/test splits.",
+        "file": "dataset_loader.py"
+      },
+      {
+        "component": "evaluation.py:__init__",
+        "description": "Initializes the Evaluator with configuration parameters.\n        Args:\n            config (dict): Configuration dictionary, expecting at least:\n                - 'detection': {\n                    'threshold': float, detection threshold alpha\n                }\n                - 'use_similarity_score': bool, whether to incorporate similarity scores\n                - 'similarity_weight': float, weight of similarity in combined score if used\n                - optional: other scoring hyperparameters",
+        "file": "evaluation.py"
+      }
+    ],
+    "Experimental Setup": [
+      {
+        "component": "dataset_loader.py:__init__",
+        "description": "Responsible for loading datasets, applying poisoning or noisy labels,\n    and providing train/test splits.",
+        "file": "dataset_loader.py"
+      },
+      {
+        "component": "model_inference.py:__init__",
+        "description": "Initialize the ModelInference with configuration.\n        Args:\n            config (dict): Configuration dictionary with necessary API keys and parameters.",
+        "file": "model_inference.py"
+      }
+    ],
+    "Evaluation Methodology": [
+      {
+        "component": "evaluation.py:Evaluator",
+        "description": "Implements the evaluation, scoring, and detection logic for the VDC framework.\n    It aggregates question-level correctness indicators per sample, applies threshold-based classification,\n    and computes detection metrics such as TPR and FPR.",
+        "file": "evaluation.py"
+      }
+    ],
+    "Results and Discussion": [
+      {
+        "component": "evaluation.py:Evaluator",
+        "description": "Implements the evaluation, scoring, and detection logic for the VDC framework.\n    It aggregates question-level correctness indicators per sample, applies threshold-based classification,\n    and computes detection metrics such as TPR and FPR.",
+        "file": "evaluation.py"
+      },
+      {
+        "component": "evaluation.py:__init__",
+        "description": "Initializes the Evaluator with configuration parameters.\n        Args:\n            config (dict): Configuration dictionary, expecting at least:\n                - 'detection': {\n                    'threshold': float, detection threshold alpha\n                }\n                - 'use_similarity_score': bool, whether to incorporate similarity scores\n                - 'similarity_weight': float, weight of similarity in combined score if used\n                - optional: other scoring hyperparameters",
+        "file": "evaluation.py"
+      }
+    ],
+    "Implementation Details": [
+      {
+        "component": "evaluation.py:Evaluator",
+        "description": "Implements the evaluation, scoring, and detection logic for the VDC framework.\n    It aggregates question-level correctness indicators per sample, applies threshold-based classification,\n    and computes detection metrics such as TPR and FPR.",
+        "file": "evaluation.py"
+      },
+      {
+        "component": "model_inference.py:__init__",
+        "description": "Initialize the ModelInference with configuration.\n        Args:\n            config (dict): Configuration dictionary with necessary API keys and parameters.",
+        "file": "model_inference.py"
+      }
+    ],
+    "The provided information is insufficient to determine the most relevant paper sections for the code component. Please provide more details about the code component or the paper sections.": [
+      {
+        "component": "main.py:PurifiedDataset",
+        "description": "",
+        "file": "main.py"
+      }
+    ],
+    "The provided information is insufficient to determine the most relevant paper sections for the code component. Please provide more details about the function in the main.py file.": [
+      {
+        "component": "main.py:main",
+        "description": "",
+        "file": "main.py"
+      }
+    ],
+    "Without more specific section titles": [
+      {
+        "component": "model_inference.py:ModelInference",
+        "description": "Initialize the ModelInference with configuration.\n        Args:\n            config (dict): Configuration dictionary with necessary API keys and parameters.",
+        "file": "model_inference.py"
+      }
+    ],
+    "it's hard to accurately determine the most relevant sections. However": [
+      {
+        "component": "model_inference.py:ModelInference",
+        "description": "Initialize the ModelInference with configuration.\n        Args:\n            config (dict): Configuration dictionary with necessary API keys and parameters.",
+        "file": "model_inference.py"
+      }
+    ],
+    "based on the provided information": [
+      {
+        "component": "model_inference.py:ModelInference",
+        "description": "Initialize the ModelInference with configuration.\n        Args:\n            config (dict): Configuration dictionary with necessary API keys and parameters.",
+        "file": "model_inference.py"
+      }
+    ],
+    "potential relevant sections could be: \"Methodology\"": [
+      {
+        "component": "model_inference.py:ModelInference",
+        "description": "Initialize the ModelInference with configuration.\n        Args:\n            config (dict): Configuration dictionary with necessary API keys and parameters.",
+        "file": "model_inference.py"
+      }
+    ],
+    "\"Implementation Details\"": [
+      {
+        "component": "model_inference.py:ModelInference",
+        "description": "Initialize the ModelInference with configuration.\n        Args:\n            config (dict): Configuration dictionary with necessary API keys and parameters.",
+        "file": "model_inference.py"
+      }
+    ],
+    "\"System Architecture\".": [
+      {
+        "component": "model_inference.py:ModelInference",
+        "description": "Initialize the ModelInference with configuration.\n        Args:\n            config (dict): Configuration dictionary with necessary API keys and parameters.",
+        "file": "model_inference.py"
+      }
+    ],
+    "Without the full list of paper sections": [
+      {
+        "component": "prompt_generator.py:PromptGenerator",
+        "description": "Implements question prompt generation for the VDC pipeline's question modules.\n    Generates both general and label-specific questions using structured templates.",
+        "file": "prompt_generator.py"
+      },
+      {
+        "component": "prompt_generator.py:__init__",
+        "description": "Initialize the PromptGenerator with dataset context if necessary.\n        Supports custom prompts per dataset type.\n        Args:\n            dataset_name (str): Optional dataset identifier for customization.",
+        "file": "prompt_generator.py"
+      }
+    ],
+    "it's hard to provide an accurate answer. However": [
+      {
+        "component": "prompt_generator.py:PromptGenerator",
+        "description": "Implements question prompt generation for the VDC pipeline's question modules.\n    Generates both general and label-specific questions using structured templates.",
+        "file": "prompt_generator.py"
+      },
+      {
+        "component": "prompt_generator.py:__init__",
+        "description": "Initialize the PromptGenerator with dataset context if necessary.\n        Supports custom prompts per dataset type.\n        Args:\n            dataset_name (str): Optional dataset identifier for customization.",
+        "file": "prompt_generator.py"
+      }
+    ],
+    "based on the code component description": [
+      {
+        "component": "prompt_generator.py:PromptGenerator",
+        "description": "Implements question prompt generation for the VDC pipeline's question modules.\n    Generates both general and label-specific questions using structured templates.",
+        "file": "prompt_generator.py"
+      }
+    ],
+    "potential relevant sections could be \"Methodology\"": [
+      {
+        "component": "prompt_generator.py:PromptGenerator",
+        "description": "Implements question prompt generation for the VDC pipeline's question modules.\n    Generates both general and label-specific questions using structured templates.",
+        "file": "prompt_generator.py"
+      }
+    ],
+    "\"Data Processing\"": [
+      {
+        "component": "prompt_generator.py:PromptGenerator",
+        "description": "Implements question prompt generation for the VDC pipeline's question modules.\n    Generates both general and label-specific questions using structured templates.",
+        "file": "prompt_generator.py"
+      }
+    ],
+    "\"Question Generation\". Please provide the full list of sections for a more accurate answer.": [
+      {
+        "component": "prompt_generator.py:PromptGenerator",
+        "description": "Implements question prompt generation for the VDC pipeline's question modules.\n    Generates both general and label-specific questions using structured templates.",
+        "file": "prompt_generator.py"
+      }
+    ],
+    "based on the code component": [
+      {
+        "component": "prompt_generator.py:__init__",
+        "description": "Initialize the PromptGenerator with dataset context if necessary.\n        Supports custom prompts per dataset type.\n        Args:\n            dataset_name (str): Optional dataset identifier for customization.",
+        "file": "prompt_generator.py"
+      }
+    ],
+    "the most relevant sections could be \"Methodology\"": [
+      {
+        "component": "prompt_generator.py:__init__",
+        "description": "Initialize the PromptGenerator with dataset context if necessary.\n        Supports custom prompts per dataset type.\n        Args:\n            dataset_name (str): Optional dataset identifier for customization.",
+        "file": "prompt_generator.py"
+      }
+    ],
+    "\"Data Collection\"": [
+      {
+        "component": "prompt_generator.py:__init__",
+        "description": "Initialize the PromptGenerator with dataset context if necessary.\n        Supports custom prompts per dataset type.\n        Args:\n            dataset_name (str): Optional dataset identifier for customization.",
+        "file": "prompt_generator.py"
+      }
+    ],
+    "or \"Implementation Details\".": [
+      {
+        "component": "prompt_generator.py:__init__",
+        "description": "Initialize the PromptGenerator with dataset context if necessary.\n        Supports custom prompts per dataset type.\n        Args:\n            dataset_name (str): Optional dataset identifier for customization.",
+        "file": "prompt_generator.py"
+      }
+    ]
+  },
+  "paper_sections": [
+    {
+      "section": "Abstract",
+      "text": "Zihao $\\mathbf { Z } \\mathbf { h } \\mathbf { u } ^ { 1 }$ , Mingda Zhang1, Shaokui Wei1, Bingzhe $\\mathbf { W } \\mathbf { u } ^ { 2 }$ , Baoyuan $\\mathbf { W _ { u } } ^ { 1 * }$ 1School of Data Science, The Chinese University of Hong Kong, Shenzhen 2Tencent AI Lab {zihaozhu, mingdazhang, shaokuiwei}@link.cuhk.edu.cn bingzhewu@tencent.com wubaoyuan@cuhk.edu.cn",
+      "ontology": "abstract"
+    }
+  ],
+  "coverage_score": 27.0
+}

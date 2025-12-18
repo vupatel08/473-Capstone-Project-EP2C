@@ -1,0 +1,158 @@
+{
+  "title": "Sm: enhanced localization in Multiple Instance Learning for medical imaging classification",
+  "abstract": "Francisco M. Castro-Macías CITIC-UGR Dept. of Comp. Science and A. I. University of Granada",
+  "authors": [],
+  "body_text": [
+    {
+      "text": "# Sm: enhanced localization in Multiple Instance Learning for medical imaging classification"
+    },
+    {
+      "text": "Francisco M. Castro-Macías CITIC-UGR Dept. of Comp. Science and A. I. University of Granada"
+    },
+    {
+      "text": "Pablo Morales-Álvarez Dept. of Statistics and Operations Research CITIC-UGR University of Granada"
+    },
+    {
+      "text": "Yunan Wu Dept. of Elect. and Comp. Engineering Northwestern University"
+    },
+    {
+      "text": "Rafael Molina Dept. of Comp. Science and A. I. University of Granada"
+    },
+    {
+      "text": "Aggelos K. Katsaggelos Dept. of Elect. and Comp. Engineering Northwestern University"
+    },
+    {
+      "text": "# Abstract"
+    },
+    {
+      "text": "Multiple Instance Learning (MIL) is widely used in medical imaging classification to reduce the labeling effort. While only bag labels are available for training, one typically seeks predictions at both bag and instance levels (classification and localization tasks, respectively). Early MIL methods treated the instances in a bag independently. Recent methods account for global and local dependencies among instances. Although they have yielded excellent results in classification, their performance in terms of localization is comparatively limited. We argue that these models have been designed to target the classification task, while implications at the instance level have not been deeply investigated. Motivated by a simple observation – that neighboring instances are likely to have the same label – we propose a novel, principled, and flexible mechanism to model local dependencies. It can be used alone or combined with any mechanism to model global dependencies (e.g., transformers). A thorough empirical validation shows that our module leads to state-of-the-art performance in localization while being competitive or superior in classification. Our code is at https://github.com/Franblueee/SmMIL."
+    },
+    {
+      "text": "# 1 Introduction"
+    },
+    {
+      "text": "Over the last decades, medical imaging classification has benefited from advances in deep learning [35, 44]. However, the performance of these methods drops when the number of labeled samples is low, which is common in real-world medical scenarios [1]. To overcome this, Multiple Instance Learning (MIL) has emerged as a popular weakly supervised approach [14, 8, 12]."
+    },
+    {
+      "text": "In MIL, instances are arranged in bags. At train time, a label is available for the entire bag, while the instance labels remain unknown. The goal is to train a method that, given a test bag, can predict both at bag and instance levels (classification and localization tasks, respectively). This paradigm is well suited to the medical imaging domain [28]. In cancer detection from Whole Slide Images (WSIs), the WSI represents the bag, and the patches are the instances. In intracranial hemorrhage detection from Computerized Tomographic (CT) scans, the full scan represents the bag, and the slices at different heights are the instances. In these scenarios, making accurate predictions of instance labels is extremely important from a clinical viewpoint, as it translates into pinpointing the location of the lesion [7]."
+    },
+    {
+      "text": "Most successful approaches in MIL build on the attention-based pooling [17], a permutation-invariant operator that assigns an attention value to each instance independently. This method has been extended in different ways while maintaining the permutation-invariant property [21, 25, 39]. The aforementioned works pose a problem: the dependencies between the instances, which are important when making a diagnosis, are ignored. To account for this, TransMIL [32] proposed to model global dependencies using a transformer encoder. The idea is to use the self-attention mechanism to introduce interactions between each pair of instances. Based on it, other transformer-based approaches have emerged, also focusing on global dependencies [9, 22, 37]. More recently, several works have also incorporated natural local interactions, which are those between neighboring instances [14, 40, 41]."
+    },
+    {
+      "text": "Although these methods accounting for dependencies have resulted in excellent performance at the bag level, the evaluation at the instance level has received less attention and the results are not comparatively good so far, see the very recent [14]. In this work, we argue that recent MIL methods have been designed with the classification task in mind, and we propose a new model that focuses on both the classification and localization tasks. Specifically, we propose a novel and theoretically grounded mechanism to introduce local dependencies, hereafter referred to as the smooth operator Sm. This is a flexible module that can be used alone on top of classical MIL approaches, or in combination with transformers to also account for global dependencies. In both cases, we show that the proposed operator achieves state-of-the-art localization results while being competitive in classification. We compare against a total amount of eight methods, including very recent ones [14, 40]. We utilize three different datasets of different nature and size, covering two different medical imaging problems (cancer detection in WSI images and hemorrhage detection in CT scans)."
+    },
+    {
+      "text": "Our main contributions are: (i) we provide a unified view of current deep MIL approaches; (ii) we propose a principled mechanism to introduce local interactions, which is a modular component that can be combined or not with global interactions; and (iii) we evaluate up to eight state-of-the-art MIL methods on three real-world MIL datasets in both classification and localization tasks, showing that the proposed method stands out in localization while being competitive or superior in classification."
+    },
+    {
+      "text": "# 2 Related work"
+    },
+    {
+      "text": "In this work, we tackle the localization task in deep MIL methods using existing concepts and techniques from deep MIL and Graph Neural Networks (GNNs) theory."
+    },
+    {
+      "text": "Deep Multiple Instance Learning. As explained by Song et al. [34], deep MIL methods can be divided into two broad categories, namely instance-based or embedding-based, depending on the level at which a specific aggregation operator is applied. In this paper, we focus on the embedding-based category, and in particular attention-based ones."
+    },
+    {
+      "text": "Ilse et al. [17] proposed attention-based pooling to weigh each instance in the bag. To improve it, different modifications were proposed, including the use of clustering layers [25], grouping the instances in pseudo-bags [39], and using similarity measures to critical instances to compute the attention values [21]. However, these methods ignore the existing dependencies between the instances in a bag. To address this, Shao et al. [32] proposed to use a transformer-based architecture and the PPEG position encoding module. This has been extended with different transformer variations, including the deformable transformer architecture [22], hierarchical attention [37], and regional sampling [9]. Recently, these methods have been improved to include spatial information in different ways, including the use of a Graph Convolutional Network (GCN) before the transformer [41], a neighbor-constrained attention module [14], and a spatial-encoding transformer architecture [40]."
+    },
+    {
+      "text": "In the studies mentioned above, the objective is to obtain increasingly better bag-level results, while the evaluation at the instance level is usually performed qualitatively. In contrast, our work addresses both the instance localization task and the bag classification task, as both are of great importance for making a diagnosis. Moreover, our work is not limited to WSI classification; it is also valid for other medical imaging modalities."
+    },
+    {
+      "text": "Graph Neural Networks. Our motivation — that neighboring instances are likely to have the same label — is a well-established assumption within the machine learning community, often referred to as the cluster assumption [10, 31]. Since leveraged in 1984 by Ripley [30] in the context of spatial statistics, it has been extensively used in spectral clustering [27], semi-supervised learning on graphs [3], and recently in GNNs [20]. Our work builds upon seminal works in these areas."
+    },
+    {
+      "text": "![](images/cfb4962fc5310dcbe6d5b46f9deaf4674af2bbef8fa9aeff7d1e5f2e9f5def66.jpg)  \nFigure 1: (a) Unified view of deep MIL models. Depending on how instances interact with each other in (a), we devise three different families of methods: (b), (c), (d)."
+    },
+    {
+      "text": "The proposed smooth operator is derived considering a Dirichlet energy minimization problem, similar to the work by Zhou and Schölkopf [42] and Zhou et al. [43]. This approach has been employed in recent years to obtain new GNN models, including the $p$ -Laplacian layer [15], and PPNP layer [16]. Moreover, the Dirichlet energy has been studied in the context of GNNs to analyze the over-smoothing phenomenon [6, 23]. In this regard, our bound on the decrease of the Dirichlet energy is analogous to the result derived by Li et al. [23] to study over-smoothing for GCNs. Our result, however, holds for the proposed mechanism, of which the graph convolutional layer is a special type."
+    },
+    {
+      "text": "# 3 Background: A unified view of deep MIL approaches"
+    },
+    {
+      "text": "We first describe the binary MIL problem tackled in this paper. Then, we provide a unified view of the most popular deep MIL methods. As explained in Sec. 2, we focus on embedding-based approaches."
+    },
+    {
+      "text": "In MIL, the training set consists of pairs of the form $( \\mathbf { X } , Y )$ , where $\\mathbf { X } \\in \\mathbb { R } ^ { N \\times P }$ is a bag of instances and $Y \\in \\{ 0 , 1 \\}$ is the bag label. We write $\\mathbf { X } = [ \\mathbf { x } _ { 1 } , \\hdots , \\mathbf { x } _ { N } ] ^ { T } \\in \\mathbb { R } ^ { N \\times P }$ , where $\\mathbf { x } _ { n } \\in \\mathbb { R } ^ { P }$ are the instances. Each instance ${ \\bf x } _ { n }$ is associated to a label $y _ { n } \\in \\{ 0 , 1 \\}$ , not available during training. It is assumed that $Y = \\operatorname* { m a x } \\left\\{ y _ { 1 } , \\dots , y _ { N } \\right\\}$ , i.e., a bag $\\mathbf { X }$ is considered positive if and only if there is at least one positive instance in the bag."
+    },
+    {
+      "text": "Given a previously unseen bag (e.g., a medical image), the goal at test time is to: i) predict the bag label (classification task) and ii) obtain predictions or estimates for the instance labels (localization task). In general, deep MIL models output a bag-level prediction $\\hat { Y }$ , as well as instance-level scalars $f _ { n }$ that are used for instance-level prediction. This general process is depicted in Fig. 1a. In many approaches, these $f _ { n }$ are the so-called attention values (e.g., ABMIL [17], TransMIL [32], CAMIL [14]), but they can be obtained in different ways (e.g., through GraphCAM in GTP [41]). Within the general process in Fig. 1a, deep MIL models can be categorized into three families, depending on how instances interact with each other, see Fig. 1b, Fig. 1c, and Fig. 1d."
+    },
+    {
+      "text": "In the first family, shown in Fig. 1b, the instances are encoded independently and then aggregated. The well-known ABMIL [17] fits in this paradigm. Subsequent works introduce slight modifications to ABMIL, while still encoding each instance independently [21, 25, 39]. ABMIL, on which we will rely to introduce our model, is depicted in Fig. 3a. First, a bag of embeddings ${ \\bf H } = [ { \\bf h } _ { 1 } , \\dots , { \\bf h } _ { N } ] \\in \\mathbb { R } ^ { N \\times \\check { D } }$ is obtained by applying a neural network independently to each instance. Then, the attention-based pooling computes the attention values f and the bag embedding $\\mathbf { z }$ according to"
+    },
+    {
+      "text": "$$\n\\begin{array} { r l } & { \\mathbf { F } = \\operatorname { t a n h } \\left( \\mathbf { H } \\mathbf { W } ^ { \\top } \\right) , \\quad \\mathbf { f } = \\mathbf { F } \\mathbf { w } , } \\\\ & { \\mathbf { z } = \\operatorname { A t t P o o l } \\left( \\mathbf { H } \\right) = \\mathbf { H } ^ { \\top } \\operatorname { S o f t m a x } \\left( \\mathbf { f } \\right) , } \\end{array}\n$$"
+    },
+    {
+      "text": "where $\\mathbf { W } \\in \\mathbb { R } ^ { L \\times D }$ , $\\mathbf { w } \\in \\mathbb { R } ^ { L }$ are trainable weights. Last, $\\hat { Y }$ is obtained by applying a linear classifier on $\\mathbf { z }$ ."
+    },
+    {
+      "text": "The second family accounts for global interactions between instances, possibly long-range ones, see Fig. 1c. These works treat instances as tokens that interact through the self-attention mechanism. This way, global interactions between instances are learned. One of the most popular approaches in this family is TransMIL [32], which was later extended in different directions [9, 22]. The third family complements the previous one with local interactions defined by a fixed neighborhood, see"
+    },
+    {
+      "text": "![](images/bfffdffdd07cbc5ae244f74469e3d032e5c3d3a8cd5c37cebb807cde492b6b1c.jpg)  \n(b) Labelled slices in a CT scan.   \nFigure 2: WSIs are divided into patches. CT scans are provided as slices. They often show spatial dependencies: in a WSI, a patch is usually surrounded by patches with the same label, while in a CT scan, a slice is usually surrounded by slices with the same label. The red color indicates malignant/hemorrhage patches/slices."
+    },
+    {
+      "text": "Fig. 1d. They differ in how local interactions are represented, e.g., as a graph in CAMIL [14] and GTP [41], or using a position-encoded feature map in SETMIL [40]."
+    },
+    {
+      "text": "In most of these works, the localization task is assessed qualitatively, e.g., by visually comparing the attention maps. This contrasts with the classification task, which is always evaluated quantitatively. As evidenced by Fourkioti et al. [14], this has translated into comparatively poor performance in terms of localization. We notice that current models have been designed to target the classification task, and they excel at that. However, their model design is not as careful about the instance-level implications. For example, CAMIL [14] does not leverage any local information to obtain the instance-level attention values. Indeed, from their Eq. (8) one deduces that the $a _ { i }$ values are obtained from the tile representations $\\mathbf { t } _ { i }$ , which have not undergone any local interaction. Observe that local interactions take place in Eq. (4) and Eq. (5) in their paper, but these only affect the bag-level predictions, not the instance-level ones. Similarly, GTP [41] introduces local interactions through an off-the-shelf graph convolutional layer, the effect of which is not investigated at the instance level. In the following section, we propose a principled approach to account for meaningful local interactions based on the Dirichlet energy. The idea is motivated by a natural property often observed in the instance-level labels of medical images: the similarity between neighboring instances."
+    },
+    {
+      "text": "# 4 Method: Introducing smoothness in the attention values"
+    },
+    {
+      "text": "In medical imaging, instance labels are a priori expected to exhibit local dependencies with their neighboring instances: an instance is likely to be surrounded by instances with the same label, see Fig. 2. Recall that attention values are commonly used as a proxy to estimate these labels, so they should inherit this property. Based on these observations, our intuitive idea is to favor a smoothness property on the attention values. To this end, Sec. 4.1 formalizes the notion of smoothness through the Dirichlet energy. Sec. 4.2 presents the proposed smoothing operator Sm, which encourages smoothness as well as fidelity to the original signal. Sec. 4.3 proposes how to leverage Sm in the context of MIL, both in combination with global interactions (via transformers), and without them. We will build on top of the well-known and simple ABMIL to isolate the effect of $\\mathtt { S m }$ and avoid over-sophisticated models."
+    },
+    {
+      "text": "# 4.1 Modelling the smoothness"
+    },
+    {
+      "text": "We represent each bag as a graph, where the nodes are the instances and the edges represent the spatial connectivity between instances. Formally, we suppose that each bag $\\mathbf { X } \\in \\mathbb { R } ^ { \\tilde { N } \\times D }$ has been assigned an adjacency matrix $\\mathbf { A } = [ A _ { i j } ] \\in \\mathbb { R } ^ { N \\times \\tilde { N } }$ , defined by $A _ { i j } > 0$ if instances $\\mathbf { x } _ { i }$ and $\\mathbf { x } _ { j }$ are neighbors, and $A _ { i j } = 0$ otherwise. We assume that the adjacency matrix is symmetric, i.e. $\\boldsymbol { A _ { i j } } = \\boldsymbol { A _ { j i } }$ ."
+    },
+    {
+      "text": "The Dirichlet energy is a well-known functional that measures the variability of a function defined on a graph [42, 43]. In our case, we think of this function as the attention values $\\mathbf { f } \\in \\mathbb { R } ^ { N }$ , recall Fig. 1a. As we shall see below, it will be necessary to define the Dirichlet energy for multivariate graph functions. Given a multivariate graph function $\\mathbf { U } = \\left[ \\mathbf { u } _ { 1 } , \\dots , \\mathbf { u } _ { N } \\right] ^ { \\top } \\in \\mathbb { R } ^ { N \\times D }$ defined on the bag graph, the Dirichlet energy of $\\mathbf { U }$ is given by"
+    },
+    {
+      "text": "$$\n\\begin{array} { r } { \\mathcal { E } _ { D } \\left( \\mathbf { U } \\right) = \\frac { 1 } { 2 } \\sum _ { i = 1 } ^ { N } \\sum _ { j = 1 } ^ { N } A _ { i j } \\left\\| \\mathbf { u } _ { i } - \\mathbf { u } _ { j } \\right\\| _ { 2 } ^ { 2 } = \\operatorname { T r a c e } \\left( \\mathbf { U } ^ { \\top } \\mathbf { L } \\mathbf { U } \\right) , } \\end{array}\n$$"
+    },
+    {
+      "text": "where $\\lVert \\cdot \\rVert _ { 2 }$ denotes the Euclidean norm, $\\mathbf { L }$ is the graph Laplacian matrix $\\mathbf { L } = \\mathbf { D } - \\mathbf { A }$ , $\\mathbf { D } \\in \\mathbb { R } ^ { N \\times N }$ is the degree matrix, $\\mathbf { D } = \\mathrm { D i a g } \\left( D _ { 1 } , \\ldots , D _ { N } \\right)$ , $\\begin{array} { r } { D _ { n } ^ { - } = \\sum _ { i } \\dot { \\boldsymbol { A } } _ { n i } } \\end{array}$ . When $D = 1$ we obtain the definition for univariate graph functions, such as the attention values f ."
+    },
+    {
+      "text": "Bounding $\\mathcal { E } _ { D }$ on the attention values. In most deep MIL approaches, the attention values f are obtained by applying a neural network to instance-level features. One example is ABMIL [17], which uses a two-layer perceptron defined by Eq. 1. Noting that tanh is a Lipschitz function with Lipschitz constant equal to 1, we arrive at the following chain of inequalities"
+    },
+    {
+      "text": "$$\n\\begin{array} { r } { \\mathcal { E } _ { D } \\left( \\mathbf { f } \\right) \\leq \\left. \\mathbf { w } \\right. _ { 2 } ^ { 2 } \\mathcal { E } _ { D } \\left( \\mathbf { F } \\right) \\leq \\left. \\mathbf { w } \\right. _ { 2 } ^ { 2 } \\left. \\mathbf { W } \\right. _ { 2 } ^ { 2 } \\mathcal { E } _ { D } \\left( \\mathbf { H } \\right) , } \\end{array}\n$$"
+    },
+    {
+      "text": "where $\\left\\| \\cdot \\right\\| _ { 2 }$ denotes the spectral norm. A more general result holds in the general case of an arbitrary multi-layer perceptron, see Appendix A for a proof. The above chain of inequalities tells us that if we want $\\mathcal { E } _ { D }$ (f ) to be low, we can act on f itself or on previous layers (e.g., on $\\mathbf { F }$ or on $\\mathbf { H }$ ), constraining the norm of the trainable weights to remain constant. This constraint can be achieved using spectral normalization [26], and we study its influence in Sec. B.3. In the next subsection, we propose an operator that can be used on any of these levels (f , F, H) to reduce the Dirichlet energy of its output."
+    },
+    {
+      "text": "# 4.2 The smooth operator"
+    },
+    {
+      "text": "Our goal now turns into finding an operator $\\mathbf { S m } : \\mathbb { R } ^ { N \\times D }  \\mathbb { R } ^ { N \\times D }$ that, given a bag graph multivariate function $\\mathbf { U } \\in \\mathbb { R } ^ { N \\times D }$ , returns another bag graph multivariate function $\\breve { \\mathbf { S } } \\mathbf { m } \\left( \\mathbf { U } \\right) \\in \\breve { \\mathbb { R } } ^ { \\breve { N } \\times \\breve { D } }$ such that its Dirichlet energy is lower without losing the information present in the original U. Following seminal works [42, 43], we cast this as an optimization problem,"
+    },
+    {
+      "text": "$$\n\\begin{array} { r } { \\mathbf { S m } \\left( \\mathbf { U } \\right) = \\arg \\operatorname* { m i n } _ { \\mathbf { G } } \\mathcal { E } \\left( \\mathbf { G } \\right) , } \\end{array}\n$$"
+    },
+    {
+      "text": "$$\n\\mathcal { E } \\left( \\mathbf { G } \\right) = \\alpha \\mathcal { E } _ { D } \\left( \\mathbf { G } \\right) + \\left( 1 - \\alpha \\right) \\left. \\mathbf { U } - \\mathbf { G } \\right. _ { F } ^ { 2 } ,\n$$"
+    },
+    {
+      "text": "where $\\alpha \\in [ 0 , 1 )$ accounts for the trade off between both terms, and $\\left\\| \\cdot \\right\\| _ { F }$ denotes the Frobenius norm. The first term in the above equation penalizes functions with too much variability, while the second term penalizes functions that differ too much from the original U. Note that this can be interpreted as a maximum a posteriori formulation, where the first term corresponds to the prior distribution and the second to the observation model, see [30]. The objective function $\\mathcal { E }$ is strictly convex, and therefore admits a unique solution, given by"
+    },
+    {
+      "text": "$$\n\\mathbf { S } \\mathrm { m } \\left( \\mathbf { U } \\right) = \\left( \\mathbf { I } + \\gamma \\mathbf { L } \\right) ^ { - 1 } \\mathbf { U } ,\n$$"
+    },
+    {
+      "text": "where $\\gamma = \\alpha / ( 1 - \\alpha )$ . Unfortunately, the expression in Eq. (7), although elegant, incurs prohibitive computational and memory costs, especially when the number of instances in the bag is large (which is the case of WSIs). Instead, we can take an iterative approach, defining $\\mathbf { S } \\mathbf { m } \\left( \\mathbf { U } \\right) { = } \\mathbf { \\bar { G } } ( T )$ , with"
+    }
+  ],
+  "url": ""
+}

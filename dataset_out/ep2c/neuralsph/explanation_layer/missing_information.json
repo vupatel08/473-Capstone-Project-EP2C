@@ -1,0 +1,37 @@
+[
+  {
+    "type": "implementation",
+    "parameter": "placeholder",
+    "description": "Placeholder values found in evaluation.py",
+    "severity": "medium",
+    "suggestion": "Replace placeholders with actual values"
+  },
+  {
+    "type": "implementation",
+    "parameter": "placeholder",
+    "description": "Placeholder values found in main.py",
+    "severity": "medium",
+    "suggestion": "Replace placeholders with actual values"
+  },
+  {
+    "type": "implementation",
+    "parameter": "placeholder",
+    "description": "Placeholder values found in model.py",
+    "severity": "medium",
+    "suggestion": "Replace placeholders with actual values"
+  },
+  {
+    "type": "implementation",
+    "parameter": "todo",
+    "description": "TODO/FIXME comments found in trainer.py",
+    "severity": "low",
+    "suggestion": "Review and complete TODO items"
+  },
+  {
+    "type": "implementation",
+    "parameter": "placeholder",
+    "description": "Placeholder values found in trainer.py",
+    "severity": "medium",
+    "suggestion": "Replace placeholders with actual values"
+  }
+]

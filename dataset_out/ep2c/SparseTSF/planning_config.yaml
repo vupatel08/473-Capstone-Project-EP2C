@@ -1,0 +1,30 @@
+dataset:
+  energy_path: "path/to/energy_dataset.csv"
+  weather_path: "path/to/weather_dataset.csv"
+  traffic_path: "path/to/traffic_dataset.csv"
+  period_etth: 24    # Daily cycle period for ETTh datasets
+  period_weather: 1440 # Approximate period for weather (10 min freq, 24 hours)
+  period_traffic: 144 # 10 min frequency, so approx 144 for daily cycle
+training:
+  learning_rate: 0.001
+  batch_size: 128
+  epochs: 30
+  optimizer: "adam"
+  loss_function: "mse"
+  seed: 42
+model:
+  period_w: 24           # Default period w: set to data's periodicity
+  input_length: 336       # Sequence length for training
+  forecast_horizon: 720   # Prediction horizon
+  kernel_size: 3          # For convolutional layer
+  conv_channels: 8        # Number of convolution filters
+  use_shared_params: true # Whether to share convolution weights across channels
+normalization:
+  method: "mean_subtract" # Normalize by subtracting mean
+  inverse_method: "add_mean" # Add mean back after prediction
+evaluation:
+  metrics: ["mse", "mae"]
+  validation_split: 0.2
+  test_split: 0.2
+seed:
+  value: 42

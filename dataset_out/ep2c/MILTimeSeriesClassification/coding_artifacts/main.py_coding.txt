@@ -1,0 +1,280 @@
+```python
+#!/usr/bin/env python3
+import os
+import sys
+import yaml
+import logging
+import random
+import numpy as np
+import torch
+
+from dataset import Dataset
+from utils import generate_positional_encoding, set_seed
+from model import BackboneNetwork
+from modules import PositionalEncoding
+from interpretability import Interpretability
+from trainer import Trainer
+from evaluation import Evaluation
+
+def main():
+    # Setup logging
+    logging.basicConfig(level=logging.INFO, format='%(asctime)s %(levelname)s: %(message)s')
+    
+    # Load configuration from 'config.yaml'
+    config_path = 'config.yaml'
+    if not os.path.exists(config_path):
+        print(f"Configuration file '{config_path}' not found.")
+        sys.exit(1)
+    with open(config_path, 'r') as f:
+        config = yaml.safe_load(f)
+    
+    # Extract configurations with defaults
+    training_cfg = config.get('training', {})
+    model_cfg = config.get('model', {})
+    interpret_cfg = config.get('interpretability', {})
+    dataset_cfg = config.get('dataset', {})
+    
+    # Set fixed seed for reproducibility
+    seed = training_cfg.get('seed', 123)
+    set_seed(seed)
+    
+    # Prepare dataset
+    dataset_name = dataset_cfg.get('name', 'UCR_all')
+    dataset_dir = dataset_cfg.get('dataset_dir', 'datasets/')
+    normalize_method = dataset_cfg.get('normalization', 'z-score')
+    synthetic = dataset_cfg.get('synthetic', False)
+    train_split_ratio = dataset_cfg.get('train_split_ratio', 0.8)
+
+    # Instantiate dataset object
+    print(f"Loading dataset '{dataset_name}', synthetic={synthetic}")
+    dataset_obj = Dataset(
+        dataset_name=dataset_name,
+        split='train',
+        dataset_dir=dataset_dir,
+        config=dataset_cfg
+    )
+    if synthetic:
+        # Generate synthetic WebTraffic data
+        # Here, for demo, assume dataset.py handles synthetic generation if flag is True
+        pass
+    else:
+        # Load real datasets
+        dataset_obj.preprocess(method=normalize_method)
+    
+    # Build test dataset similarly
+    # For simplicity, assume dataset_obj contains full dataset
+    X_full, y_full = dataset_obj.X, dataset_obj.y
+    # Split into train/test
+    num_samples = len(y_full)
+    split_idx = int(train_split_ratio * num_samples)
+    indices = np.arange(num_samples)
+    np.random.shuffle(indices)
+    train_idx = indices[:split_idx]
+    test_idx = indices[split_idx:]
+    dataset_obj.train_indices = train_idx
+    dataset_obj.test_indices = test_idx
+    # Create test set data
+    X_test = X_full[test_idx]
+    y_test = y_full[test_idx]
+    
+    # Setup data loaders
+    from torch.utils.data import DataLoader, TensorDataset
+    batch_size = training_cfg.get('batch_size', 16)
+    train_dataset = TensorDataset(torch.tensor(X_full[train_idx], dtype=torch.float32),
+                                  torch.tensor(y_full[train_idx], dtype=torch.long))
+    test_dataset = TensorDataset(torch.tensor(X_test, dtype=torch.float32),
+                                 torch.tensor(y_test, dtype=torch.long))
+    train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True, drop_last=False)
+    test_loader = DataLoader(test_dataset, batch_size=batch_size, shuffle=False)
+    
+    # Instantiate backbone network
+    backbone_arch = model_cfg.get('backbone', 'InceptionTime')
+    embedding_dim = model_cfg.get('embedding_dim', 128)
+    architecture_params = model_cfg.get('architecture_params', {})
+    pooling_method = model_cfg.get('pooling_method', 'Conjunctive')
+    pooling_params = model_cfg.get('pooling_params', {})
+    dropout_rate = model_cfg.get('dropout_rate', 0.1)
+    
+    backbone_net = BackboneNetwork(architecture=backbone_arch,
+                                   embedding_dim=embedding_dim,
+                                   architecture_params=architecture_params)
+    backbone_net.to('cuda' if torch.cuda.is_available() else 'cpu')
+    
+    # Optional positional encoding
+    use_positional = model_cfg.get('positional_encoding', True)
+    pos_enc = None
+    if use_positional:
+        pos_enc = PositionalEncoding(max_length=dataset_obj.length, d_model=embedding_dim)
+    
+    # Instantiate MIL pooling layer
+    from modules import GAPPooling, AttentionPooling, InstancePooling, AdditivePooling, ConjunctivePooling
+    
+    if pooling_method == 'GAP':
+        pooling_layer = GAPPooling()
+    elif pooling_method == 'Attention':
+        attention_heads = pooling_params.get('attention_heads', 1)
+        attention_size = pooling_params.get('attention_size', 8)
+        pooling_layer = AttentionPooling(d=embedding_dim, attention_heads=attention_heads, attention_size=attention_size)
+    elif pooling_method == 'Instance':
+        c = len(np.unique(y_full))
+        pooling_layer = InstancePooling(d=embedding_dim, c=c)
+    elif pooling_method == 'Additive':
+        c = len(np.unique(y_full))
+        attention_heads = pooling_params.get('attention_heads', 1)
+        attention_size = pooling_params.get('attention_size', 8)
+        pooling_layer = AdditivePooling(d=embedding_dim, c=c, attention_heads=attention_heads, attention_size=attention_size)
+    elif pooling_method == 'Conjunctive':
+        c = len(np.unique(y_full))
+        attention_heads = pooling_params.get('attention_heads', 1)
+        attention_size = pooling_params.get('attention_size', 8)
+        pooling_layer = ConjunctivePooling(d=embedding_dim, c=c, attention_heads=attention_heads, attention_size=attention_size)
+    else:
+        raise ValueError(f"Unknown pooling method: {pooling_method}")
+    
+    # Define full model incorporating backbone + POE + pooling + classifier
+    class MILTimeSeriesModel(torch.nn.Module):
+        def __init__(self, backbone, pooling, dropout_rate, num_classes):
+            super().__init__()
+            self.backbone = backbone
+            self.pooling = pooling
+            self.dropout = torch.nn.Dropout(dropout_rate)
+            self.classifier = torch.nn.Linear(embedding_dim, num_classes)
+        def forward(self, x):
+            features = self.backbone(x)  # (batch, t, d)
+            if use_positional:
+                # generate positional encodings
+                pe = generate_positional_encoding(features.shape[1], embedding_dim).to(features.device)
+                features = features + pe
+            features = self.dropout(features)
+            pooled_embeddings = self.pooling(features)  # shape depends on pooling
+            # remove singleton dims if any
+            pooled_embeddings = pooled_embeddings.squeeze(1)  # shape: (batch, d)
+            logits = self.classifier(pooled_embeddings)
+            return logits
+    num_classes = len(np.unique(y_full))
+    model = MILTimeSeriesModel(backbone_net, pooling_layer, dropout_rate, num_classes)
+    model.to('cuda' if torch.cuda.is_available() else 'cpu')
+    
+    # Setup optimizer and loss
+    lr = training_cfg.get('learning_rate', 0.001)
+    epochs = training_cfg.get('epochs', 1500)
+    early_stop = training_cfg.get('early_stopping', True)
+    optimizer = torch.optim.Adam(model.parameters(), lr=lr)
+    criterion = torch.nn.CrossEntropyLoss()
+    
+    # Training loop
+    best_state_dict = None
+    best_val_loss = np.inf
+    no_improve_count = 0
+    patience = 20  # default early stopping patience
+    
+    for epoch in range(1, epochs + 1):
+        model.train()
+        total_loss = 0.0
+        total_correct = 0
+        total_samples = 0
+        for xb, yb in train_loader:
+            xb = xb.to('cuda' if torch.cuda.is_available() else 'cpu')
+            yb = yb.to('cuda' if torch.cuda.is_available() else 'cpu')
+            optimizer.zero_grad()
+            outputs = model(xb)
+            loss = criterion(outputs, yb)
+            loss.backward()
+            optimizer.step()
+            total_loss += loss.item() * yb.size(0)
+            preds = torch.argmax(outputs, dim=1)
+            total_correct += (preds == yb).sum().item()
+            total_samples += yb.size(0)
+        train_loss = total_loss / total_samples
+        train_acc = total_correct / total_samples
+        
+        # Validation
+        model.eval()
+        val_loss = 0.0
+        val_correct = 0
+        val_samples = 0
+        with torch.no_grad():
+            for xb, yb in test_loader:
+                xb = xb.to('cuda' if torch.cuda.is_available() else 'cpu')
+                yb = yb.to('cuda' if torch.cuda.is_available() else 'cpu')
+                outputs = model(xb)
+                loss = criterion(outputs, yb)
+                val_loss += loss.item() * yb.size(0)
+                preds = torch.argmax(outputs, dim=1)
+                val_correct += (preds == yb).sum().item()
+                val_samples += yb.size(0)
+        val_loss /= val_samples
+        val_acc = val_correct / val_samples
+        print(f"Epoch {epoch:04d}: Train Loss={train_loss:.4f}, Train Acc={train_acc:.4f}, Val Loss={val_loss:.4f}, Val Acc={val_acc:.4f}")
+        
+        # Early stop check
+        if early_stop:
+            if val_loss < best_val_loss:
+                best_val_loss = val_loss
+                best_state_dict = model.state_dict()
+                no_improve_count = 0
+            else:
+                no_improve_count += 1
+            if no_improve_count >= patience:
+                print("Early stopping triggered.")
+                break
+    # Load best model
+    if best_state_dict:
+        model.load_state_dict(best_state_dict)
+    print("Training completed.")
+    
+    # --- Model trained, now evaluate ---
+    model.eval()
+    preds_all = []
+    probs_all = []
+    labels_all = []
+    total_loss = 0.0
+    with torch.no_grad():
+        for xb, yb in test_loader:
+            xb = xb.to('cuda' if torch.cuda.is_available() else 'cpu')
+            yb = yb.to('cuda' if torch.cuda.is_available() else 'cpu')
+            outputs = model(xb)
+            probs = torch.softmax(outputs, dim=1)
+            preds = torch.argmax(probs, dim=1)
+            preds_all.extend(preds.cpu().numpy())
+            probs_all.extend(probs.cpu().numpy())
+            labels_all.extend(yb.cpu().numpy())
+    from sklearn.metrics import accuracy_score, roc_auc_score
+    accuracy = accuracy_score(labels_all, preds_all)
+    try:
+        auroc = roc_auc_score(labels_all, np.array(probs_all), multi_class='ovr', average='macro')
+    except Exception:
+        auroc = float('nan')
+    print(f"Test Accuracy: {accuracy:.4f}, AUROC: {auroc:.4f}")
+    
+    # --- Interpretability evaluation ---
+    # Use interpretability module to compute scores
+    interpret_method = interpret_cfg.get('method', 'AOPCR')
+    n_eval_repeat = interpret_cfg.get('evaluation_repeat', 3)
+    
+    interpret_obj = Interpretability(model, pooling_method)
+    importance_list = []
+    decay_list = []
+    ndcg_list = []
+    for repeat_i in range(n_eval_repeat):
+        for xi in range(len(X_test)):
+            series = X_test[xi, 0, :]  # shape (T,)
+            # compute importance scores (local importance)
+            scores = interpret_obj.compute_scores(series)
+            importance_list.append(scores)
+            # Perturbation and decay curve
+            decay_curve, _ = interpret_obj.compute_perturbation(series)
+            decay_list.append(decay_curve)
+            # For synthetic, if true signature regions are available, compute NDCG
+            # Assume dataset has attribute 'signature_indices' as list of indices
+            if hasattr(dataset_obj, 'signature_indices'):
+                true_idx = dataset_obj.signature_indices[xi]
+                ndcg_score = interpret_obj.compute_ndcgc(series, true_idx)
+                ndcg_list.append(ndcg_score)
+    # Save or plot importance heatmaps, curves, scores as needed
+    print("Interpretability evaluation completed.")
+    
+
+if __name__ == '__main__':
+    main()
+```

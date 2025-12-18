@@ -1,0 +1,138 @@
+# Logic Analysis for model.py
+
+This file is responsible for defining the core neural network architecture used as the Implicit Neural Representation (INR) in RECOMBINER, specifically following the SIREN (sinusoidal activations) paradigm, with additional features such as Fourier encoding and positional encodings (learnable and/or fixed). The class should support flexible configuration via parameters such as number of layers, hidden units, activation functions, Fourier features, and positional encoding dimensions, as specified in the configuration.
+
+Below is a structured breakdown of the required logic, components, and considerations:
+
+---
+
+## 1. Class Design Overview
+
+**Class Name:** `INRModel`  
+**Purpose:** Implement a small neural network based on the SIREN architecture, with optional Fourier features and positional encodings. The network should accept coordinate inputs plus positional encodings and produce the reconstructed signal at those coordinates.
+
+**Key functionalities:**
+- Initialization: Setup network layers, Fourier features, positional encodings.
+- Forward pass: Accept coordinate inputs, positional encodings, and parameters, output signal predictions.
+- Support for patch handling, i.e., variable input sizes and batch processing.
+- Modular and configurable architecture via input arguments or a configuration object.
+
+---
+
+## 2. Inputs and Hyperparameters
+
+- **Data Inputs:**
+  - `coords`: Tensor of shape `[batch_size, coord_dim]` – coordinate locations (pixels, time indices, 3D points, etc.)
+  - `pos_encodings`: Tensor of shape `[batch_size, pos_encoding_dim]` – positional encodings (up to `patch_encoding_dim` or similar).
+- **Parameters / Model configs:**
+  - Number of layers, hidden units, activation types, etc., passed during initialization (preferably from a config).
+- **Model Parameters:**
+  - For `forward()`: the current weights/parameters (if aware of parameter passing), or the model class encapsulates fixed parameters.
+
+---
+
+## 3. Core Components and Steps
+
+### a. Fourier Features Encoding
+- For each coordinate `x`, generate Fourier features:
+  - Input: raw coordinate (e.g., pixel `(X,Y)` or 1D/time).
+  - Fourier embedding: `γ(x)` of dimension specified (e.g., 16 in config).
+  - Use sinusoidal functions: `sin(ω * x)` and `cos(ω * x)` across multiple frequencies `ω`.
+- Implementation:
+  - A function to generate Fourier features of input coordinates.
+  - Might be implemented once during initialization.
+  - Embedded features are concatenated with positional encodings.
+
+### b. Positional Encodings
+- Learnable `h_z`: a tensor of size `[patch_encoding_dim]` or `[batch_size, patch_encoding_dim]`.
+- Upsampling CNN:
+  - A small convolutional network as per Appendix B.1.
+  - Input: low-dimensional `h_z` vector.
+  - Output: `[batch_size, pos_encoding_dim]` per coordinate location.
+- During `forward()`, generate positional encoding for each coordinate:
+  - `z_i = φ(h_z, coordinate=x_i)` (via the CNN).
+  - Supports local detail capture by adding position-specific encodings.
+
+### c. Network Architecture
+- Fully connected layers:
+  - Input size: sum of Fourier features + positional encoding.
+  - Hidden layers: number given (e.g., 4 layers), hidden units (e.g., 32).
+  - Activation: sine function (`sin`) for SIREN.
+- Final layer:
+  - Output dimension: data-dependent (e.g., 3 for RGB).
+- Using weight initialization:
+  - Proper sine activation initialization: e.g., SIREN-specific variants with scaled Xavier initialization.
+- Layers can be implemented with `torch.nn` modules.
+
+### d. Forward Pass
+- Inputs:
+  - `coords`: raw coordinate inputs.
+  - `pos_encodings`: generated via CNN from `h_z`.
+  - `params`: optional, if using a functional API with explicit parameters.
+- Processing:
+  - Generate Fourier features of `coords`.
+  - Generate positional encoding per coordinate via `φ(h_z, x_i)`.
+  - Concatenate Fourier features with positional encoding.
+  - Pass through the network layers with current weights.
+  - Output the reconstructed signal.
+
+### e. Patch Handling
+- The model should accept batch inputs representing:
+  - Entire images, patches, or point sets.
+- For hierarchical or patch-based training:
+  - Support variable input sizes.
+  - During training, process multiple patches in parallel.
+  - Internal handling to reshape or tile positional encodings accordingly.
+
+---
+
+## 4. Initialization and Configuration
+
+- Accept a `config` dictionary or parameters at init:
+  - e.g., `layers`, `hidden_units`, `activation`, `fourier_features_dim`, `positional_encoding_dim`, etc.
+- Set up:
+  - Fourier feature encoder.
+  - Positional encoding CNN.
+  - SIREN layers with scaled initialization.
+- Provide methods or attributes for:
+  - Generating Fourier features.
+  - Generating positional encodings.
+  - Forward propagation.
+
+---
+
+## 5. Implementation Details & Considerations
+
+- **Activation function:** sine; ensure proper initialization for sine activations (scale weights accordingly).
+- **Fourier encoding:**
+  - Can precompute or compute on-demand during forward.
+  - Use frequencies: linear or geometric spacing.
+- **Positional CNN:**
+  - Small with kernel sizes (5×5, 3×3), as per Appendix B.1.
+  - Supports batch processing.
+- **Parameters:**
+  - Use PyTorch modules for layers.
+  - Encapsulate all in a `torch.nn.Module`.
+- **Parameters passed during `forward()`:**
+  - If the model receives explicit weights, `forward()` should accept them.
+  - Otherwise, weights are stored internally.
+- **Supporting different data modalities:**
+  - Input coordinate dimension should be parameterizable.
+  - Output dimension adaptable.
+- **Patch handling:**
+  - Input data structure must support batch of patches, or coordinate grids.
+
+---
+
+## 6. Summary
+
+- The `INRModel` class embodies the small SIREN neural network with Fourier features.
+- It includes a learnable positional encoding module, generated by a CNN conditioned on `h_z`.
+- Forward pass concatenates Fourier features and positional encodings, passes through multiple sine-activated layers, and outputs predictions.
+- Initialization supports the configurations listed in `config.yaml`.
+- The design allows flexibility in input dimension, data modality, and supports batch and patch processing.
+- Modularity ensures it can be integrated with the broader training, encoding, and hierarchical models in the codebase.
+
+---
+
+This detailed logic analysis provides the development blueprint for implementing `model.py`, accommodating the core features and experimental details described in the paper and plan.

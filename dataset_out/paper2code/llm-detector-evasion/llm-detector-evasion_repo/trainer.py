@@ -1,0 +1,170 @@
+# trainer.py
+import torch
+from torch.utils.data import DataLoader
+from transformers import AdamW
+from tqdm import tqdm
+from typing import List, Dict
+from dataset_loader import ResponsePair
+from model import Model
+from detector import Detector
+import math
+
+class Trainer:
+    """
+    Implements the training routine for fine-tuning a language model with DPO and KL regularization,
+    following the methodology described in the paper.
+    """
+    def __init__(
+        self,
+        model: Model,
+        dataset: List[Dict],
+        detectors: List[Detector],
+        beta: float = 0.5,
+        learning_rate: float = 1e-5,
+        batch_size: int = 256,
+        epochs: int = 3,
+        max_response_tokens: int = 250,
+        generation_temperature: float = 1.0
+    ):
+        self.model = model
+        self.device = model.model.device
+        self.dataset = dataset
+        self.detectors = detectors
+        self.beta = beta
+        self.lr = learning_rate
+        self.batch_size = batch_size
+        self.epochs = epochs
+        self.max_response_tokens = max_response_tokens
+        self.generation_temperature = generation_temperature
+
+        # Save reference model parameters for KL divergence calculation
+        self.ref_state_dict = {k: v.clone().detach() for k, v in self.model.model.state_dict().items()}
+
+        # Setup optimizer
+        self.optimizer = AdamW(self.model.model.parameters(), lr=self.lr)
+        # Prepare DataLoader for the preference dataset
+        self.data_loader = DataLoader(self.dataset, batch_size=self.batch_size, shuffle=True)
+
+    def _compute_kl_divergence(self) -> torch.Tensor:
+        """
+        Compute the KL divergence between current model and reference model over all parameters.
+        """
+        kl = 0.0
+        for (name, param), ref_param in zip(self.model.model.named_parameters(), self.ref_state_dict.values()):
+            # Use the KL divergence between two Gaussian distributions approximation
+            # Since models are differently parameterized, approximate with sum over parameters
+            # For simplicity, treat parameters as distributions' means with unit variance
+            # or typical approach: sum squared differences scaled
+            # But proper KL for neural nets is complex; here, we approximate as L2 divergence
+            kl += torch.nn.functional.mse_loss(param, ref_param, reduction='sum')
+        return kl
+
+    def train(self):
+        """
+        Main training loop implementing DPO with KL regularization.
+        """
+        for epoch in range(self.epochs):
+            print(f"\n=== Epoch {epoch+1}/{self.epochs} ===")
+            epoch_loss = 0.0
+            # Shuffle dataset each epoch
+            dataloader = DataLoader(self.dataset, batch_size=self.batch_size, shuffle=True)
+            progress_bar = tqdm(dataloader, desc='Training', leave=False)
+
+            for batch in progress_bar:
+                # batch is list of dicts with keys: prompt, response_a, response_b, preferred_response
+                prompts = [item['prompt'] for item in batch]
+                responses_a = [item['response_a'] for item in batch]
+                responses_b = [item['response_b'] for item in batch]
+                preferred = [item['preferred_response'] for item in batch]
+
+                # Compute log probabilities of responses
+                log_probs_a = []
+                log_probs_b = []
+
+                # Generate responses if needed, but here responses are from dataset
+                # We assume responses are already generated and stored
+                # Alternatively, generate here if sampling new responses
+                for prompt, resp_a, resp_b in zip(prompts, responses_a, responses_b):
+                    lp_a = self.model.log_probability(prompt, resp_a)
+                    lp_b = self.model.log_probability(prompt, resp_b)
+                    log_probs_a.append(lp_a)
+                    log_probs_b.append(lp_b)
+
+                # Compute DPO loss
+                # For each pair: p(w > l) = sigma(beta*(r_w - r_l))
+                losses = []
+                for lp_w, lp_l, pref in zip(log_probs_a, log_probs_b, preferred):
+                    delta = lp_w - lp_l  # reward difference
+                    # logistic sigmoid
+                    p_pref = torch.sigmoid(torch.tensor(self.beta * delta))
+                    # target: 1 if preferred response is y_w
+                    target = 1.0 if pref == 'response_a' else 0.0
+                    # Loss: -log(p_pref) if target==1, -log(1 - p_pref) if 0
+                    epsilon = 1e-8  # numerical stability
+                    loss = - (target * torch.log(p_pref + epsilon) + (1 - target) * torch.log(1 - p_pref + epsilon))
+                    losses.append(loss)
+
+                dpo_loss = torch.stack(losses).mean()
+
+                # KL divergence regularization
+                kl_div = self._compute_kl_divergence()
+                kl_loss = self.beta * kl_div
+
+                total_loss = dpo_loss + kl_loss
+
+                # Backpropagation step
+                self.optimizer.zero_grad()
+                total_loss.backward()
+                # Optional: clip gradients to prevent explosion
+                torch.nn.utils.clip_grad_norm_(self.model.model.parameters(), max_norm=1.0)
+                self.optimizer.step()
+
+                epoch_loss += total_loss.item()
+                progress_bar.set_postfix(loss=total_loss.item())
+
+            avg_loss = epoch_loss / len(dataloader)
+            print(f"Epoch {epoch+1} completed. Avg loss: {avg_loss:.4f}")
+
+            # Optional: Save model checkpoint periodically
+            # e.g., save if AUROC improves, or at fixed intervals
+
+    def evaluate(self, detectors: List[Detector]) -> Dict[str, float]:
+        """
+        Evaluate the current model's responses against given detectors.
+        Returns a dictionary of AUROC scores for each detector.
+        """
+        import sklearn.metrics as metrics
+
+        # Generate a set of responses from the model for evaluation prompts
+        prompts = self._get_evaluation_prompts()
+        responses = []
+        for prompt in tqdm(prompts, desc='Generating eval responses'):
+            resp = self.model.generate(prompt, temperature=self.generation_temperature, max_tokens=self.max_response_tokens)
+            responses.append(resp)
+
+        scores = {}
+        # For each detector, score responses
+        for detector in detectors:
+            detector_scores = detector.batch_score(list(zip(prompts, responses)))
+            # Labels: Responses from the model considered positive (1)
+            # Assume we have ground-truth labels (e.g., human vs machine),
+            # but here, since responses are generated, use detector scores directly
+            # For evaluation, we interpret scores: higher score -> more human-like
+            # Invert if necessary; here, assume higher means more human
+            labels = [1] * len(prompts)
+            # Compute AUROC
+            if len(set(detector_scores)) > 1:
+                auroc = metrics.roc_auc_score(labels, detector_scores)
+            else:
+                auroc = 0.5  # fallback if scores are constant
+            scores[detector.name] = auroc
+        return scores
+
+    def _get_evaluation_prompts(self) -> List[str]:
+        """
+        Return a set of prompts for evaluation.
+        Could be the same as training prompts or a fixed validation set.
+        """
+        # For simplicity, reuse some prompt samples or load a dedicated eval set
+        # Here, select 100 random prompts from dataset
+        return [item['prompt'] for item in self.dataset][:100]

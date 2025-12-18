@@ -1,0 +1,186 @@
+# Inference.py Logic Analysis for PSPS-based ML-assisted inference
+
+This analysis documents the detailed logic flow, class structure, functions, inputs, outputs, and computational steps necessary to implement 'inference.py', which executes the core inference tasks—debiasing estimates, constructing confidence intervals, and hypothesis testing—based on the PSPS framework outlined in the paper.
+
+## 1. Purpose and Scope
+- Implement an `Inference` class that:
+  - Receives summary statistics (estimates and variances) from analysis routines,
+  - Applies the PSPS formula to produce debiased point estimates,
+  - Estimates the variance (standard errors) of the PSPS estimate,
+  - Constructs asymptotically valid confidence intervals,
+  - Conducts hypothesis tests (two-sided p-values) for parameters.
+
+This class embodies the final step in the pipeline, translating summary statistics into actionable inference results, using the asymptotic normality results specified in the paper.
+
+---
+
+## 2. Inputs and Data Structures
+
+### Inputs
+- `summary_stats`: Dictionary containing the estimated means or regression coefficients and associated covariance matrices, specifically:
+  - `theta_hat`: Scalar or vector—point estimate(s) from the analysis routine (\(\hat{\theta}_\mathcal{L}\)),
+  - `eta_hat`: Vector—estimated nuisance parameters or summary statistics (\(\hat{\eta}_\mathcal{L}\), \(\hat{\eta}_\mathcal{U}\)),
+  - Covariance matrices: 
+    - `Cov_theta_eta`: Covariance between `theta_hat` and `eta_hat` (\(\widehat{\mathrm{Cov}}(\hat{\theta}_\mathcal{L}, \hat{\eta}_\mathcal{L})\)),
+    - Variances of `eta_hat` (for both labeled and unlabeled),
+    - Variance of `theta_hat` (for labeled data).
+- Variance matrices: Estimated variances and covariances from bootstrap or analytical formulas, provided as numpy arrays.
+
+### Data class overview
+Use a structured dictionary, e.g.,
+```python
+{
+  'theta_hat': np.ndarray or float,
+  'eta_hat': np.ndarray,
+  'Cov_theta_eta': np.ndarray,
+  'Var_eta_L': np.ndarray,
+  'Var_eta_U': np.ndarray,
+  'Var_theta': float or np.ndarray,
+  'n_labeled': int,
+  'n_unlabeled': int
+}
+```
+
+### Additional parameters
+- `alpha`: float, significance level for CI (e.g., 0.05).
+- `estimate_type`: optional, specify if the estimate is a scalar (mean) or vector (regression coefficient).
+
+---
+
+## 3. Core Components and Step-by-Step Logic
+
+### 3.1. Initialization
+- Instantiate class with summary statistics, bootstrap estimates, and configuration parameters as needed.
+- Validate input dimensions and completeness.
+
+### 3.2. Compute the Debiased Estimate (\(\hat{\theta}_{PSPS}\))
+- Formula:
+  \[
+  \boxed{
+  \hat{\theta}_{PSPS} = \hat{\theta}_\mathcal{L} + \hat{\omega}_0^T (\hat{\eta}_\mathcal{U} - \hat{\eta}_\mathcal{L})
+  }
+  \]
+- **Calculating \(\hat{\omega}_0\)**:
+  - Requires:
+    - Variance of \(\hat{\eta}_\mathcal{L}\): \(\widehat{\mathrm{Var}}(\hat{\eta}_\mathcal{L})\),
+    - Variance of \(\hat{\eta}_\mathcal{U}\): \(\widehat{\mathrm{Var}}(\hat{\eta}_\mathcal{U})\),
+    - Covariance between \(\hat{\theta}_\mathcal{L}\) and \(\hat{\eta}_\mathcal{L}\): \(\widehat{\mathrm{Cov}}(\hat{\theta}_\mathcal{L}, \hat{\eta}_\mathcal{L})\),
+  - Use:
+  \[
+  \hat{\omega}_0 = \left( \widehat{\mathrm{Var}}(\hat{\eta}_\mathcal{L}) + \frac{n}{N} \widehat{\mathrm{Var}}(\hat{\eta}_\mathcal{U}) \right)^{-1} \times \widehat{\mathrm{Cov}}(\hat{\theta}_\mathcal{L}, \hat{\eta}_\mathcal{L})
+  \]
+  - Here, \(n, N\): labeled and unlabeled sample sizes from input.
+
+- Final step:
+```python
+self.theta_psps = self.theta_labeled + np.dot(self.omega_0, (self.eta_U - self.eta_L))
+```
+
+### 3.3. Variance Estimation (Variance of \(\hat{\theta}_{PSPS}\))
+- Use the algebraic form:
+\[
+\mathrm{Var}(\hat{\theta}_{PSPS}) \approx \\
+\mathrm{Var}(\hat{\theta}_\mathcal{L}) - \mathbf{V}_{\theta,\eta}^T \left( \mathbf{V}_\eta + \frac{n}{N} \mathbf{V}_\eta^{(U)} \right)^{-1} \mathbf{V}_{\theta,\eta}
+\]
+- `\(\mathbf{V}_\eta\), \(\mathbf{V}_\eta^{(U)}\)`, \(\(\mathbf{V}_{\theta,\eta}\)\): Variance/covariance matrices estimated via bootstrap or analytical formulas.
+- Implement bootstrap:
+  - Generate bootstrap replicates of the summary statistics (via stored bootstrap covariance matrices),
+  - For each replicate, compute \(\hat{\theta}_{PSPS}\),
+  - Variance estimated as empirical variance across bootstrap replicates.
+
+### 3.4. Construct Confidence Interval
+- Asymptotic normality:
+\[
+\hat{\theta}_{PSPS} \sim \mathcal{N}(\theta^*, \mathrm{Var}(\hat{\theta}_{PSPS}))
+\]
+- CI:
+\[
+\text{CI}_\alpha = \left( \hat{\theta}_{PSPS} \pm z_{1 - \frac{\alpha}{2}} \times \sqrt{\mathrm{Var}(\hat{\theta}_{PSPS})} \right)
+\]
+- Use `scipy.stats.norm.ppf(1 - alpha/2)` for critical value `z`.
+
+### 3.5. Hypothesis Testing
+- Two-sided p-value:
+\[
+p = 2 \times \left(1 - \Phi \left( \left| \frac{\hat{\theta}_{PSPS} - \theta_{0}}{\sqrt{\mathrm{Var}(\hat{\theta}_{PSPS})}} \right| \right) \right)
+\]
+- Typically \(\theta_0 = 0\) or null value depending on task.
+
+### 3.6. Output
+- Return a dictionary with:
+  - `'estimate'`: debiased point estimate,
+  - `'std_error'`: sqrt of estimated variance,
+  - `'confidence_interval'`: tuple (lower, upper),
+  - `'p_value'`: associated p-value.
+
+---
+
+## 4. Additional Considerations
+- **Regularization and numerical stability**:
+  - Add small ridge epsilon if matrices are ill-conditioned.
+- **Dimensionality**:
+  - For scalar quantities (mean), handle as float.
+  - For vector parameters (regression), handle as np.ndarray.
+- **Multiple parameters**:
+  - Loop over each coordinate if vector.
+  - Adjust CI construction for multivariate case accordingly.
+- **Input validation and error handling**:
+  - Ensure covariance matrices are symmetric and positive-definite where needed.
+  - Validate dimensions agree.
+- **Flexibility**:
+  - Implement options for analytical vs bootstrap variance estimation.
+  - Allow extension for more complex models or multiple parameters.
+
+---
+
+## 5. Implementation Skeleton (Conceptual)
+(Pseudocode in comments, not actual code)
+
+```python
+class Inference:
+    def __init__(self, summary_stats, n_labeled, n_unlabeled):
+        # Initialize with provided summaries and sample sizes
+        # Validate inputs
+        pass
+
+    def compute_omega_0(self):
+        # Calculate omega_0 as per formula using covariance matrices
+        pass
+
+    def compute_point_estimate(self):
+        # Compute PSPS estimate: theta_psps
+        pass
+
+    def bootstrap_variance(self, analysis_fn, n_bootstrap=200):
+        # Generate bootstrap replicates of summary statistics
+        # For each, compute PSPS estimate
+        # Variance is the empirical variance over replicates
+        pass
+
+    def estimate_variance(self):
+        # Use bootstrap or analytical formula to estimate variance
+        pass
+
+    def construct_ci(self, alpha=0.05):
+        # Use normal quantile
+        pass
+
+    def hypothesis_test(self, theta_null=0):
+        # Compute p-value
+        pass
+
+    def report(self, alpha=0.05):
+        # Output dictionary with estimate, std error, CI, p-value
+        pass
+```
+
+---
+
+## 6. Summary
+- The `Inference` class encapsulates all aspects from estimating the debiased estimate, variance, confidence intervals, to hypothesis tests.
+- Leverage the algebraic formulas from the paper and implement variance estimation via bootstrap.
+- Ensure modularity and extensibility for varied inference tasks and summary statistic structures.
+
+---
+
+This detailed logic analysis will guide the actual implementation of 'inference.py', ensuring it aligns correctly with the paper’s methodology and theoretical guarantees, and is flexible enough to handle multiple inference tasks in a reproducible, efficient manner.

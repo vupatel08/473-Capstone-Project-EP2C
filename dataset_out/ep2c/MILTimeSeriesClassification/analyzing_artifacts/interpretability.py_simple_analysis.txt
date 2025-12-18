@@ -1,0 +1,160 @@
+# interpretability.py - Logic Analysis
+
+This module provides functionality for computing interpretability metrics such as AOPCR, perturbation analysis, and ND CG, based on model predictions and attribution scores. It leverages the trained MIL models with different pooling methods to assess how well the model's explanations align with known discriminative time points (for synthetic data) or evaluate the quality of explanations in a general setting.
+
+---
+
+## 1. Core Components and Responsibilities
+- **Interpretability class**:
+  - Initialize with:
+    - Trained model (PyTorch nn.Module).
+    - Pooling method used (to interpret pooled outputs).
+    - Metrics configuration (e.g., evaluation repeats).
+  - Compute scores for individual time series:
+    - `compute_scores(series)`: produces per-time-point scores indicating importance/discriminative strength.
+  - Compute perturbation-based metrics:
+    - Sequential removal of top importance points.
+    - Measure decay in model's output (say, class probability).
+  - Compute ND CG metrics:
+    - Use known labels for ground-truth discriminative points (if available).
+    - Evaluate the ordering of importance scores.
+- **Dependence on model outputs**:
+  - Time point importance scores are derived either directly (e.g., from attention weights or class-specific predictions) or indirectly (via attribution methods like CAM).
+  - The extracted scores should match the interpretability method:
+    - For attention-based methods: attention weights directly serve as importance scores.
+    - For class prediction-based methods: class-specific time point scores are obtained via per-time-point predictions or saliency maps.
+
+---
+
+## 2. Inputs and Outputs
+### Inputs:
+- Raw time series data: `series` (tensor `t` x `c=1` channels, or shape `(t,)`).
+- Model-specific intermediate outputs:
+  - Per-time-point class predictions.
+  - Attention weights (if applicable).
+  - Embeddings (for attribution methods like CAM).
+- Known signature locations (for synthetic data) – optional, for ND CG evaluation.
+
+### Outputs:
+- **Scores per time point**:
+  - Numeric importance scores (`float`) across sequence length `t`.
+- **Perturbation evaluation result**:
+  - Decay curve (list of probabilities or class scores).
+  - Quantitative measure: Area over perturbation curve.
+- **ND CG**:
+  - Numeric score indicating ranking quality.
+
+---
+
+## 3. Workflow & Implementation Details
+
+### Initialization
+- Initialize with:
+  - Model instance.
+  - Pooling method name: e.g., `'GAP'`, `'Attention'`, `'Instance'`, `'Additive'`, `'Conjunctive'`.
+  - Any model-specific parameters for attribution extraction.
+  - Optional: reference signatures for synthetic datasets.
+
+### compute_scores(series)
+- **Step 1**: Forward pass:
+  - Convert input series to tensor shape (`1, t, c=1`) (assuming batch dimension).
+  - Pass through backbone + pooling:
+    - For models with MIL pooling:
+      - Obtain per-time-point class predictions if applicable.
+      - Obtain attention weights if available.
+      - Obtain combined importance scores (depending on method).
+- **Step 2**: Extract importance scores:
+  - For Attention: use the attention weights directly (shape `t`).
+  - For class-specific predictions (Instance, Additive, Conjunctive): 
+    - Use the per-time-point class probabilities for the predicted class.
+  
+- **Step 3**: Return a 1D numpy array or tensor of importance scores for the sequence.
+
+### compute_perturbation(series)
+- **Input**: importance scores from `compute_scores`.
+- **Process**:
+  - Rank points by importance descending.
+  - Sequentially remove points in importance order:
+    - Create perturbed sequences (e.g., replace points with mean or zero).
+    - Forward each perturbed sequence through the model.
+    - Record predicted class probability (or logits).
+  - Generate decay curve: how the model's confidence drops as more important points are removed.
+  - Compute area over the curve (AOPCR):
+    - Normalize scores by comparing with random orderings (average over 3 runs).
+    - Score is the difference in decay curves relative to random.
+
+### compute_ndcgc(series, true_signature_indices)
+- **Input**: annotated true signature points, ground-truth important indices.
+- **Process**:
+  - Obtain importance scores.
+  - Rank points.
+  - Compute the score based on the formula (Eqn. A.9):
+    - Sum over the positions of the true relevant points in the ranked importance list.
+    - Assign higher weights if true points are earlier.
+  - Normalize by the total weight (sum of weights across top `n` points).
+- **Output**: numeric score between 0 and 1 indicating ranking alignment.
+
+---
+
+## 4. Handling Different Interpretability Methods
+- **Attention-based**:
+  - Use the attention weights directly as importance scores.
+  - Can be averaged over multiple heads if multiple heads are used.
+- **Class-specific predictions (Instance, Additive, Conjunctive)**:
+  - Use the per-time-point class probabilities or class-specific activation maps to derive importance.
+  - For Conjunctive pooling:
+    - Use the scaled per-time-point class prediction (`scaled scores`) to determine importance.
+  - For Instance:
+    - Use per-time-point class probabilities directly.
+- **CAM-based explanations**:
+  - Extract class activation maps from the model's last convolution layer.
+  - Aggregate to importance scores for each time point.
+
+### Additional considerations:
+- **Sparsity & Thresholding**:
+  - Optional: filter importance scores below a threshold for visualization.
+- **Aggregation of Multi-component scores**:
+  - For methods combining attention and predictions, combine importance measures appropriately.
+
+---
+
+## 5. Reproducibility & Configurability
+- Allow control over:
+  - Number of perturbation repeats.
+  - Type of importance scores used.
+  - Whether to use class-specific or class-agnostic importance.
+  - Which significance metric to evaluate (AOPCR, ND CG).
+- Use fixed seeds for perturbation sampling for consistency.
+- Save interpretability scores and perturbation data for further analysis.
+
+---
+
+## 6. Summary of Key Functions and Parameters
+| Function | Purpose | Inputs | Outputs | Notes |
+|------------|-----------|-----------|-----------|---------|
+| `__init__()` | Initialize interpretability class | model, method, config | None | Prepare for subsequent evaluations |
+| `compute_scores(series)` | Generate importance scores | Time series tensor | 1D array of importance scores | Uses model forward + method-specific extraction |
+| `compute_perturbation(series)` | Evaluate decay curve and AOPCR | Time series tensor | decay curve, AOPCR score | Sequentially remove points based on scores |
+| `compute_ndcgc(series, true_sig_indices)` | Evaluate rank accuracy | Time series tensor, true signature indices | float score | Based on ranking positions |
+
+---
+
+## 7. Unclear Aspects / Clarifications Needed
+- Exact method for extracting class activation maps (if CAM is used).
+- How to handle multi-head attention: aggregate by average or select specific head.
+- Input data shapes and normalization details during evaluation.
+- Whether multiple class options are evaluated or only the predicted class.
+- Specific scoring thresholds or filtering for score visualization.
+
+---
+
+# Final Notes
+- This module depends critically on the outputs of the trained MIL models, especially the per-time-point class predictions or attention weights.
+- To ensure consistency, develop a clear interface between:
+  - Model forward pass.
+  - Extraction of importance scores based on chosen interpretability method.
+  - Perturbation process for decay measurement.
+- All implementations should be vectorized where possible for efficiency.
+- Maintain reproducibility by fixing random seeds during importance score sampling or perturbation steps.
+
+This thorough breakdown will facilitate accurate, faithful implementation aligned with the paper’s methodology and experiment setup.

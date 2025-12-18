@@ -1,0 +1,28 @@
+# requirements.txt
+
+# Core deep learning framework
+torch==1.11.0                  # PyTorch for model development, training, and differentiation
+torchvision==0.12.0            # Pretrained vision models, data transformations
+scipy==1.7.3                     # Scientific computing (e.g., linear algebra, graph operations)
+numpy==1.21.0                    # Numerical operations, array handling
+scikit-learn==0.24.2             # Metrics (AUROC, F1), adjacency construction, evaluation
+pandas==1.3.5                    # Data handling, logging, result storage
+tqdm==4.62.3                     # Progress bars for training and validation loops
+
+# Model-specific functionalities
+# (No additional dependencies specified for attention, transformer, or graph modules;
+#  assume implementation via PyTorch and SciPy/scikit-learn)
+
+# Optional: visualization
+matplotlib==3.4.3                # For plotting attention maps, histograms (if used in visualization modules)
+
+# Notes:
+# - The provided versions are typical; ensure compatibility with your environment.
+# - No third-party graph neural network libraries are strictly required if implementing the 'Sm' operator via matrix operations.
+# - For adjacency construction (k-NN), scikit-learn’s NearestNeighbors is used.
+#   (scikit-learn includes the necessary tools for nearest neighbor graphs.)
+# - Ensure all packages support CUDA if GPU acceleration is desired.
+# - Additional tools such as logging, configuration parsing, or experiment management are handled via custom code, not requiring extra packages.
+# 
+# Summary:
+# This set of dependencies covers PyTorch, essential numerical libraries, evaluation metrics, and visualization tools necessary for implementing, training, evaluating, and visualizing the proposed MIL framework with the 'Sm' operator, as described in the paper and the accompanying plan.

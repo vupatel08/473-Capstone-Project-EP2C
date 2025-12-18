@@ -1,0 +1,148 @@
+```python
+## neuron.py
+import torch
+import torch.nn as nn
+import torch.nn.functional as F
+from surrogate_gradients import SurrogateFunction
+
+class LIFNeuron(nn.Module):
+    """
+    Leaky Integrate-and-Fire (LIF) neuron model with surrogate gradient support, 
+    adapted for rate-based backpropagation training in deep SNNs.
+    Implements membrane potential updates and surrogate spike generation.
+
+    Attributes:
+        V_th (float): Spike threshold (from config).
+        decay_lambda (float): Decay factor for membrane potential (from config).
+        surrogate_fn (nn.Module): Surrogate function for spike gradient approximation.
+        device (torch.device): Computation device.
+        u (torch.Tensor): Membrane potential state, shape: [batch_size, neuron_num].
+        s (torch.Tensor): Spike output, shape: [batch_size, neuron_num].
+    """
+    def __init__(self, V_th=1.0, decay_lambda=0.95, surrogate_type='sigmoid', alpha=4.0, device=None):
+        """
+        Initialize the neuron model with parameters.
+
+        Args:
+            V_th (float): Spike threshold.
+            decay_lambda (float): Decay factor.
+            surrogate_type (str): Type of surrogate ('sigmoid', etc.).
+            alpha (float): Steepness parameter for surrogate.
+            device (torch.device): Device to run computations on.
+        """
+        super(LIFNeuron, self).__init__()
+        self.V_th = V_th
+        self.decay_lambda = decay_lambda
+        self.surrogate_fn = SurrogateFunction(surrogate_type, alpha)
+        self.device = device if device is not None else torch.device('cpu')
+        self.u = None  # Membrane potential state
+        self.s = None  # Spike output
+
+    def reset(self, batch_size):
+        """
+        Reset neuron states before a new sequence or epoch.
+
+        Args:
+            batch_size (int): Batch size for resetting states.
+        """
+        self.u = torch.zeros(batch_size, 1, device=self.device)
+        self.s = torch.zeros(batch_size, 1, device=self.device)
+
+    def forward(self, u_prev, s_prev, s_pre, W, lambda_=None, V_th=None):
+        """
+        Perform membrane potential update and generate spike.
+
+        Args:
+            u_prev (torch.Tensor): Previous membrane potential, shape [batch, neurons].
+            s_prev (torch.Tensor): Previous spike (for decay correction), shape [batch, neurons].
+            s_pre (torch.Tensor): Presynaptic input spikes, shape [batch, neurons].
+            W (torch.Tensor): Synaptic weights, shape [neurons, presynaptic_neurons].
+            lambda_ (float): Decay factor; if None, use class attribute.
+            V_th (float): Threshold; if None, use class attribute.
+
+        Returns:
+            s (torch.Tensor): Spike output (binary, 0/1), shape [batch, neurons].
+            u (torch.Tensor): Updated membrane potential.
+        """
+        if lambda_ is None:
+            lambda_ = self.decay_lambda
+        if V_th is None:
+            V_th = self.V_th
+
+        # Membrane potential update
+        u = lambda_ * (u_prev - V_th * s_prev) + torch.matmul(s_pre, W.t())
+
+        # Generate spike using surrogate gradient
+        s = self.surrogate_fn.apply(u - V_th)
+
+        return s, u
+
+class SurrogateFunction(nn.Module):
+    """
+    Surrogate function with customizable types (e.g., sigmoid).
+    Implements forward as a smooth approximation to Heaviside step,
+    with a non-zero gradient for backpropagation.
+    """
+    def __init__(self, surrogate_type='sigmoid', alpha=4.0):
+        """
+        Initialize the surrogate.
+
+        Args:
+            surrogate_type (str): Type of surrogate ('sigmoid', 'gaussian', etc.).
+            alpha (float): Steepness/slant parameter.
+        """
+        super(SurrogateFunction, self).__init__()
+        self.surrogate_type = surrogate_type
+        self.alpha = alpha
+
+    def forward(self, u):
+        """
+        Forward pass: apply the surrogate function.
+
+        Args:
+            u (torch.Tensor): Membrane potential minus threshold.
+
+        Returns:
+            torch.Tensor: Surrogate spike value (continuous) for backprop.
+        """
+        if self.surrogate_type == 'sigmoid':
+            return torch.sigmoid(self.alpha * u)
+        else:
+            # Defaults to sigmoid if unknown
+            return torch.sigmoid(self.alpha * u)
+
+    def apply(self, u):
+        """
+        Apply surrogate function and ensure differentiability.
+
+        Args:
+            u (torch.Tensor): Input tensor.
+
+        Returns:
+            torch.Tensor: Surrogate output with gradient support.
+        """
+        return self.forward(u)
+
+    def surrogate_derivative(self, u):
+        """
+        Compute surrogate gradient (derivative) for custom backward.
+        Not used explicitly here, as PyTorch autograd handles it via .apply()
+
+        Args:
+            u (torch.Tensor): Input tensor.
+
+        Returns:
+            torch.Tensor: Derivative of surrogate at u.
+        """
+        if self.surrogate_type == 'sigmoid':
+            sig = torch.sigmoid(self.alpha * u)
+            return self.alpha * sig * (1 - sig)
+        else:
+            return torch.sigmoid(self.alpha * u)
+
+# Note: For simplicity, in this implementation, the backward pass
+# uses autograd through the apply() method, which handles gradients
+# automatically. If needed, custom backward functions can be implemented
+# for more control. This class supports extendability to other surrogates.
+
+```

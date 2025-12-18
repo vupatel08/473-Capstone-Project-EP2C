@@ -1,0 +1,142 @@
+**Likelihood.py Logical Analysis**
+
+---
+
+### Purpose and Responsibilities:
+The primary purpose of likelihood.py is to implement functions that enable the computation, normalization, and comparison of likelihood scores derived from sampled trajectories conditioned on prompts, according to the methodology outlined in the paper. Specifically, it should:
+
+- Compute the likelihood of a sequence (trajectory) given a prompt, as estimated by a pre-trained autoregressive model.
+- Normalize likelihood scores across multiple trajectories to produce comparable measures, incorporating the normalization parameter τ.
+- Calculate divergence (distance) metrics between model distributions \( M_u \) and \( M_v \), using their sampled likelihood scores, to measure semantic similarity or asymmetric relations (entailment, hyponym/hypernym).
+- Support approximate expectation calculations over trajectories for divergence estimation.
+
+---
+
+### Input Data:
+- Sequences: List or batch of token sequences, each sequence being a trajectory (list of tokens or string).
+- Prompts: The prompt string \( s \), which the model extends via sampling.
+- Likelihood scores: Derived from model outputs, specifically the probabilities or log probabilities of the sampled sequences.
+- Hyperparameters: τ (normalization parameter), trajectory scores, and divergence type options.
+
+---
+
+### Core Functions and Their Logic:
+
+#### 1. `compute_log_likelihood(sequence, prompt)`
+- **Input:** 
+  - sequence: list of tokens (e.g., ['The', 'dog', 'barked'])
+  - prompt: the prompt string \( s \)
+- **Process:**
+  - Tokenize the prompt \( s \).
+  - Tokenize the sequence \( sequence \).
+  - Use the model to get the logits for each position, conditioned on prompt + previous tokens.
+  - Obtain the next-token probability distributions.
+  - For each token in sequence, extract the probability of that token given previous tokens.
+  - Compute the sum of logs of these probabilities.
+- **Output:** 
+  - Log-likelihood of the sequence conditioned on prompt, i.e.,
+    \[
+    \log P(sequence | prompt) = \sum_{i=1}^{|sequence|} \log p(a_i | s, a_{<i})
+    \]
+- **Notes:**
+  - Implement efficient batching if needed.
+  - Handle numerical stability.
+
+#### 2. `calculate_likelihood(sequence, prompt)`
+- **Input:** 
+  - sequence: list of tokens
+  - prompt: string \( s \)
+- **Process:**
+  - Invoke `compute_log_likelihood`.
+  - Return likelihood as \(\exp(\text{log likelihood})\).
+
+#### 3. `normalize_likelihoods(likelihoods, tau)`
+- **Input:**
+  - likelihoods: list or array of raw likelihoods
+  - tau: normalization exponent hyperparameter (float, typically 0.5 per config)
+- **Process:**
+  - Apply normalization: 
+    \[
+    M(t)^{\text{norm}} = \frac{(M(t))^\tau}{\sum_{t'} (M(t'))^\tau}
+    \]
+  - Use the likelihood scores raised to the power τ.
+  - Compute the sum over all trajectories' scores for normalization.
+  - Return normalized scores which sum to 1.
+- **Output:**
+  - normalized likelihood scores for each trajectory.
+
+#### 4. `compute_divergence(distribution1, distribution2, dist_type)`
+- **Input:**
+  - distribution1: array of likelihood scores (after normalization) for set in M_u
+  - distribution2: array of likelihood scores for set in M_v
+  - dist_type: string specifying divergence metric (e.g., 'log_l1', 'kl', 'log_l2')
+- **Process:**
+  - Depending on `dist_type`, compute the divergence.
+  - For 'log_l1': 
+    \[
+    d = \sum | \log M_u(t) - \log M_v(t) |
+    \]
+  - For 'kl' (Kullback-Leibler): 
+    - Ensure distributions are properly normalized.
+    - Compute \(\sum p \log (p / q)\).
+  - For 'log_l2': 
+    \[
+    \sqrt{\sum (\log M_u(t) - \log M_v(t))^2}
+    \]
+- **Notes:**
+  - Handle cases where likelihoods are small or zero: add small epsilon if necessary.
+  - Use logs or direct likelihoods according to the specific divergence.
+
+#### 5. `approximate_expectation(samples, model1, model2, divergence_type)`
+- **Input:**
+  - samples: list of sampled trajectories (with likelihood scores) for both prompts
+  - models: model wrappers for each prompt
+  - divergence_type: string
+- **Process:**
+  - For each trajectory \( t_i \) in samples:
+    - Compute likelihood scores \( M_u(t_i) \), \( M_v(t_i) \).
+  - Normalize the likelihoods with the tau parameter.
+  - Use the normalized likelihoods to approximate the integral in the divergence metrics.
+  - Return the divergence score.
+- **Output:**
+  - Estimated divergence value between the two distributions.
+
+---
+
+### Implementation Specifics:
+- **Likelihood score calculations:**  
+  - Use model logits to obtain token probabilities at each step.
+  - Compute per-sequence log-likelihood via sum of per-token log probabilities for each trajectory sample.
+- **Numerical stability:**  
+  - Apply small epsilon to probabilities before logs if needed.
+  - Logarithmic computations to prevent underflow.
+- **Efficiency considerations:**  
+  - Batch processing multiple trajectories at once.
+  - Use device (GPU) tensors for speed.
+- **Parameter handling:**  
+  - Read τ from config: likelihood_normalization_tau.
+  - Support divergence types via string labels.
+
+---
+
+### Summary:
+`likelihood.py` functions should be built to:
+
+- Accept batch of sequences and prompts.
+- Use model interfaces (from model.py) to compute probabilities.
+- Calculate likelihoods (probability or log-likelihood).
+- Normalize likelihood scores across sampled trajectories using τ.
+- Compute divergence metrics suitable for distribution comparisons.
+- Support approximate integration over the estimated distribution (sampling-based).
+
+This design ensures faithful implementation of the method described in the paper, allowing measures of semantic similarity, entailment, and containment to be computed directly from likelihood distributions over trajectories.
+
+---
+
+### Final Notes:
+- Confirm the structure of the `Trajectory` object or data container; include likelihood score as attribute.
+- Carefully handle edge cases (e.g., zero probabilities).
+- Provide clear interfaces for calling functions from main code or evaluation modules.
+- Ensure functions are modular and documented for clarity and reusability.
+
+This concludes the detailed logic analysis to guide the coding of likelihood.py aligned with the paper’s methodology.

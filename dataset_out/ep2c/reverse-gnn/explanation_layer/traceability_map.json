@@ -1,0 +1,308 @@
+{
+  "code_to_paper": {
+    "dataset_loader.py:DatasetLoader": [
+      "Methodology",
+      "Data Collection and Processing",
+      "Experiment Setup"
+    ],
+    "dataset_loader.py:__init__": [
+      "\"Methodology\"",
+      "\"Data Collection and Preprocessing\"",
+      "\"Experimental Setup\""
+    ],
+    "evaluation.py:Evaluation": [
+      "The provided paper sections are not sufficient to link with the given code component. Please provide more relevant paper sections."
+    ],
+    "evaluation.py:__init__": [
+      "Without the specific section names/titles",
+      "it's hard to provide an accurate answer. However",
+      "based on the code component",
+      "the most relevant sections could be \"Model Architecture\"",
+      "\"Training Procedure\"",
+      "\"Evaluation Methodology\" or similar sections that discuss the model",
+      "its training",
+      "and evaluation."
+    ],
+    "main.py:PredictorHead": [
+      "The provided information is insufficient to determine the most relevant paper sections for the code component. Please provide more details about the code component and the paper sections."
+    ],
+    "main.py:main": [
+      "The provided information is insufficient to determine the most relevant paper sections for the code component. Please provide more details about the function in the main.py file and its purpose."
+    ],
+    "model.py:DiffusionModel": [
+      "Without the specific section names/titles",
+      "it's hard to provide an accurate answer. However",
+      "based on the code description",
+      "the most relevant sections could be something like \"Methodology\"",
+      "\"Model Implementation\"",
+      "\"Diffusion Model\"",
+      "\"Euler's Method Implementation\"",
+      "\"Inverse Process and Fixed-Point Iteration\"",
+      "\"Attention Mechanism and Diffusion Matrix Calculation\"",
+      "\"Layer Stacking and Residual/Invertibility Considerations\". Please provide the actual section names/titles for a more accurate answer."
+    ],
+    "model.py:compute_attention": [
+      "The provided information does not include any paper sections. Please provide the relevant paper sections to proceed."
+    ],
+    "trainer.py:Trainer": [
+      "The provided paper sections are not sufficient to link with the given code component. Please provide more detailed sections related to the code",
+      "such as \"Methodology\"",
+      "\"Experiment Setup\"",
+      "\"Model Architecture\"",
+      "\"Data Preparation\"",
+      "etc."
+    ],
+    "trainer.py:__init__": [
+      "The provided paper sections are not sufficient to link with the given code component. Please provide more relevant paper sections."
+    ]
+  },
+  "paper_to_code": {
+    "Methodology": [
+      {
+        "component": "dataset_loader.py:DatasetLoader",
+        "description": "DatasetLoader loads graph datasets (heterophilic and homophilic),\n    processes adjacency matrices, features, labels, and masks.",
+        "file": "dataset_loader.py"
+      }
+    ],
+    "Data Collection and Processing": [
+      {
+        "component": "dataset_loader.py:DatasetLoader",
+        "description": "DatasetLoader loads graph datasets (heterophilic and homophilic),\n    processes adjacency matrices, features, labels, and masks.",
+        "file": "dataset_loader.py"
+      }
+    ],
+    "Experiment Setup": [
+      {
+        "component": "dataset_loader.py:DatasetLoader",
+        "description": "DatasetLoader loads graph datasets (heterophilic and homophilic),\n    processes adjacency matrices, features, labels, and masks.",
+        "file": "dataset_loader.py"
+      }
+    ],
+    "\"Methodology\"": [
+      {
+        "component": "dataset_loader.py:__init__",
+        "description": "Initialize the dataset loader with the provided configuration.\n\n        Args:\n            config (dict): Dictionary containing dataset parameters.\n                Should include keys:\n                    - 'dataset_name' (str)\n                    - 'seed' (int)\n                    - 'train_ratio' (float)\n                    - 'val_ratio' (float)\n                    - 'test_ratio' (float)\n                    - 'splits' (int)\n                    - 'data_dir' (str): path to data directory or base URL",
+        "file": "dataset_loader.py"
+      }
+    ],
+    "\"Data Collection and Preprocessing\"": [
+      {
+        "component": "dataset_loader.py:__init__",
+        "description": "Initialize the dataset loader with the provided configuration.\n\n        Args:\n            config (dict): Dictionary containing dataset parameters.\n                Should include keys:\n                    - 'dataset_name' (str)\n                    - 'seed' (int)\n                    - 'train_ratio' (float)\n                    - 'val_ratio' (float)\n                    - 'test_ratio' (float)\n                    - 'splits' (int)\n                    - 'data_dir' (str): path to data directory or base URL",
+        "file": "dataset_loader.py"
+      }
+    ],
+    "\"Experimental Setup\"": [
+      {
+        "component": "dataset_loader.py:__init__",
+        "description": "Initialize the dataset loader with the provided configuration.\n\n        Args:\n            config (dict): Dictionary containing dataset parameters.\n                Should include keys:\n                    - 'dataset_name' (str)\n                    - 'seed' (int)\n                    - 'train_ratio' (float)\n                    - 'val_ratio' (float)\n                    - 'test_ratio' (float)\n                    - 'splits' (int)\n                    - 'data_dir' (str): path to data directory or base URL",
+        "file": "dataset_loader.py"
+      }
+    ],
+    "The provided paper sections are not sufficient to link with the given code component. Please provide more relevant paper sections.": [
+      {
+        "component": "evaluation.py:Evaluation",
+        "description": "Evaluation class to perform inference on test data, compute metrics,\n    and optionally visualize node representations.",
+        "file": "evaluation.py"
+      },
+      {
+        "component": "trainer.py:__init__",
+        "description": "Initialize the Trainer with model, predictor, dataset, hyperparameters, and device.\n        Args:\n            model (DiffusionModel): diffusion-based GNN with inverse process capabilities.\n            predictor (nn.Module): classification head (e.g., linear or MLP).\n            data (tuple): (adj, features, labels, train_mask, val_mask, test_mask)\n            hyperparams (dict): hyperparameters like learning rate, epochs, diffusion times, etc.\n            device (torch.device): CPU or CUDA device.",
+        "file": "trainer.py"
+      }
+    ],
+    "Without the specific section names/titles": [
+      {
+        "component": "evaluation.py:__init__",
+        "description": "Initialize with trained diffusion model, predictor, dataset split data, and device.\n        \n        Args:\n            model (DiffusionModel): diffusion-based GNN with inverse capabilities.\n            predictor (torch.nn.Module): trained classification head.\n            data (tuple): (features, labels, train_mask, val_mask, test_mask)\n            device (torch.device): computation device.",
+        "file": "evaluation.py"
+      },
+      {
+        "component": "model.py:DiffusionModel",
+        "description": "DiffusionModel implements the core forward diffusion by Euler's method, the inverse process via fixed-point iteration,\n    and the attention mechanism for calculating the diffusion matrix \\(\\mathbf{A}(\\mathbf{X})\\). It also manages the stacking\n    of multiple forward and inverse layers with residual/invertibility considerations.",
+        "file": "model.py"
+      }
+    ],
+    "it's hard to provide an accurate answer. However": [
+      {
+        "component": "evaluation.py:__init__",
+        "description": "Initialize with trained diffusion model, predictor, dataset split data, and device.\n        \n        Args:\n            model (DiffusionModel): diffusion-based GNN with inverse capabilities.\n            predictor (torch.nn.Module): trained classification head.\n            data (tuple): (features, labels, train_mask, val_mask, test_mask)\n            device (torch.device): computation device.",
+        "file": "evaluation.py"
+      },
+      {
+        "component": "model.py:DiffusionModel",
+        "description": "DiffusionModel implements the core forward diffusion by Euler's method, the inverse process via fixed-point iteration,\n    and the attention mechanism for calculating the diffusion matrix \\(\\mathbf{A}(\\mathbf{X})\\). It also manages the stacking\n    of multiple forward and inverse layers with residual/invertibility considerations.",
+        "file": "model.py"
+      }
+    ],
+    "based on the code component": [
+      {
+        "component": "evaluation.py:__init__",
+        "description": "Initialize with trained diffusion model, predictor, dataset split data, and device.\n        \n        Args:\n            model (DiffusionModel): diffusion-based GNN with inverse capabilities.\n            predictor (torch.nn.Module): trained classification head.\n            data (tuple): (features, labels, train_mask, val_mask, test_mask)\n            device (torch.device): computation device.",
+        "file": "evaluation.py"
+      }
+    ],
+    "the most relevant sections could be \"Model Architecture\"": [
+      {
+        "component": "evaluation.py:__init__",
+        "description": "Initialize with trained diffusion model, predictor, dataset split data, and device.\n        \n        Args:\n            model (DiffusionModel): diffusion-based GNN with inverse capabilities.\n            predictor (torch.nn.Module): trained classification head.\n            data (tuple): (features, labels, train_mask, val_mask, test_mask)\n            device (torch.device): computation device.",
+        "file": "evaluation.py"
+      }
+    ],
+    "\"Training Procedure\"": [
+      {
+        "component": "evaluation.py:__init__",
+        "description": "Initialize with trained diffusion model, predictor, dataset split data, and device.\n        \n        Args:\n            model (DiffusionModel): diffusion-based GNN with inverse capabilities.\n            predictor (torch.nn.Module): trained classification head.\n            data (tuple): (features, labels, train_mask, val_mask, test_mask)\n            device (torch.device): computation device.",
+        "file": "evaluation.py"
+      }
+    ],
+    "\"Evaluation Methodology\" or similar sections that discuss the model": [
+      {
+        "component": "evaluation.py:__init__",
+        "description": "Initialize with trained diffusion model, predictor, dataset split data, and device.\n        \n        Args:\n            model (DiffusionModel): diffusion-based GNN with inverse capabilities.\n            predictor (torch.nn.Module): trained classification head.\n            data (tuple): (features, labels, train_mask, val_mask, test_mask)\n            device (torch.device): computation device.",
+        "file": "evaluation.py"
+      }
+    ],
+    "its training": [
+      {
+        "component": "evaluation.py:__init__",
+        "description": "Initialize with trained diffusion model, predictor, dataset split data, and device.\n        \n        Args:\n            model (DiffusionModel): diffusion-based GNN with inverse capabilities.\n            predictor (torch.nn.Module): trained classification head.\n            data (tuple): (features, labels, train_mask, val_mask, test_mask)\n            device (torch.device): computation device.",
+        "file": "evaluation.py"
+      }
+    ],
+    "and evaluation.": [
+      {
+        "component": "evaluation.py:__init__",
+        "description": "Initialize with trained diffusion model, predictor, dataset split data, and device.\n        \n        Args:\n            model (DiffusionModel): diffusion-based GNN with inverse capabilities.\n            predictor (torch.nn.Module): trained classification head.\n            data (tuple): (features, labels, train_mask, val_mask, test_mask)\n            device (torch.device): computation device.",
+        "file": "evaluation.py"
+      }
+    ],
+    "The provided information is insufficient to determine the most relevant paper sections for the code component. Please provide more details about the code component and the paper sections.": [
+      {
+        "component": "main.py:PredictorHead",
+        "description": "",
+        "file": "main.py"
+      }
+    ],
+    "The provided information is insufficient to determine the most relevant paper sections for the code component. Please provide more details about the function in the main.py file and its purpose.": [
+      {
+        "component": "main.py:main",
+        "description": "",
+        "file": "main.py"
+      }
+    ],
+    "based on the code description": [
+      {
+        "component": "model.py:DiffusionModel",
+        "description": "DiffusionModel implements the core forward diffusion by Euler's method, the inverse process via fixed-point iteration,\n    and the attention mechanism for calculating the diffusion matrix \\(\\mathbf{A}(\\mathbf{X})\\). It also manages the stacking\n    of multiple forward and inverse layers with residual/invertibility considerations.",
+        "file": "model.py"
+      }
+    ],
+    "the most relevant sections could be something like \"Methodology\"": [
+      {
+        "component": "model.py:DiffusionModel",
+        "description": "DiffusionModel implements the core forward diffusion by Euler's method, the inverse process via fixed-point iteration,\n    and the attention mechanism for calculating the diffusion matrix \\(\\mathbf{A}(\\mathbf{X})\\). It also manages the stacking\n    of multiple forward and inverse layers with residual/invertibility considerations.",
+        "file": "model.py"
+      }
+    ],
+    "\"Model Implementation\"": [
+      {
+        "component": "model.py:DiffusionModel",
+        "description": "DiffusionModel implements the core forward diffusion by Euler's method, the inverse process via fixed-point iteration,\n    and the attention mechanism for calculating the diffusion matrix \\(\\mathbf{A}(\\mathbf{X})\\). It also manages the stacking\n    of multiple forward and inverse layers with residual/invertibility considerations.",
+        "file": "model.py"
+      }
+    ],
+    "\"Diffusion Model\"": [
+      {
+        "component": "model.py:DiffusionModel",
+        "description": "DiffusionModel implements the core forward diffusion by Euler's method, the inverse process via fixed-point iteration,\n    and the attention mechanism for calculating the diffusion matrix \\(\\mathbf{A}(\\mathbf{X})\\). It also manages the stacking\n    of multiple forward and inverse layers with residual/invertibility considerations.",
+        "file": "model.py"
+      }
+    ],
+    "\"Euler's Method Implementation\"": [
+      {
+        "component": "model.py:DiffusionModel",
+        "description": "DiffusionModel implements the core forward diffusion by Euler's method, the inverse process via fixed-point iteration,\n    and the attention mechanism for calculating the diffusion matrix \\(\\mathbf{A}(\\mathbf{X})\\). It also manages the stacking\n    of multiple forward and inverse layers with residual/invertibility considerations.",
+        "file": "model.py"
+      }
+    ],
+    "\"Inverse Process and Fixed-Point Iteration\"": [
+      {
+        "component": "model.py:DiffusionModel",
+        "description": "DiffusionModel implements the core forward diffusion by Euler's method, the inverse process via fixed-point iteration,\n    and the attention mechanism for calculating the diffusion matrix \\(\\mathbf{A}(\\mathbf{X})\\). It also manages the stacking\n    of multiple forward and inverse layers with residual/invertibility considerations.",
+        "file": "model.py"
+      }
+    ],
+    "\"Attention Mechanism and Diffusion Matrix Calculation\"": [
+      {
+        "component": "model.py:DiffusionModel",
+        "description": "DiffusionModel implements the core forward diffusion by Euler's method, the inverse process via fixed-point iteration,\n    and the attention mechanism for calculating the diffusion matrix \\(\\mathbf{A}(\\mathbf{X})\\). It also manages the stacking\n    of multiple forward and inverse layers with residual/invertibility considerations.",
+        "file": "model.py"
+      }
+    ],
+    "\"Layer Stacking and Residual/Invertibility Considerations\". Please provide the actual section names/titles for a more accurate answer.": [
+      {
+        "component": "model.py:DiffusionModel",
+        "description": "DiffusionModel implements the core forward diffusion by Euler's method, the inverse process via fixed-point iteration,\n    and the attention mechanism for calculating the diffusion matrix \\(\\mathbf{A}(\\mathbf{X})\\). It also manages the stacking\n    of multiple forward and inverse layers with residual/invertibility considerations.",
+        "file": "model.py"
+      }
+    ],
+    "The provided information does not include any paper sections. Please provide the relevant paper sections to proceed.": [
+      {
+        "component": "model.py:compute_attention",
+        "description": "Compute the attention matrix A(X) based on current features X.",
+        "file": "model.py"
+      }
+    ],
+    "The provided paper sections are not sufficient to link with the given code component. Please provide more detailed sections related to the code": [
+      {
+        "component": "trainer.py:Trainer",
+        "description": "Initialize the Trainer with model, predictor, dataset, hyperparameters, and device.\n        Args:\n            model (DiffusionModel): diffusion-based GNN with inverse process capabilities.\n            predictor (nn.Module): classification head (e.g., linear or MLP).\n            data (tuple): (adj, features, labels, train_mask, val_mask, test_mask)\n            hyperparams (dict): hyperparameters like learning rate, epochs, diffusion times, etc.\n            device (torch.device): CPU or CUDA device.",
+        "file": "trainer.py"
+      }
+    ],
+    "such as \"Methodology\"": [
+      {
+        "component": "trainer.py:Trainer",
+        "description": "Initialize the Trainer with model, predictor, dataset, hyperparameters, and device.\n        Args:\n            model (DiffusionModel): diffusion-based GNN with inverse process capabilities.\n            predictor (nn.Module): classification head (e.g., linear or MLP).\n            data (tuple): (adj, features, labels, train_mask, val_mask, test_mask)\n            hyperparams (dict): hyperparameters like learning rate, epochs, diffusion times, etc.\n            device (torch.device): CPU or CUDA device.",
+        "file": "trainer.py"
+      }
+    ],
+    "\"Experiment Setup\"": [
+      {
+        "component": "trainer.py:Trainer",
+        "description": "Initialize the Trainer with model, predictor, dataset, hyperparameters, and device.\n        Args:\n            model (DiffusionModel): diffusion-based GNN with inverse process capabilities.\n            predictor (nn.Module): classification head (e.g., linear or MLP).\n            data (tuple): (adj, features, labels, train_mask, val_mask, test_mask)\n            hyperparams (dict): hyperparameters like learning rate, epochs, diffusion times, etc.\n            device (torch.device): CPU or CUDA device.",
+        "file": "trainer.py"
+      }
+    ],
+    "\"Model Architecture\"": [
+      {
+        "component": "trainer.py:Trainer",
+        "description": "Initialize the Trainer with model, predictor, dataset, hyperparameters, and device.\n        Args:\n            model (DiffusionModel): diffusion-based GNN with inverse process capabilities.\n            predictor (nn.Module): classification head (e.g., linear or MLP).\n            data (tuple): (adj, features, labels, train_mask, val_mask, test_mask)\n            hyperparams (dict): hyperparameters like learning rate, epochs, diffusion times, etc.\n            device (torch.device): CPU or CUDA device.",
+        "file": "trainer.py"
+      }
+    ],
+    "\"Data Preparation\"": [
+      {
+        "component": "trainer.py:Trainer",
+        "description": "Initialize the Trainer with model, predictor, dataset, hyperparameters, and device.\n        Args:\n            model (DiffusionModel): diffusion-based GNN with inverse process capabilities.\n            predictor (nn.Module): classification head (e.g., linear or MLP).\n            data (tuple): (adj, features, labels, train_mask, val_mask, test_mask)\n            hyperparams (dict): hyperparameters like learning rate, epochs, diffusion times, etc.\n            device (torch.device): CPU or CUDA device.",
+        "file": "trainer.py"
+      }
+    ],
+    "etc.": [
+      {
+        "component": "trainer.py:Trainer",
+        "description": "Initialize the Trainer with model, predictor, dataset, hyperparameters, and device.\n        Args:\n            model (DiffusionModel): diffusion-based GNN with inverse process capabilities.\n            predictor (nn.Module): classification head (e.g., linear or MLP).\n            data (tuple): (adj, features, labels, train_mask, val_mask, test_mask)\n            hyperparams (dict): hyperparameters like learning rate, epochs, diffusion times, etc.\n            device (torch.device): CPU or CUDA device.",
+        "file": "trainer.py"
+      }
+    ]
+  },
+  "paper_sections": [
+    {
+      "section": "Abstract",
+      "text": "MoonJeong Park 1 Jaeseung Heo 1 Dongwoo Kim 1 2",
+      "ontology": "abstract"
+    }
+  ],
+  "coverage_score": 32.0
+}

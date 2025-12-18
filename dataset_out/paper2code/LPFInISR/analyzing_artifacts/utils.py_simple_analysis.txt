@@ -1,0 +1,177 @@
+# Logic Analysis for utils.py
+
+The utils.py module serves as a collection of helper functions essential for spectral analysis, convolution operations, and other low-level utilities necessary for the experimental workflow. Based on the provided plan, design, and configuration, the following are detailed functions, their purposes, implementation considerations, and integration points:
+
+## 1. Spectral Normalization and Spectrum Analysis Utilities
+
+### 1.1. normalize_spectrum(spectrum)
+- **Purpose:** Normalize the spectral data by subtracting the mean and dividing by standard deviation, as described in the FSDS computation.
+- **Input:** NumPy array representing the spectral power distribution.
+- **Output:** Normalized spectrum (zero mean, unit std).
+- **Implementation details:** Use `np.mean()` and `np.std()` followed by normalization (spectral data is real-valued, can be processed directly).
+
+### 1.2. compute_fft(image, fft_size, window_func)
+- **Purpose:** Compute the 2D FFT of an image, with optional spectral windowing.
+- **Inputs:**
+  - `image`: NumPy array (2D or 3D, channels may need handling).
+  - `fft_size`: Integer, size of FFT (from config).
+  - `window_func`: String indicating the window type ('hann', 'hamming', etc.).
+- **Implementation:**
+  - Apply windowing function to image or spectral data.
+  - Zero-pad or crop to `fft_size`.
+  - Use `np.fft.fft2()` or `scipy.fftpack.fft2()`.
+  - Shift zero frequency to center with `np.fft.fftshift()`.
+- **Notes:** Ensure spectral analysis aligns with the model's spectral resolution; handle images with multiple channels appropriately.
+
+### 1.3. get_spectrum_power_distribution(image, fft_size, window_func)
+- **Purpose:** Obtain the spectral power map, which involves: 
+  - Computing FFT,
+  - Taking magnitude squared,
+  - Normalizing if necessary.
+- **Implementation:**
+  - Call `compute_fft()`.
+  - Calculate power spectrum as `np.abs(fft_result) ** 2`.
+  - Possibly normalize or log-scale for visualization or FSDS calculations.
+
+### 1.4. plot_spectrum(spectrum, title)
+- **Purpose:** Plot 2D spectral power or phase spectra for validation and visualization.
+- **Implementation:**
+  - Use Matplotlib `imshow()`, with colormap appropriate ('jet', 'viridis', etc.).
+  - Use `np.log1p()` if visualizing magnitude for better contrast.
+  - Add colorbar, labels, and title.
+
+### 1.5. compare_spectra(spectrum1, spectrum2)
+- **Purpose:** Quantitatively compare two spectra, e.g., HR vs SR.
+- **Implementation:**
+  - Calculate correlation coefficients (`np.corrcoef()`).
+  - Calculate mean squared error, or spectral similarity metrics like FSDS.
+  - Return a similarity score or correlation coefficient.
+
+---
+
+## 2. Fourier Spectrum and FSDS Computation
+
+### 2.1. extract_spectrum(image)
+- **Purpose:** Generate the spectrum (magnitude and phase) of the input image.
+- **Implementation:**
+  - Call `compute_fft()` with spectral windowing.
+  - Return FFT result for magnitude and phase.
+
+### 2.2. compute_spectrum_difference(hr_spectrum, sr_spectrum)
+- **Purpose:** Compute the difference map `D_diff` as in FSDS calculation.
+- **Implementation:**
+  - Calculate `|D(HR) - D(SR)|` (element-wise difference of power spectrum maps).
+
+### 2.3. calculate_fsds(hr_image, sr_image, fft_size, window_func)
+- **Purpose:** Compute FSDS metric following the defined formulas:
+    - Compute normalized Fourier spectra of HR and SR images.
+    - Derive power maps `D_HR` and `D_SR`.
+    - Compute `D_diff = |D_HR - D_SR|`.
+    - Sum over all elements, take log.
+- **Implementation considerations:**
+  - Normalize spectra using `normalize_spectrum()`.
+  - Use `np.sum()` for accumulation.
+  - Always handle potential numerical stability issues.
+
+### 2.4. spectral_similarity_metric(spectrum1, spectrum2)
+- **Purpose:** Provide a complementary similarity measure, e.g., correlation.
+- **Implementation:** Use `np.corrcoef()` or other statistical measures.
+
+---
+
+## 3. Spectral Filtering Utilities
+
+### 3.1. generate_lowpass_filter(cutoff_freq, fft_size, window_func)
+- **Purpose:** Generate a 2D ideal low-pass filter (or approximation) in the spectral domain.
+- **Implementation:**
+  - Create a grid of frequencies corresponding to FFT bins.
+  - Set values to 1 inside cutoff radius, 0 outside.
+  - Apply window function (e.g., Hann, Blackman) to taper edges, simulating windowed sinc.
+  - Return the filter as a 2D array, to be used with element-wise multiplication in spectral domain.
+
+### 3.2. apply_lowpass_filter(image, cutoff_freq, fft_size, window_func)
+- **Purpose:** Filter an image with the generated low-pass filter in frequency domain.
+- **Implementation:**
+  - Compute FFT of image.
+  - Multiply FFT by the low-pass filter.
+  - Inverse FFT to get filtered image.
+  - Return real component of inverse FFT result.
+
+### 3.3. simulate_filter_response(impulse_image, filter_array)
+- **Purpose:** Simulate linear filter response by convolving the impulse response with input images.
+- **Implementation:**
+  - Convert impulse image to FFT, multiply with filter spectrum, inverse FFT.
+
+---
+
+## 4. Convolution Operations for Response Decomposition
+
+### 4.1. convolve_linear_response(impulse_response, input_image)
+- **Purpose:** Convolve the linear impulse response with arbitrary inputs.
+- **Implementation:**
+  - Use `scipy.signal.convolve2d()` with 'same' mode for 2D convolution.
+  - For batch processing, vectorize as needed.
+  - Inputs:
+    - `impulse_response`: 2D array of H(δ).
+    - `input_image`: 2D array.
+  - Output: linear response array.
+
+### 4.2. estimate_linear_response(model, impulse_img)
+- **Purpose:** Obtain H(δ) by feeding the impulse into the model and extracting the response.
+- **Implementation:**
+  - Feed impulse image to model.
+  - Extract the output, which approximates the linear response H(δ).
+  - Ensure to handle model’s output shape and normalization.
+
+## 5. Miscellaneous and Helper Functions
+
+### 5.1. generate_impulse_image(size, position)
+- **Purpose:** Create synthetic impulse images for impulse response tests.
+- **Implementation:**
+  - Zero matrix of specified size.
+  - Set a single pixel at specified position to maximum intensity (e.g., 1 or 255).
+  - For color images, replicate across channels if necessary.
+
+### 5.2. compute_phase_spectrum(spectrum)
+- **Purpose:** Extract the phase component of the Fourier spectrum.
+- **Implementation:**
+  - Use `np.angle()`.
+
+### 5.3. compute_amplitude_spectrum(spectrum)
+- **Purpose:** Extract the magnitude of the Fourier spectrum.
+- **Implementation:**
+  - Use `np.abs()`.
+
+### 5.4. save_spectrum_images(spectrum, filename)
+- **Purpose:** Save spectra visualizations for debugging or presentation.
+- **Implementation:**
+  - Use `matplotlib.pyplot` with normalization.
+  - Add colorbar.
+
+### 5.5. set_random_seed(seed)
+- **Purpose:** Ensure reproducibility.
+- **Implementation:**
+  - Set seed for `numpy.random`, `torch.manual_seed()`, and other relevant modules.
+
+---
+
+## Summary of Usage Flow in utils.py
+- These functions will be called during experimental procedures such as:
+  - Generating impulse images and their spectra.
+  - Extracting linear impulse responses via feedforward and spectral analysis.
+  - Decomposing network responses into linear and non-linear parts.
+  - Computing and visualizing spectra for validation.
+  - Calculating the FSDS metric for image quality assessment.
+  - Simulating low-pass filters to replicate the sinc phenomenon.
+- Consistency and modularity are paramount; all functions should be stand-alone, accept explicit arguments, and not depend on external states.
+
+## Unclear Points & Recommendations
+- Parameterization: Confirm FFT size and spectral window shapes match those used in the experiments.
+- Spectra handling: Ensure spectral normalization aligns with the methods used in the paper, particularly before FSDS.
+- Impulse image generation: Decide on normalization (0-1 or 0-255) to match model input.
+- Implementation details of the phase/time response: Use consistent conventions for FFT shifts and inverse transforms.
+- Numerical stability when taking logs or normalizing spectra, especially on low-power components.
+
+---
+
+This thorough analysis should guide the systematic implementation of utility functions, ensuring the spectral and response analyses match the experimental procedures outlined in the paper, facilitating faithful reproduction of results.

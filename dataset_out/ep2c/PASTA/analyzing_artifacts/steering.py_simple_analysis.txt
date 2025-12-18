@@ -1,0 +1,86 @@
+{
+  "class": "AttentionReweighter",
+  "purpose": "This class is responsible for applying post-hoc attention score reweighting during inference, per specified attention heads, based on user-highlighted tokens in the input. It implements the method described in Section 3.1 of the paper, which scales attention scores at targeted heads to emphasize highlighted tokens and suppress others, thus steering the model's attention dynamically without any model parameter updates.",
+  "inputs": [
+    {
+      "name": "head_indices",
+      "type": "List[Tuple[int, int]]",
+      "description": "A list of tuples indicating the selected attention heads for steering, where each tuple is (layer_idx, head_idx). These should be determined from the profiling process, which ranks attention heads based on their utility for the target task(s)."
+    },
+    {
+      "name": "alpha",
+      "type": "float",
+      "description": "A fixed scalar coefficient (default 0.01), which scales the non-highlighted tokens' attention scores to downweight them. This ensures emphasized tokens gain relatively higher importance after normalization."
+    }
+  ],
+  "methods": [
+    {
+      "name": "__init__",
+      "parameters": [
+        "head_indices",
+        "alpha (default 0.01)"
+      ],
+      "logic": "Initializes the AttentionReweighter instance, storing the specified head indices and the scaling coefficient for use during inference."
+    },
+    {
+      "name": "apply_masking",
+      "parameters": [
+        "attention_scores",
+        "highlighted_token_indices"
+      ],
+      "logic": "Given the attention scores for a particular head (a tensor of shape [batch_size, seq_length, seq_length]) and a list of token indices designated as highlighted by the user in the input, this method scales the attention logits appropriately:"
+    },
+      "process": [
+        "For each attention score matrix in the input list:",
+        "Iterate over each sample in the batch:",
+        "For each token position i in the sequence:",
+        "Identify tokens in the input sequence that are highlighted (indices in 'highlighted_token_indices').",
+        "Create a mask to distinguish highlighted vs. non-highlighted tokens.",
+        "Apply the scaling: multiply scores targeting non-highlighted tokens (columns j not in highlighted set) by alpha.",
+        "For highlighted tokens j, leave scores unchanged (multiplier 1).",
+        "Compute the normalization constant C_i for each token i, summing over j:",
+        "    C_i = sum_j (A_{ij} * scaling_factor_j) where scaling_factor_j = 1 if j in highlighted, else alpha.",
+        "Normalize the scores row-wise (per token i):"
+        "   [A_tilde]_{ij} = (A_{ij} * scaling_factor_j) / C_i",
+        "Return the set of reweighted attention score matrices for the targeted layers and heads."
+      ],
+    {
+      "name": "integrate_with_transformers",
+      "parameters": [
+        "model",
+        "layer_idx",
+        "head_idx",
+        "attention_scores",
+        "highlighted_token_indices"
+      ],
+      "logic": "This helper function hooks into the model's attention mechanism at the specified layer and head, retrieves the attention scores during inference:"
+    },
+      "process": [
+        "Register a forward hook in the transformer attention module at the specified layer.",
+        "In the hook function, before softmax, call 'apply_masking' with the current attention scores and highlighted token indices.",
+        "Replace the attention scores (logits) in-place with the reweighted scores.",
+        "After modifying the scores, proceed with the rest of the forward pass to generate outputs."
+      ],
+    {
+      "name": "reset_hooks",
+      "parameters": [
+        "model"
+      ],
+      "logic": "To cleanly manage hooks, implement a method to deregister hooks after inference, preventing interference with subsequent calls."
+    }
+  ],
+  "additional_notes": [
+    "The class depends on attention_module.py to provide a means to hook into the model's attention computations, e.g., via forward hooks or custom attention modules.",
+    "During inference, the process involves: for each tokenized input, determine the highlighted token indices (from user input), then for each targeted head, activate the hook to perform masking and reweighting of attention scores.",
+    "The 'apply_masking' method should be designed to work efficiently over batches and sequence lengths, perhaps vectorized with PyTorch operations.",
+    "Hyperparameters like the 'alpha' are fixed from configs (e.g., 0.01), but could be made adjustable for hyperparameter tuning.",
+    "This class does not modify model weights; it operates solely on attention scores during the inference forward pass."
+  ],
+  "uncertainties": [
+    "Exact format of attention scores received from the transformer model: ensure compatibility with the implementation (tensor shape, device).",
+    "Mechanism for attaching hooks: depends on the specific transformer implementation; must confirm support for in-place modification of attention logits during the forward pass.",
+    "Order of attention scores access: whether from a standard self-attention implementation or a custom attention module.",
+    "Potential need to handle multi-batch inference efficiently, ensuring batch dimensions are preserved.",
+    "Details on handling variable sequence lengths and padding: ensure the reweighting is applied only to valid tokens."
+  ]
+}

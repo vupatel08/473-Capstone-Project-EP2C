@@ -1,0 +1,84 @@
+----------------------------------------
+[Required packages]
+- torch==1.13.1
+- torchvision==0.14.1
+- numpy==1.23.5
+- tqdm==4.64.1
+- Pillow==9.3.0
+- scipy==1.10.1
+- h5py==3.7.0
+- faiss-cpu==1.7.2
+- transformers==4.26.1
+
+----------------------------------------
+[Required Other language third-party packages]
+- No third-party dependencies required
+
+----------------------------------------
+[Logic Analysis]
+- ['main.py', 'Orchestrates the entire process: parses config, initializes DatasetLoader, Model, Trainer, optionally runs training or inference, and evaluation. Depends on the configurational setup to coordinate data loading, model instantiation, and execution flow.']
+- ['dataset_loader.py', 'Defines DatasetLoader class. Responsible for loading ImageNet, applying preprocessing, running the tokenizer, and providing batch samples. Depends on tokenizer_utils.py for encoding/decoding images.']
+- ['tokenizer_utils.py', 'Provides utilities for loading pre-trained tokenizers (VQ-16, KL-16). Implements encode(image) and decode(tokens). Used by DatasetLoader during data preprocessing and for translating tokens back to images during evaluation.']
+- ['model.py', 'Defines TransformerModel class with causal and masked modes, plus DiffusionHead for denoising diffusion. Builds the sequence modeling architecture and the small MLP for diffusion. Depends on configuration for hyperparameters.']
+- ['trainer.py', 'Implements training logic: computes diffusion loss, manages diffusion schedule, optimizes Transformer and denoising MLP parameters, handles EMA, supports class-conditional training if needed. Depends on datasets, models, and diffusion schedule.']
+- ['sampling.py', 'Handles inference: performs autoregressive or masked prediction, runs reverse diffusion conditioned on autoregressive outputs. Uses the trained models to generate sequences, then decodes images via tokenizer_utils.py.']
+- ['evaluation.py', 'Calculates evaluation metrics such as FID, Inception Score, and Precision/Recall on generated images. Depends on generated images and a pretrained Inception network.']
+
+----------------------------------------
+[Task list]
+- tokenizer_utils.py
+- dataset_loader.py
+- model.py
+- trainer.py
+- sampling.py
+- evaluation.py
+- main.py
+
+----------------------------------------
+[Full API spec]
+openapi: 3.0.0
+info:
+  title: Image Generation API
+  version: '1.0'
+paths:
+  /generate:
+    post:
+      summary: Generate images using trained autoregressive diffusion model
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                prompt:
+                  type: string
+                temperature:
+                  type: number
+                  default: 1.0
+                steps:
+                  type: integer
+                  default: 100
+      responses:
+        '200':
+          description: List of generated images encoded in base64
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  images:
+                    type: array
+                    items:
+                      type: string
+                      description: Base64-encoded image data
+
+
+----------------------------------------
+[Shared Knowledge]
+Utilize pre-trained tokenizers (VQ-16, KL-16) from the LDM codebase; diffusion process parameters follow standard DDPM cosine schedule. Transformer configuration similar to ViT with causal/bidirectional attention options. Diffusion loss involves added Gaussian noise and small MLP denoiser. In inference, reverse diffusion process conditioned on autoregressive predictions.
+
+----------------------------------------
+[Anything UNCLEAR]
+Clarify whether to implement both causal and masked modes in the Transformer, and how to handle class conditioning and guidance scaling. Confirm the exact diffusion step count during training and inference, and dataset specifics for hyperparameter tuning.
+

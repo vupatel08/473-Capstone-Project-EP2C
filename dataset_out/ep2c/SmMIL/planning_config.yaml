@@ -1,0 +1,44 @@
+training:
+  learning_rate: 0.0001       # Based on typical deep learning practice in paper; paper states "train 50 epochs" but does not specify LR, so default to 1e-4
+  batch_size: 8               # Depends on GPU/memory; value selected as a reasonable default
+  epochs: 50                  # As per paper training schedule
+  early_stopping_patience: 10 # To prevent overfitting; not explicitly in paper but recommended
+  weight_decay: 0.0001        # Common regularization
+  optimizer: Adam             # Recommended optimizer
+  alpha_init: 0.5             # Initial alpha for Sm (trainable parameter)
+  num_smoothing_steps: 10     # Number of T steps in Sm approximation
+  use_spectral_norm: true     # To stabilize training with Laplacian matrices
+  device: cuda                # or 'cpu' depending on hardware
+  seed: 42                    # For reproducibility
+
+dataset:
+  name: RSNA                  # Change as needed (PANDA, CAMELYON16)
+  data_paths:
+    features: path/to/features   # To be set by user
+    labels: path/to/labels       # To be set by user
+  image_size: 512              # Patch/image size in pixels
+  magnification: 20            # For WSIs
+  split_seed: 42               # For cross-validation splits
+
+model:
+  feature_extractor: resnet18  # Options: resnet18, resnet50, vit-b-32
+  freeze_feature_extractor: true # Freeze during training; set false for finetuning
+  use_transformer: true        # Optional transformer encoder after features
+  transformer_layers: 2        # Number of transformer layers
+  transformer_heads: 4         # Number of attention heads in transformer
+  attention_points: early      # Options: early, mid, late, both
+  sm_enabled: true             # Enable the 'Sm' operator
+  sm_points: early             # Points where 'Sm' is applied: early, mid, late, or both
+  sm_num_steps: 10             # Number of steps in 'Sm' iterative approximation
+  sm_trainable_alpha: true     # Alpha is trainable, initialized at 0.5
+
+evaluation:
+  metrics: [AUROC, F1]          # Metrics for evaluation
+  visualization: true          # Enable attention map overlays
+  attention_map_color: jet     # Colormap for attention heatmaps
+
+misc:
+  cross_validation_folds: 5   # Number of CV splits
+  num_runs: 5                 # For averaging results
+  logging_dir: logs/           # Directory for logs
+  output_dir: outputs/       # Directory for checkpoints and final results

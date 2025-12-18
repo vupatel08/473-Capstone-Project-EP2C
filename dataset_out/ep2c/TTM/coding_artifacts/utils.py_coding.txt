@@ -1,0 +1,153 @@
+```python
+## utils.py
+import torch
+import yaml
+import os
+
+def load_config(path: str = 'config.yaml') -> dict:
+    """
+    Load configuration parameters from a YAML file.
+
+    Args:
+        path (str): Path to the YAML configuration file.
+    
+    Returns:
+        dict: Dictionary containing all configuration values.
+    """
+    with open(path, 'r') as f:
+        config = yaml.safe_load(f)
+    return config
+
+
+def compute_power_probs(teacher_logits: torch.Tensor, gamma: float) -> torch.Tensor:
+    """
+    Compute the power-transformed teacher probability distribution.
+    Corresponds to the equivalence of temperature as a power transform.
+
+    Args:
+        teacher_logits (torch.Tensor): Tensor of shape [batch_size, num_classes].
+        gamma (float): Power exponent (derived from temperature T as gamma=1/T).
+
+    Returns:
+        torch.Tensor: Power-transformed probabilities, shape [batch_size, num_classes].
+    """
+    # Convert logits to probabilities
+    p = torch.softmax(teacher_logits, dim=1)  # [batch_size, num_classes]
+    # Power transform
+    p_pow = torch.pow(p, gamma)
+    # Normalize across classes
+    denom = torch.sum(p_pow, dim=1, keepdim=True) + 1e-12
+    p_transformed = p_pow / denom
+    return p_transformed
+
+
+def compute_U(teacher_probs: torch.Tensor, alpha: float) -> torch.Tensor:
+    """
+    Compute the power sum U_α(p) = sum_j p_j^α for each sample.
+
+    Args:
+        teacher_probs (torch.Tensor): Probabilities tensor [batch_size, num_classes].
+        alpha (float): Power value, e.g., 1/T where T>1.
+
+    Returns:
+        torch.Tensor: Tensor of shape [batch_size], sum over classes for each sample.
+    """
+    # Add epsilon for numerical stability
+    eps = 1e-12
+    teacher_probs = teacher_probs + eps
+    U = torch.sum(torch.pow(teacher_probs, alpha), dim=1)  # [batch_size]
+    return U
+
+
+def compute_shannon_entropy(probs: torch.Tensor) -> torch.Tensor:
+    """
+    Compute Shannon entropy H(p) = - sum_j p_j * log p_j for each sample.
+
+    Args:
+        probs (torch.Tensor): Probability distribution, shape [batch_size, num_classes].
+
+    Returns:
+        torch.Tensor: Entropy per sample, shape [batch_size].
+    """
+    eps = 1e-12
+    probs = torch.clamp(probs, min=eps)  # prevent log(0)
+    entropy = -torch.sum(probs * torch.log(probs), dim=1)
+    return entropy
+
+
+def compute_renyi_entropy(probs: torch.Tensor, alpha: float) -> torch.Tensor:
+    """
+    Compute Renyi entropy of order alpha for each sample.
+
+    Args:
+        probs (torch.Tensor): Probability distribution, shape [batch_size, num_classes].
+        alpha (float): Order of Renyi entropy, 0 < alpha < 1 (for the models used in paper).
+
+    Returns:
+        torch.Tensor: Scalar entropy per sample, shape [batch_size].
+    """
+    eps = 1e-12
+    probs = torch.clamp(probs, min=eps)
+    sum_pow = torch.sum(torch.pow(probs, alpha), dim=1)
+    log_sum = torch.log(sum_pow)
+    # Handle case alpha -> 1 to approximate Shannon entropy if needed
+    if abs(alpha - 1.0) < 1e-6:
+        # Approximate with Shannon entropy
+        return compute_shannon_entropy(probs)
+    else:
+        return log_sum / (1 - alpha)
+
+
+def compute_sample_weight(teacher_probs: torch.Tensor, T: float) -> torch.Tensor:
+    """
+    Compute the sample weight using U_{1/T}(p).
+
+    Args:
+        teacher_probs (torch.Tensor): Probabilities from teacher, shape [batch_size, num_classes].
+        T (float): Temperature/output scaling parameter (>1), so alpha=1/T.
+
+    Returns:
+        torch.Tensor: Sample weights per sample, shape [batch_size].
+    """
+    alpha = 1.0 / T
+    U = compute_U(teacher_probs, alpha)
+    # U is scalar per batch element
+    return U
+
+
+def save_checkpoint(model: torch.nn.Module, optimizer: torch.optim.Optimizer, epoch: int, path: str) -> None:
+    """
+    Save model and optimizer state dictionaries as a checkpoint.
+
+    Args:
+        model (torch.nn.Module): Model to be saved.
+        optimizer (torch.optim.Optimizer): Optimizer state to save.
+        epoch (int): Current epoch number.
+        path (str): Destination path for the checkpoint file.
+    """
+    checkpoint = {
+        'epoch': epoch,
+        'model_state_dict': model.state_dict(),
+        'optimizer_state_dict': optimizer.state_dict()
+    }
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    torch.save(checkpoint, path)
+
+
+def load_checkpoint(model: torch.nn.Module, optimizer: torch.optim.Optimizer, path: str) -> int:
+    """
+    Load checkpoint from disk into model and optimizer.
+
+    Args:
+        model (torch.nn.Module): Model to load weights into.
+        optimizer (torch.optim.Optimizer): Optimizer to load state into.
+        path (str): Path to the checkpoint file.
+
+    Returns:
+        int: Last epoch number saved in the checkpoint.
+    """
+    checkpoint = torch.load(path, map_location='cpu')
+    model.load_state_dict(checkpoint['model_state_dict'])
+    optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
+    return checkpoint.get('epoch', 0)
+```

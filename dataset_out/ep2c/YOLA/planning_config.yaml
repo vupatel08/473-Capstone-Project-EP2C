@@ -1,0 +1,48 @@
+training:
+  learning_rate: 0.001  # initial learning rate, recommended starting point
+  batch_size: 16        # batch size, adjust according to hardware capacity
+  epochs: 24            # total number of training epochs
+  weight_decay: 0.0005  # weight decay for optimizer regularization
+  lr_scheduler: step    # learning rate scheduler type
+  step_size: 10        # number of epochs before learning rate decay
+  gamma: 0.1           # decay factor for LR scheduler
+  detection_input_size: 608  # input image resolution for detection network
+
+model:
+  backbone: darknet53     # or 'tood' if using TOOD framework
+  backbone_pretrain: True # whether to pretrain backbone on COCO or ImageNet
+  kernel_size_options: [3, 5]  # explore kernel sizes 3 and 5
+  num_kernels: 4         # number of learnable kernels in IIM
+  kernel_constraints:
+    zero_mean_constraint: true  # enforce zero-mean kernels post-optimization
+  fusion_method: concat   # how to fuse IIM features with backbone features
+
+dataset:
+  dataset_name: ExDark   # primary dataset for low-light detection
+  input_size: 608        # resize images to this size
+  train_split_ratio: 0.8 # 80% training, 20% validation
+  val_split_ratio: 0.2
+  synthetic_illumination: true  # generate image pairs with gamma transforms for II loss
+  augmentation:
+    flip: true
+    scale: [0.8, 1.2]
+    crop: true
+    brightness_adjustment: [0.5, 1.5]
+
+loss:
+  detection_loss_weight: 1.0  # weight for detection loss
+  ii_loss_weight: 0.01      # weight for illumination invariance (II Loss)
+  ii_loss_scale: 1.0        # scale factor applied to II Loss during joint optimization
+
+evaluation:
+  metrics: [mAP@0.5, mAP@0.75]
+  evaluation_epochs: 1  # evaluate after every epoch
+  save_model_every: 5  # save model checkpoints every 5 epochs
+  evaluate_on_test: true
+  visualization:
+    feature_maps: true
+    detection_boxes: true
+
+hardware:
+  gpus: 1  # number of GPUs to use; adjust based on hardware
+  mixed_precision: false  # use mixed precision training if supported

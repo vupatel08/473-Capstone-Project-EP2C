@@ -1,0 +1,48 @@
+training:
+  learning_rate: 0.0001       # Based on typical transformer fine-tuning, not explicitly specified in paper
+  batch_size: 16             # Adaptive depending on GPU memory; recommended as starting point
+  warmup_steps: 10000        # Linear warm-up for learning rate scheduling
+  max_steps: 200000          # Approximate total steps from pretraining schedule
+  gradient_clip_value: 1.0   # Prevent exploding gradients
+  optimizer: AdamW           # Common choice for transformers
+  weight_decay: 0.01         # Typical weight decay
+  dropout_rate: 0.1          # Follow transformer defaults
+  
+model:
+  plm_name: "facebook/esm2_t6_8a_14B"   # Example; replace with actual pre-trained PLM
+  text_encoder_name: "allenai/scibert_scivocab_uncased" # Example; can be BioMedGPT if available
+  delta_hidden_dim: 768    # To match PLM hidden size; adjust as needed
+  num_attention_heads: 12  # Default for base-sized transformer
+  num_layers: 12           # Standard transformer depth
+  
+dataset:
+  pretraining_dataset_path: "path/to/pretraining/data"    # To be prepared as per code
+  finetuning_dataset_path: "path/to/finetuning/data"      # Annotated mutation data
+  test_dataset_path: "path/to/test/data"                   # MutaDescribe dataset
+  enrichment_data_path: "path/to/literature/abstracts"   # Literature abstracts for data enrichment
+  
+prompt_templates:
+  pretraining_prompt_template: "standard_pretrain_prompt_template.md"
+  finetuning_prompt_template: "cot_prompt_template.md"
+  mutation_proposal_prompt_template: "mutation_proposal_template.md"
+
+optimization:
+  learning_rate_schedule: linear_warmup  # Schedule for training
+  optimizer_params:
+    eps: 1e-8
+  scheduler_params:
+    warmup_steps: 10000
+    total_steps: 200000
+
+evaluation:
+  explanation_metrics: [ROUGE-L, BLEU-2, METEOR]
+  mutation_proposal_metrics: [Recall@50, Top-k accuracy, Spearman correlation]
+  evaluation_epochs: 10
+
+hardware:
+  gpus: 4                    # For large-scale training, as suggested (~200K steps)
+  total_training_days: "1-2 weeks" # Approximate; depends on hardware
+
+notes:
+  # Hyperparameters are adapted from paper references, as explicit values are not provided.
+  # Dataset paths should be customized as per user environment.

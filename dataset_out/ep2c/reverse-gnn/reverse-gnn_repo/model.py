@@ -1,0 +1,212 @@
+## model.py
+import torch
+import torch.nn as nn
+import torch.nn.functional as F
+import math
+
+class DiffusionModel(nn.Module):
+    """
+    DiffusionModel implements the core forward diffusion by Euler's method, the inverse process via fixed-point iteration,
+    and the attention mechanism for calculating the diffusion matrix \(\mathbf{A}(\mathbf{X})\). It also manages the stacking
+    of multiple forward and inverse layers with residual/invertibility considerations.
+    """
+
+    def __init__(
+        self,
+        adj: torch.sparse.FloatTensor,
+        in_features: int = 64,
+        hidden_dim: int = 64,
+        num_forward_layers: int = 4,
+        diffusion_time_TF: float = 1.0,
+        num_reverse_layers: int = 4,
+        diffusion_time_TR: float = -1.0,
+        fixed_point_iter: int = 16,
+        attention_heads: int = 1,
+        max_diffusion_steps: int = 100,
+        step_size: float = 0.1,
+        normalize_weights: bool = True,
+        weight_scale: float = 0.9,
+        device: torch.device = torch.device('cpu')
+    ):
+        super(DiffusionModel, self).__init__()
+        self.adj = adj  # sparse tensor, shape: [N, N]
+        self.in_features = in_features
+        self.hidden_dim = hidden_dim
+        self.num_forward_layers = num_forward_layers
+        self.num_reverse_layers = num_reverse_layers
+        self.T_F = diffusion_time_TF
+        self.T_R = diffusion_time_TR
+        self.M = fixed_point_iter
+        self.max_diffusion_steps = max_diffusion_steps
+        self.dt = step_size
+        self.heads = attention_heads
+        self.normalize_weights = normalize_weights
+        self.weight_scale = weight_scale
+        self.device = device
+
+        # Initialize attention parameters
+        # For simplicity, using single-head attention here; extend for multi-head
+        self.W_K = nn.Parameter(torch.randn(self.in_features, self.in_features))
+        self.W_Q = nn.Parameter(torch.randn(self.in_features, self.in_features))
+        self.a = nn.Parameter(torch.randn(self.heads, self.in_features * 2))
+        # Initialize residual layer weights
+        self.W = nn.Parameter(torch.randn(self.in_features, self.in_features))
+        # After parameter init, normalize weights for invertibility if needed
+        if self.normalize_weights:
+            self.normalize_weights_fn()
+
+        # Activation
+        self.activation = nn.ReLU()
+
+    def compute_attention(self, X: torch.FloatTensor):
+        """
+        Compute the attention matrix A(X) based on current features X.
+        """
+        # Compute queries and keys
+        Q = X @ self.W_Q  # shape: [N, d]
+        K = X @ self.W_K  # shape: [N, d]
+
+        # For multi-head attention, extend here if needed
+        # Compute scaled dot-product
+        d_prime = self.in_features
+        scores = (K @ Q.t()) / math.sqrt(d_prime)  # shape: [N, N]
+
+        # For edges, mask scores: set non-edges to -inf to prevent attention
+        # but since A is sparse, masking is implicit
+        # Convert scores to dense for softmax or use sparse softmax
+        # For efficiency with large graphs, handle only edges
+        # We'll proceed with dense here for simplicity
+        mask = torch.sparse.full_like(self.adj, fill_value=0)
+        # NOTE: For large graphs, implement sparse-softmax. For now, approximate dense.
+        # The adjacency provides edge mask: non-edges set to -inf
+        dense_mask = torch.zeros_like(scores)
+        dense_mask[self.adj.indices()[0], self.adj.indices()[1]] = scores[self.adj.indices()[0], self.adj.indices()[1]]
+        # Assign large negative value to non-edges to zero-out after softmax
+        scores_masked = torch.full_like(scores, fill_value=-1e9)
+        scores_masked[self.adj.indices()[0], self.adj.indices()[1]] = dense_mask[self.adj.indices()[0], self.adj.indices()[1]]
+
+        # Compute attention weights
+        alpha = F.softmax(scores_masked, dim=1)  # shape: [N, N]
+        # Convert to sparse tensor
+        indices = self.adj.indices()
+        values = alpha[indices[0], indices[1]]
+        A = torch.sparse.FloatTensor(indices, values, self.adj.shape).to(self.device)
+        return A
+
+    def normalize_weights_fn(self):
+        """
+        Normalize the weights matrix W to satisfy the Lipschitz constraint.
+        """
+        W_norm = torch.norm(self.W, p='fro')
+        with torch.no_grad():
+            if W_norm > 0:
+                scale_factor = self.weight_scale / W_norm
+                self.W.data.mul_(scale_factor)
+
+    def forward_diffusion(self, x0: torch.FloatTensor, M: int = 100, dt: float = 0.1):
+        """
+        Simulate forward diffusion from initial features x0 over time T_F using Euler method.
+        """
+        x = x0.clone()
+        steps = M
+        delta_t = self.T_F / steps
+        for _ in range(steps):
+            A_x = self.compute_attention(x)  # sparse tensor
+            # Compute diffusive update: (A - I)X
+            Ax = torch.sparse.mm(A_x, x)
+            x = x + delta_t * (Ax - x)
+        return x
+
+    def inverse_process(self, xT: torch.FloatTensor, T_R: float, M: int = 16):
+        """
+        Approximate the back-in-time features at T_R < 0 using fixed-point iteration.
+        """
+        # Initialize with features at T_F (xT)
+        x = xT.clone()
+        for _ in range(M):
+            x_prev = x.clone()
+            h_x = self._compute_inverse_h(x)
+            x = x_prev - h_x
+        return x
+
+    def _compute_inverse_h(self, x: torch.FloatTensor):
+        """
+        Residual operator h in inverse process.
+        """
+        # Approximate negative diffusion step: (A - I)X
+        A_x = self.compute_attention(x)
+        Ax = torch.sparse.mm(A_x, x)
+        h = Ax - x  # residual
+        return h
+
+    def gnn_layer(self, X: torch.FloatTensor, W: torch.nn.Parameter, A: torch.sparse.FloatTensor):
+        """
+        Forward residual GNN layer with residual connection and activation.
+        """
+        # f(X) = X + activation(AX W)
+        AXW = torch.sparse.mm(A, X) @ W
+        out = X + self.activation(AXW)
+        return out
+
+    def inverse_gnn_layer(self, X: torch.FloatTensor, W: torch.nn.Parameter, A: torch.sparse.FloatTensor):
+        """
+        Inverse GNN layer estimated via fixed-point iteration.
+        """
+        X_est = X.clone()
+        for _ in range(self.M):
+            X_est_prev = X_est.clone()
+            # Inverse step: solve X ≈ X - activation(A X W) for X
+            # Here, we assume residual h is contraction, so do fixed-point
+            # For simplicity, linear approximation
+            AXW = torch.sparse.mm(A, X_est) @ W
+            X_est = X_est - self.activation(AXW)  # Might need more sophisticated inverse
+        return X_est
+
+    def forward(self, x0: torch.FloatTensor):
+        """
+        Run the entire forward diffusion process with multiple layers.
+        """
+        x = x0.clone()
+        for _ in range(self.num_forward_layers):
+            A_x = self.compute_attention(x)
+            Ax = torch.sparse.mm(A_x, x)
+            x = x + self.dt * (Ax - x)
+        return x
+
+    def inverse(self, xT: torch.FloatTensor):
+        """
+        Run the inverse process with multiple inverse layers.
+        """
+        x = xT.clone()
+        for _ in range(self.num_reverse_layers):
+            x = self.inverse_process(x, self.T_R, self.M)
+        return x
+
+    def generate_reverse_features(self, xT: torch.FloatTensor):
+        """
+        Generate features at T_R using multiple reverse layers.
+        """
+        x = xT.clone()
+        for _ in range(self.num_reverse_layers):
+            x = self.inverse_process(x, self.T_R, self.M)
+        return x
+
+    def combine_representations(self, fwd_repr: torch.Tensor, rev_repr: torch.Tensor):
+        """
+        Concatenate forward and reverse representations for downstream prediction.
+        """
+        return torch.cat([fwd_repr, rev_repr], dim=1)
+
+    def prepare_diffusion_attention(self, features: torch.FloatTensor):
+        """
+        Precompute or initialize attention matrices if needed.
+        """
+        # For efficiency, could cache attention matrices per epoch
+        return self.compute_attention(features)
+
+    def normalize_all_weights(self):
+        """
+        Normalize all relevant weight matrices after training step for invertibility.
+        """
+        self.normalize_weights_fn()
+

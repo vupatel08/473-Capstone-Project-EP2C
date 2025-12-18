@@ -1,0 +1,182 @@
+**Logic Analysis for main.py**
+
+---
+
+### **Purpose & Role of main.py**
+
+- Serve as the **orchestration script**, controlling the overall workflow:
+  - Load configuration parameters.
+  - Initialize and coordinate datasets, models, profiling, attention steering, inference, and evaluation.
+  - Manage the sequence: data loading → profiling → head selection → inference with attention reweighting → evaluation → logging results.
+
+### **Step-by-Step Logical Flow & Components**
+
+---
+
+### **1. Load Configuration**
+
+- Parse `config.yaml`:
+  - Model details: name and path.
+  - Dataset info: dataset name, directory, splits, sizes.
+  - Profiling setup: number of heads to select, number of samples.
+  - Attention steering hyperparameters (alpha, strategy).
+  - Evaluation metrics flags.
+
+---
+
+### **2. Initialize Dataset Loader**
+
+- Instantiate `DatasetLoader`:
+  - Provide dataset name, directory, and splits.
+  - Load raw datasets for train, validation, and test splits.
+- Use `load_dataset()` method for each split.
+- Apply tokenization and preprocessing steps (possibly via utilities), especially:
+  - Identifying emphasis spans in samples (based on markdown markers or custom tags).
+  - Ensuring datasets are ready for profiling, inference, and evaluation.
+
+---
+
+### **3. Initialize Model Wrapper**
+
+- Instantiate `ModelWrapper`:
+  - Load pre-trained language model according to `model_path`.
+  - Configure device (GPU/CPU).
+- Confirm support for attention score access:
+  - Register hooks or callbacks to intercept attention scores.
+  - Verify that registered hooks allow modification of attention scores during inference without retraining.
+
+---
+
+### **4. Perform Profile of Attention Heads**
+
+- Instantiate `Profiler` with:
+  - `model_wrapper` reference.
+  - Small datasets: training subsets for profiling.
+  - Specified number of samples (`profile_samples`).
+  - Top heads to select (`top_heads_count`).
+
+- Call `profile_heads()` method:
+  - For each sample in profiling set:
+    - For each layer \( l \) and head \( h \):
+      - Temporarily modify attention (via registered hooks) to steer only head \( (l,h) \).
+      - Run inference on sample.
+      - Evaluate performance relevant to task metrics.
+      - Record results.
+  - Aggregate results per head across samples.
+  - Select *top-k heads* based on performance metric (accuracy, effectiveness).
+  - Store the selected head set (`heads_selection_strategy` determines intersection/union/top-k).
+
+- Store the resulting `selected_heads` (list of `(layer, head)` tuples).
+
+---
+
+### **5. Set Up Attention Steering for Inference**
+
+- Instantiate `AttentionSteering`:
+  - Pass `model_wrapper`.
+  - Set `alpha` as per config.
+  - Assign the `selected_heads`.
+  
+- This class internally registers hooks for the selected heads to modify attention scores during inference.
+
+---
+
+### **6. Processing Test Set / Tasks for Inference**
+
+- Loop over each test sample:
+  - **Extract emphasis spans**:
+    - Use utility functions to parse prompt text.
+    - Identification could be based on markdown markers (`*`, quotes, etc.).
+  - **Set emphasis information**:
+    - Convert token span indices into token IDs aligned with tokenizer.
+  - **Generate output with attention steering**:
+    - Invoke `model_wrapper.generate()`:
+      - Pass the input tokens.
+      - Provide emphasis spans.
+      - Set `alpha`.
+    - During generation:
+      - The registered hooks in `model_wrapper` will reweight attention scores at targeted heads to emphasize spans.
+  - **Optional:** store raw generated output for evaluation.
+
+---
+
+### **7. Evaluate Generated Outputs**
+
+- Instantiate `Evaluation`:
+  - Pass `model_wrapper`-based inference and datasets.
+  - Enable relevant metrics based on flags (format accuracy, pronoun accuracy, fluency, effectiveness).
+- Run `evaluate()`:
+  - For each test sample:
+    - Compare generated output against ground truth.
+    - Calculate metrics accordingly (e.g., JSON validity, accuracy, fluency entropy).
+
+---
+
+### **8. Log Results & Summary**
+
+- Collect all metrics into a results dictionary.
+- Print/log detailed results:
+  - Per task metrics.
+  - Overall average performance.
+- Save logs/output files (e.g., JSON, CSV) if needed.
+
+---
+
+### **9. Optional Hyperparameter and Ablation Exploration**
+
+- Vary: number of steering heads, alpha.
+- Can rerun inference on the same test set with different configurations.
+- Log all variants for comparison.
+
+---
+
+### **10. Final Clean-up**
+
+- Close hooks gracefully if required.
+- Release model resources.
+- Summarize performance and provide final report in console or logs.
+
+---
+
+### **Additional Considerations**
+
+- **Error handling**:
+  - Validate dataset loading.
+  - Confirm attention hook registration.
+  - Handle tokenization and span extraction errors.
+- **Compatibility**:
+  - Ensure that all modules (`dataset_loader.py`, `model_wrapper.py`, etc.) are imported and called with correct APIs.
+- **Performance efficiency**:
+  - Possibly cache attention scores or profiling results.
+  - Batch inference where feasible.
+- **Reproducibility**:
+  - Set random seeds for datasets and model inference (if applicable).
+  - Log hyperparameters and profiling results.
+
+---
+
+### **Summary of main() logic outline**
+
+```plaintext
+- Parse config.yaml
+- Initialize dataset loader
+- Load datasets (train, validation, test)
+- Initialize model wrapper
+- Run profiling:
+    * Select small profiles datasets
+    * Instantiate Profiler
+    * profile_heads() -> selected heads
+- Setup attention steering:
+    * Instantiate AttentionSteering with selected heads and alpha
+- For each test sample:
+    * Extract emphasis span(s)
+    * Generate output with reweighted attention
+- Run evaluation with metrics flags:
+    * Compute accuracy, fluency, effectiveness
+- Log and save results
+- Finish
+```
+
+---
+
+This detailed analysis should serve as a blueprint for implementing `main.py` in line with the methodology described in the paper, ensuring all dependencies, sequences, and hyperparameters are correctly coordinated.

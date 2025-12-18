@@ -1,0 +1,159 @@
+{
+  "file": "utils.py",
+  "description": "Provides common utility functions essential for the simulation framework, interconnecting data processing, physics computations, and model operations.",
+  "functions": [
+    {
+      "name": "compute_velocity_std",
+      "purpose": "Calculate the per-particle standard deviation of velocities over a set of recent timesteps. This metric (sigma_u) informs the force smoothing process.",
+      "inputs": [
+        "velocities: np.ndarray (shape: [num_particles, dim])",
+        "window_size: int (number of recent timesteps to consider)"
+      ],
+      "outputs": [
+        "sigma_u: float (standard deviation scalar for use in force convolution)"
+      ],
+      "notes": "Compute the standard deviation for each velocity component over the window, then aggregate (e.g., quadratic mean) to obtain isotropic sigma.",
+      "implementation": "Use numpy's std function across relevant axis, then compute quadratic mean across components."
+    },
+    {
+      "name": "gaussian_convolve_force",
+      "purpose": "Approximate the convolution of an external force field with a Gaussian kernel, replacing the raw force with a smoothed version for spatial stability.",
+      "inputs": [
+        "force_field: np.ndarray (shape: [num_particles, dim])",
+        "sigma: float (standard deviation of the Gaussian kernel)"
+      ],
+      "outputs": [
+        "smoothed_force: np.ndarray (shape: [num_particles, dim])"
+      ],
+      "notes": "Implement the convolution analytically using the error function (erf) if the force is a step function or similar simple shape; otherwise, perform numerical convolution via kernel summation."
+    },
+    {
+      "name": "effective_force_approximation",
+      "purpose": "Compute the effective external force map for coarse-grained time steps (M), based on the dataset’s known or estimated force field, considering spatial variation and temporal evolution.",
+      "inputs": [
+        "force_field: np.ndarray (shape: [num_particles, dim])",
+        "velocity_stats: np.ndarray (shape: [num_particles])",
+        "convolution_method: str ('gaussian' or 'erf')",
+        "sigma_scale: float (scaling factor for sigma derivation)"
+      ],
+      "outputs": [
+        "smoothed_force: np.ndarray (shape: [num_particles, dim])"
+      ],
+      "notes": "Calculate sigma_u, apply the Gaussian convolution (either analytical or via kernel sum), and return the smoothed force field to be used in Eq. 3."
+    },
+    {
+      "name": "neighbor_search",
+      "purpose": "Identify neighboring particles within a specified cutoff radius for each particle to support SPH computations and force evaluation.",
+      "inputs": [
+        "positions: np.ndarray (shape: [num_particles, dim])",
+        "cutoff_radius: float"
+      ],
+      "outputs": [
+        "neighbor_list: list of lists or np.ndarray (indices of neighbors per particle)"
+      ],
+      "notes": "Use SciPy KDTree for efficiency. The neighbor list should be compatible with the SPH kernel functions and allow fast kernel summation."
+    },
+    {
+      "name": "sph_kernel_quintic",
+      "purpose": "Evaluate the quintic spline kernel W(r|h) for a given interparticle distance r and smoothing length h.",
+      "inputs": [
+        "r: np.ndarray (shape: [num_neighbors])",
+        "h: float (smoothing length)"
+      ],
+      "outputs": [
+        "W_values: np.ndarray (shape: [num_neighbors])"
+      ],
+      "notes": "Implement the piecewise quintic spline kernel as per Monaghan (1993). Ensure compact support within 3h."
+    },
+    {
+      "name": "compute_density",
+      "purpose": "Calculate particle density using kernel summation over neighbors, following Eq. 1, and apply density clipping for free surface correction.",
+      "inputs": [
+        "positions: np.ndarray (shape: [num_particles, dim])",
+        "neighbor_list: list of lists",
+        "mass: float (particle mass, assumed uniform unless dataset specifies otherwise)",
+        "h: float (kernel support radius)"
+      ],
+      "outputs": [
+        "density: np.ndarray (shape: [num_particles])"
+      ],
+      "notes": "Sum kernel W(r|h) over neighbors for each particle, then multiply by the particle mass. Post-process with thresholds to clamp densities within [0.98, 1.02] * rho_ref."
+    },
+    {
+      "name": "compute_pressure",
+      "purpose": "Calculate pressure for each particle based on its density via the equation of state as in Eq. 3, i.e., p = p_ref * (rho / rho_ref - 1).",
+      "inputs": [
+        "density: np.ndarray (shape: [num_particles])",
+        "p_ref: float"
+      ],
+      "outputs": [
+        "pressure: np.ndarray (shape: [num_particles])"
+      ],
+      "notes": "Use the reference p_ref as specified in config; default p_ref corresponds to a suitable small value (e.g., 1e4 or based on dataset units)."
+    },
+    {
+      "name": "pressure_clamp",
+      "purpose": "Clamp pressure values at free surfaces and walls as per the techniques described (clipping to [0.98, 1.02]*rho_ref).",
+      "inputs": [
+        "pressure: np.ndarray",
+        "rho_ref: float"
+      ],
+      "outputs": [
+        "clamped_pressure: np.ndarray"
+      ],
+      "notes": "Apply numpy clip operation to restrict pressure within acceptable limits, to prevent tensile instability."
+    },
+    {
+      "name": "density_at_surface_correction",
+      "purpose": "Implement the method of estimating density at free surfaces by density summation and applying clipping thresholds, as in Eq. 7.",
+      "inputs": [
+        "raw_density: np.ndarray",
+        "rho_ref: float"
+      ],
+      "outputs": [
+        "corrected_density: np.ndarray"
+      ],
+      "notes": "Set values below 0.98 * rho_ref to rho_ref; clip values above 1.02 * rho_ref."
+    },
+    {
+      "name": "boundary_condition_wall",
+      "purpose": "Enforce boundary conditions at walls to prevent particle penetration, following Adami et al. (2012).",
+      "inputs": [
+        "pressure: np.ndarray",
+        "neighbors: list of neighbor indices per particle",
+        "wall_mask: np.ndarray (boolean array indicating wall particles)"
+      ],
+      "outputs": [
+        "pressure_wall_enforced: np.ndarray"
+      ],
+      "notes": "Set pressure in wall particles based on neighbors’ pressures; zero normal pressure gradient normal to the wall."
+    },
+    {
+      "name": "compute_dirichlet_energy",
+      "purpose": "Calculate the Dirichlet energy for the density field, used as a stability and clustering metric.",
+      "inputs": [
+        "density: np.ndarray",
+        "positions: np.ndarray",
+        "h: float"
+      ],
+      "outputs": [
+        "dirichlet_energy: float"
+      ],
+      "notes": "Approximate the gradient of density using kernel derivatives; integrate squared magnitude over domain."
+    },
+    {
+      "name": "visualize_particle_field",
+      "purpose": "Generate 2D/3D scatter plots and density maps for post-simulation analysis.",
+      "inputs": [
+        "positions: np.ndarray",
+        "density: np.ndarray (optional)",
+        "title: str"
+      ],
+      "outputs": [
+        "Figures: matplotlib figures saved or displayed"
+      ],
+      "notes": "Support visualization of particle distributions, density deviations, and flow features."
+    }
+  ],
+  "Notes": "Ensure consistent units across all functions, especially for physical parameters like h, mass, and density references. Modularize complex operations (neighbor search, kernel evaluation) for efficiency. Carefully handle free surface detection (e.g., low-density particles) for applied corrections."
+}

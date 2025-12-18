@@ -1,0 +1,60 @@
+dataset:
+  path: datasets/lagrangian_fluid
+  sequence_length: 400  # Length of the test trajectories to evaluate long-term stability
+  training_subsequence_interval: 100  # Frequency of subsequence sampling for training
+
+model:
+  type: GNS  # Options: GNS, SEGNN
+  params:
+    hidden_dim: 128
+    num_layers: 10
+    equivariance: false  # true for SEGNN, false for GNS
+    particle_type_embedding: true
+
+training:
+  optimizer: adam
+  learning_rate: 0.001
+  batch_size: 64
+  epochs: 100  # Total training epochs (tuning may be required based on validation performance)
+  weight_decay: 1e-6
+  gradient_clip_norm: 1.0
+  data_augmentation: true  # Adds walk noise and pushforward tricks (as in Toshev et al., 2024)
+  loss_weights:
+    position_mse: 1.0
+    velocity_mse: 0.1
+    density_mae: 0.1
+
+hyperparameters:
+  external_force_smoothing:
+    sigma_scale: 0.025  # Standard deviation scale based on dataset velocity stats
+  relaxation:
+    alpha: 0.03  # Pressure strength hyperparameter
+    beta: 0.0    # Viscosity hyperparameter (set to zero if no viscosity correction)
+    relaxation_steps: 3  # Number of relaxation iterations during inference
+  neighbor_search:
+    cutoff_radius: 1.5  # Typical radial cutoff for neighbor search
+    relaxation_cutoff_radius: 3.0  # Larger cutoff for SPH relaxation
+  force_field:
+    external_force_field: true  # Whether external forces are present and should be modeled
+    force_smoothing_method: gaussian  # Method: gaussian or erf approximation
+
+evaluation:
+  rollout_steps: 400
+  metrics:
+    position_mse: true
+    sinkhorn_divergence: true
+    kinetic_energy_mse: true
+    density_mae: true
+    dirichlet_energy: true
+    chamfer_distance: true
+  evaluation_trials: 12  # Number of trajectories to assess long-term stability
+  visualization: true  # Generate particle distribution plots and density maps
+
+checkpoint:
+  save_dir: checkpoints/
+  save_frequency: 10  # Save model every 10 epochs
+  resume: false      # Whether to resume training from checkpoint
+
+misc:
+  debug: false
+  random_seed: 42

@@ -1,0 +1,201 @@
+## model.py
+
+import torch
+import torch.nn as nn
+from transformers import AutoModelForCausalLM, AutoTokenizer
+from typing import Optional, Dict, Tuple
+import random
+import numpy as np
+
+# If using LoRA, import from peft
+try:
+    from peft import get_peft_model, LoraConfig
+except ImportError:
+    # In case peft is not installed, define dummy functions/classes
+    def get_peft_model(model, peft_config):
+        return model
+
+    class LoraConfig:
+        def __init__(self, r, lora_alpha, lora_dropout=0.0, target_modules=None):
+            pass
+
+# Loader for device
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
+class BingModel:
+    def __init__(self, model_name: str = "mistral-7b-v0.2",
+                 use_lora: bool = True,
+                 lora_rank: int = 32,
+                 finetune_on_dataset: str = "wikipedia",
+                 loss_masking: bool = True,
+                 relation_masking_M: int = 100,
+                 mask_mask_prob: float = 0.5,
+                 gradient_clipping_norm: float = 1.0):
+        """
+        Initialize the Large Language Model with optional LoRA modules.
+        """
+        self.model_name = model_name
+        self.use_lora = use_lora
+        self.lora_rank = lora_rank
+        self.finetune_on_dataset = finetune_on_dataset
+        self.loss_masking = loss_masking
+        self.relation_masking_M = relation_masking_M
+        self.mask_mask_prob = mask_mask_prob
+        self.gradient_clipping_norm = gradient_clipping_norm
+
+        # Load pretrained model and tokenizer
+        self.tokenizer = AutoTokenizer.from_pretrained(self.model_name)
+        self.model = AutoModelForCausalLM.from_pretrained(self.model_name, device_map="auto")
+        self.model.to(device)
+
+        # Initialize LoRA if required
+        if self.use_lora:
+            peft_config = LoraConfig(r=self.lora_rank, lora_alpha=16, target_modules=["layers.*.attn", "layers.*.feed_forward"])
+            self.model = get_peft_model(self.model, peft_config)
+            # Note: If 'peft' not installed, this step skips or would need adjustment.
+
+        # Set model to train/eval modes accordingly
+        self.model.train()
+
+    def finetune(self, train_data, epochs: int = 2, loss_masking: bool = True):
+        """
+        Fine-tune the model with optional custom masked loss regularizer.
+        train_data: object with attributes: documents, concepts, relations, annotations
+        """
+        from torch.utils.data import DataLoader
+
+        # Prepare dataset: each item is (prompt, target_text)
+        dataset = []
+
+        for idx, doc in enumerate(train_data.documents):
+            concepts = train_data.annotations.get(idx, [])
+            prompt = self._construct_training_prompt(doc, concepts)
+            target_sequence = self._construct_training_target(concepts)
+            dataset.append((prompt, target_sequence, concepts))
+
+        dataloader = DataLoader(dataset, batch_size=16, shuffle=True, collate_fn=self._collate_fn)
+
+        optimizer = torch.optim.Adam(self.model.parameters(), lr=1e-5)  # hyperparameter tuned
+        best_val_score = -float('inf')
+        patience = 2
+        patience_counter = 0
+
+        for epoch in range(epochs):
+            total_loss = 0.0
+            for batch in dataloader:
+                input_ids, attention_mask, labels, mask_flags, relation_counts = batch
+                input_ids = input_ids.to(device)
+                attention_mask = attention_mask.to(device)
+                labels = labels.to(device)
+
+                self.model.train()
+                outputs = self.model(input_ids=input_ids, attention_mask=attention_mask, labels=labels)
+                loss = outputs.loss
+
+                # If loss_masking enabled, apply relation-based masking regularizer
+                if self.loss_masking:
+                    # Apply custom masking: for relations in relation_counts dictionary
+                    loss = self._apply_loss_mask(loss, mask_flags, relation_counts)
+
+                optimizer.zero_grad()
+                loss.backward()
+
+                if self.gradient_clipping_norm:
+                    torch.nn.utils.clip_grad_norm_(self.model.parameters(), self.gradient_clipping_norm)
+
+                optimizer.step()
+                total_loss += loss.item()
+
+            # Optional: validation step here, compute validation metrics, save best model
+            # Skipping for brevity; could add validation code and early stopping based on validation metric.
+
+    def generate_subgraph(self, prompt: str, max_tokens: int = 512, sampling_params: Dict = None) -> str:
+        """
+        Generate a subgraph string from prompt with specified sampling parameters.
+        """
+        if sampling_params is None:
+            sampling_params = {'temperature': 0.1, 'top_p': 0.9}
+
+        encoded = self.tokenizer(prompt, return_tensors='pt').to(device)
+        generate_kwargs = dict(
+            input_ids=encoded['input_ids'],
+            attention_mask=encoded['attention_mask'],
+            max_new_tokens=max_tokens,
+            do_sample=True,
+            temperature=sampling_params.get('temperature', 0.1),
+            top_p=sampling_params.get('top_p', 0.9),
+            num_return_sequences=1
+        )
+
+        with torch.no_grad():
+            output_ids = self.model.generate(**generate_kwargs)
+        generated_text = self.tokenizer.decode(output_ids[0], skip_special_tokens=True)
+        return generated_text
+
+    def _construct_training_prompt(self, document: str, concepts: list) -> str:
+        """
+        Create a training prompt with document text and concept list.
+        Use the template matching the paper's appendix if available.
+        """
+        prompt_template = (
+            "Given the document:\n"
+            "{doc}\n"
+            "and the list of concepts:\n"
+            "{concepts}\n"
+            "Generate the relevant concept relation subgraph as a list of paths in the form:\n"
+            "- {concept} -> {relation} -> {concept}\n"
+        )
+        return prompt_template.format(doc=document, concepts=', '.join(concepts))
+
+    def _construct_training_target(self, concepts: list) -> str:
+        """
+        Construct the target sequence for training.
+        """
+        # For simplicity, a placeholder; in practice, generate structured paths.
+        # For now, assume target is empty, actual parsing needs implementation.
+        return ""
+
+    def _collate_fn(self, batch):
+        """
+        Collate batch with masking considerations if needed.
+        """
+        # batch: list of tuples (prompt, target_sequence, concepts)
+        prompts = [item[0] for item in batch]
+        targets = [item[1] for item in batch]
+        # Tokenize all prompts
+        inputs = self.tokenizer(prompts, padding=True, truncation=True, return_tensors='pt')
+        labels = self.tokenizer(targets, padding=True, truncation=True, return_tensors='pt')
+
+        input_ids = inputs['input_ids']
+        attention_mask = inputs['attention_mask']
+        label_ids = labels['input_ids']
+
+        # Generate mask flags and relation counts for masking loss
+        # For simplicity, generate dummy mask_flags and relation_counts
+        batch_size = input_ids.shape[0]
+        mask_flags = torch.zeros_like(label_ids, dtype=torch.bool)
+        relation_counts = {}  # e.g., {relation_path: count}
+
+        # In real implementation, parse target sequences to find relation tokens and compute their counts
+
+        return input_ids, attention_mask, label_ids, mask_flags, relation_counts
+
+    def _apply_loss_mask(self, loss, mask_flags, relation_counts):
+        """
+        Apply the custom masked loss based on relation frequency.
+        """
+        # For simplicity, assume uniform masking
+        # In practice, analyze relation_counts and mask proportionally
+        # We can implement a stochastic masking based on relation frequency
+        # But as per the constraints, provide a placeholder
+        return loss
+
+    def _parse_generated_text(self, generated_text: str):
+        """
+        Parse the generated text to extract concept relations/paths.
+        This can be implemented via regex matching according to promotion template.
+        """
+        # Placeholder: implement parser to extract relation triplets or paths
+        relations = []
+        #...
+        return relations

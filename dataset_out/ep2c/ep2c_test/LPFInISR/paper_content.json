@@ -1,0 +1,158 @@
+{
+  "title": "Exploring the Low-Pass Filtering Behavior in Image Super-Resolution",
+  "abstract": "Haoyu Deng 1 Zijing $\\mathbf { X } \\mathbf { u } ^ { 1 }$ Yule Duan 1 Xiao Wu 1 Wenjie Shu 1 Liang-Jian Deng 1",
+  "authors": [],
+  "body_text": [
+    {
+      "text": "# Exploring the Low-Pass Filtering Behavior in Image Super-Resolution"
+    },
+    {
+      "text": "Haoyu Deng 1 Zijing $\\mathbf { X } \\mathbf { u } ^ { 1 }$ Yule Duan 1 Xiao Wu 1 Wenjie Shu 1 Liang-Jian Deng 1"
+    },
+    {
+      "text": "# Abstract"
+    },
+    {
+      "text": "Deep neural networks for image super-resolution (ISR) have shown significant advantages over traditional approaches like the interpolation. However, they are often criticized as ‘black boxes’ compared to traditional approaches with solid mathematical foundations. In this paper, we attempt to interpret the behavior of deep neural networks in ISR using theories from the field of signal processing. First, we report an intriguing phenomenon, referred to as ‘the sinc phenomenon.’ It occurs when an impulse input is fed to a neural network. Then, building on this observation, we propose a method named Hybrid Response Analysis (HyRA) to analyze the behavior of neural networks in ISR tasks. Specifically, HyRA decomposes a neural network into a parallel connection of a linear system and a non-linear system and demonstrates that the linear system functions as a low-pass filter while the non-linear system injects high-frequency information. Finally, to quantify the injected highfrequency information, we introduce a metric for image-to-image tasks called Frequency Spectrum Distribution Similarity (FSDS). FSDS reflects the distribution similarity of different frequency components and can capture nuances that traditional metrics may overlook. Code, videos and raw experimental results for this paper can be found in: https://github.com/RisingEntropy/LPFInISR."
+    },
+    {
+      "text": "Please refer to Appx. A for notation conventions."
+    },
+    {
+      "text": "![](images/602cfc3bd844d288304344a35e7548a5b4ce3f04607892effc5a8519c72c1d4f.jpg)  \nFigure 1. $I$ is an image in which only the central pixel is 1 and the other pixels are 0. What would the result look like if image I is super-resolved using a neural network, A, B, C, or D? Surprisingly, the answer is A. We name this phenomenon as the sinc phenomenon. In this paper, we give a possible explanation for this phenomenon."
+    },
+    {
+      "text": "ages through various techniques. In recent years, with advances in deep learning, growing ISR methods using neural networks are proposed, bringing the development of ISR into a new level. While impressive results persistently arise, the mechanism under ISR networks remain largely unexplored, leading to criticism that they are considered black boxes. In comparison, traditional methods, such as interpolation or filtering, have strong interpretability. Despite the principles of traditional methods and neural networks are different, we can still attempt to explain the behavior of ISR networks using theories from traditional methods. In this paper, following this line of thought, we successfully utilize theories from the field of signal processing techniques to explain the performance of neural networks in the ISR task."
+    },
+    {
+      "text": "The goal of image super-resolution (ISR) is to reconstruct low-resolution (LR) images into high-resolution (HR) im"
+    },
+    {
+      "text": "# 1. Introduction"
+    },
+    {
+      "text": "The target of the ISR task is to upsample a two-dimensional signal. In traditional signal processing theory (Oppenheim & Schafer, 2009; Oppenheim et al., 1996), a feasible method for upsample involves restoring a discrete low-samplingrate signal to a continuous signal using a low-pass filter, and then sampling the continuous signal at a higher rate to obtain a high-sampling-rate signal. An intriguing aspect of this process is that when we try to upsample a Dirac $\\delta$ signal, we will finally get a sinc signal since the sinc signal is the time-domain waveform of a low-pass filter, (for details about this, please refer to Sec. 3 ). Given this, we can conjecture: if neural networks exhibit similar behavior, then when attempt to super-resolve a Dirac $\\delta$ signal, the resultant outcome would also be a sinc signal. As shown in Fig. 1, we indeed observe this phenomenon, and we name it as ‘the sinc phenomenon’. This phenomenon establishes a connection between traditional signal processing theory and the interpretability of neural networks, thus helping us form a deeper understanding of ISR networks."
+    },
+    {
+      "text": "Building upon the sinc phenomenon, we further propose a method named HyRA1, which stands for Hybrid Response Analysis. HyRA considers the neural network as a parallel combination of a linear system and a non-linear system with a zero impulse response. It further indicates that this linear system functions as a low-pass filter, while the nonlinear system utilizes the learned prior knowledge to inject high-frequency information. By employing HyRA, we can analyze performance bottlenecks in neural networks, discerning whether the issue lies in inadequate preservation of low-frequency components or insufficient injection of highfrequency components. This analysis facilitates the proposal of targeted improvements for enhanced adaptability."
+    },
+    {
+      "text": "Given that the non-linear component is injecting highfrequency information, there is a pressing need for a metric to quantitatively describe the extent of the injected high frequencies. Previous metrics, like PSNR, SSIM (Wang et al., 2004) and LPIPS (Zhang et al., 2018a), have not approached the evaluation of images from a frequency perspective. Therefore, we propose the frequency spectrum distribution similarity (FSDS), a metric that evaluates image quality based on the power distribution in the frequency spectrum."
+    },
+    {
+      "text": "In summary, our contribution can be concluded as:"
+    },
+    {
+      "text": "• We report an intriguing phenomenon: the impulse responses of image super-resolution (ISR) networks are sinc functions, representing the temporal waveform of a low-pass filter. We name it the ’sinc phenomenon’. This observation helps to establish a connection between signal processing theory and neural networks. Moreover, we find that for a network, the more similar the impulse response is to the sinc function, the better performance it produces."
+    },
+    {
+      "text": "• In order to further explain the performance of neural networks in the ISR task through this phenomenon, we introduce HyRA. HyRA considers the neural network as a parallel combination of a linear system and a nonlinear system with a zero impulse response. It points out that the linear system operates as a low-pass filter, while the non-linear system injects high-frequency"
+    },
+    {
+      "text": "information."
+    },
+    {
+      "text": "• To quantitatively describe the injection of high frequencies, we introduce the FSDS metric. FSDS measures image quality using frequency spectrum produced by FFT and can reflect high-frequency distortions that previous metrics fail to capture."
+    },
+    {
+      "text": "# 2. Related works"
+    },
+    {
+      "text": "# 2.1. Super Resolution Using Neural Networks"
+    },
+    {
+      "text": "Recent review articles in ISR include fixed-scale superresolution (Yang et al., 2019) and arbitrary-scale superresolution review (Liu et al., 2023). There are various architectures of mainstream ISR backbone networks, including CNN-style backbones (Ahn et al., 2018; Hui et al., 2019; Lim et al., 2017; Zhang et al., 2018b;c), transformer-style backbones (Liang et al., 2021; Wang et al., 2023) and GANstyle backbone networks (Wang et al., 2018), etc. Based on these backbones, researchers have proposed quantitative modules with various functions. For example, ArbSR (Wang et al., 2021) can expand a fixed-scale super-resolution network to an arbitrary-scale ISR network, LTE (Lee & Jin, 2022) can enhance local textures, etc. What worth mentioning is that LIIF (Chen et al., 2021) introduces implicit neural representation into ISR for the first time, bringing a new approach for ISR. This paper mainly focuses on approaches that utilize CNN-style or transformer-style backbones. Except for network architectures, numerous datasets have been proposed to facilitate further research. Commonly used datasets for ISR includes Set5 (Bevilacqua et al., 2012), Urban100 (Huang et al., 2015), Flickr2K (Young et al., 2014), SCI1K (Yang et al., 2021), DIV2K (Agustsson & Timofte, 2017), etc. We evaluate the effectiveness of our proposed FSDS metric on DIV2K dataset. The large size of the DIV2K dataset contributes to increased reliability in our conclusions."
+    },
+    {
+      "text": "# 2.2. Explaining the Behavior of Neural Networks"
+    },
+    {
+      "text": "Despite neural networks are often criticized as ‘black boxes,’ predecessors have made remarkable efforts to mitigate this situation. Various previous researches have proposed plenty of methods to analyze the behavior of neural networks. Since Sundararajan et al. (Sundararajan et al., 2017) introduce the integrated gradients (IG) for attribution in classification tasks, numerous researchers have expanded this method to various domains, broadening the scope of attribution beyond classification tasks. Based on IG, Gu & Dong (Gu & Dong, 2021) propose LAM to analyze the impact of the local patch on the entire ISR outcome. However, such a method requires manually determined hyper-parameters and baselines, thus introducing subjectivity. Several notable analysis methods utilizing the Fourier transform have been explored in the literature (Xu, 2018; 2020; Xu et al., 2019; Zhang et al., 2019). Notably, Xu et al. (Xu et al., 2019) propose the Frequency-Principle, claiming its relevance to both convolutional neural networks (CNNs) and fully-connected deep neural networks. According to their proposition, these networks inherently adhere to the Frequency-Principle, wherein training data is systematically acquired in a sequential manner, progressing from low to high frequency. Unlike previous approaches these approaches, HyRA distinguishes itself by employing impulse response to probe the potential mechanisms of deep neural networks in the context of the ISR task."
+    },
+    {
+      "text": "# 3. Preliminaries"
+    },
+    {
+      "text": "Appx. B.1-Appx. B.3 provide a brief overview of signal processing concepts for readers who are not familiar with it. Appx. B.1 introduces the concepts of signals and systems, along with the computation of responses in Linear TimeInvariant (LTI) systems. Appx. B.2 covers the processes of signal sampling and reconstruction. Appx. B.3 delves into the phenomenon of spectrum aliasing, a factor contributing to the ill-posed nature of the ISR task. And we will introduce applying low-pass filter for ISR here."
+    },
+    {
+      "text": "We can employ signal recovery methods to achieve image super-resolution (ISR). Initially, we conceptualize an image as a series of impulse trains in a two-dimensional continuous space, with varying densities representing different resolutions. Then, for the low-resolution image, we begin by implementing low-pass filtering, following the procedure outlined in Appx. B.2, to obtain the continuous image $I ^ { \\mathrm { c o n t } }$ , This process can be mathematically described as:"
+    },
+    {
+      "text": "$$\nI _ { x , y } ^ { \\mathrm { c o n t } } = s i n c _ { x , y } ^ { \\omega } * I _ { x , y } ^ { \\mathrm { L R } } ,\n$$"
+    },
+    {
+      "text": "where $^ *$ denotes convolution, $I _ { x , y } ^ { L R }$ is the low resolution with variant is a two-di $x , y$ and iona $I _ { x , y } ^ { \\mathrm { c o n t } }$ is the continuous signal. function with parameter $s i n c _ { x , y } ^ { \\omega }$   \n$\\omega ^ { 2 }$ , whose frequency spectrum is an ideal low-pass filter with a passband of $0 \\sim \\omega$ . Subsequently, we sample the ‘conceptually continuous signal’ at an elevated sampling rate to acquire a more densely populated two-dimensional sequence of impulse trains, i.e., an image with higher resolution denoted as ISR:"
+    },
+    {
+      "text": "$$\nI _ { x , y } ^ { S R } = I _ { x , y } ^ { \\mathrm { c o n t } } \\cdot s _ { x , y } ^ { \\Delta X , \\Delta Y } .\n$$"
+    },
+    {
+      "text": "In the equation, pulse trains wit $s _ { x , y } ^ { \\Delta X , \\Delta Y }$ denls of hein o-dimenaxis and l iin $\\Delta X$ $x$ $\\Delta Y$ $y$ axis."
+    },
+    {
+      "text": "In fact, commonly used interpolation kernels for ISR, such as nearest-neighbor interpolation, linear interpolation, cubic interpolation, etc., can be seen as approximations of the sinc function considering a balance between computational complexity and effectiveness, as illustrated in Fig. 2. Taking into account the similarity of these interpolation kernels, in this paper, we collectively refer to these parameter-free methods as low-pass filter-based super-resolution methods."
+    },
+    {
+      "text": "![](images/604486344468fb162c17394e7f75db068255b85b39ab6e50d15527c7b512291e.jpg)  \nFigure 2. Various interpolation kernels for ISR. They can all be seen as an approximation of sinc function."
+    },
+    {
+      "text": "# 4. Method"
+    },
+    {
+      "text": "# 4.1. Hybrid Response Analysis (HyRA)"
+    },
+    {
+      "text": "In this section, we describe the proposed Hybrid Response Analysis (HyRA), which treats the neural network as a combination of a linear system and a non-linear system. Through the impulse response, we can calculate a linear time invariant (LTI) system’s output from any input using the convolution operation (see Appx. B.1). However, since neural networks are nonlinear systems, we cannot apply convolution to analyze them. To further explore the network features, we need to split it into a linear system and a non-linear system, i.e., HyRA. The core concept HyRA is illustrated in Fig. 3. We denote an ISR network as $N ( I )$ , where $I$ is the input image. $N ( I )$ is a non-linear system that can be expressed as the sum of a linear system and a non-linear system:"
+    },
+    {
+      "text": "$$\nN ( I ) = H ( I ) + G ( I ) .\n$$"
+    },
+    {
+      "text": "![](images/da4699e9c5ecf2574bb03cad46d4ca9169b209124ff455c8047334f17207b17d.jpg)  \nFigure 3. Conceptual diagram of HyRA’s core idea."
+    },
+    {
+      "text": "In the equation, $H ( I )$ represents a linear system, and $G ( I )$ represents a non-linear system. Without constraints, such a representation is meaningless because $H ( I )$ can be arbitrarily chosen, leading to an infinite variety of representations with the same form but different meanings. To give meaning to this representation, we introduce a constraint: the impulse response of $G ( I )$ is zero. With this constraint, both $H ( I )$ and $G ( I )$ can be uniquely determined. Lemma 4.1 demonstrates that under this constraint, $N ( I )$ can still be expressed in the form of Eq. 3. This straightforward method is the essence of HyRA."
+    },
+    {
+      "text": "For the ISR task, there is a distinctive property known as a ‘spatially invariant system’ (Miller et al., 1992) associated with it. Consider the definition of time-invariant systems as mentioned in Appx. B.1, we can naturally extend the concept of in-variance from one-dimensional to twodimensional space and the definition of spatially invariant systems is: when the input is $I _ { x , y }$ , the output is $G ( I _ { x , y } ) =$ $O ( x , y )$ ; when the input becomes $I ^ { \\prime } = I _ { x - x _ { 0 } , y - y _ { 0 } }$ , the output should be $G ( I ^ { \\prime } ) = O ( x - x _ { 0 } , y - y _ { 0 } )$ . For convolution based architectures, we can easily prove its spatial invariance (see the proof below). For transformer-based architectures, we can still use experiments to prove the spatial invariance (see Fig. 15)."
+    },
+    {
+      "text": "Proof. A convolution operation can be defined as:"
+    },
+    {
+      "text": "$$\nC o n v _ { i , j } = \\sum _ { p , q } I _ { i - p , j - 1 } K _ { p , q } .\n$$"
+    },
+    {
+      "text": "Then, the shifting operation can be defined as:"
+    },
+    {
+      "text": "$$\n\\mathrm { S h } ( i , j )  ( i + k , j + l ) .\n$$"
+    },
+    {
+      "text": "Combine these two, we then have:"
+    },
+    {
+      "text": "$$\n\\begin{array} { l } { { \\displaystyle C o n v _ { \\mathrm { S h } ( i , j ) } = C o n v _ { i + k , j + l } } } \\\\ { ~ = \\displaystyle \\sum _ { p , q } I _ { i + k - p , j + l - q } K _ { p , q } } \\\\ { ~ = \\mathrm { S h } ( \\displaystyle \\sum _ { i - p , j - q } K _ { p , q } ) } \\\\ { ~ = \\mathrm { S h } ( C o n v _ { i , j } ) . } \\end{array}\n$$"
+    },
+    {
+      "text": "This is the invariance of a single convolution layer, and still holds for more layers."
+    },
+    {
+      "text": "According to HyRA, when we input a Dirac $\\delta$ signal to the neural network, we can get the impulse response of the linear system (please recall Appx. B.1), denoted as $H ( \\delta )$ For any input $I$ , the response of the linear space invariant system can be obtained by convolving the input with the obtained impulse response, which can be expressed as:"
+    },
+    {
+      "text": "$$\nH ( I ) = I * H ( \\delta ) ,\n$$"
+    },
+    {
+      "text": "where $^ *$ means the convolution operation. Although the response of the non-linear component cannot be directly computed, if we obtain the final output of the neural network, the non-linear part can be deduced by subtracting the response of the linear component from the final output, namely the non-linear response can be computed as:"
+    },
+    {
+      "text": "$$\n\\begin{array} { c } { { G ( I ) = N ( I ) - H ( I ) } } \\\\ { { = N ( I ) - I * H ( \\delta ) . } } \\end{array}\n$$"
+    },
+    {
+      "text": "Lemma 4.1. A neural network $N ( I )$ can be expressed as a combination of a linear system $H ( I )$ and a non-linear system with an impulse response of zero, i.e., $N ( I ) \\ =$ $H ( I ) + G ( I )$ , where $G ( \\delta ) = 0$ . Here, $\\delta$ represents the Dirac delta function."
+    }
+  ],
+  "url": ""
+}

@@ -1,0 +1,3507 @@
+[
+    {
+        "type": "text",
+        "text": "On the Effectiveness of Supervision in Asymmetric Non-Contrastive Learning ",
+        "text_level": 1,
+        "bbox": [
+            98,
+            109,
+            877,
+            132
+        ],
+        "page_idx": 0
+    },
+    {
+        "type": "text",
+        "text": "Jeongheon Oh 1 Kibok Lee 1 ",
+        "bbox": [
+            385,
+            176,
+            583,
+            193
+        ],
+        "page_idx": 0
+    },
+    {
+        "type": "text",
+        "text": "Abstract ",
+        "text_level": 1,
+        "bbox": [
+            243,
+            220,
+            318,
+            236
+        ],
+        "page_idx": 0
+    },
+    {
+        "type": "text",
+        "text": "Supervised contrastive representation learning has been shown to be effective in various transfer learning scenarios. However, while asymmetric non-contrastive learning (ANCL) often outperforms its contrastive learning counterpart in selfsupervised representation learning, the extension of ANCL to supervised scenarios is less explored. To bridge the gap, we study ANCL for supervised representation learning, coined SUPSIAM and SUPBYOL, leveraging labels in ANCL to achieve better representations. The proposed supervised ANCL framework improves representation learning while avoiding collapse. Our analysis reveals that providing supervision to ANCL reduces intraclass variance, and the contribution of supervision should be adjusted to achieve the best performance. Experiments demonstrate the superiority of supervised ANCL across various datasets and tasks. The code is available at: https: //github.com/JH-Oh-23/Sup-ANCL. ",
+        "bbox": [
+            120,
+            239,
+            442,
+            541
+        ],
+        "page_idx": 0
+    },
+    {
+        "type": "text",
+        "text": "on negative samples. To prevent learned representations from collapsing, ANCL employs an asymmetric structure by placing a predictor after one side of the projector. ",
+        "bbox": [
+            500,
+            222,
+            883,
+            266
+        ],
+        "page_idx": 0
+    },
+    {
+        "type": "text",
+        "text": "A key component in both CL and ANCL is acquisition of positive pairs, which is typically achieved through data augmentation. Given that datasets for pretraining often include labels, Khosla et al. (2020) proposed to incorporate supervision into CL by treating samples with the same class label as positive pairs as well. Supervised CL has demonstrated superior performance across diverse tasks, such as few-shot learning (Majumder et al., 2021), long-tail recognition (Kang et al., 2021), continual learning (Cha et al., 2021), and natural language processing (Gunel et al., 2021). ",
+        "bbox": [
+            501,
+            275,
+            885,
+            425
+        ],
+        "page_idx": 0
+    },
+    {
+        "type": "text",
+        "text": "While supervision helps to discover more positive samples, it does not directly help to identify effective negative samples. Consequently, ANCL has a better potential to benefit from supervision, as it focuses on positive pairs only. However, in contrast to CL, there are a limited number of studies on leveraging supervision to improve ANCL, despite its strong performance in self-supervised learning. To bridge this gap, we study the effect of supervision in ANCL by introducing the supervised ANCL framework and investigating its behavior through theoretical and empirical analysis. ",
+        "bbox": [
+            501,
+            433,
+            885,
+            583
+        ],
+        "page_idx": 0
+    },
+    {
+        "type": "text",
+        "text": "1. Introduction ",
+        "text_level": 1,
+        "bbox": [
+            89,
+            565,
+            214,
+            582
+        ],
+        "page_idx": 0
+    },
+    {
+        "type": "text",
+        "text": "Self-supervised learning has recently been proven to be an effective paradigm for representation learning (Chen et al., 2020a; Chen & He, 2021; He et al., 2022). Among various pretext tasks for self-supervised learning, contrastive learning (CL) (van den Oord et al., 2018; Chen et al., 2020a; He et al., 2020) first promised outstanding performance, surpassing the transfer learning performance of supervised pretraining (Razavian et al., 2014), which learns representations by attracting positive pairs while repelling negative pairs. However, CL requires negative samples to ensure good performance, which might not be possible under limited batch sizes. On the other hand, asymmetric non-contrastive learning (ANCL) (Grill et al., 2020; Chen & He, 2021) has emerged as a promising alternative to CL, which maximizes the similarity between positive pairs without relying ",
+        "bbox": [
+            89,
+            593,
+            473,
+            818
+        ],
+        "page_idx": 0
+    },
+    {
+        "type": "text",
+        "text": "To the best of our knowledge, our work is the first to conduct a theoretical analysis of the behavior of representations learned through supervised ANCL. Our experiments confirm the effectiveness of supervision observed through our theoretical analysis, as well as the superiority of representations learned via supervised ANCL across various datasets and tasks. Specifically, as illustrated in Figure 1, we consider SUPSIAM and SUPBYOL, which are supervised adaptations of the two popular ANCL methods, SIMSIAM (Chen & He, 2021) and BYOL (Grill et al., 2020), respectively. Our contributions are summarized as follows: ",
+        "bbox": [
+            501,
+            592,
+            885,
+            756
+        ],
+        "page_idx": 0
+    },
+    {
+        "type": "text",
+        "text": "• We propose a supervised ANCL framework for representation learning while avoiding collapse, which surpasses the performance of its self-supervised counterpart when supervision is available. • Our analysis demonstrates that incorporating supervision into ANCL reduces the intra-class variance of latent features, and that learning to capture both intra- and interclass variance is crucial for representation learning. ",
+        "bbox": [
+            504,
+            775,
+            885,
+            905
+        ],
+        "page_idx": 0
+    },
+    {
+        "type": "image",
+        "img_path": "images/b55fedae64d7fb56b9e51bc4d375ec2612f1f9cc5f3f0aaf527097158dcf2e28.jpg",
+        "image_caption": [
+            "Figure 1. Our proposed supervised ANCL framework. The components we added to the standard ANCL are highlighted with a red box. We manage a target pool to ensure the existence of positive samples sharing the same class label in the form of $z _ { 2 } ^ { \\mathrm { s u p } }$ . Stop-gradient (sg) applied to $z _ { 2 }$ and $z _ { 2 } ^ { \\mathrm { s u p } }$ ensures that the gradients propagate through the online branch with the predictor only. The target branch without the predictor either shares parameters with the online branch (SUPSIAM), or exhibits a momentum network (SUPBYOL). "
+        ],
+        "image_footnote": [],
+        "bbox": [
+            132,
+            85,
+            830,
+            284
+        ],
+        "page_idx": 1
+    },
+    {
+        "type": "text",
+        "text": "• Our experiments validate our analysis and demonstrate the superiority of representations learned via supervised ANCL across various datasets and tasks. ",
+        "bbox": [
+            93,
+            382,
+            472,
+            425
+        ],
+        "page_idx": 1
+    },
+    {
+        "type": "text",
+        "text": "2. Related Works ",
+        "text_level": 1,
+        "bbox": [
+            88,
+            445,
+            233,
+            462
+        ],
+        "page_idx": 1
+    },
+    {
+        "type": "text",
+        "text": "Supervised CL. Although SUPCON (Khosla et al., 2020) demonstrated remarkable linear probing performance on pretrained datasets, its efficacy on other downstream datasets is comparable or inferior to that of self-supervised methods. In response, subsequent works have been underway to better utilize supervision to enhance representation learning. Wei et al. (2021) proposed to improve CL by taking top- $K$ positive neighbors into account and assigning soft labels to positive samples based on similarity, such that it better reflects task-specific semantic features and task-agnostic appearance features. Wang et al. (2023) argued that naively incorporating supervised signals might conflict with the self-supervised signals. To address this issue, Wang et al. (2023) proposed to impose hierarchical supervisions with an additional projector. Graf et al. (2021) provided both theoretical and empirical evidence demonstrating that the SUPCON loss is minimized when each class collapses to a single point, resulting in poor generalization of learned representations. Chen et al. (2022) found that the SUPCON loss is invariant to class-fixing permutations, indicating that the loss remains unchanged when data points within the same class are arbitrarily permuted in representation space, which also leads to poor generalization of learned representations. Chen et al. (2022) proposed incorporating a weighted class-conditional InfoNCE loss to avoid class collapse, and constraining the encoder, adding a class-conditional autoencoder, and using data augmentation to break permutation invariance. Xue et al. (2023) argued that features learned through supervised CL are prone to class collapse, whereas those learned through self-supervised CL suffer from feature suppression, i.e., easy and class-irrelevant features suppress to learn harder and class-relevant features. They claimed that balancing the losses of supervised and self-supervised CL is crucial for improving the quality of learned representations. Notably, these efforts have concentrated on CL, motivating us to investigate the effect of supervision in ANCL. Although several studies on supervised ANCL exist, such as Asadi et al. (2022) and Maser et al. (2023), their contributions lack a theoretical understanding of the effect of supervision and/or are limited to specific domains. ",
+        "bbox": [
+            89,
+            470,
+            472,
+            893
+        ],
+        "page_idx": 1
+    },
+    {
+        "type": "text",
+        "text": "",
+        "bbox": [
+            501,
+            381,
+            885,
+            561
+        ],
+        "page_idx": 1
+    },
+    {
+        "type": "text",
+        "text": "Theoretical Analysis on ANCL. While the initial ANCL works (Grill et al., 2020; Chen & He, 2021) have demonstrated impressive performance, the learning dynamics that enable effective representation learning without negative pairs while avoiding collapse to trivial solutions remain unclear. Tian et al. (2021) elucidated the dynamics of ANCL through the spectral decomposition of the correlation matrix. Specifically, assuming the predictor is linear, they proved that the eigenspace of the learned predictor aligns with the eigenspace of the correlation matrix of the latent features. Liu et al. (2022) empirically observed that, as learning progresses, both the linear predictor and the correlation matrix of latent features converge to a (scaled) identity matrix in ANCL. Based on this observation, they argued that the asymmetric architecture in ANCL implicitly encourages feature decorrelation, achieving a similar effect to symmetric non-CL methods that explicitly decorrelate features such as Barlow Twins (Zbontar et al., 2021) and VICReg (Bardes et al., 2022). Zhuo et al. (2023) suggested that the predictor in ANCL operates as a low-pass filter, thereby decreasing the rank of the predictor outputs. They argued that the rank difference between the correlation matrix of the projector outputs and that of the predictor outputs mitigates dimensional collapse by gradually increasing the effective rank of them as training progresses. Inspired by the prior works on self-supervised ANCL, we analyze supervised ANCL under a similar framework with additional assumptions. On the other hand, Halvagal et al. (2023) found that prior works overlook the L2 normalization of projector/predictor outputs, which is a common practice in ANCL, before computing the loss. They investigated the learning dynamics by incorporating the L2 normalization and compared it with the case without the L2 normalization. Our work also considers the L2 normalization; however, instead of normalizing the features directly, we consider it as a constraint and employ a Lagrangian formulation. ",
+        "bbox": [
+            500,
+            569,
+            885,
+            901
+        ],
+        "page_idx": 1
+    },
+    {
+        "type": "text",
+        "text": "",
+        "bbox": [
+            89,
+            85,
+            473,
+            296
+        ],
+        "page_idx": 2
+    },
+    {
+        "type": "text",
+        "text": "3. Method ",
+        "text_level": 1,
+        "bbox": [
+            88,
+            315,
+            174,
+            332
+        ],
+        "page_idx": 2
+    },
+    {
+        "type": "text",
+        "text": "In this section, we first review the problem setting of selfsupervised ANCL. Then, we introduce supervised ANCL. The overall framework is illustrated in Figure 1. ",
+        "bbox": [
+            88,
+            342,
+            475,
+            386
+        ],
+        "page_idx": 2
+    },
+    {
+        "type": "text",
+        "text": "3.1. Preliminary: Self-Supervised ANCL ",
+        "text_level": 1,
+        "bbox": [
+            89,
+            404,
+            370,
+            417
+        ],
+        "page_idx": 2
+    },
+    {
+        "type": "text",
+        "text": "Let $f , g$ , and $h$ be the encoder, projector, and predictor of the online branch, respectively, and $\\tilde { f }$ and $\\tilde { g }$ be the encoder and projector of the target branch, respectively. For a data point $x$ , let $z = ( g \\circ f ) ( x )$ and $p = ( h \\circ g \\circ f ) ( x )$ be the output of the projector and predictor, respectively. In self-supervised ANCL, two views $x _ { 1 }$ and $x _ { 2 }$ are generated from the data $x$ through augmentation, and the model learns to minimize the distance between these views encoded at different levels: it compares the prediction of the first view $p _ { 1 } = ( h \\circ g \\circ f ) ( x _ { 1 } )$ with the projection of the second view $z _ { 2 } = ( \\tilde { g } \\circ \\tilde { f } ) ( x _ { 2 } )$ . It has been observed that the asymmetric architecture introduced by the predictor $h$ helps prevent representation collapse by predicting the latent feature of the second view $z _ { 2 }$ from that of the first view $z _ { 1 }$ , i.e., $z _ { 2 } \\simeq$ $p _ { 1 } = h ( z _ { 1 } )$ (Chen & He, 2021). The self-supervised ANCL loss $\\ell _ { \\mathrm { s s l } }$ is expressed as: ",
+        "bbox": [
+            88,
+            428,
+            472,
+            667
+        ],
+        "page_idx": 2
+    },
+    {
+        "type": "equation",
+        "img_path": "images/b625725515714bb1f5d7e60cf36e5b63066bfe35a567c53d476df2666c6bf489.jpg",
+        "text": "$$\n\\ell _ { \\mathrm { s s l } } ( p _ { 1 } , z _ { 2 } ) = \\| p _ { 1 } - \\mathrm { s g } \\left( z _ { 2 } \\right) \\| _ { 2 } ^ { 2 } ,\n$$",
+        "text_format": "latex",
+        "bbox": [
+            176,
+            681,
+            383,
+            702
+        ],
+        "page_idx": 2
+    },
+    {
+        "type": "text",
+        "text": "where sg is the stop-gradient operation and $p _ { 1 }$ and $z _ { 2 }$ are L2- normalized. The inclusion of stop-gradient is also crucial for preventing collapsing, making it an essential component of the loss formulation (Chen & He, 2021). ",
+        "bbox": [
+            88,
+            717,
+            473,
+            776
+        ],
+        "page_idx": 2
+    },
+    {
+        "type": "text",
+        "text": "The target branch can either share parameters with the online branch (Chen & He, 2021), or exhibit a momentum network (Grill et al., 2020). When a momentum network is employed, its parameters follow the exponential moving average (EMA) update rule: $\\theta _ { \\tilde { g } \\circ \\tilde { f } }  m \\cdot \\theta _ { \\tilde { g } \\circ \\tilde { f } } + ( 1 - m ) \\cdot \\theta _ { g \\circ f }$ where $m$ is the momentum, ${ \\dot { \\theta } } _ { g \\circ f }$ is the set of learnable parameters in $f$ and $g$ . The parameters of the target model $\\theta _ { \\tilde { g } \\circ \\tilde { f } }$ are initialized to those of the online model $\\theta _ { g \\circ f }$ . ",
+        "bbox": [
+            89,
+            785,
+            473,
+            907
+        ],
+        "page_idx": 2
+    },
+    {
+        "type": "text",
+        "text": "3.2. Supervised ANCL ",
+        "text_level": 1,
+        "bbox": [
+            501,
+            85,
+            656,
+            99
+        ],
+        "page_idx": 2
+    },
+    {
+        "type": "text",
+        "text": "We propose to enhance supervised ANCL by integrating supervision through an additional loss function: for an anchor $x _ { 1 }$ and its supervised target $x _ { 2 } ^ { \\mathrm { { s u p } } }$ sharing the same label $y$ , the loss minimizes the distance between $p _ { 1 } = ( h \\circ g \\circ f ) ( x _ { 1 } )$ and $z _ { 2 } ^ { \\mathrm { s u p } } = ( \\tilde { g } \\circ \\tilde { f } ) ( x _ { 2 } ^ { \\mathrm { s u p } } )$ . However, the additional loss may not always be effective, because the current batch might not contain any samples sharing the same label as the anchor, particularly when the batch size is small. ",
+        "bbox": [
+            501,
+            108,
+            885,
+            228
+        ],
+        "page_idx": 2
+    },
+    {
+        "type": "text",
+        "text": "To address this issue, we introduce a target pool to ensure the presence of targets sharing the same label as each anchor in the batch, regardless of batch size. Similar to the memory bank utilized in prior works (Wu et al., 2018), the target pool $Q$ is a queue storing targets $z _ { 2 }$ along with their corresponding labels. The target pool offers another advantage that positive samples from the target pool help mitigate collapse because they are updated more slowly than those sampled from the batch, as empirically observed in Table 8. The proposed target pool is flexible in its design, such that it can be a vanilla queue, a collection of per-class queues ensuring the presence of targets from all labels even when the queue size is small, or a set of learnable class prototypes; the impact of these design choices is investigated in Table 7. ",
+        "bbox": [
+            501,
+            237,
+            885,
+            448
+        ],
+        "page_idx": 2
+    },
+    {
+        "type": "text",
+        "text": "Now, we sample the supervised target $z _ { 2 } ^ { \\mathrm { s u p } }$ sharing the same class as the anchor $x$ from the target pool $Q$ . Specifically, we sample $M$ targets and average them to formulate the supervised ANCL loss $\\ell _ { \\mathrm { s u p } }$ : ",
+        "bbox": [
+            500,
+            455,
+            885,
+            517
+        ],
+        "page_idx": 2
+    },
+    {
+        "type": "equation",
+        "img_path": "images/a6d2e30f9dbfa6a1fc7407d531bd7b5ae8bb0478997035981571904ebc510223.jpg",
+        "text": "$$\n\\ell _ { \\mathrm { s u p } } ( p _ { 1 } , z _ { 2 } ^ { \\mathrm { s u p } } ) = \\left\\| p _ { 1 } - \\mathrm { s g } \\left( z _ { 2 } ^ { \\mathrm { s u p } } \\right) \\right\\| _ { 2 } ^ { 2 } , z _ { 2 } ^ { \\mathrm { s u p } } = \\frac { 1 } { M } \\sum _ { z _ { 2 } ^ { \\prime } \\in Q _ { y } } z _ { 2 } ^ { \\prime } ,\n$$",
+        "text_format": "latex",
+        "bbox": [
+            506,
+            525,
+            859,
+            565
+        ],
+        "page_idx": 2
+    },
+    {
+        "type": "text",
+        "text": "where $p _ { 1 }$ and $z _ { 2 } ^ { \\prime }$ are L2-normalized and $Q _ { y } \\subseteq Q$ is the set of $M$ targets sampled from $Q$ sharing the same label $y$ as $x$ We sample all positives in $Q$ in experiments, and the effect of $M$ is discussed in Appendix F.2. Finally, the total loss is defined by the convex combination of $\\ell _ { \\mathrm { s s l } }$ and $\\ell _ { \\mathrm { s u p } }$ : ",
+        "bbox": [
+            500,
+            574,
+            885,
+            650
+        ],
+        "page_idx": 2
+    },
+    {
+        "type": "equation",
+        "img_path": "images/ae5796f5ef09b8103e628fea916499345b999c30b88a3613a13f09658d972fe0.jpg",
+        "text": "$$\n\\ell ( p _ { 1 } , z _ { 2 } , z _ { 2 } ^ { \\operatorname { s u p } } ) = \\alpha \\cdot \\ell _ { \\mathrm { s s l } } ( p _ { 1 } , z _ { 2 } ) + ( 1 - \\alpha ) \\cdot \\ell _ { \\operatorname { s u p } } ( p _ { 1 } , z _ { 2 } ^ { \\operatorname { s u p } } ) ,\n$$",
+        "text_format": "latex",
+        "bbox": [
+            504,
+            659,
+            861,
+            678
+        ],
+        "page_idx": 2
+    },
+    {
+        "type": "text",
+        "text": "where $\\alpha \\in [ 0 , 1 ]$ adjusts the contribution of $\\ell _ { \\mathrm { s s l } }$ and $\\ell _ { \\mathrm { s u p } }$ and we symmetrize the loss in experiments following the convention. We argue that the introduction of $\\ell _ { \\mathrm { s u p } }$ reduces intra-class variance and $\\alpha$ adjusts the amount of reduction, where details can be found in Section 4.3. ",
+        "bbox": [
+            500,
+            685,
+            885,
+            761
+        ],
+        "page_idx": 2
+    },
+    {
+        "type": "text",
+        "text": "Note that our strategy for incorporating supervision into the loss differs from that of SUPCON (Khosla et al., 2020). We first average the supervised loss before combining it with the self-supervised loss, whereas SUPCON weights all persample losses equally, regardless of whether they are selfsupervised or supervised. Since our focus is on analyzing the overall effects of self-supervised and supervised losses rather than per-sample losses, our strategy aligns with the analysis presented in the following section. ",
+        "bbox": [
+            501,
+            770,
+            885,
+            905
+        ],
+        "page_idx": 2
+    },
+    {
+        "type": "text",
+        "text": "4. Analysis of the Effect of Supervision ",
+        "text_level": 1,
+        "bbox": [
+            88,
+            83,
+            413,
+            101
+        ],
+        "page_idx": 3
+    },
+    {
+        "type": "text",
+        "text": "In this section, we analyze the effect of supervision in ANCL. We argue that incorporating supervision into ANCL reduces intra-class variance, and that its contribution should be adjusted to achieve better representations. Detailed mathematical proofs are provided in Appendix A. ",
+        "bbox": [
+            88,
+            109,
+            473,
+            185
+        ],
+        "page_idx": 3
+    },
+    {
+        "type": "text",
+        "text": "4.1. Problem Setup ",
+        "text_level": 1,
+        "bbox": [
+            88,
+            200,
+            222,
+            217
+        ],
+        "page_idx": 3
+    },
+    {
+        "type": "text",
+        "text": "For simplicity in our analysis, we adopt several assumptions from Tian et al. (2021); Zhuo et al. (2023): ",
+        "bbox": [
+            88,
+            224,
+            472,
+            255
+        ],
+        "page_idx": 3
+    },
+    {
+        "type": "text",
+        "text": "Assumption 4.1. The encoder followed by the projector $g \\circ f$ and the predictor $h$ are linear: $z = ( g \\circ f ) ( x ) = W x$ and $p = h ( z ) = W _ { p } z$ , where $W _ { p }$ is a symmetric matrix. ",
+        "bbox": [
+            88,
+            260,
+            473,
+            306
+        ],
+        "page_idx": 3
+    },
+    {
+        "type": "text",
+        "text": "Assumption 4.2. The distribution of the data augmentation $P ( { \\tilde { X } } | { \\tilde { X } } )$ has a mean $X$ and a covariance matrix $\\sigma _ { e } ^ { 2 } I$ . ",
+        "bbox": [
+            88,
+            310,
+            473,
+            340
+        ],
+        "page_idx": 3
+    },
+    {
+        "type": "text",
+        "text": "While previous studies on self-supervised ANCL assume that the distribution of the input data has a zero mean and a scaled identity covariance matrix, class-conditional distributions should be considered when incorporating supervision. Specifically, we assume the class-conditional and class-prior distributions over $C$ classes as follows: ",
+        "bbox": [
+            88,
+            353,
+            473,
+            443
+        ],
+        "page_idx": 3
+    },
+    {
+        "type": "text",
+        "text": "Assumption 4.3. The class-prior distribution follows the uniform distribution: $P ( Y = y ) = 1 / C$ . ",
+        "bbox": [
+            88,
+            448,
+            473,
+            478
+        ],
+        "page_idx": 3
+    },
+    {
+        "type": "text",
+        "text": "Assumption 4.4. For an input data $X$ and its class $Y$ , the conditional distribution $P ( X | Y )$ is characterized by a mean $\\mu _ { y }$ and a covariance matrix $\\Sigma _ { y }$ , where the total mean and total covariance matrix are zero and the identity matrix, respectively: $\\textstyle \\sum _ { y } \\mu _ { y } = 0$ and $\\begin{array} { r } { S _ { T } = \\frac { 1 } { C } \\sum _ { y } \\left( \\mu _ { y } \\mu _ { y } ^ { \\dagger } + \\Sigma _ { y } \\right) = \\bar { I } } \\end{array}$ . ",
+        "bbox": [
+            88,
+            483,
+            473,
+            563
+        ],
+        "page_idx": 3
+    },
+    {
+        "type": "text",
+        "text": "Assumption 4.3 is made for simplicity of analysis; our analysis holds without this assumption, albeit the derivation becomes more complex. Assumption 4.4 can be naturally satisfied through data whitening. ",
+        "bbox": [
+            88,
+            570,
+            473,
+            632
+        ],
+        "page_idx": 3
+    },
+    {
+        "type": "text",
+        "text": "4.2. Supervision Reduces Intra-Class Variance ",
+        "text_level": 1,
+        "bbox": [
+            88,
+            648,
+            413,
+            662
+        ],
+        "page_idx": 3
+    },
+    {
+        "type": "text",
+        "text": "For simplicity, assume we sample one target from the pool, i.e., $M \\ = \\ 1$ . We first express the loss in Eq. (3) with constraints to ensure the L2 normalization of features: ",
+        "bbox": [
+            88,
+            672,
+            473,
+            717
+        ],
+        "page_idx": 3
+    },
+    {
+        "type": "equation",
+        "img_path": "images/39ed07d483234fe604264adc1e582f879d618a454d80e1c58cb073628eb941df.jpg",
+        "text": "$$\n\\begin{array} { r l r } & { \\ell = \\alpha \\left\\| { W _ { p } z _ { 1 } - z _ { 2 } } \\right\\| _ { 2 } ^ { 2 } + ( 1 - \\alpha ) \\left\\| { W _ { p } z _ { 1 } - z _ { 2 } ^ { \\operatorname* { s u p } } } \\right\\| _ { 2 } ^ { 2 } } & \\\\ & { = \\left\\| { W _ { p } z _ { 1 } - \\left( \\alpha \\cdot z _ { 2 } + ( 1 - \\alpha ) \\cdot z _ { 2 } ^ { \\operatorname* { s u p } } \\right) } \\right\\| _ { 2 } ^ { 2 } + \\mathrm { c o n s t } } & \\\\ & { \\mathrm { s . t . } \\left\\| { z _ { 2 } } \\right\\| _ { 2 } ^ { 2 } = \\left\\| { z _ { 2 } ^ { \\operatorname* { s u p } } } \\right\\| _ { 2 } ^ { 2 } = \\left\\| { W _ { p } z _ { 1 } } \\right\\| _ { 2 } ^ { 2 } = 1 , } & \\end{array}\n$$",
+        "text_format": "latex",
+        "bbox": [
+            104,
+            719,
+            436,
+            791
+        ],
+        "page_idx": 3
+    },
+    {
+        "type": "text",
+        "text": "where we omit stop-gradient applied to $z _ { 2 }$ and $z _ { 2 } ^ { \\mathrm { s u p } }$ for brevity, and the equality in the second line holds due to the linearity of the L2 loss between L2-normalized features with respect to the target (Lee et al., 2021b). Hence, this optimization can be interpreted as mapping one view $z _ { 1 }$ to an interpolated target between another view $z _ { 2 }$ and the supervised target $z _ { 2 } ^ { \\mathrm { s u p } }$ . Intuitively, when $\\alpha = 1$ , the model cannot determine the exact augmentation applied to $x _ { 2 }$ by observing $x _ { 1 }$ , such that it predicts $z _ { 2 }$ from $z _ { 1 }$ through low-rank approximation via principal component analysis (PCA) (Richemond et al., 2023). Similarly, when $\\alpha = 0$ the model cannot infer the exact supervised target zsu2 by observing z1; instead, it predicts zsu2 by mapping $z _ { 1 }$ to the class centroid. Here, it has been known that least squares with targets independent of each other (ignoring centering, if applied) is equivalent to linear discriminant analysis (LDA) (Lee & Kim, 2015), where LDA simultaneously maximizes between-class scatter and minimizes within-class scatter. Hence, we can hypothesize that incorporating supervision into ANCL reduces intra-class variance, and the degree of reduction is controlled by $\\alpha$ . ",
+        "bbox": [
+            88,
+            799,
+            473,
+            905
+        ],
+        "page_idx": 3
+    },
+    {
+        "type": "text",
+        "text": "",
+        "bbox": [
+            501,
+            85,
+            885,
+            296
+        ],
+        "page_idx": 3
+    },
+    {
+        "type": "text",
+        "text": "To prove that incorporating supervision into ANCL reduces intra-class variance, we establish the following: 1) the optimal predictor $W _ { p } ^ { * }$ generates features of data with reduced intra-class variance by a factor of $\\alpha$ , and 2) the optimal $W _ { p }$ and $W$ share the same eigenspace, thereby $W$ learns to reduce intra-class variance of features. ",
+        "bbox": [
+            501,
+            303,
+            885,
+            393
+        ],
+        "page_idx": 3
+    },
+    {
+        "type": "text",
+        "text": "First, we formulate the Lagrangian function of Eq. (4) and take the expectation over $x _ { 1 } , x _ { 2 }$ , and $x _ { 2 } ^ { \\mathrm { { s u p } } }$ : ",
+        "bbox": [
+            500,
+            401,
+            885,
+            433
+        ],
+        "page_idx": 3
+    },
+    {
+        "type": "equation",
+        "img_path": "images/2c38911d846b1061d6a528e768e9d5209d3f61a0e388d349703004ed8e477f47.jpg",
+        "text": "$$\n\\begin{array} { r l r } {  { \\mathcal { L } = 2 - 2 \\alpha \\cdot \\mathrm { t r } \\big ( W _ { p } ^ { \\top } \\mathbb { E } [ z _ { 2 } z _ { 1 } ^ { \\top } ] \\big ) - 2 \\big ( 1 - \\alpha \\big ) \\cdot \\mathrm { t r } \\big ( W _ { p } ^ { \\top } \\mathbb { E } [ z _ { 2 } ^ { \\operatorname* { s u p } } z _ { 1 } ^ { \\top } ] \\big ) } } \\\\ & { } & { + \\lambda _ { 1 } ( \\mathrm { t r } ( \\mathbb { E } [ z _ { 2 } z _ { 2 } ^ { \\top } ] ) - 1 ) + \\lambda _ { 2 } ( \\mathrm { t r } ( \\mathbb { E } [ z _ { 2 } ^ { \\operatorname* { s u p } } z _ { 2 } ^ { \\operatorname* { s u p } \\top } ] ) - 1 ) } \\\\ & { } & { + \\lambda _ { 3 } ( \\mathrm { t r } ( W _ { p } ^ { \\top } W _ { p } \\mathbb { E } [ z _ { 1 } z _ { 1 } ^ { \\top } ] ) - 1 ) , \\qquad ( 5 ) } \\end{array}\n$$",
+        "text_format": "latex",
+        "bbox": [
+            498,
+            444,
+            883,
+            517
+        ],
+        "page_idx": 3
+    },
+    {
+        "type": "text",
+        "text": "where $\\lambda _ { 1 } , \\lambda _ { 2 }$ , and $\\lambda _ { 3 }$ are the Lagrange multipliers. Note that $x$ and $x ^ { \\mathrm { s u p } }$ are independently sampled from the conditional distribution $P ( X | Y = y )$ , $x _ { 1 }$ and $x _ { 2 }$ are independently sampled from $P ( \\widetilde { X } | X \\ = \\ x )$ , and $x _ { 2 } ^ { \\mathrm { { s u p } } }$ is sampled from $P ( \\widetilde X | X = x ^ { \\mathrm { s u p } } )$ . ",
+        "bbox": [
+            500,
+            529,
+            885,
+            608
+        ],
+        "page_idx": 3
+    },
+    {
+        "type": "text",
+        "text": "Proposition 4.5. The covariance matrices of features $\\mathbb { E } \\left[ \\bar { z _ { 1 } } z _ { 1 } ^ { \\top } \\right] , \\mathbb { E } \\left[ z _ { 2 } z _ { 1 } ^ { \\top } \\right]$ , and $\\mathbb { E } \\left[ z _ { 2 } ^ { \\mathrm { s u p } } z _ { 1 } ^ { \\top } \\right]$ share the same eigenspace in the data space. ",
+        "bbox": [
+            500,
+            614,
+            883,
+            660
+        ],
+        "page_idx": 3
+    },
+    {
+        "type": "text",
+        "text": "Proof. From Assumptions 4.1 to 4.4, ",
+        "bbox": [
+            501,
+            689,
+            745,
+            704
+        ],
+        "page_idx": 3
+    },
+    {
+        "type": "equation",
+        "img_path": "images/5c165ca219e75b25608a8d7a58049e8f71123aab600fb2709a3ccdc9fa33af11.jpg",
+        "text": "$$\n\\begin{array} { r l } & { \\mathbb { E } \\left[ z _ { 1 } z _ { 1 } ^ { \\top } \\right] = W \\left( S _ { B } + S _ { W } + S _ { e } \\right) W ^ { \\top } , } \\\\ & { \\mathbb { E } \\left[ z _ { 2 } z _ { 1 } ^ { \\top } \\right] = W \\left( S _ { B } + S _ { W } \\right) W ^ { \\top } = W W ^ { \\top } , } \\\\ & { \\mathbb { E } \\left[ z _ { 2 } ^ { \\operatorname* { s u p } } z _ { 1 } ^ { \\top } \\right] = W S _ { B } W ^ { \\top } , } \\end{array}\n$$",
+        "text_format": "latex",
+        "bbox": [
+            540,
+            717,
+            841,
+            782
+        ],
+        "page_idx": 3
+    },
+    {
+        "type": "text",
+        "text": "where $\\begin{array} { r } { S _ { B } \\ = \\ \\frac 1 C \\sum _ { y } \\mu _ { y } \\mu _ { y } ^ { \\top } } \\end{array}$ is the inter-class covariance, $\\begin{array} { r } { S _ { W } = \\frac { 1 } { C } \\sum _ { y } \\sum _ { y } } \\end{array}$ is the intra-class covariance, and $S _ { e } =$ $\\sigma _ { e } ^ { 2 } I$ is the variance of the augmentation noise. Let $S _ { B } =$ $V \\Lambda _ { B } V ^ { \\top }$ be the eigendecomposition, where $V$ is an orthogonal matrix and $\\Lambda _ { B }$ is a diagonal matrix of the eigenvalues. Then, $S _ { T } = S _ { B } + S _ { W }$ and $S _ { e }$ share the same eigenspace with $S _ { B }$ , as they are (scaled) identity matrices. ",
+        "bbox": [
+            500,
+            794,
+            887,
+            905
+        ],
+        "page_idx": 3
+    },
+    {
+        "type": "equation",
+        "img_path": "images/b3aede24b716bee85d50d04e59eb65d5f3700cea49702457164cc37e8d070de5.jpg",
+        "text": "$$\n\\begin{array} { r l } & { \\mathbb { E } \\left[ z _ { 1 } z _ { 1 } ^ { \\top } \\right] = W V \\left( \\Lambda _ { B } + \\Lambda _ { W } + \\sigma _ { e } ^ { 2 } I \\right) V ^ { \\top } W ^ { \\top } , } \\\\ & { \\mathbb { E } \\left[ z _ { 2 } z _ { 1 } ^ { \\top } \\right] = W V \\left( \\Lambda _ { B } + \\Lambda _ { W } \\right) V ^ { \\top } W ^ { \\top } , } \\\\ & { \\mathbb { E } \\left[ z _ { 2 } ^ { \\operatorname* { s u p } } z _ { 1 } ^ { \\top } \\right] = W V \\Lambda _ { B } V ^ { \\top } W ^ { \\top } , } \\end{array}\n$$",
+        "text_format": "latex",
+        "bbox": [
+            109,
+            102,
+            431,
+            166
+        ],
+        "page_idx": 4
+    },
+    {
+        "type": "text",
+        "text": "where $\\Lambda _ { W } = I - \\Lambda _ { B }$ is the eigenvalue matrix of $S _ { W }$ . It can be seen that the covariance matrices of features in Eq. (7) share the same eigenspace in the data space. ",
+        "bbox": [
+            88,
+            171,
+            473,
+            217
+        ],
+        "page_idx": 4
+    },
+    {
+        "type": "text",
+        "text": "Then, we apply the expressions in Proposition 4.5 to the optimal predictor $W _ { p } ^ { * }$ obtained from Eq. (5): ",
+        "bbox": [
+            88,
+            232,
+            472,
+            263
+        ],
+        "page_idx": 4
+    },
+    {
+        "type": "text",
+        "text": "Theorem 4.6. For an arbitrary $W$ , the optimal predictor $W _ { p } ^ { * }$ that minimizes the loss in Eq. (5) is given by ",
+        "bbox": [
+            88,
+            266,
+            472,
+            296
+        ],
+        "page_idx": 4
+    },
+    {
+        "type": "equation",
+        "img_path": "images/73c61df8197208babde84c23e7d891495f724ef7a61e997a513088802748d659.jpg",
+        "text": "$$\nW _ { p } ^ { * } = \\frac { 1 } { \\lambda _ { 3 } } W V \\big ( \\Lambda _ { B } + \\alpha \\Lambda _ { W } \\big ) \\big ( \\Lambda _ { B } + \\Lambda _ { W } + \\sigma _ { e } ^ { 2 } I \\big ) ^ { - 1 } V ^ { \\top } W ^ { + } ,\n$$",
+        "text_format": "latex",
+        "bbox": [
+            91,
+            304,
+            467,
+            335
+        ],
+        "page_idx": 4
+    },
+    {
+        "type": "text",
+        "text": "where $W ^ { + }$ is the Moore-Penrose inverse (Penrose, 1955). ",
+        "bbox": [
+            88,
+            343,
+            464,
+            358
+        ],
+        "page_idx": 4
+    },
+    {
+        "type": "text",
+        "text": "From Theorem 4.6, the optimal predictor $W _ { p } ^ { * }$ can be interpreted through a sequence of hypothetical transformations: 1) mapping features to the data space, 2) eliminating the augmentation noise and reducing the intra-class variance by a factor of $\\alpha$ , and 3) mapping back to the feature space. ",
+        "bbox": [
+            88,
+            369,
+            473,
+            444
+        ],
+        "page_idx": 4
+    },
+    {
+        "type": "text",
+        "text": "Next, we show that $W _ { p } ^ { * }$ and $W ^ { * }$ share the same eigenspace. ",
+        "bbox": [
+            88,
+            452,
+            473,
+            468
+        ],
+        "page_idx": 4
+    },
+    {
+        "type": "text",
+        "text": "Theorem 4.7. The optimal predictor $W _ { p } ^ { * }$ and the optimal model $W ^ { * }$ that minimizes the loss in Eq. (5) satisfy ",
+        "bbox": [
+            88,
+            486,
+            473,
+            515
+        ],
+        "page_idx": 4
+    },
+    {
+        "type": "equation",
+        "img_path": "images/39341e14a8b00f347db1abe8fa62b8d913c025f700c07249ee7202d2177c9dc1.jpg",
+        "text": "$$\n\\begin{array} { r } { W _ { p } ^ { * \\top } W _ { p } ^ { * } \\approx W ^ { * } W ^ { * \\top } . } \\end{array}\n$$",
+        "text_format": "latex",
+        "bbox": [
+            205,
+            521,
+            356,
+            542
+        ],
+        "page_idx": 4
+    },
+    {
+        "type": "text",
+        "text": "Note that Theorem 4.7 holds in self-supervised ANCL as shown in Tian et al. (2021); Liu et al. (2022), and it remains valid when supervision is incorporated. ",
+        "bbox": [
+            88,
+            555,
+            473,
+            601
+        ],
+        "page_idx": 4
+    },
+    {
+        "type": "text",
+        "text": "Finally, we conclude that $W ^ { * }$ learns to reduce intra-class variance, as $W _ { p } ^ { * }$ generates features of data with reduced intra-class variance by a factor of $\\alpha$ from Theorem 4.6, and $W ^ { * }$ imitates this behavior according to Theorem 4.7. ",
+        "bbox": [
+            88,
+            608,
+            473,
+            669
+        ],
+        "page_idx": 4
+    },
+    {
+        "type": "text",
+        "text": "4.3. Effect of Reducing Intra-Class Variance ",
+        "text_level": 1,
+        "bbox": [
+            89,
+            685,
+            397,
+            700
+        ],
+        "page_idx": 4
+    },
+    {
+        "type": "text",
+        "text": "In the proposed supervised ANCL loss in Eq. (3), the coefficient $\\alpha$ adjusts the contribution of supervision: decreasing $\\alpha$ results in increasing this contribution, thereby reducing intra-class variance, as proved in Section 4.2. Ideally, when intra-class variance is too small, all data within each class converge to a single point, leading to class collapse: data within each class become indistinguishable (Papyan et al., 2020). Thus, we argue that balancing the contributions of supervision and self-supervision is crucial to achieve semantically aligned yet well-distributed representations in supervised ANCL, leading to the generalization of learned representations; intuitively, the ideal semantic latent space should retain intra-class variance to distinguish data instances. ",
+        "bbox": [
+            89,
+            709,
+            473,
+            905
+        ],
+        "page_idx": 4
+    },
+    {
+        "type": "text",
+        "text": "Table 1. SUPSIAM results with different $\\alpha$ on the toy dataset and ImageNet-100 in several metrics: the self-supervised loss in Eq. (1), the supervised loss in Eq. (2), the intra-class variance, the relative intra-class variance $( \\% )$ , and the accuracy of $k$ -NN and linear probing $( \\% )$ . For the accuracies, the best results are highlighted in bold and the second-best results are underlined. ",
+        "bbox": [
+            500,
+            93,
+            885,
+            176
+        ],
+        "page_idx": 4
+    },
+    {
+        "type": "table",
+        "img_path": "images/d779e6b4f5c04a7681e5b8e92b4ad80b3848a226203763390e94f032288d9eb5.jpg",
+        "table_caption": [],
+        "table_footnote": [],
+        "table_body": "<table><tr><td>α</td><td>(lss, lsup)</td><td>Sw</td><td>Sw / ST</td><td>k-NN</td><td>Linear</td></tr><tr><td>Toy dataset</td><td></td><td></td><td></td><td></td><td></td></tr><tr><td>0.0</td><td>(-0.7115, -0.4212)</td><td>0.338</td><td>33.94</td><td>60.51</td><td>60.78</td></tr><tr><td>0.2</td><td>(-0.7423, -0.4140)</td><td>0.363</td><td>36.36</td><td>61.35</td><td>61.58</td></tr><tr><td>0.5</td><td>(-0.8116, -0.1654)</td><td>0.799</td><td>79.97</td><td>61.18</td><td>61.89</td></tr><tr><td>0.8</td><td>(-0.8473, -0.0231)</td><td>0.971</td><td>97.14</td><td>55.93</td><td>61.18</td></tr><tr><td>1.0</td><td>(-0.8519, -0.0024)</td><td>0.997</td><td>99.70</td><td>38.02</td><td>45.91</td></tr><tr><td>ImageNet-100</td><td colspan=\"5\"></td></tr><tr><td>0.0</td><td>(-0.9048, -0.8932)</td><td>0.070</td><td>7.01</td><td>80.79</td><td>85.92</td></tr><tr><td>0.2</td><td>(-0.9231, -0.9096)</td><td>0.057</td><td>5.72</td><td>82.72</td><td>86.85</td></tr><tr><td>0.5</td><td>(-0.9321, -0.8823)</td><td>0.108</td><td>10.79</td><td>82.89</td><td>87.31</td></tr><tr><td>0.8</td><td>(-0.9349, -0.5118)</td><td>0.515</td><td>51.58</td><td>80.19</td><td>86.65</td></tr><tr><td>1.0</td><td>(-0.9290, -0.2341)</td><td>0.743</td><td>74.53</td><td>75.23</td><td>82.15</td></tr></table>",
+        "bbox": [
+            500,
+            181,
+            885,
+            359
+        ],
+        "page_idx": 4
+    },
+    {
+        "type": "text",
+        "text": "To verify our claim, we conduct an experiment on a synthetic toy dataset with three classes, each following a Gaussian distribution by training SUPSIAM models with varying $\\alpha$ The details of the toy dataset and SUPSIAM models are described in Appendix B. After training, we compare the selfsupervised and supervised training losses $\\ell _ { \\mathrm { s s l } }$ and $\\ell _ { \\mathrm { s u p } }$ ), the absolute and relative intra-class variance of latent features ( $\\widetilde { S } _ { W }$ and $\\widetilde { S } _ { W } / \\widetilde { S } _ { T } )$ , and the accuracy of $k$ -nearest neighbors ( $k$ -NN) and linear probing (Linear) in Table 1. Here, $\\widetilde { S } _ { W }$ and $\\widetilde { S } _ { T }$ represent the empirical intra-class variance and the total variance, respectively: ",
+        "bbox": [
+            500,
+            380,
+            885,
+            546
+        ],
+        "page_idx": 4
+    },
+    {
+        "type": "equation",
+        "img_path": "images/61306410163258c0e64f4fceff2d497c183af47ab8bb4c10aed4b06d8820a338.jpg",
+        "text": "$$\n\\widetilde { S } _ { W } = \\mathbb { E } _ { y , z } \\left[ \\Vert z - \\tilde { \\mu } _ { y } \\Vert _ { 2 } ^ { 2 } \\right] , \\widetilde { S } _ { T } = \\mathbb { E } _ { z } \\left[ \\Vert z - \\tilde { \\mu } \\Vert _ { 2 } ^ { 2 } \\right] ,\n$$",
+        "text_format": "latex",
+        "bbox": [
+            519,
+            556,
+            844,
+            578
+        ],
+        "page_idx": 4
+    },
+    {
+        "type": "text",
+        "text": "where $\\tilde { \\mu } _ { y }$ is the $y$ -th class mean and $\\tilde { \\mu }$ is the total mean of features, and the expectation is taken over training dataset. ",
+        "bbox": [
+            500,
+            588,
+            885,
+            618
+        ],
+        "page_idx": 4
+    },
+    {
+        "type": "text",
+        "text": "In Table 1, $\\ell _ { \\mathrm { s s l } }$ decreases while $\\ell _ { \\mathrm { s u p } }$ increases as $\\alpha$ increases, which confirms that the contribution of each loss is adjusted as expected. Additionally, the intra-class variance is proportional to $\\alpha$ , as proved in Section 4.2. However, the accuracy of $k$ -NN and linear probing exhibits different trends, with the best accuracy achieved when $\\alpha$ is between 0 and 1. This supports our claim that while incorporating supervision into ANCL aids in learning semantically aligned representations, excessively reducing intra-class variance may hinder the generalization of learned representations, resulting in diminishing performance on unseen test data. ",
+        "bbox": [
+            500,
+            626,
+            885,
+            791
+        ],
+        "page_idx": 4
+    },
+    {
+        "type": "text",
+        "text": "Figure 2 visualizes the feature space via t-SNE (Maaten & Hinton, 2008). When $\\alpha = 0 . 5$ , the class distributions are well-separated while retaining intra-class variance. Decreasing $\\alpha$ results in more densely clustered results by skewing the feature space, which might be detrimental to generalization; e.g., the model is overconfident in its predictions for downstream classification tasks. Conversely, increasing $\\alpha$ leads to mixed class distributions, impairing classification. ",
+        "bbox": [
+            501,
+            799,
+            885,
+            905
+        ],
+        "page_idx": 4
+    },
+    {
+        "type": "image",
+        "img_path": "images/86a347a169de165cd2ef5724b6f8f9234ffa061b48275814a57a4d7eaabd0b88.jpg",
+        "image_caption": [
+            "Figure 2. t-SNE visualization of SUPSIAM features with different $\\alpha$ on the toy dataset. "
+        ],
+        "image_footnote": [],
+        "bbox": [
+            91,
+            90,
+            877,
+            252
+        ],
+        "page_idx": 5
+    },
+    {
+        "type": "table",
+        "img_path": "images/a2ff1d365a10dff01b0cf84fd521e2249f5f431a80ccca6eb1bbfd50d08fc4fa.jpg",
+        "table_caption": [
+            "Table 2. Transfer learning results on toy downstream datasets with different means and varying scale of covariance $\\sigma$ , with SUPSIAMpretraining on the toy dataset. For each scenario, the best results are in bold and the second-best results are underlined. "
+        ],
+        "table_footnote": [],
+        "table_body": "<table><tr><td rowspan=\"3\">α</td><td colspan=\"3\">Interpolation</td><td colspan=\"3\">Extrapolation</td></tr><tr><td>σ = 0.2</td><td>σ = 0.5</td><td>σ = 0.8</td><td>σ = 0.2</td><td>σ = 0.5</td><td>σ = 0.8</td></tr><tr><td>0.0</td><td>43.60</td><td>37.44</td><td>35.40</td><td>96.67</td><td>83.76</td><td>74.42</td></tr><tr><td>0.2</td><td>44.02</td><td>37.24</td><td>35.31</td><td>97.13</td><td>84.71</td><td>75.09</td></tr><tr><td>0.5</td><td>44.25</td><td>37.96</td><td>35.69</td><td>97.60</td><td>85.87</td><td>76.00</td></tr><tr><td>0.8</td><td>44.24</td><td>37.65</td><td>35.98</td><td>97.07</td><td>83.69</td><td>73.73</td></tr><tr><td>1.0</td><td>40.40</td><td>36.60</td><td>35.67</td><td>75.84</td><td>59.67</td><td>53.00</td></tr></table>",
+        "bbox": [
+            96,
+            363,
+            465,
+            463
+        ],
+        "page_idx": 5
+    },
+    {
+        "type": "text",
+        "text": "",
+        "bbox": [
+            88,
+            497,
+            470,
+            512
+        ],
+        "page_idx": 5
+    },
+    {
+        "type": "text",
+        "text": "To assess the transferability of learned representations, we conduct transfer learning scenarios in Table 2. Specifically, we consider three downstream classes, where their means are either interpolated or extrapolated from the pretraining classes, and the scale of the covariance matrix of downstream classes is adjusted by $\\sigma$ to control the difficulty of downstream tasks. As shown in Table 2, supervised ANCL consistently outperforms self-supervised ANCL $( \\alpha = 1$ ) across all scenarios, highlighting the effectiveness of incorporating supervision into ANCL. Moreover, the best performance is achieved when $0 < \\alpha < 1$ , suggesting that balancing the contributions of supervision and self-supervision is crucial, i.e., excessively reducing intra-class variance is detrimental to representation learning. ",
+        "bbox": [
+            89,
+            520,
+            473,
+            731
+        ],
+        "page_idx": 5
+    },
+    {
+        "type": "text",
+        "text": "Next, to confirm the scalability of our observations to real-world scenarios, we conduct a similar experiment on ImageNet-100 (Deng et al., 2009; Tian et al., 2020) by replacing the encoder with ResNet-50 (He et al., 2016) and the projector and predictor with MLPs, respectively. As shown in the bottom of Table 1, the observations remain mostly consistent; although both supervised loss and intra-class variance slightly decrease when $\\alpha$ increases from 0.0 to 0.2, we conjecture that this is due to the non-linearity of the optimization. These results further support our claim that balancing the contributions of supervision and self-supervision is crucial for the generalization of representations learned via supervised ANCL. ",
+        "bbox": [
+            89,
+            739,
+            473,
+            905
+        ],
+        "page_idx": 5
+    },
+    {
+        "type": "table",
+        "img_path": "images/de0557d380219dd2bc31ef396cb6e9e509e57da88b690d0475182ebc373c5da5.jpg",
+        "table_caption": [
+            "Table 3. Transfer learning results on fine-grained classification datasets, where the model is SUPSIAM-pretrained with different $\\alpha$ on ImageNet-100. For each dataset, the best results are in bold and the second-best results are underlined. "
+        ],
+        "table_footnote": [],
+        "table_body": "<table><tr><td>α</td><td>CUB200</td><td>Dogs</td><td>Pets</td></tr><tr><td>0.0</td><td>41.46</td><td>61.51</td><td>80.09</td></tr><tr><td>0.2</td><td>42.07</td><td>64.28</td><td>82.27</td></tr><tr><td>0.5</td><td>43.48</td><td>64.65</td><td>82.38</td></tr><tr><td>0.8</td><td>42.16</td><td>62.94</td><td>81.76</td></tr><tr><td>1.0</td><td>36.10</td><td>54.57</td><td>75.13</td></tr></table>",
+        "bbox": [
+            575,
+            363,
+            808,
+            469
+        ],
+        "page_idx": 5
+    },
+    {
+        "type": "text",
+        "text": "",
+        "bbox": [
+            500,
+            498,
+            885,
+            527
+        ],
+        "page_idx": 5
+    },
+    {
+        "type": "text",
+        "text": "Similar to the toy experiments, we evaluate the transferability of learned representations in real-world scenarios by conducting transfer learning experiments. Specifically, we apply linear probing to the SUPSIAM-pretrained models on downstream datasets for fine-grained classification tasks, including CUB-200-2011 (Welinder et al., 2010), Stanford Dogs (Khosla et al., 2011), and Oxford-IIIT Pets (Parkhi et al., 2012). As shown in Table 3, the transfer learning performance exhibits trends similar to those in Table 1: incorporating supervision into ANCL is beneficial, and balancing the contributions of supervision and self-supervision improves the generalization of representations. ",
+        "bbox": [
+            501,
+            536,
+            885,
+            717
+        ],
+        "page_idx": 5
+    },
+    {
+        "type": "text",
+        "text": "To further elucidate the effect of $\\alpha$ in real-world scenarios, we present t-SNE visualizations of latent features from 20 classes, consisting of 15 dogs and 5 birds, subsampled from ImageNet-100. As shown in Figure 3, classes overlap when no supervision is provided, i.e., when $\\alpha = 1$ , and the latent features form more compact clusters as $\\alpha$ decreases. Notably, some dog classes (e.g., “Doberman” and “Rottweiler”) overlap when $\\alpha$ is small, around 0.0 and 0.2, while they are well-separated when $\\alpha = 0 . 5$ . This implies that excessively reducing intra-class variance with small $\\alpha$ might result in collapsing fine-grained classes, which could be detrimental to downstream tasks. ",
+        "bbox": [
+            501,
+            724,
+            885,
+            904
+        ],
+        "page_idx": 5
+    },
+    {
+        "type": "image",
+        "img_path": "images/3760bf383b00a24fe0110d3ac8ae7b706cd196ac0fc57a1da66a1cdb4f52b05e.jpg",
+        "image_caption": [
+            "Figure 3. t-SNE visualization of SUPSIAM features with different $\\alpha$ on $1 5 \\mathrm { d o g }$ and 5 bird classes from ImageNet-100. "
+        ],
+        "image_footnote": [],
+        "bbox": [
+            93,
+            88,
+            879,
+            253
+        ],
+        "page_idx": 6
+    },
+    {
+        "type": "text",
+        "text": "5. Experiment ",
+        "text_level": 1,
+        "bbox": [
+            88,
+            292,
+            209,
+            310
+        ],
+        "page_idx": 6
+    },
+    {
+        "type": "text",
+        "text": "In this section, we provide experimental results across various datasets and tasks to demonstrate the effectiveness of supervision in ANCL. We also compare CL methods to confirm that ANCL performance is competitive to CL. Detailed experimental settings are provided in Appendix C. ",
+        "bbox": [
+            89,
+            319,
+            473,
+            393
+        ],
+        "page_idx": 6
+    },
+    {
+        "type": "text",
+        "text": "5.1. Pretraining ",
+        "text_level": 1,
+        "bbox": [
+            88,
+            411,
+            199,
+            425
+        ],
+        "page_idx": 6
+    },
+    {
+        "type": "text",
+        "text": "We consider two ANCL methods, SIMSIAM (Chen & He, 2021) and BYOL (Grill et al., 2020), as our baselines, along with their supervised variations, SUPSIAM and SUPBYOL, as our proposed methods. Additionally, we compare two CL methods, SIMCLR (Chen et al., 2020a) and MOCOV2 (Chen et al., 2020b), and their supervised variations, SUPCON (Khosla et al., 2020) and SUPMOCO (Majumder et al., 2021). Each model consists of a ResNet-50 encoder (He et al., 2016) followed by a 2-layer MLP projector and predictor, except for SIMSIAM and SUPSIAM, which utilize a 3-layer MLP projector following the original configuration by Chen & He (2021). We pretrain models on ImageNet100 (Deng et al., 2009; Tian et al., 2020) for 200 epochs with a batch size of 128. For data augmentation, we apply random crop, random horizontal flip, color jitter, random grayscale, and Gaussian blur, following Chen et al. (2020a). For methods utilizing the target pool, we set the size of the target pool $| Q |$ to 8192 and obtain the supervised target $z _ { 2 } ^ { \\mathrm { s u p } }$ by sampling and averaging all positives in the target $\\mathrm { p o o l } ^ { 1 }$ unless otherwise stated. The coefficient $\\alpha$ adjusting the contribution of the self-supervised and supervised loss is 0.5, unless otherwise stated. We repeat all experiments with three pretrained models with different random seeds and report the average performance. ",
+        "bbox": [
+            88,
+            435,
+            473,
+            796
+        ],
+        "page_idx": 6
+    },
+    {
+        "type": "text",
+        "text": "5.2. Linear Evaluation ",
+        "text_level": 1,
+        "bbox": [
+            89,
+            814,
+            245,
+            828
+        ],
+        "page_idx": 6
+    },
+    {
+        "type": "text",
+        "text": "We evaluate the quality of representations on the pretrained distribution through a comparison of linear probing performance on ImageNet-100. Specifically, we take the pretrained and frozen backbone, and train a linear classifier on top of it, following the common protocol in prior works (Chen et al., 2020a;b; Grill et al., 2020; Chen & He, 2021). ",
+        "bbox": [
+            88,
+            837,
+            473,
+            867
+        ],
+        "page_idx": 6
+    },
+    {
+        "type": "table",
+        "img_path": "images/03764fbce5265c06d7aeaf6ab5727ed16234f90173dd77482f0eb0712deb0e43.jpg",
+        "table_caption": [
+            "Table 4. Top-1 linear probing accuracy on ImageNet-100 and transfer learning performance on VOC object detection. The best results are in bold and the second-best results are underlined. Our proposed methods are marked with $^ \\dagger$ . "
+        ],
+        "table_footnote": [],
+        "table_body": "<table><tr><td>Dataset</td><td>ImageNet-100</td><td colspan=\"2\">VOC</td></tr><tr><td>Method</td><td>Top-1</td><td>AP</td><td>AP50</td></tr><tr><td>SimCLR SUPCON</td><td>77.35 87.40</td><td>52.06 ± 0.31 52.53 ± 0.47</td><td>78.70 ± 0.16 79.44 ± 0.21</td></tr><tr><td>MoCo-v2 SUPMoCo</td><td>78.37 86.33</td><td>52.68 ± 0.04 52.67 ± 0.04</td><td>79.08 ± 0.24 79.52 ± 0.15</td></tr><tr><td>SimSiam SUPSIAM†</td><td>82.15 87.31</td><td>53.56 ± 0.10 53.89 ± 0.26</td><td>79.82 ± 0.10 80.28 ± 0.06</td></tr><tr><td>BYOL SUPByOLt</td><td>84.93 87.43</td><td>53.54 ± 0.04 53.69 ± 0.24</td><td>79.57 ± 0.01 80.26 ± 0.17</td></tr></table>",
+        "bbox": [
+            511,
+            363,
+            872,
+            536
+        ],
+        "page_idx": 6
+    },
+    {
+        "type": "text",
+        "text": "",
+        "bbox": [
+            500,
+            549,
+            885,
+            608
+        ],
+        "page_idx": 6
+    },
+    {
+        "type": "text",
+        "text": "As shown in Table 4, incorporating supervision into ANCL enhances linear probing performance on the pretraining dataset. This suggests that representations learned with supervision more effectively encode the semantic information of the pretrained data distribution. ",
+        "bbox": [
+            500,
+            616,
+            885,
+            690
+        ],
+        "page_idx": 6
+    },
+    {
+        "type": "text",
+        "text": "5.3. Object Detection ",
+        "text_level": 1,
+        "bbox": [
+            500,
+            708,
+            648,
+            723
+        ],
+        "page_idx": 6
+    },
+    {
+        "type": "text",
+        "text": "To assess the generalizability beyond classification tasks, we evaluate pretraining methods on an object detection task. Following He et al. (2020), we initialize Faster R-CNN (Ren et al., 2015) with each pretrained model and fine-tune it on the $\\mathrm { v o c } 0 7 { + } 1 2$ training dataset (Everingham et al., 2010). We measure performance using the COCO evaluation metrics (Lin et al., 2014) on the VOC07 test dataset. ",
+        "bbox": [
+            501,
+            732,
+            885,
+            837
+        ],
+        "page_idx": 6
+    },
+    {
+        "type": "text",
+        "text": "As shown on the right side of Table 4, incorporating supervision into ANCL improves object detection performance, resulting in the best overall performance. In contrast, the performance gain from supervision in CL is marginal or often detrimental, which aligns with the findings from prior works (Khosla et al., 2020). This suggests that supervised ANCL yields more generalizable representations, with the potential to achieve superior performance across various downstream tasks. ",
+        "bbox": [
+            500,
+            845,
+            885,
+            905
+        ],
+        "page_idx": 6
+    },
+    {
+        "type": "table",
+        "img_path": "images/9086eda21545dc612789ce6b90cbe1f76e7babe5d10b5ecd9bce19e2e9cae350.jpg",
+        "table_caption": [
+            "Table 5. Transfer learning via linear evaluation results on various downstream datasets, where models are pretrained on ImageNet-100. CL, Sup., EMA stand for the cases when negative samples are considered, labels are used for pretraining, and the momentum network is adopted, respectively. Avg. Rank represents the average performance ranking across all datasets. For each dataset, the best results are in bold and the second-best results are underlined. Our proposed methods are marked with $\\dagger$ . "
+        ],
+        "table_footnote": [],
+        "table_body": "<table><tr><td>Method</td><td>CL</td><td>Sup</td><td>EMA</td><td>Avg.Rank</td><td>CIFAR10</td><td>CIFAR100</td><td>DTD</td><td>Food</td><td>MIT67</td><td>SUN397</td><td>Caltech</td><td>CUB200</td><td>Dogs</td><td>Flowers</td><td>Pets</td></tr><tr><td>SImCLR</td><td>\\</td><td></td><td></td><td>7.00</td><td>84.69</td><td>62.86</td><td>64.18</td><td>60.91</td><td>61.81</td><td>47.10</td><td>77.89</td><td>28.76</td><td>44.33</td><td>84.30</td><td>65.10</td></tr><tr><td>SUPCoN</td><td></td><td>✓</td><td></td><td>4.73</td><td>88.82</td><td>68.89</td><td>65.18</td><td>59.34</td><td>63.76</td><td>50.09</td><td>87.30</td><td>35.84</td><td>61.68</td><td>89.05</td><td>80.12</td></tr><tr><td>MoCo-v2</td><td>✓</td><td></td><td>✓</td><td>7.82</td><td>83.43</td><td>61.54</td><td>61.81</td><td>57.36</td><td>59.55</td><td>45.07</td><td>77.26</td><td>27.79</td><td>46.67</td><td>82.35</td><td>68.52</td></tr><tr><td>SUPMoCo</td><td>✓</td><td>✓</td><td>✓</td><td>4.09</td><td>89.05</td><td>69.29</td><td>65.44</td><td>59.04</td><td>63.46</td><td>50.05</td><td>87.54</td><td>37.75</td><td>62.80</td><td>89.69</td><td>80.81</td></tr><tr><td>SimSiam</td><td></td><td></td><td></td><td>4.91</td><td>87.28</td><td>66.41</td><td>66.06</td><td>63.44</td><td>64.68</td><td>50.69</td><td>85.00</td><td>36.10</td><td>54.57</td><td>88.38</td><td>75.13</td></tr><tr><td>SPSIAMt</td><td></td><td>✓</td><td></td><td>2.27</td><td>89.95</td><td>70.88</td><td>66.51</td><td>61.46</td><td>64.45</td><td>51.50</td><td>88.86</td><td>43.48</td><td>64.65</td><td>90.27</td><td>82.38</td></tr><tr><td>BYOL</td><td></td><td></td><td></td><td>3.82</td><td>88.26</td><td>68.08</td><td>67.52</td><td>64.63</td><td>65.70</td><td>51.21</td><td>85.85</td><td>37.10</td><td>57.80</td><td>88.14</td><td>78.78</td></tr><tr><td>SUPBYOL</td><td></td><td>✓</td><td>;</td><td>1.36</td><td>90.85</td><td>72.04</td><td>67.38</td><td>64.58</td><td>66.64</td><td>52.95</td><td>88.79</td><td>43.24</td><td>65.02</td><td>91.09</td><td>82.68</td></tr></table>",
+        "bbox": [
+            88,
+            154,
+            885,
+            280
+        ],
+        "page_idx": 7
+    },
+    {
+        "type": "text",
+        "text": "",
+        "bbox": [
+            88,
+            299,
+            472,
+            372
+        ],
+        "page_idx": 7
+    },
+    {
+        "type": "text",
+        "text": "5.4. Transfer Learning via Linear Evaluation ",
+        "text_level": 1,
+        "bbox": [
+            91,
+            390,
+            401,
+            405
+        ],
+        "page_idx": 7
+    },
+    {
+        "type": "text",
+        "text": "For transfer learning, we evaluate the top-1 accuracy across 11 downstream datasets: CIFAR10/CIFAR100 (Krizhevsky & Hinton, 2009), DTD (Cimpoi et al., 2014), Food (Bossard et al., 2014), MIT67 (Quattoni & Torralba, 2009), SUN397 (Xiao et al., 2010), Caltech101 (Fei-Fei et al., 2004), CUB200 (Welinder et al., 2010), Dogs (Khosla et al., 2011; Deng et al., 2009), Flowers (Nilsback & Zisserman, 2008), and Pets (Parkhi et al., 2012), where detailed information is described in Appendix D. For evaluation, we follow the linear probing protocol for transfer learning in prior works (Kornblith et al., 2019; Lee et al., 2021a). ",
+        "bbox": [
+            88,
+            414,
+            473,
+            579
+        ],
+        "page_idx": 7
+    },
+    {
+        "type": "text",
+        "text": "As shown in Table 5, incorporating supervision improves performance across all pretraining methods. Among them, supervised ANCL methods achieve the best performance: SUPBYOL and SUPSIAM outperform others on 9 out of 11 datasets, demonstrating the superiority of supervised ANCL. Between supervised ANCL methods, SUPBYOL exhibits better performance than SUPSIAM in terms of the average rank, which might be due to the effect of momentum network. Notably, while the performance gain from incorporating supervision into ANCL is relatively small compared to CL because the self-supervised versions of ANCL already exhibit strong performance, we observe a significant improvement on fine-grained datasets, such as CUB200, Dogs, and Pets. This suggests that learning semantically aligned representations while retaining intra-class variance in ANCL is crucial for recognizing fine-grained information. ",
+        "bbox": [
+            89,
+            588,
+            473,
+            829
+        ],
+        "page_idx": 7
+    },
+    {
+        "type": "text",
+        "text": "5.5. Few-Shot Classification ",
+        "text_level": 1,
+        "bbox": [
+            89,
+            845,
+            281,
+            861
+        ],
+        "page_idx": 7
+    },
+    {
+        "type": "text",
+        "text": "To assess the generalizability of learned representations under limited conditions, we conduct transfer learning experiments on few-shot classification tasks following the linear probing protocol for few-shot learning in Lee et al. (2021a). We evaluate the accuracy of 5-way 1-shot and 5-way 5-shot scenarios over 2000 episodes across 8 downstream datasets: Aircraft (Maji et al., 2013), CUB200 (Welinder et al., 2010), FC100 (Oreshkin et al., 2018), Flowers (Nilsback & Zisserman, 2008), Fungi (Schroeder & Cui, 2018), Omniglot (Lake et al., 2015), DTD (Cimpoi et al., 2014), and Traffic Signs (Houben et al., 2013). Table 6 shows a similar trend to other experiments that incorporating supervision improves both CL and ANCL, while supervised ANCL achieves the best performance in most cases. ",
+        "bbox": [
+            88,
+            869,
+            473,
+            898
+        ],
+        "page_idx": 7
+    },
+    {
+        "type": "text",
+        "text": "",
+        "bbox": [
+            501,
+            299,
+            885,
+            478
+        ],
+        "page_idx": 7
+    },
+    {
+        "type": "text",
+        "text": "5.6. Ablation Study on Target Pool Design ",
+        "text_level": 1,
+        "bbox": [
+            503,
+            496,
+            790,
+            511
+        ],
+        "page_idx": 7
+    },
+    {
+        "type": "text",
+        "text": "In this section, we investigate the design choices for the target pool. In our experiments, the pretraining dataset ImageNet-100 consists of 100 classes, such that the probability of missing any class in the target pool is negligible with a target pool size of 8192. However, with a larger number of classes, some classes might not exist in the target pool if it is updated in a class-agnostic manner. To address this concern, we consider two alternative target pool designs: 1) managing class-wise queues as the target pool, and 2) maintaining learnable class prototypes using the EMA update rule. Additionally, we adjust the size of the class-wise queues to determine the optimal number of latent features required to ensure good performance. ",
+        "bbox": [
+            501,
+            520,
+            885,
+            715
+        ],
+        "page_idx": 7
+    },
+    {
+        "type": "text",
+        "text": "As shown in Table 7, performance remains consistent regardless of the target pool design. For the class-wise queues, increasing the number of features stored per class slightly enhances performance, with the best performance observed at 20 features per class, though the gain is overall marginal. In all designs, the size of the target pool grows proportionally to the number of classes and/or the feature dimension, which is equivalent to a linear classifier, such that its memory consumption is negligible; e.g., the linear classifier takes only $2 \\%$ of the parameters in ResNet-50. Nonetheless, a more sophisticated design of the target pool might be effective, which we leave for future works. ",
+        "bbox": [
+            501,
+            724,
+            885,
+            904
+        ],
+        "page_idx": 7
+    },
+    {
+        "type": "text",
+        "text": "Table 6. Few-shot classification accuracy averaged over 2000 episodes on various datasets, where models are pretrained on ImageNet-100. CL, Sup, EMA stand for the cases when negative samples are considered, labels are used for pretraining, and the momentum network is adopted, respectively. Avg.Rank represents the average performance ranking across all datasets. For each dataset, the best results are in bold and the second-best results are underlined. Our proposed methods are marked with $\\dagger$ . ",
+        "bbox": [
+            88,
+            93,
+            885,
+            148
+        ],
+        "page_idx": 8
+    },
+    {
+        "type": "table",
+        "img_path": "images/29cab495498982651885487fc428a22c8da76a7bbe98af6d6af3964824fe7744.jpg",
+        "table_caption": [],
+        "table_footnote": [],
+        "table_body": "<table><tr><td>Method</td><td>CL</td><td>Sup</td><td>EMA</td><td>Avg.Rank</td><td>Aircraft</td><td>CUB200</td><td>FC100</td><td>Flowers</td><td>Fungi</td><td>Omniglot</td><td>DTD</td><td>Traffic Signs</td></tr><tr><td>5-way 1-shot</td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr><tr><td>SimCLR</td><td></td><td></td><td></td><td>7.25</td><td>29.22 ± 0.34</td><td>40.61 ± 0.43</td><td>35.53 ± 0.37</td><td>68.26 ± 0.50</td><td>42.44 ± 0.44</td><td>70.46 ± 0.54</td><td>55.43 ± 0.45</td><td>48.33 ± 0.43</td></tr><tr><td>SUPCoN</td><td>;</td><td>✓</td><td></td><td>3.63</td><td>31.44 ± 0.35</td><td>48.75 ± 0.49</td><td>45.32 ± 0.41</td><td>77.99 ± 0.44</td><td>47.42 ± 0.45</td><td>80.66 ± 0.45</td><td>57.57 ± 0.47</td><td>68.66 ± 0.47</td></tr><tr><td>MoCo-v2</td><td>✓</td><td></td><td>✓</td><td>7.38</td><td>25.54 ± 0.28</td><td>41.24 ± 0.46</td><td>36.73 ± 0.36</td><td>66.48 ± 0.50</td><td>41.84 ± 0.44</td><td>71.12 ± 0.51</td><td>54.75 ± 0.46</td><td>51.05 ± 0.43</td></tr><tr><td>SUPMoCo</td><td>✓</td><td>✓</td><td>✓</td><td>3.25</td><td>31.12 ± 0.35</td><td>49.04 ± 0.49</td><td>44.13 ± 0.41</td><td>78.90 ± 0.43</td><td>47.12 ± 0.45</td><td>83.43 ± 0.42</td><td>56.62 ± 0.46</td><td>71.17 ± 0.47</td></tr><tr><td>SimSiam</td><td></td><td></td><td></td><td>5.00</td><td>30.67 ± 0.35</td><td>45.06 ± 0.47</td><td>41.51 ± 0.40</td><td>75.68 ± 0.47</td><td>45.22 ± 0.46</td><td>74.64 ± 0.50</td><td>58.28 ± 0.47</td><td>60.03 ± 0.45</td></tr><tr><td>SUPSiaM†</td><td></td><td>✓</td><td></td><td>1.88</td><td>33.12 ± 0.37</td><td>49.58 ± 0.49</td><td>45.56 ± 0.41</td><td>78.12 ± 0.44</td><td>47.74±0.46</td><td>84.02 ± 0.41</td><td>58.06 ± 0.48</td><td>71.00 ± 0.48</td></tr><tr><td>BYOL</td><td></td><td></td><td>;</td><td>5.63</td><td>26.38 ± 0.30</td><td>46.45 ± 0.49</td><td>40.92 ± 0.40</td><td>74.27 ± 0.47</td><td>45.96 ± 0.46</td><td>68.13 ± 0.52</td><td>59.75 ± 0.48</td><td>57.44 ± 0.46</td></tr><tr><td>SUPBYOLt</td><td></td><td>✓</td><td></td><td>2.00</td><td>32.66 ± 0.37</td><td>49.26 ± 0.48</td><td>45.28 ± 0.41</td><td>78.94 ± 0.43</td><td>47.81 ± 0.46</td><td>82.62 ± 0.44</td><td>59.98 ± 0.48</td><td>70.34 ± 0.48</td></tr><tr><td>5-way 5-shot</td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr><tr><td>SiMCLR</td><td>✓</td><td></td><td></td><td>7.13</td><td>39.21 ± 0.44</td><td>54.33 ± 0.45</td><td>50.96 ± 0.37</td><td>86.98 ± 0.30</td><td>59.40 ± 0.47</td><td>86.72 ± 0.35</td><td>73.95 ± 0.36</td><td>69.27 ± 0.40</td></tr><tr><td>SUPCon</td><td>✓</td><td>✓</td><td></td><td>3.38</td><td>44.63 ± 0.44</td><td>64.99 ± 0.46</td><td>64.04 ± 0.39</td><td>92.80 ± 0.23</td><td>66.75 ± 0.47</td><td>93.36 ± 0.25</td><td>75.60 ± 0.36</td><td>85.93 ± 0.36</td></tr><tr><td>MoCo-v2</td><td>✓</td><td></td><td>✓</td><td>7.50</td><td>32.84 ± 0.35</td><td>53.42 ± 0.47</td><td>52.70 ± 0.36</td><td>84.72 ± 0.32</td><td>57.54 ± 0.48</td><td>87.74 ± 0.34</td><td>72.66 ± 0.37</td><td>71.93 ± 0.39</td></tr><tr><td>SUPMoCo</td><td>✓</td><td>✓</td><td>✓</td><td>2.63</td><td>44.43 ± 0.44</td><td>65.63 ± 0.46</td><td>64.30 ± 0.39</td><td>93.35 ± 0.21</td><td>66.64 ± 0.47</td><td>94.77 ± 0.22</td><td>74.73 ± 0.36</td><td>87.64 ± 0.34</td></tr><tr><td>SimSiam</td><td></td><td></td><td></td><td>5.25</td><td>40.34 ± 0.44</td><td>60.66 ± 0.48</td><td>58.68 ± 0.38</td><td>91.04 ± 0.26</td><td>62.19 ± 0.49</td><td>88.92 ± 0.32</td><td>76.22 ± 0.36</td><td>79.50 ± 0.39</td></tr><tr><td>SUPSiaM</td><td></td><td>✓</td><td></td><td>2.38</td><td>45.98 ± 0.47</td><td>66.70 ± 0.45</td><td>64.54 ± 0.39</td><td>92.42 ± 0.23</td><td>66.61 ± 0.48</td><td>94.38 ± 0.23</td><td>76.43 ± 0.36</td><td>86.88 ± 0.36</td></tr><tr><td>BYOL</td><td></td><td></td><td>✓</td><td>5.38</td><td>35.30 ± 0.40</td><td>60.96 ± 0.49</td><td>59.33 ± 0.38</td><td>90.38 ± 0.26</td><td>63.12 ± 0.49</td><td>85.68 ± 0.35</td><td>77.60 ± 0.36</td><td>77.07 ± 0.40</td></tr><tr><td>SUPBYOLt</td><td></td><td>✓</td><td>✓</td><td>2.38</td><td>45.81 ± 0.48</td><td>66.72 ± 0.46</td><td>65.72 ± 0.38</td><td>92.78 ± 0.22</td><td>66.47 ± 0.48</td><td>94.06 ± 0.24</td><td>77.57 ± 0.36</td><td>86.21 ± 0.37</td></tr></table>",
+        "bbox": [
+            86,
+            165,
+            883,
+            431
+        ],
+        "page_idx": 8
+    },
+    {
+        "type": "text",
+        "text": "Table 7. Transfer learning via linear evaluation results on various downstream datasets, where the model is SUPSIAM-pretrained with different target pool design on ImageNet-100. Avg represents the average performance across each dataset. For each dataset, the best results are in bold and the second-best results are underlined. ",
+        "bbox": [
+            88,
+            448,
+            887,
+            489
+        ],
+        "page_idx": 8
+    },
+    {
+        "type": "table",
+        "img_path": "images/04ddcadbbd5cd5f5500ea6b541a96fdf2fd2b8d4f5663c8c0e96e49239c29bce.jpg",
+        "table_caption": [],
+        "table_footnote": [],
+        "table_body": "<table><tr><td>Target Pool</td><td>Size</td><td>Avg</td><td>CIFAR10</td><td>CIFAR100</td><td>DTD</td><td>Food</td><td>MIT67</td><td>SUN397</td><td>Caltech</td><td>CUB200</td><td>Dogs</td><td>Flowers</td><td>Pets</td></tr><tr><td>Class-agnostic</td><td>8192</td><td>70.40</td><td>89.95</td><td>70.88</td><td>66.51</td><td>61.46</td><td>64.45</td><td>51.50</td><td>88.86</td><td>43.48</td><td>64.65</td><td>90.27</td><td>82.38</td></tr><tr><td>Class-wise</td><td>80 × 100</td><td>70.21</td><td>89.78</td><td>70.58</td><td>66.49</td><td>61.54</td><td>64.85</td><td>51.22</td><td>88.64</td><td>42.68</td><td>65.03</td><td>89.86</td><td>81.61</td></tr><tr><td>Class-wise</td><td>20 × 100</td><td>70.44</td><td>90.02</td><td>71.07</td><td>66.92</td><td>61.49</td><td>65.11</td><td>51.15</td><td>88.67</td><td>43.19</td><td>65.16</td><td>89.27</td><td>82.39</td></tr><tr><td>Class-wise</td><td>5 × 100</td><td>70.27</td><td>89.67</td><td>70.88</td><td>66.17</td><td>61.32</td><td>64.30</td><td>51.49</td><td>88.96</td><td>42.80</td><td>64.82</td><td>89.86</td><td>82.75</td></tr><tr><td>Class-wise</td><td>1 × 100</td><td>70.23</td><td>89.70</td><td>70.73</td><td>66.06</td><td>61.45</td><td>64.82</td><td>51.02</td><td>88.97</td><td>43.42</td><td>64.26</td><td>89.71</td><td>82.37</td></tr><tr><td>Learnable</td><td>100</td><td>70.37</td><td>89.91</td><td>70.41</td><td>67.00</td><td>61.36</td><td>65.15</td><td>51.58</td><td>88.81</td><td>42.97</td><td>65.08</td><td>89.57</td><td>82.28</td></tr></table>",
+        "bbox": [
+            88,
+            507,
+            883,
+            603
+        ],
+        "page_idx": 8
+    },
+    {
+        "type": "table",
+        "img_path": "images/9f86f76527b0a1523f387494af561eccd99aea483a0e0a1e3dafe7acb437744f.jpg",
+        "table_caption": [
+            "Table 8. Ablation study on the target pool (Pool) and the momentum network (EMA) for avoiding collapse while improving representations learned via supervised ANCL on CIFAR100. "
+        ],
+        "table_footnote": [],
+        "table_body": "<table><tr><td>Pool</td><td>EMA</td><td>Collapse</td><td>k-NN</td></tr><tr><td>X</td><td>X</td><td>✓</td><td>1.00</td></tr><tr><td>✓</td><td>X</td><td>X</td><td>73.92</td></tr><tr><td></td><td>✓</td><td>X</td><td>73.32</td></tr><tr><td>✗</td><td>✓</td><td>X</td><td>74.55</td></tr></table>",
+        "bbox": [
+            158,
+            667,
+            401,
+            760
+        ],
+        "page_idx": 8
+    },
+    {
+        "type": "text",
+        "text": "5.7. Ablation Study on Representation Collapse ",
+        "text_level": 1,
+        "bbox": [
+            88,
+            776,
+            419,
+            791
+        ],
+        "page_idx": 8
+    },
+    {
+        "type": "text",
+        "text": "In this section, we investigate when collapse occurs in supervised ANCL. Specifically, we investigate the effect of the target pool and the momentum network, where the method only with the target pool is essentially SUPSIAM, and the one with both components corresponds to SUPBYOL. We pretrain ResNet-18 followed by a 2-layer MLP projector and predictor on CIFAR100. ",
+        "bbox": [
+            89,
+            800,
+            473,
+            905
+        ],
+        "page_idx": 8
+    },
+    {
+        "type": "text",
+        "text": "As observed in Table 8, employing either the target pool or the momentum network effectively prevents collapse. We hypothesize that updating the target differently from the anchor helps to prevent collapse, which is the common behavior of both strategies. ",
+        "bbox": [
+            500,
+            621,
+            885,
+            695
+        ],
+        "page_idx": 8
+    },
+    {
+        "type": "text",
+        "text": "6. Conclusion ",
+        "text_level": 1,
+        "bbox": [
+            500,
+            717,
+            614,
+            733
+        ],
+        "page_idx": 8
+    },
+    {
+        "type": "text",
+        "text": "In this paper, we study supervised asymmetric noncontrastive learning (ANCL) for representation learning. We demonstrate that introducing supervision to ANCL reduces intra-class variance, and that balancing the contributions of the supervised and self-supervised losses is crucial to learn good representations. We experiment the proposed supervised ANCL methods with baselines across various datasets and tasks, demonstrating the effectiveness of supervised ANCL. We believe our work motivates future research to integrate supervised ANCL into their applications. ",
+        "bbox": [
+            501,
+            742,
+            885,
+            892
+        ],
+        "page_idx": 8
+    },
+    {
+        "type": "text",
+        "text": "Acknowledgements ",
+        "text_level": 1,
+        "bbox": [
+            89,
+            83,
+            251,
+            99
+        ],
+        "page_idx": 9
+    },
+    {
+        "type": "text",
+        "text": "This work was supported by the National Research Foundation of Korea (NRF) grant funded by the Korea government (MSIT) (2022R1A4A1033384) and the Yonsei University Research Fund (2024-22-0148). We thank Jy-yong Sohn and Chungpa Lee for helpful discussions. ",
+        "bbox": [
+            89,
+            109,
+            473,
+            184
+        ],
+        "page_idx": 9
+    },
+    {
+        "type": "text",
+        "text": "Impact Statement ",
+        "text_level": 1,
+        "bbox": [
+            89,
+            204,
+            238,
+            220
+        ],
+        "page_idx": 9
+    },
+    {
+        "type": "text",
+        "text": "(Non-)contrastive learning typically requires substantial training costs; for instance, training ResNet-50 with MoCov2 (Chen et al., 2020b) for 800 epochs requires 9 days on 8 V100 GPUs, raising concerns about environmental impacts, such as carbon emissions. However, the proposed idea of incorporating supervision leads to learning better representations while maintaining similar computational complexity comparable to that of self-supervised learning. This suggests that supervision can mitigate computational demands and potentially address associated environmental concerns. ",
+        "bbox": [
+            89,
+            231,
+            473,
+            381
+        ],
+        "page_idx": 9
+    },
+    {
+        "type": "text",
+        "text": "References ",
+        "text_level": 1,
+        "bbox": [
+            89,
+            400,
+            181,
+            416
+        ],
+        "page_idx": 9
+    },
+    {
+        "type": "text",
+        "text": "Asadi, N., Mudur, S., and Belilovsky, E. Tackling online one-class incremental learning by removing negative contrasts. arXiv preprint arXiv:2203.13307, 2022. ",
+        "bbox": [
+            89,
+            425,
+            473,
+            469
+        ],
+        "page_idx": 9
+    },
+    {
+        "type": "text",
+        "text": "Bardes, A., Ponce, J., and LeCun, Y. Vicreg: Varianceinvariance-covariance regularization for self-supervised learning. In ICLR, 2022. ",
+        "bbox": [
+            88,
+            483,
+            475,
+            527
+        ],
+        "page_idx": 9
+    },
+    {
+        "type": "text",
+        "text": "Bossard, L., Guillaumin, M., and Gool, L. V. Food-101 – mining discriminative components with random forests. In ECCV, 2014. ",
+        "bbox": [
+            88,
+            541,
+            475,
+            585
+        ],
+        "page_idx": 9
+    },
+    {
+        "type": "text",
+        "text": "Cha, H., Lee, J., and Shin, J. Co2l: Contrastive continual learning. In ICCV, 2021. ",
+        "bbox": [
+            88,
+            599,
+            473,
+            628
+        ],
+        "page_idx": 9
+    },
+    {
+        "type": "text",
+        "text": "Chen, M. F., Fu, D. Y., Narayan, A., Zhang, M., Song, Z., Fatahalian, K., and Re, C. Perfectly balanced: Improving ´ transfer and robustness of supervised contrastive learning. In ICML, 2022. ",
+        "bbox": [
+            86,
+            642,
+            475,
+            702
+        ],
+        "page_idx": 9
+    },
+    {
+        "type": "text",
+        "text": "Chen, T., Kornblith, S., Norouzi, M., and Hinton, G. A simple framework for contrastive learning of visual representations. In ICML, 2020a. ",
+        "bbox": [
+            88,
+            715,
+            473,
+            761
+        ],
+        "page_idx": 9
+    },
+    {
+        "type": "text",
+        "text": "Chen, X. and He, K. Exploring simple siamese representation learning. In CVPR, 2021. ",
+        "bbox": [
+            88,
+            773,
+            473,
+            804
+        ],
+        "page_idx": 9
+    },
+    {
+        "type": "text",
+        "text": "Chen, X., Fan, H., Girshick, R., and He, K. Improved baselines with momentum contrastive learning. arXiv preprint arXiv:2101.11058, 2020b. ",
+        "bbox": [
+            88,
+            818,
+            473,
+            862
+        ],
+        "page_idx": 9
+    },
+    {
+        "type": "text",
+        "text": "Chen, X., Xie, S., and He, K. An empirical study of training self-supervised vision transformers. In ICCV, 2021. ",
+        "bbox": [
+            88,
+            876,
+            473,
+            905
+        ],
+        "page_idx": 9
+    },
+    {
+        "type": "text",
+        "text": "Cimpoi, M., Maji, S., Kokkinos, I., Mohamed, S., and Vedaldi, A. Describing textures in the wild. In CVPR, 2014. ",
+        "bbox": [
+            500,
+            85,
+            885,
+            128
+        ],
+        "page_idx": 9
+    },
+    {
+        "type": "text",
+        "text": "Deng, J., Dong, W., Socher, R., Li, L.-J., Li, K., and Fei-Fei, L. Imagenet: A large-scale hierarchical image database. In CVPR, 2009. ",
+        "bbox": [
+            500,
+            138,
+            887,
+            183
+        ],
+        "page_idx": 9
+    },
+    {
+        "type": "text",
+        "text": "Dosovitskiy, A., Beyer, L., Kolesnikov, A., Weissenborn, D., Zhai, X., Unterthiner, T., Dehghani, M., Minderer, M., Heigold, G., Gelly, S., Uszkoreit, J., and Houlsby, N. An image is worth 16x16 words: Transformers for image recognition at scale. In ICLR, 2021. ",
+        "bbox": [
+            500,
+            193,
+            885,
+            267
+        ],
+        "page_idx": 9
+    },
+    {
+        "type": "text",
+        "text": "Everingham, M., Gool, L. V., Williams, C. K. I., Winn, J., and Zisserman, A. The pascal visual object classes (voc) challenge. IJCV, 2010. ",
+        "bbox": [
+            500,
+            276,
+            885,
+            321
+        ],
+        "page_idx": 9
+    },
+    {
+        "type": "text",
+        "text": "Fei-Fei, L., Fergus, R., and Perona, P. Learning generative visual models from few training examples: An incremental bayesian approach tested on 101 object categories. In CVPR Workshop, 2004. ",
+        "bbox": [
+            500,
+            330,
+            885,
+            390
+        ],
+        "page_idx": 9
+    },
+    {
+        "type": "text",
+        "text": "Goyal, P., Dollar, P., Girshick, R., Noordhuis, P., ´ Wesolowski, L., Kyrola, A., Tulloch, A., Jia, Y., and He, K. Accurate, large minibatch SGD: training imagenet in 1 hour. arXiv preprint arXiv:1706.02677, 2017. ",
+        "bbox": [
+            500,
+            400,
+            885,
+            459
+        ],
+        "page_idx": 9
+    },
+    {
+        "type": "text",
+        "text": "Graf, F., Hofer, C., Niethammer, M., and Kwitt, R. Dissecting supervised constrastive learning. In ICML, 2021. ",
+        "bbox": [
+            500,
+            468,
+            885,
+            498
+        ],
+        "page_idx": 9
+    },
+    {
+        "type": "text",
+        "text": "Grill, J.-B., Strub, F., Altche, F., Tallec, C., Richemond, P., ´ Buchatskaya, E., Doersch, C., Avila Pires, B., Guo, Z., Gheshlaghi Azar, M., et al. Bootstrap your own latent: A new approach to self-supervised learning. In NeurIPS, 2020. ",
+        "bbox": [
+            500,
+            507,
+            887,
+            582
+        ],
+        "page_idx": 9
+    },
+    {
+        "type": "text",
+        "text": "Gunel, B., Du, J., Conneau, A., and Stoyanov, V. Supervised contrastive learning for pre-trained language model finetuning. In ICLR, 2021. ",
+        "bbox": [
+            500,
+            592,
+            885,
+            636
+        ],
+        "page_idx": 9
+    },
+    {
+        "type": "text",
+        "text": "Halvagal, M. S., Laborieux, A., and Zenke, F. Implicit variance regularization in non-contrastive ssl. In NeurIPS, 2023. ",
+        "bbox": [
+            500,
+            645,
+            885,
+            689
+        ],
+        "page_idx": 9
+    },
+    {
+        "type": "text",
+        "text": "He, K., Zhang, X., Ren, S., and Sun, J. Deep residual learning for image recognition. In CVPR, 2016. ",
+        "bbox": [
+            498,
+            699,
+            885,
+            728
+        ],
+        "page_idx": 9
+    },
+    {
+        "type": "text",
+        "text": "He, K., Fan, H., Wu, Y., Xie, S., and Girshick, R. Momentum contrast for unsupervised visual representation learning. In CVPR, 2020. ",
+        "bbox": [
+            500,
+            738,
+            885,
+            782
+        ],
+        "page_idx": 9
+    },
+    {
+        "type": "text",
+        "text": "He, K., Chen, X., Xie, S., Li, Y., Dollar, P., and Girshick, ´ R. Masked autoencoders are scalable vision learners. In CVPR, 2022. ",
+        "bbox": [
+            500,
+            791,
+            885,
+            835
+        ],
+        "page_idx": 9
+    },
+    {
+        "type": "text",
+        "text": "Houben, S., Stallkamp, J., Salmen, J., Schlipsing, M., and Igel, C. Detection of traffic signs in real-world images: The german traffic sign detection benchmark. In International Joint Conference on Neural Networks, 2013. ",
+        "bbox": [
+            500,
+            845,
+            885,
+            905
+        ],
+        "page_idx": 9
+    },
+    {
+        "type": "text",
+        "text": "Ioffe, S. and Szegedy, C. Batch normalization: Accelerating deep network training by reducing internal covariate shift. In ICML, 2015. ",
+        "bbox": [
+            88,
+            85,
+            475,
+            128
+        ],
+        "page_idx": 10
+    },
+    {
+        "type": "text",
+        "text": "Kang, B., Li, Y., Xie, S., Yuan, Z., and Feng, J. Exploring balanced feature spaces for representation learning. In ICLR, 2021. ",
+        "bbox": [
+            88,
+            138,
+            473,
+            184
+        ],
+        "page_idx": 10
+    },
+    {
+        "type": "text",
+        "text": "Khosla, A., Jayadevaprakash, N., Yao, B., and Fei-Fei, L. Novel dataset for fine-grained image categorization. In CVPR Workshop, 2011. ",
+        "bbox": [
+            88,
+            194,
+            475,
+            239
+        ],
+        "page_idx": 10
+    },
+    {
+        "type": "text",
+        "text": "Khosla, P., Teterwak, P., Wang, C., Sarna, A., Tian, Y., Isola, P., Maschinot, A., Liu, C., and Krishnan, D. Supervised contrastive learning. In NeurIPS, 2020. ",
+        "bbox": [
+            88,
+            250,
+            475,
+            294
+        ],
+        "page_idx": 10
+    },
+    {
+        "type": "text",
+        "text": "Kornblith, S., Shlens, J., and Le, Q. V. Do better imagenet models transfer better? In CVPR, 2019. ",
+        "bbox": [
+            88,
+            304,
+            473,
+            333
+        ],
+        "page_idx": 10
+    },
+    {
+        "type": "text",
+        "text": "Krizhevsky, A. and Hinton, G. Learning multiple layers of features from tiny images. Technical report, University of Toronto, 2009. ",
+        "bbox": [
+            88,
+            343,
+            473,
+            388
+        ],
+        "page_idx": 10
+    },
+    {
+        "type": "text",
+        "text": "Lake, B. M., Salakhutdinov, R., and Tenenbaum, J. B. Human-level concept learning through probabilistic program induction. Science, 350(6266):1332–1338, 2015. ",
+        "bbox": [
+            86,
+            398,
+            475,
+            443
+        ],
+        "page_idx": 10
+    },
+    {
+        "type": "text",
+        "text": "Lee, H., Lee, K., Lee, K., Lee, H., and Shin, J. Improving transferability of representations via augmentation-aware self-supervision. In NeurIPS, 2021a. ",
+        "bbox": [
+            88,
+            452,
+            473,
+            497
+        ],
+        "page_idx": 10
+    },
+    {
+        "type": "text",
+        "text": "Lee, K. and Kim, J. On the equivalence of linear discriminant analysis and least squares. In AAAI, 2015. ",
+        "bbox": [
+            86,
+            507,
+            473,
+            537
+        ],
+        "page_idx": 10
+    },
+    {
+        "type": "text",
+        "text": "Lee, K., Zhu, Y., Sohn, K., Li, C.-L., Shin, J., and Lee, H. i-mix: A domain-agnostic strategy for contrastive representation learning. In ICLR, 2021b. ",
+        "bbox": [
+            86,
+            546,
+            475,
+            592
+        ],
+        "page_idx": 10
+    },
+    {
+        "type": "text",
+        "text": "Lin, T.-Y., Maire, M., Belongie, S., Bourdev, L., Girshick, R., Hays, J., Perona, P., Ramanan, D., Zitnick, C. L., and Dollar, P. Microsoft coco: Common objects in context. ´ In ECCV, 2014. ",
+        "bbox": [
+            86,
+            602,
+            475,
+            661
+        ],
+        "page_idx": 10
+    },
+    {
+        "type": "text",
+        "text": "Liu, D. C. and Nocedal, J. On the limited memory bfgs method for large scale optimization. Mathematical programming, 45(1-3):503–528, 1989. ",
+        "bbox": [
+            86,
+            671,
+            475,
+            717
+        ],
+        "page_idx": 10
+    },
+    {
+        "type": "text",
+        "text": "Liu, K.-J., Suganuma, M., and Okatani, T. Bridging the gap from asymmetry tricks to decorrelation principles in non-contrastive self-supervised learning. In NeurIPS, 2022. ",
+        "bbox": [
+            86,
+            727,
+            473,
+            786
+        ],
+        "page_idx": 10
+    },
+    {
+        "type": "text",
+        "text": "Loshchilov, I. and Hutter, F. Sgdr: Stochastic gradient descent with warm restarts. In ICLR, 2017. ",
+        "bbox": [
+            88,
+            796,
+            473,
+            825
+        ],
+        "page_idx": 10
+    },
+    {
+        "type": "text",
+        "text": "Loshchilov, I. and Hutter, F. Decoupled weight decay regularization. In ICLR, 2019. ",
+        "bbox": [
+            88,
+            835,
+            475,
+            866
+        ],
+        "page_idx": 10
+    },
+    {
+        "type": "text",
+        "text": "Maaten, L. v. d. and Hinton, G. Visualizing data using t-sne. JMLR, 9(Nov), 2008. ",
+        "bbox": [
+            88,
+            876,
+            475,
+            905
+        ],
+        "page_idx": 10
+    },
+    {
+        "type": "text",
+        "text": "Maji, S., Rahtu, E., Kannala, J., Blaschko, M., and Vedaldi, A. Fine-grained visual classification of aircraft. arXiv preprint arXiv:1306.5151, 2013. ",
+        "bbox": [
+            500,
+            85,
+            885,
+            130
+        ],
+        "page_idx": 10
+    },
+    {
+        "type": "text",
+        "text": "Majumder, O., Ravichandran, A., Maji, S., Achille, A., Polito, M., and Soatto, S. Supervised momentum contrastive learning for few-shot classification. arXiv preprint arXiv:2101.11058, 2021. ",
+        "bbox": [
+            500,
+            138,
+            885,
+            199
+        ],
+        "page_idx": 10
+    },
+    {
+        "type": "text",
+        "text": "Maser, M., Park, J. W., Lin, J. Y.-Y., Lee, J. H., Frey, N. C., and Watkins, A. Supsiam: Non-contrastive auxiliary loss for learning from molecular conformers. arXiv preprint arXiv:2302.07754, 2023. ",
+        "bbox": [
+            498,
+            208,
+            885,
+            268
+        ],
+        "page_idx": 10
+    },
+    {
+        "type": "text",
+        "text": "Nilsback, M.-E. and Zisserman, A. Automated flower classification over a large number of classes. In Proceedings of the Indian Conference of Computer Visions, Graphics and Image Processing, 2008. ",
+        "bbox": [
+            500,
+            279,
+            885,
+            338
+        ],
+        "page_idx": 10
+    },
+    {
+        "type": "text",
+        "text": "Oreshkin, B. N., Rodriguez, P., and Lacoste, A. Tadam: Task dependent adaptive metric for improved few-shot learning. In NeurIPS, 2018. ",
+        "bbox": [
+            500,
+            347,
+            885,
+            392
+        ],
+        "page_idx": 10
+    },
+    {
+        "type": "text",
+        "text": "Papyan, V., Han, X., and Donoho, D. L. Prevalence of neural collapse during the terminal phase of deep learning training. Proceedings of the National Academy of Sciences, 117(40):24652–24663, 2020. ",
+        "bbox": [
+            500,
+            401,
+            885,
+            462
+        ],
+        "page_idx": 10
+    },
+    {
+        "type": "text",
+        "text": "Parkhi, O. M., Vedaldi, A., Zisserman, A., and Jawahar, C. Cats and dogs. In CVPR, 2012. ",
+        "bbox": [
+            498,
+            472,
+            887,
+            501
+        ],
+        "page_idx": 10
+    },
+    {
+        "type": "text",
+        "text": "Penrose, R. A generalized inverse for matrices. In Mathematical proceedings of the Cambridge philosophical society, 1955. ",
+        "bbox": [
+            500,
+            511,
+            887,
+            555
+        ],
+        "page_idx": 10
+    },
+    {
+        "type": "text",
+        "text": "Quattoni, A. and Torralba, A. Recognizing indoor scenes. In CVPR, 2009. ",
+        "bbox": [
+            500,
+            564,
+            887,
+            594
+        ],
+        "page_idx": 10
+    },
+    {
+        "type": "text",
+        "text": "Razavian, A. S., Azizpour, H., Sullivan, J., and Carlsson, S. Cnn features off-the-shelf: an astounding baseline for recognition. In CVPR DeepVision Workshop, 2014. ",
+        "bbox": [
+            500,
+            604,
+            885,
+            648
+        ],
+        "page_idx": 10
+    },
+    {
+        "type": "text",
+        "text": "Ren, S., He, K., Girshick, R., and Sun, J. Faster r-cnn: Towards real-time object detection with region proposal networks. In NeurIPS, 2015. ",
+        "bbox": [
+            500,
+            657,
+            885,
+            703
+        ],
+        "page_idx": 10
+    },
+    {
+        "type": "text",
+        "text": "Richemond, P. H., Tam, A., Tang, Y., Strub, F., Piot, B., and Hill, F. The edge of orthogonality: a simple view of what makes byol tick. In ICML, 2023. ",
+        "bbox": [
+            500,
+            713,
+            885,
+            757
+        ],
+        "page_idx": 10
+    },
+    {
+        "type": "text",
+        "text": "Schroeder, B. and Cui, Y. Fgvcx fungi classification challenge 2018. github.com/visipedia/fgvcx_ fungi_comp, 2018. ",
+        "bbox": [
+            500,
+            767,
+            885,
+            813
+        ],
+        "page_idx": 10
+    },
+    {
+        "type": "text",
+        "text": "Tian, Y., Krishnan, D., and Isola, P. Contrastive multiview coding. In ECCV, 2020. ",
+        "bbox": [
+            500,
+            821,
+            885,
+            852
+        ],
+        "page_idx": 10
+    },
+    {
+        "type": "text",
+        "text": "Tian, Y., Chen, X., and Ganguli, S. Understanding selfsupervised learning dynamics without contrastive pairs. In ICML, 2021. ",
+        "bbox": [
+            500,
+            861,
+            887,
+            905
+        ],
+        "page_idx": 10
+    },
+    {
+        "type": "text",
+        "text": "van den Oord, A., Li, Y., and Vinyals, O. Representation learning with contrastive predictive coding. arXiv preprint arXiv:1807.03748, 2018.   \nWang, C., Zheng, W., Zhu, Z., Zhou, J., and Lu, J. Opera: Omni-supervised representation learning with hierarchical supervisions. In ICCV, 2023.   \nWei, L., Xie, L., He, J., Chang, J., Zhang, X., Zhou, W., Li, H., and Tian, Q. Can semantic labels assist selfsupervised visual representation learning? In AAAI, 2021.   \nWelinder, P., Branson, S., Mita, T., Wah, C., Schroff, F., Belongie, S., and Perona, P. Caltech-UCSD Birds 200. Technical report, California Institute of Technology, 2010.   \nWu, Z., Xiong, Y., Yu, S. X., and Lin, D. Unsupervised feature learning via non-parametric instance discrimination. In CVPR, 2018.   \nXiao, J., abd Krista A. Ehinger abd Aude Oliva, J. H., and Torralba, A. Sun database: Large-scale scene recognition from abbey to zoo. In CVPR, 2010.   \nXue, Y., Joshi, S., Gan, E., Chen, P.-Y., and Mirzasoleiman, B. Which features are learnt by contrastive learning? on the role of simplicity bias in class collapse and feature suppression. In ICML, 2023.   \nZbontar, J., Jing, L., Misra, I., LeCun, Y., and Deny, S. Barlow twins: Self-supervised learning via redundancy reduction. In ICML, 2021.   \nZhuo, Z., Wang, Y., Ma, J., and Wang, Y. Towards a unified theoretical understanding of non-contrastive learning via rank differential mechanism. In ICLR, 2023. ",
+        "bbox": [
+            86,
+            77,
+            477,
+            588
+        ],
+        "page_idx": 11
+    },
+    {
+        "type": "text",
+        "text": "A. Detailed Proofs for Section 4 ",
+        "text_level": 1,
+        "bbox": [
+            89,
+            82,
+            354,
+            101
+        ],
+        "page_idx": 12
+    },
+    {
+        "type": "text",
+        "text": "A.1. Derivation of Eq. (5) ",
+        "text_level": 1,
+        "bbox": [
+            89,
+            109,
+            266,
+            125
+        ],
+        "page_idx": 12
+    },
+    {
+        "type": "text",
+        "text": "To derive this, recall the supervised ANCL loss with constraints in Eq. (4): ",
+        "bbox": [
+            88,
+            126,
+            576,
+            142
+        ],
+        "page_idx": 12
+    },
+    {
+        "type": "equation",
+        "img_path": "images/77530dedcd12afbcd1cd57766f7ba85aacaa3a9cc7505ae7f401fa0614bfb9f8.jpg",
+        "text": "$$\n\\ell = \\alpha \\left\\| \\boldsymbol { W } _ { p } \\boldsymbol { z } _ { 1 } - \\boldsymbol { z } _ { 2 } \\right\\| _ { 2 } ^ { 2 } + \\left( 1 - \\alpha \\right) \\left\\| \\boldsymbol { W } _ { p } \\boldsymbol { z } _ { 1 } - \\boldsymbol { z } _ { 2 } ^ { \\mathrm { s u p } } \\right\\| _ { 2 } ^ { 2 } \\quad \\mathrm { s . t . } \\quad \\left\\| \\boldsymbol { z } _ { 2 } \\right\\| _ { 2 } ^ { 2 } = \\left\\| \\boldsymbol { z } _ { 2 } ^ { \\mathrm { s u p } } \\right\\| _ { 2 } ^ { 2 } = \\left\\| \\boldsymbol { W } _ { p } \\boldsymbol { z } _ { 1 } \\right\\| _ { 2 } ^ { 2 } = 1 .\n$$",
+        "text_format": "latex",
+        "bbox": [
+            176,
+            151,
+            795,
+            174
+        ],
+        "page_idx": 12
+    },
+    {
+        "type": "text",
+        "text": "We first expand the loss in Eq. (4) and apply constraints to simplify the expression: ",
+        "bbox": [
+            86,
+            183,
+            632,
+            199
+        ],
+        "page_idx": 12
+    },
+    {
+        "type": "equation",
+        "img_path": "images/a970efdcc5ce4751920ac9671af83781ea82f622d4f5ec654da1e9bce3eb06b5.jpg",
+        "text": "$$\n\\begin{array} { r l } & { \\ell = \\alpha \\left( \\| W _ { p } z _ { 1 } \\| _ { 2 } ^ { 2 } + \\| z _ { 2 } \\| _ { 2 } ^ { 2 } - 2 z _ { 1 } ^ { \\top } W _ { p } ^ { \\top } z _ { 2 } \\right) + ( 1 - \\alpha ) \\left( \\| W _ { p } z _ { 1 } \\| _ { 2 } ^ { 2 } + \\left\\| z _ { 2 } ^ { \\operatorname* { s u p } } \\right\\| _ { 2 } ^ { 2 } - 2 z _ { 1 } ^ { \\top } W _ { p } ^ { \\top } z _ { 2 } ^ { \\operatorname* { s u p } } \\right) } \\\\ & { \\quad = \\alpha \\left( 2 - 2 z _ { 1 } ^ { \\top } W _ { p } ^ { \\top } z _ { 2 } \\right) + ( 1 - \\alpha ) \\left( 2 - 2 z _ { 1 } ^ { \\top } W _ { p } ^ { \\top } z _ { 2 } ^ { \\operatorname* { s u p } } \\right) } \\\\ & { \\quad = 2 - 2 \\alpha \\cdot z _ { 1 } ^ { \\top } W _ { p } ^ { \\top } z _ { 2 } + 2 ( 1 - \\alpha ) \\cdot z _ { 1 } ^ { \\top } W _ { p } ^ { \\top } z _ { 2 } ^ { \\operatorname* { s u p } } . } \\end{array}\n$$",
+        "text_format": "latex",
+        "bbox": [
+            183,
+            205,
+            785,
+            280
+        ],
+        "page_idx": 12
+    },
+    {
+        "type": "text",
+        "text": "Then, the Lagrangian function is formulated as follows: ",
+        "bbox": [
+            86,
+            286,
+            454,
+            301
+        ],
+        "page_idx": 12
+    },
+    {
+        "type": "equation",
+        "img_path": "images/3c50266849347812429bba348c3058761c10838434a2e2e49d691ea93509f89f.jpg",
+        "text": "$$\n\\begin{array} { r l } & { 2 - 2 \\alpha \\cdot z _ { 1 } ^ { \\top } W _ { p } ^ { \\top } z _ { 2 } - 2 ( 1 - \\alpha ) \\cdot z _ { 1 } ^ { \\top } W _ { p } ^ { \\top } z _ { 2 } ^ { \\mathrm { s u p } } + \\lambda _ { 1 } \\left( z _ { 2 } ^ { \\top } z _ { 2 } - 1 \\right) + \\lambda _ { 2 } \\left( z _ { 2 } ^ { \\mathrm { s u p } \\top } z _ { 2 } ^ { \\mathrm { s u p } } - 1 \\right) + \\lambda _ { 3 } \\left( z _ { 1 } ^ { \\top } W _ { p } ^ { \\top } W _ { p } z _ { 2 } ^ { \\top } \\right) } \\\\ & { 2 - 2 \\alpha \\cdot \\operatorname { t r } \\left( W _ { p } ^ { \\top } z _ { 2 } z _ { 1 } ^ { \\top } \\right) - 2 ( 1 - \\alpha ) \\cdot \\operatorname { t r } \\left( W _ { p } ^ { \\top } z _ { 2 } ^ { \\mathrm { s u p } } z _ { 1 } ^ { \\top } \\right) } \\\\ & { \\vdash \\lambda _ { 1 } \\left( \\operatorname { t r } \\left( z _ { 2 } z _ { 2 } ^ { \\top } \\right) - 1 \\right) + \\lambda _ { 2 } \\left( \\operatorname { t r } \\left( z _ { 2 } ^ { \\mathrm { s u p } } z _ { 2 } ^ { \\mathrm { s u p } \\top } \\right) - 1 \\right) + \\lambda _ { 3 } \\left( \\operatorname { t r } \\left( W _ { p } ^ { \\top } W _ { p } z _ { 1 } z _ { 1 } ^ { \\top } \\right) - 1 \\right) , } \\end{array}\n$$",
+        "text_format": "latex",
+        "bbox": [
+            137,
+            309,
+            795,
+            388
+        ],
+        "page_idx": 12
+    },
+    {
+        "type": "text",
+        "text": "where $\\lambda _ { 1 } , \\lambda _ { 2 }$ and $\\lambda _ { 3 }$ are the Lagrange multipliers. Finally, taking the expectation over $x _ { 1 } , x _ { 2 }$ , and $x _ { 2 } ^ { \\mathrm { { s u p } } }$ yields Eq. (5): ",
+        "bbox": [
+            84,
+            397,
+            857,
+            414
+        ],
+        "page_idx": 12
+    },
+    {
+        "type": "equation",
+        "img_path": "images/ac5f4d8a9a88edcc177f8167c997eb2b8970719589a4a2c34014280f5f90e361.jpg",
+        "text": "$$\n\\begin{array} { r l } & { \\mathcal { L } = 2 - 2 \\alpha \\cdot \\mathrm { t r } \\left( W _ { p } ^ { \\top } \\mathbb { E } \\left[ z _ { 2 } z _ { 1 } ^ { \\top } \\right] \\right) - 2 ( 1 - \\alpha ) \\cdot \\mathrm { t r } \\left( W _ { p } ^ { \\top } \\mathbb { E } \\left[ z _ { 2 } ^ { \\mathrm { s u p } } z _ { 1 } ^ { \\top } \\right] \\right) } \\\\ & { \\qquad + \\lambda _ { 1 } \\left( \\mathrm { t r } \\left( \\mathbb { E } \\left[ z _ { 2 } z _ { 2 } ^ { \\top } \\right] \\right) - 1 \\right) + \\lambda _ { 2 } \\left( \\mathrm { t r } \\left( \\mathbb { E } \\left[ z _ { 2 } ^ { \\mathrm { s u p } } z _ { 2 } ^ { \\mathrm { s u p } \\top } \\right] \\right) - 1 \\right) + \\lambda _ { 3 } \\left( \\mathrm { t r } \\left( W _ { p } ^ { \\top } W _ { p } \\mathbb { E } \\left[ z _ { 1 } z _ { 1 } ^ { \\top } \\right] \\right) - 1 \\right) . } \\end{array}\n$$",
+        "text_format": "latex",
+        "bbox": [
+            161,
+            420,
+            812,
+            472
+        ],
+        "page_idx": 12
+    },
+    {
+        "type": "text",
+        "text": "A.2. Proof of Proposition 4.5 ",
+        "text_level": 1,
+        "bbox": [
+            89,
+            486,
+            289,
+            501
+        ],
+        "page_idx": 12
+    },
+    {
+        "type": "text",
+        "text": "Proposition 4.5. The covariance matrices of features $\\mathbb { E } \\left[ z _ { 1 } z _ { 1 } ^ { \\top } \\right] , \\mathbb { E } \\left[ z _ { 2 } z _ { 1 } ^ { \\top } \\right]$ , and $\\mathbb { E } \\left[ z _ { 2 } ^ { \\mathrm { s u p } } z _ { 1 } ^ { \\top } \\right]$ share the same eigenspace in the data space. ",
+        "bbox": [
+            86,
+            502,
+            887,
+            535
+        ],
+        "page_idx": 12
+    },
+    {
+        "type": "text",
+        "text": "Proof. Let $\\begin{array} { r } { S _ { B } = \\frac { 1 } { C } \\sum _ { y } \\mu _ { y } \\mu _ { y } ^ { \\top } } \\end{array}$ be the inter-class covariance, $\\begin{array} { r } { S _ { W } = \\frac { 1 } { C } \\sum _ { y } \\sum _ { y } } \\end{array}$ be the intra-class covariance, and $S _ { e } = \\sigma _ { e } ^ { 2 } I$ be the variance of the augmentation noise. ",
+        "bbox": [
+            83,
+            540,
+            882,
+            573
+        ],
+        "page_idx": 12
+    },
+    {
+        "type": "equation",
+        "img_path": "images/c9a4443e59ed99488547254769be35854924a5bb62f2f7235a5192843a943880.jpg",
+        "text": "$$\n\\begin{array} { r l } { \\mathbb { E } _ { \\lambda _ { 1 } } \\Big [ \\mathbb { S } _ { 1 } \\Big [ z _ { 1 } ^ { n } \\Big ] - \\eta \\mathbb { E } _ { \\lambda _ { 1 } } \\Big [ \\mathbb { E } _ { \\lambda _ { 1 } } \\Big [ \\mathbb { S } _ { 2 } ^ { n } \\Big ] - \\eta \\mathbb { E } _ { \\lambda _ { 1 } } ^ { n } - \\eta \\mathbb { E } _ { \\lambda _ { 1 } } \\Big [ \\mathbb { S } _ { 1 } ^ { n } \\Big [ + \\mathcal { A } _ { 2 } ^ { n } \\Big ] \\Big ] \\mathbb { V } ^ { n } } \\\\ { = \\eta \\mathbb { E } _ { \\lambda _ { 1 } } \\Big [ \\mathbb { E } _ { \\lambda _ { 1 } } \\Big [ \\mathbb { E } _ { \\lambda _ { 1 } } ^ { n } - \\Big \\lVert \\mathcal { E } _ { \\lambda _ { 1 } } ^ { n } \\Big [ \\Big ] \\Big ] \\Big ] \\mathbb { V } ^ { n } \\mathbb { E } _ { \\lambda _ { 1 } } \\Big [ \\mathbb { E } _ { \\lambda _ { 1 } } \\Big [ \\mathbb { E } _ { \\lambda _ { 1 } } ^ { n } + \\mathbb { E } _ { \\lambda _ { 1 } } ^ { n } - \\mathbb { E } _ { \\lambda _ { 1 } } ^ { n } \\Big ] \\Big ] \\mathbb { V } ^ { n } } \\\\ { = \\mathbb { V } ^ { n } \\Bigg \\{ \\frac { 1 } { \\lambda _ { 2 } } \\sum _ { \\lbrace \\vert \\omega _ { 0 } \\rbrace \\leq 1 } \\mathbb { E } _ { \\lambda _ { 1 } } \\Big [ \\mathbb { S } _ { 2 } ^ { n } \\Big ] \\mathbb { E } _ { \\lambda _ { 1 } } \\Big [ \\mathbb { E } _ { \\lambda _ { 1 } } ^ { n } \\Big ] \\mathbb { V } ^ { n } } \\\\ { = \\mathbb { V } ^ { n } \\mathbb { E } _ { \\lambda _ { 1 } } \\mathbb { E } _ { \\lambda _ { 1 } } + \\mathbb { S } _ { \\lambda _ { 1 } } \\mathbb { V } ^ { n } \\mathbb { E } _ { \\lambda _ { 1 } } ^ { n } - ( \\lambda _ { 1 } ^ { n } \\mathbb { V } ) ^ { n } \\mathbb { E } _ { \\lambda _ { 1 } } ^ { n } } \\\\  \\mathbb  E  \\end{array}\n$$",
+        "text_format": "latex",
+        "bbox": [
+            116,
+            584,
+            772,
+            906
+        ],
+        "page_idx": 12
+    },
+    {
+        "type": "text",
+        "text": "Let $S _ { B } = V \\Lambda _ { B } V ^ { \\top }$ be the eigendecomposition, where $V$ is an orthogonal matrix and $\\Lambda _ { B }$ is a diagonal matrix of the eigenvalues. Then, $S _ { T } = S _ { B } + S _ { W }$ and $S _ { e }$ share the same eigenspace with $S _ { B }$ , as they are (scaled) identity matrices. ",
+        "bbox": [
+            88,
+            84,
+            887,
+            116
+        ],
+        "page_idx": 13
+    },
+    {
+        "type": "equation",
+        "img_path": "images/cfe158bee1e7dd3379f68fe419c9cbd404c9639bba4abdebdc061849803c861c.jpg",
+        "text": "$$\n\\begin{array} { r l } & { \\mathbb { E } \\left[ z _ { 1 } z _ { 1 } ^ { \\top } \\right] = W \\left( S _ { B } + S _ { W } + S _ { e } \\right) W ^ { \\top } = W V \\left( \\Lambda _ { B } + \\Lambda _ { W } + \\sigma _ { e } ^ { 2 } I \\right) V ^ { \\top } W ^ { \\top } , } \\\\ & { \\mathbb { E } \\left[ z _ { 2 } z _ { 1 } ^ { \\top } \\right] = W \\left( S _ { B } + S _ { W } \\right) W ^ { \\top } = W V \\left( \\Lambda _ { B } + \\Lambda _ { W } \\right) V ^ { \\top } W ^ { \\top } , } \\\\ & { \\mathbb { E } \\left[ z _ { 2 } ^ { \\operatorname* { s u p } } z _ { 1 } ^ { \\top } \\right] = W S _ { B } W ^ { \\top } = W V \\Lambda _ { B } V ^ { \\top } W ^ { \\top } , } \\end{array}\n$$",
+        "text_format": "latex",
+        "bbox": [
+            230,
+            123,
+            740,
+            189
+        ],
+        "page_idx": 13
+    },
+    {
+        "type": "text",
+        "text": "where $\\Lambda _ { W } = I - \\Lambda _ { B }$ is the eigenvalue matrix of $S _ { W }$ . It can be seen that the covariance matrices of features in Eq. (7) share the same eigenspace in the data space. ",
+        "bbox": [
+            88,
+            196,
+            892,
+            228
+        ],
+        "page_idx": 13
+    },
+    {
+        "type": "text",
+        "text": "A.3. Proof of Theorem 4.6 ",
+        "text_level": 1,
+        "bbox": [
+            89,
+            243,
+            271,
+            258
+        ],
+        "page_idx": 13
+    },
+    {
+        "type": "text",
+        "text": "Theorem 4.6. For an arbitrary $W$ , the optimal predictor $W _ { p } ^ { * }$ that minimizes the loss in Eq. (5) is given by ",
+        "bbox": [
+            89,
+            267,
+            787,
+            284
+        ],
+        "page_idx": 13
+    },
+    {
+        "type": "equation",
+        "img_path": "images/f0f1fc67171eeab7e5513480f3504d7db4baffe95f4ddaff3c415860c75f52c1.jpg",
+        "text": "$$\nW _ { p } ^ { * } = \\frac { 1 } { \\lambda _ { 3 } } W V \\big ( \\Lambda _ { B } + \\alpha \\Lambda _ { W } \\big ) \\big ( \\Lambda _ { B } + \\Lambda _ { W } + \\sigma _ { e } ^ { 2 } I \\big ) ^ { - 1 } V ^ { \\top } W ^ { + } ,\n$$",
+        "text_format": "latex",
+        "bbox": [
+            299,
+            294,
+            673,
+            325
+        ],
+        "page_idx": 13
+    },
+    {
+        "type": "text",
+        "text": "where $W ^ { + }$ is the Moore-Penrose inverse (Penrose, 1955). ",
+        "bbox": [
+            88,
+            337,
+            465,
+            352
+        ],
+        "page_idx": 13
+    },
+    {
+        "type": "text",
+        "text": "Proof. Recall Eq. (5): ",
+        "bbox": [
+            88,
+            367,
+            235,
+            383
+        ],
+        "page_idx": 13
+    },
+    {
+        "type": "equation",
+        "img_path": "images/af08b50df3120583a7e26a982dcb72421744c320b5a1a4be00ef4824fb1636a1.jpg",
+        "text": "$$\n\\begin{array} { r l } & { \\mathcal { L } = 2 - 2 \\alpha \\cdot \\mathrm { t r } \\left( W _ { p } ^ { \\top } \\mathbb { E } \\left[ z _ { 2 } z _ { 1 } ^ { \\top } \\right] \\right) - 2 ( 1 - \\alpha ) \\cdot \\mathrm { t r } \\left( W _ { p } ^ { \\top } \\mathbb { E } \\left[ z _ { 2 } ^ { \\mathrm { s u p } } z _ { 1 } ^ { \\top } \\right] \\right) } \\\\ & { \\qquad + \\lambda _ { 1 } \\left( \\mathrm { t r } \\left( \\mathbb { E } \\left[ z _ { 2 } z _ { 2 } ^ { \\top } \\right] \\right) - 1 \\right) + \\lambda _ { 2 } \\left( \\mathrm { t r } \\left( \\mathbb { E } \\left[ z _ { 2 } ^ { \\mathrm { s u p } } z _ { 2 } ^ { \\mathrm { s u p } \\top } \\right] \\right) - 1 \\right) + \\lambda _ { 3 } \\left( \\mathrm { t r } \\left( W _ { p } ^ { \\top } W _ { p } \\mathbb { E } \\left[ z _ { 1 } z _ { 1 } ^ { \\top } \\right] \\right) - 1 \\right) . } \\end{array}\n$$",
+        "text_format": "latex",
+        "bbox": [
+            161,
+            391,
+            812,
+            444
+        ],
+        "page_idx": 13
+    },
+    {
+        "type": "text",
+        "text": "To derive the optimal $W _ { p } ^ { * }$ , we take the partial derivative $\\frac { \\partial \\mathcal { L } } { \\partial W _ { p } }$ and replace the expression of covariance matrices with Eq. (6): ",
+        "bbox": [
+            84,
+            452,
+            893,
+            472
+        ],
+        "page_idx": 13
+    },
+    {
+        "type": "equation",
+        "img_path": "images/4a8e4ace37637a7c1d49be8da300374db87a9e8bdd9a68990678fb1c9f3222f3.jpg",
+        "text": "$$\n\\begin{array} { r l r } {  { \\frac { \\partial \\mathcal { L } } { \\partial W _ { p } } = - 2 \\alpha \\cdot \\mathbb { E } [ z _ { 2 } z _ { 1 } ^ { \\top } ] - 2 ( 1 - \\alpha ) \\cdot \\mathbb { E } [ z _ { 2 } ^ { \\operatorname* { s u p } } z _ { 1 } ^ { \\top } ] + 2 \\lambda _ { 3 } W _ { p } \\mathbb { E } [ z _ { 1 } z _ { 1 } ^ { \\top } ] } } \\\\ & { } & \\\\ & { } & { = - 2 \\alpha \\cdot W W ^ { \\top } - 2 ( 1 - \\alpha ) \\cdot W S _ { B } W ^ { \\top } + 2 \\lambda _ { 3 } ( 1 + \\sigma _ { e } ^ { 2 } ) \\cdot W _ { p } W W ^ { \\top } . } \\end{array}\n$$",
+        "text_format": "latex",
+        "bbox": [
+            235,
+            482,
+            738,
+            539
+        ],
+        "page_idx": 13
+    },
+    {
+        "type": "text",
+        "text": "By setting $\\begin{array} { r } { \\frac { \\partial \\mathcal { L } } { \\partial W _ { p } } = 0 } \\end{array}$ , we obtain the optimal predictor $W _ { p } ^ { * }$ ",
+        "bbox": [
+            86,
+            547,
+            468,
+            568
+        ],
+        "page_idx": 13
+    },
+    {
+        "type": "equation",
+        "img_path": "images/3c6e1c3877c4f068f511e2d8c33b4e4450657a9620efcc579635039c84b3392d.jpg",
+        "text": "$$\n\\begin{array} { r l } & { \\lambda _ { 3 } \\left( 1 + \\sigma _ { e } ^ { 2 } \\right) \\cdot W _ { p } ^ { * } W W ^ { \\top } = W \\left( \\alpha I + ( 1 - \\alpha ) S _ { B } \\right) W ^ { \\top } } \\\\ & { \\qquad = W \\left( S _ { B } + \\alpha S _ { W } \\right) W ^ { \\top } . } \\\\ & { \\qquad \\therefore W _ { p } ^ { * } = \\cfrac { 1 } { \\lambda _ { 3 } \\left( 1 + \\sigma _ { e } ^ { 2 } I \\right) } W \\left( S _ { B } + \\alpha S _ { W } \\right) W ^ { + } . } \\end{array}\n$$",
+        "text_format": "latex",
+        "bbox": [
+            274,
+            577,
+            699,
+            656
+        ],
+        "page_idx": 13
+    },
+    {
+        "type": "text",
+        "text": "Finally, by substituting the covariance matrices with the eigendecomposition as in Eq. (6), we obtain the following expression: ",
+        "bbox": [
+            91,
+            662,
+            885,
+            679
+        ],
+        "page_idx": 13
+    },
+    {
+        "type": "equation",
+        "img_path": "images/a32fe746c299f5c4a69bd520ab145b612721031987e7beeee70abbfdf7b3960c.jpg",
+        "text": "$$\nW _ { p } ^ { * } = \\frac { 1 } { \\lambda _ { 3 } } W V \\left( \\Lambda _ { B } + \\alpha \\Lambda _ { W } \\right) \\left( \\Lambda _ { B } + \\Lambda _ { W } + \\sigma _ { e } ^ { 2 } I \\right) ^ { - 1 } V ^ { \\top } W ^ { + } .\n$$",
+        "text_format": "latex",
+        "bbox": [
+            282,
+            686,
+            691,
+            719
+        ],
+        "page_idx": 13
+    },
+    {
+        "type": "text",
+        "text": "From this expression, the optimal predictor $W _ { p } ^ { * }$ can be interpreted through a sequence of hypothetical transformations: 1) mapping features to the data space, 2) eliminating the augmentation noise and reducing the intra-class variance by a factor of $\\alpha$ , and 3) mapping back to the feature space. □ ",
+        "bbox": [
+            86,
+            728,
+            890,
+            775
+        ],
+        "page_idx": 13
+    },
+    {
+        "type": "text",
+        "text": "It is noteworthy that Zhuo et al. (2023) derived an optimal predictor similar to Theorem 4.6. However, their focus was on the elimination of augmentation noise in the feature space in the context of self-supervised learning. ",
+        "bbox": [
+            89,
+            790,
+            888,
+            821
+        ],
+        "page_idx": 13
+    },
+    {
+        "type": "text",
+        "text": "A.4. Proof of Theorem 4.7 ",
+        "text_level": 1,
+        "bbox": [
+            89,
+            84,
+            271,
+            99
+        ],
+        "page_idx": 14
+    },
+    {
+        "type": "text",
+        "text": "Theorem 4.7. The optimal predictor $W _ { p } ^ { * }$ and the optimal model $W ^ { * }$ that minimizes the loss in Eq. (5) satisfy ",
+        "bbox": [
+            86,
+            107,
+            805,
+            125
+        ],
+        "page_idx": 14
+    },
+    {
+        "type": "equation",
+        "img_path": "images/2d8c2ff8343bca1084844595e6224c71dd7ecfda5bfe7c0f0884f1177086f150.jpg",
+        "text": "$$\nW _ { p } ^ { * \\top } W _ { p } ^ { * } \\approx W ^ { * } W ^ { * \\top } .\n$$",
+        "text_format": "latex",
+        "bbox": [
+            411,
+            133,
+            560,
+            155
+        ],
+        "page_idx": 14
+    },
+    {
+        "type": "text",
+        "text": "Proof. Recall Eq. (5): ",
+        "bbox": [
+            88,
+            167,
+            235,
+            184
+        ],
+        "page_idx": 14
+    },
+    {
+        "type": "equation",
+        "img_path": "images/9fe7b68cb2ba60ae93570be13427dc57d8bba32122af61272cdaae21538bb651.jpg",
+        "text": "$$\n\\begin{array} { r l } & { \\mathcal { L } = 2 - 2 \\alpha \\cdot \\mathrm { t r } \\left( W _ { p } ^ { \\top } \\mathbb { E } \\left[ z _ { 2 } z _ { 1 } ^ { \\top } \\right] \\right) - 2 ( 1 - \\alpha ) \\cdot \\mathrm { t r } \\left( W _ { p } ^ { \\top } \\mathbb { E } \\left[ z _ { 2 } ^ { \\mathrm { s u p } } z _ { 1 } ^ { \\top } \\right] \\right) } \\\\ & { \\qquad + \\lambda _ { 1 } \\left( \\mathrm { t r } \\left( \\mathbb { E } \\left[ z _ { 2 } z _ { 2 } ^ { \\top } \\right] \\right) - 1 \\right) + \\lambda _ { 2 } \\left( \\mathrm { t r } \\left( \\mathbb { E } \\left[ z _ { 2 } ^ { \\mathrm { s u p } } z _ { 2 } ^ { \\mathrm { s u p } \\top } \\right] \\right) - 1 \\right) + \\lambda _ { 3 } \\left( \\mathrm { t r } \\left( W _ { p } ^ { \\top } W _ { p } \\mathbb { E } \\left[ z _ { 1 } z _ { 1 } ^ { \\top } \\right] \\right) - 1 \\right) , } \\end{array}\n$$",
+        "text_format": "latex",
+        "bbox": [
+            161,
+            190,
+            810,
+            242
+        ],
+        "page_idx": 14
+    },
+    {
+        "type": "text",
+        "text": "where stop-gradient is applied to $z _ { 2 }$ and $z _ { 2 } ^ { \\mathrm { s u p } }$ . Recall the partial derivative $\\frac { \\partial \\mathcal { L } } { \\partial W _ { p } }$ is derived in Eq. (A.3): ",
+        "bbox": [
+            86,
+            250,
+            754,
+            268
+        ],
+        "page_idx": 14
+    },
+    {
+        "type": "equation",
+        "img_path": "images/c2081f5d2bfeb69edc2f84314e7360719fe5b43d64c1949369d54ca4aa68deb9.jpg",
+        "text": "$$\n\\begin{array} { r l r } {  { \\frac { \\partial \\mathcal { L } } { \\partial W _ { p } } = - 2 \\alpha \\cdot \\mathbb { E } [ z _ { 2 } z _ { 1 } ^ { \\top } ] - 2 ( 1 - \\alpha ) \\cdot \\mathbb { E } [ z _ { 2 } ^ { \\operatorname* { s u p } } z _ { 1 } ^ { \\top } ] + 2 \\lambda _ { 3 } W _ { p } \\mathbb { E } [ z _ { 1 } z _ { 1 } ^ { \\top } ] } } \\\\ & { } & \\\\ & { } & { = - 2 \\alpha \\cdot W W ^ { \\top } - 2 ( 1 - \\alpha ) \\cdot W S _ { B } W ^ { \\top } + 2 \\lambda _ { 3 } ( 1 + \\sigma _ { e } ^ { 2 } ) \\cdot W _ { p } W W ^ { \\top } . } \\end{array}\n$$",
+        "text_format": "latex",
+        "bbox": [
+            235,
+            279,
+            738,
+            335
+        ],
+        "page_idx": 14
+    },
+    {
+        "type": "text",
+        "text": "To derive the partial derivative $\\textstyle { \\frac { \\partial { \\mathcal { L } } } { \\partial W } }$ , we express Eq. (5) in terms of $W$ ’s and $x$ ",
+        "bbox": [
+            88,
+            343,
+            611,
+            362
+        ],
+        "page_idx": 14
+    },
+    {
+        "type": "equation",
+        "img_path": "images/a95ce404ec88f8bb8c5040bc3c3b650007bb2f117eef71692d4932baccd91479.jpg",
+        "text": "$$\n\\begin{array} { r l } & { \\mathcal { L } = 2 - 2 \\alpha \\cdot \\mathrm { t r } \\left( W _ { p } ^ { \\top } \\widehat { W } \\mathbb { E } \\left[ x _ { 2 } x _ { 1 } ^ { \\top } \\right] W ^ { \\top } \\right) - 2 ( 1 - \\alpha ) \\cdot \\mathrm { t r } \\left( W _ { p } ^ { \\top } \\widehat { W } \\mathbb { E } \\left[ x _ { 2 } ^ { \\operatorname* { s u p } } x _ { 1 } ^ { \\top } \\right] W ^ { \\top } \\right) } \\\\ & { \\qquad + \\lambda _ { 1 } \\left( \\mathrm { t r } \\left( \\widehat { W } \\mathbb { E } \\left[ x _ { 2 } x _ { 2 } ^ { \\top } \\right] \\widehat { W } ^ { \\top } \\right) - 1 \\right) + \\lambda _ { 2 } \\left( \\mathrm { t r } \\left( \\widehat { W } \\mathbb { E } \\left[ x _ { 2 } ^ { \\operatorname* { s u p } } x _ { 2 } ^ { \\operatorname* { s u p } } \\right] \\widehat { W } ^ { \\top } \\right) - 1 \\right) } \\\\ & { \\qquad + \\lambda _ { 3 } \\left( \\mathrm { t r } \\left( W _ { p } ^ { \\top } W _ { p } W \\mathbb { E } \\left[ x _ { 1 } x _ { 1 } ^ { \\top } \\right] W ^ { \\top } \\right) - 1 \\right) , } \\end{array}\n$$",
+        "text_format": "latex",
+        "bbox": [
+            210,
+            369,
+            761,
+            449
+        ],
+        "page_idx": 14
+    },
+    {
+        "type": "text",
+        "text": "where $W$ ’s with stop-gradient are emphasized by ${ \\widehat { W } } = \\operatorname { s g } ( W )$ , which are regarded as constants when taking the derivative. Then, the partial derivative $\\textstyle { \\frac { \\partial { \\mathcal { L } } } { \\partial W } }$ cis derived as follows: ",
+        "bbox": [
+            88,
+            457,
+            892,
+            489
+        ],
+        "page_idx": 14
+    },
+    {
+        "type": "equation",
+        "img_path": "images/b64f9a09351057d8f3bf3b49dd8ace22a5c821bff6b58e3a3c7c8e0101b0908a.jpg",
+        "text": "$$\n\\begin{array} { r l } & { \\frac { \\partial \\mathcal { L } } { \\partial W } = - 2 \\alpha \\cdot W _ { p } ^ { \\top } W \\mathbb { E } \\left[ x _ { 2 } x _ { 1 } ^ { \\top } \\right] - 2 ( 1 - \\alpha ) \\cdot W _ { p } ^ { \\top } W \\mathbb { E } \\left[ x _ { 2 } ^ { \\operatorname* { s u p } } x _ { 1 } ^ { \\top } \\right] + 2 \\lambda _ { 3 } \\cdot W _ { p } ^ { \\top } W _ { p } W \\mathbb { E } \\left[ x _ { 1 } x _ { 1 } ^ { \\top } \\right] } \\\\ & { \\phantom { \\frac { \\partial ^ { 2 } \\mathcal { L } } { \\partial W } = } = - 2 \\alpha \\cdot W _ { p } ^ { \\top } W - 2 ( 1 - \\alpha ) \\cdot W _ { p } ^ { \\top } W S _ { B } + 2 \\lambda _ { 3 } \\left( 1 + \\sigma _ { e } ^ { 2 } \\right) \\cdot W _ { p } ^ { \\top } W _ { p } W . } \\end{array}\n$$",
+        "text_format": "latex",
+        "bbox": [
+            181,
+            498,
+            790,
+            553
+        ],
+        "page_idx": 14
+    },
+    {
+        "type": "text",
+        "text": "Left-multiplying Eq. (A.3) by $W _ { p } ^ { \\top }$ and right-multiplying Eq. (A.7) by $W ^ { \\top }$ establishes the equality of them: ",
+        "bbox": [
+            81,
+            559,
+            792,
+            578
+        ],
+        "page_idx": 14
+    },
+    {
+        "type": "equation",
+        "img_path": "images/71c25cd6978cd7e365476db905c480e6884883555ca532ff38e55f2780d43e2d.jpg",
+        "text": "$$\n\\begin{array} { l } { { W _ { p } ^ { \\top } \\displaystyle \\frac { \\partial \\mathcal { L } } { \\partial W _ { p } } = - 2 \\alpha \\cdot W _ { p } ^ { \\top } W W ^ { \\top } - 2 ( 1 - \\alpha ) \\cdot W _ { p } ^ { \\top } W S _ { B } W ^ { \\top } + 2 \\lambda _ { 3 } \\left( 1 + \\sigma _ { e } ^ { 2 } \\right) \\cdot W _ { p } ^ { \\top } W _ { p } W W ^ { \\top } } } \\\\ { { \\ } } \\\\ { { \\displaystyle \\qquad = \\displaystyle \\frac { \\partial \\mathcal { L } } { \\partial W } W ^ { \\top } . } } \\end{array}\n$$",
+        "text_format": "latex",
+        "bbox": [
+            179,
+            585,
+            792,
+            655
+        ],
+        "page_idx": 14
+    },
+    {
+        "type": "text",
+        "text": "Now, we consider the update rule with the current iteration number $t$ , the learning rate $\\beta$ , and the weight decay $\\eta$ ",
+        "bbox": [
+            88,
+            660,
+            828,
+            676
+        ],
+        "page_idx": 14
+    },
+    {
+        "type": "equation",
+        "img_path": "images/f0754d487ad1afcb95e230698bb12ba3abf04eba8969074c6407f735a071bd56.jpg",
+        "text": "$$\n\\frac { d W _ { p } } { d t } = - \\beta \\frac { \\partial \\mathcal { L } } { \\partial W _ { p } } - \\eta W _ { p } , \\quad \\frac { d W } { d t } = - \\beta \\frac { \\partial \\mathcal { L } } { \\partial W } - \\eta W .\n$$",
+        "text_format": "latex",
+        "bbox": [
+            312,
+            684,
+            661,
+            718
+        ],
+        "page_idx": 14
+    },
+    {
+        "type": "text",
+        "text": "Substituting this expression into Eq. (A.8) results in the following equality: ",
+        "bbox": [
+            88,
+            727,
+            581,
+            742
+        ],
+        "page_idx": 14
+    },
+    {
+        "type": "equation",
+        "img_path": "images/629d84f852102742b7c11dd88d43c6d170af6b61385d9a2a227f04835297b3ee.jpg",
+        "text": "$$\nW _ { p } ^ { \\top } \\frac { d W _ { p } } { d t } + \\eta W _ { p } ^ { \\top } W _ { p } = - \\beta W _ { p } ^ { \\top } \\frac { \\partial \\mathcal { L } } { \\partial W _ { p } } = - \\beta \\frac { \\partial \\mathcal { L } } { \\partial W } W ^ { \\top } = \\frac { d W } { d t } W ^ { \\top } + \\eta W W ^ { \\top } .\n$$",
+        "text_format": "latex",
+        "bbox": [
+            225,
+            750,
+            748,
+            785
+        ],
+        "page_idx": 14
+    },
+    {
+        "type": "text",
+        "text": "Note that this is a differential equation, where it can be solved by multiplying both side by $e ^ { 2 \\eta t }$ : ",
+        "bbox": [
+            84,
+            794,
+            715,
+            810
+        ],
+        "page_idx": 14
+    },
+    {
+        "type": "equation",
+        "img_path": "images/b570256ad484592084df807e0865bb8a833898c1c08c77ea763ba267c234a210.jpg",
+        "text": "$$\n\\frac { d } { d t } \\left( e ^ { 2 \\eta t } { W _ { p } ^ { \\top } } W _ { p } \\right) = \\frac { d } { d t } \\left( e ^ { 2 \\eta t } { W W ^ { \\top } } \\right) ,\n$$",
+        "text_format": "latex",
+        "bbox": [
+            357,
+            818,
+            614,
+            849
+        ],
+        "page_idx": 14
+    },
+    {
+        "type": "text",
+        "text": "then, integrating with respect to $t$ and multiplying by $e ^ { - 2 \\eta t }$ yields the solution: ",
+        "bbox": [
+            84,
+            858,
+            604,
+            875
+        ],
+        "page_idx": 14
+    },
+    {
+        "type": "equation",
+        "img_path": "images/b1f088826123c1a2d4fc564c1bc2d567c6774461f1d873656a5239eb8f2a9a6b.jpg",
+        "text": "$$\n\\boldsymbol { W _ { p } ^ { \\intercal } W _ { p } } = \\boldsymbol { W } \\boldsymbol { W } ^ { \\intercal } + e ^ { - 2 \\eta t } \\boldsymbol { c } ,\n$$",
+        "text_format": "latex",
+        "bbox": [
+            390,
+            882,
+            581,
+            904
+        ],
+        "page_idx": 14
+    },
+    {
+        "type": "text",
+        "text": "where $c$ is a constant with respect to $t$ . Finally, the constant becomes negligible as $t \\to \\infty$ , i.e., at the optimal state, such that we obtain the following expression: ",
+        "bbox": [
+            91,
+            84,
+            888,
+            114
+        ],
+        "page_idx": 15
+    },
+    {
+        "type": "equation",
+        "img_path": "images/7fe8068600da4f6e6f8296d13cf29a814b9dad5d742e0215f351913832605a0d.jpg",
+        "text": "$$\n\\begin{array} { r } { W _ { p } ^ { * \\top } W _ { p } ^ { * } \\approx W ^ { * } W ^ { * \\top } . } \\end{array}\n$$",
+        "text_format": "latex",
+        "bbox": [
+            411,
+            123,
+            562,
+            145
+        ],
+        "page_idx": 15
+    },
+    {
+        "type": "text",
+        "text": "The equality implies that they share the eigenspace. ",
+        "bbox": [
+            88,
+            154,
+            426,
+            170
+        ],
+        "page_idx": 15
+    },
+    {
+        "type": "text",
+        "text": "Note that Theorem 4.7 holds in self-supervised ANCL as shown in Tian et al. (2021); Liu et al. (2022), and it remains valid when supervision is incorporated. ",
+        "bbox": [
+            91,
+            185,
+            890,
+            215
+        ],
+        "page_idx": 15
+    },
+    {
+        "type": "text",
+        "text": "B. Toy Experiment Setup ",
+        "text_level": 1,
+        "bbox": [
+            88,
+            234,
+            300,
+            252
+        ],
+        "page_idx": 15
+    },
+    {
+        "type": "text",
+        "text": "We provide a detailed description of toy experiments in Section 4.3. We generate a synthetic toy dataset to verify that balancing the contributions of supervision and self-supervision is crucial for the generalization of learned representations. The dataset consists of three classes, each following a Gaussian distribution with orthogonal mean vectors and a shared isotropic covariance matrix with a scale of 0.35. The mean vectors are obtained by taking the left singular vectors of a random matrix sampled from a standard Gaussian distribution. The synthetic data has 2048 dimensions, and data augmentation is performed by replacing $60 \\%$ of the dimensions with the corresponding dimensions of the overall data mean vector. The training dataset consists of 3000 samples, with 1000 samples per class, and similarly, the test dataset consists of 1500 samples, with 500 samples per class. ",
+        "bbox": [
+            88,
+            260,
+            887,
+            382
+        ],
+        "page_idx": 15
+    },
+    {
+        "type": "text",
+        "text": "For the supervised ANCL approach, SUPSIAM is utilized with varying $\\alpha$ , where the encoder, projector, and predictor each consist of a linear layer without batch normalization (Ioffe & Szegedy, 2015). The output dimension of the projector/predictor is set to 128. The model is trained for 200 epochs using the SGD optimizer, with a batch size of 256, learning rate of 0.05, momentum of 0.9, and weight decay of 5e-4. A cosine learning rate schedule (Loshchilov & Hutter, 2017) is applied except for the predictor, following the prior work (Chen & He, 2021). ",
+        "bbox": [
+            88,
+            388,
+            885,
+            465
+        ],
+        "page_idx": 15
+    },
+    {
+        "type": "text",
+        "text": "C. Pretraining Setup ",
+        "text_level": 1,
+        "bbox": [
+            89,
+            484,
+            264,
+            502
+        ],
+        "page_idx": 15
+    },
+    {
+        "type": "text",
+        "text": "We provide a detailed description of the pretraining setup. Each model consists of a ResNet-50 encoder (He et al., 2016) followed by a 2-layer MLP projector and predictor, except for SIMSIAM and SUPSIAM, which utilize a 3-layer MLP projector following the original configuration by Chen & He (2021). We pretrain models on ImageNet-100 (Deng et al., 2009; Tian et al., 2020) for 200 epochs with a batch size of 128. We utilize the SGD optimizer with a momentum of 0.9, and a weight decay of 1e-4. A cosine learning rate schedule (Loshchilov & Hutter, 2017) is applied to the encoder and projector. We maintain a constant learning rate without decay for the predictor, following the prior work (Chen & He, 2021). Other method-specific details are provided below: ",
+        "bbox": [
+            88,
+            510,
+            887,
+            616
+        ],
+        "page_idx": 15
+    },
+    {
+        "type": "text",
+        "text": "• SIMCLR (Chen et al., 2020a). The learning rate is set to 0.1 and the temperature parameter for contrastive loss is 0.1. The projector consists of 2 MLP layers with an output dimension of 128. ",
+        "bbox": [
+            106,
+            633,
+            885,
+            665
+        ],
+        "page_idx": 15
+    },
+    {
+        "type": "equation",
+        "img_path": "images/b8f4cb1a61590af731e89a247763ae2342050503ca97cfd28f6af8ec0a0cd174.jpg",
+        "text": "$$\n\\ell _ { \\mathrm { S i m C L R } } = - \\log \\frac { \\exp ( z _ { 1 } \\cdot z _ { 2 } / \\tau ) } { \\sum _ { z _ { a } \\in z _ { 2 } \\cup Z _ { n } } \\exp ( z _ { 1 } \\cdot z _ { a } / \\tau ) } ,\n$$",
+        "text_format": "latex",
+        "bbox": [
+            356,
+            672,
+            648,
+            710
+        ],
+        "page_idx": 15
+    },
+    {
+        "type": "text",
+        "text": "where $z _ { 2 }$ and $z _ { a }$ are L2-normalized and $Z _ { n }$ is the set of negative pairs of $z _ { 1 }$ obtained from the same batch. ",
+        "bbox": [
+            117,
+            718,
+            812,
+            734
+        ],
+        "page_idx": 15
+    },
+    {
+        "type": "text",
+        "text": "• SUPCON (Khosla et al., 2020). The learning rate is set to 0.15 and the temperature parameter for contrastive loss is 0.1. The projector consists of 2 MLP layers with an output dimension of 128. ",
+        "bbox": [
+            104,
+            743,
+            887,
+            775
+        ],
+        "page_idx": 15
+    },
+    {
+        "type": "equation",
+        "img_path": "images/3117dce1bda7888e340d6d50b0d527a4b58fd3e5283863fcd325104c8c894b17.jpg",
+        "text": "$$\n\\mathrm { s u p c o n } = - \\frac { 1 } { M + 1 } \\mathrm { l o g } \\frac { \\exp ( z _ { 1 } \\cdot z _ { 2 } / \\tau ) } { \\sum _ { z _ { a } \\in B ^ { \\prime } \\cup Z _ { n } } \\exp ( z _ { 1 } \\cdot z _ { a } / \\tau ) } - \\frac { 1 } { M + 1 } \\sum _ { z _ { j } \\in B ^ { \\prime } \\backslash z _ { 2 } } \\log \\frac { \\exp ( z _ { 1 } \\cdot z _ { j } / \\tau ) } { \\sum _ { z _ { a } \\in B ^ { \\prime } \\cup Z _ { n } } \\exp ( z _ { 1 } \\cdot z _ { a } / \\tau ) }\n$$",
+        "text_format": "latex",
+        "bbox": [
+            158,
+            784,
+            816,
+            825
+        ],
+        "page_idx": 15
+    },
+    {
+        "type": "text",
+        "text": "where $z _ { 2 }$ and $z _ { a }$ are L2-normalized, $B ^ { \\prime }$ is the set of positive pairs of $z _ { 1 }$ obtained from the same batch, with a cardinality of $M + 1$ and $Z _ { n }$ is the set of negative pairs of $z _ { 1 }$ obatined from the same batch. ",
+        "bbox": [
+            120,
+            834,
+            890,
+            866
+        ],
+        "page_idx": 15
+    },
+    {
+        "type": "text",
+        "text": "• MOCO-V2 (Chen et al., 2020b). The learning rate is set to 0.03 and the temperature parameter for contrastive loss is 0.2. The size of memory bank (target pool) $| Q |$ is 8192, and the exponential moving average (EMA) parameter is ",
+        "bbox": [
+            104,
+            875,
+            887,
+            906
+        ],
+        "page_idx": 15
+    },
+    {
+        "type": "text",
+        "text": "0.999. The projector consists of 2 MLP layers with an output dimension of 128. ",
+        "bbox": [
+            116,
+            84,
+            643,
+            99
+        ],
+        "page_idx": 16
+    },
+    {
+        "type": "equation",
+        "img_path": "images/d138de54db7bd4df9fb91c31293d6788cac003d514bd9490256a23366b299eba.jpg",
+        "text": "$$\n\\ell _ { \\mathrm { M o C o } } = - \\log \\frac { \\exp ( z _ { 1 } \\cdot z _ { 2 } / \\tau ) } { \\sum _ { z _ { a } \\in z _ { 2 } \\cup Z _ { n } } \\exp ( z _ { 1 } \\cdot z _ { a } / \\tau ) } ,\n$$",
+        "text_format": "latex",
+        "bbox": [
+            362,
+            106,
+            642,
+            143
+        ],
+        "page_idx": 16
+    },
+    {
+        "type": "text",
+        "text": "where $z _ { 2 }$ and $z _ { a }$ are L2-normalized and $Z _ { n }$ is the set of negative pairs of $z _ { 1 }$ obtained from the queue. ",
+        "bbox": [
+            116,
+            148,
+            779,
+            165
+        ],
+        "page_idx": 16
+    },
+    {
+        "type": "text",
+        "text": "• SUPMOCO (Majumder et al., 2021). The learning rate is set to 0.1 and temperature parameter is 0.07. The size of memory bank (target pool) $| Q |$ is 8192 and the EMA parameter is 0.999. The projector consists of 2 MLP layers with an output dimension of 128. ",
+        "bbox": [
+            109,
+            171,
+            888,
+            217
+        ],
+        "page_idx": 16
+    },
+    {
+        "type": "equation",
+        "img_path": "images/8c93e98d5bf1c8cc2770f8de6f635d7ab86e5b805b5d50bd40ecd68eec1220f7.jpg",
+        "text": "$$\n\\mathrm { s u p M o C o } = - \\frac { 1 } { M + 1 } \\mathrm { l o g } \\frac { \\exp ( z _ { 1 } \\cdot z _ { 2 } / \\tau ) } { \\sum _ { z _ { a } \\in Q ^ { \\prime } \\cup \\mathrm { Z } _ { n } } \\exp ( z _ { 1 } \\cdot z _ { a } / \\tau ) } - \\frac { 1 } { M + 1 } \\sum _ { z _ { j } \\in Q ^ { \\prime } \\setminus z _ { 2 } } \\log \\frac { \\exp ( z _ { 1 } \\cdot z _ { j } / \\tau ) } { \\sum _ { z _ { a } \\in Q ^ { \\prime } \\cup \\mathrm { Z } _ { n } } \\exp ( z _ { 1 } \\cdot z _ { a } / \\tau ) }\n$$",
+        "text_format": "latex",
+        "bbox": [
+            158,
+            223,
+            816,
+            266
+        ],
+        "page_idx": 16
+    },
+    {
+        "type": "text",
+        "text": "where $z _ { 2 } , z _ { a }$ and $z _ { j }$ are L2-normalized, $Q ^ { \\prime }$ is the set of positive pairs of $z _ { 1 }$ obtained from the same batch and the queue, with a cardinality of $M + 1$ and $Z _ { n }$ is the set of negative pairs of $z _ { 1 }$ obtained from the same batch and the queue. ",
+        "bbox": [
+            116,
+            272,
+            893,
+            304
+        ],
+        "page_idx": 16
+    },
+    {
+        "type": "text",
+        "text": "• BYOL (Grill et al., 2020). The learning rate is set to 0.2. The EMA parameter starts from 0.996 and is increased to one during training. The projector consists of 2 MLP layers with an output dimension of 256. The predictor has 2 MLP layers with a hidden dimension of 4096. ",
+        "bbox": [
+            106,
+            310,
+            887,
+            356
+        ],
+        "page_idx": 16
+    },
+    {
+        "type": "equation",
+        "img_path": "images/93f52ab06df453327ed45cc0940a329ace84cbc784cf6e33b37b26aae1a1cab8.jpg",
+        "text": "$$\n\\ell _ { \\mathrm { B Y O L } } = \\left\\| p _ { 1 } - \\mathrm { s g } ( z _ { 2 } ) \\right\\| _ { 2 } ^ { 2 } ,\n$$",
+        "text_format": "latex",
+        "bbox": [
+            416,
+            353,
+            588,
+            375
+        ],
+        "page_idx": 16
+    },
+    {
+        "type": "text",
+        "text": "where $p _ { 1 }$ and $z _ { 2 }$ are L2-normalized and sg denotes the stop-gradient. ",
+        "bbox": [
+            119,
+            377,
+            571,
+            393
+        ],
+        "page_idx": 16
+    },
+    {
+        "type": "text",
+        "text": "• SUPBYOL. The learning rate is set to 0.2. The size of target pool $| Q |$ is 8192 and the supervised target $z _ { 2 } ^ { \\mathrm { s u p } }$ is obtained by sampling and averaging all positives in the target pool. The EMA parameter starts from 0.996 and is increased to one during training. The projector consists of 2 MLP layers with an output dimension of 256, and the predictor has 2 MLP layers with a hidden dimension of 4096. ",
+        "bbox": [
+            107,
+            401,
+            887,
+            462
+        ],
+        "page_idx": 16
+    },
+    {
+        "type": "equation",
+        "img_path": "images/9990465d1ab41f51aa08318e7bff1f372aa37aa0aa09337c5bc9d4c2640182de.jpg",
+        "text": "$$\n\\ell _ { \\mathrm { S u p B Y O L } } = \\alpha \\cdot \\Vert p _ { 1 } - \\mathrm { s g } ( z _ { 2 } ) \\Vert _ { 2 } ^ { 2 } + ( 1 - \\alpha ) \\cdot \\left. p _ { 1 } - \\mathrm { s g } \\left( z _ { 2 } ^ { \\mathrm { s u p } } \\right) \\right. _ { 2 } ^ { 2 } , \\ z _ { 2 } ^ { \\mathrm { s u p } } = \\frac { 1 } { M } \\sum _ { z _ { 2 } ^ { \\prime } \\in Q _ { y } } z _ { 2 } ^ { \\prime } ,\n$$",
+        "text_format": "latex",
+        "bbox": [
+            225,
+            468,
+            779,
+            508
+        ],
+        "page_idx": 16
+    },
+    {
+        "type": "text",
+        "text": "where $p _ { 1 } , z _ { 2 }$ and $z _ { 2 } ^ { \\prime }$ are L2-normalized, sg denotes the stop-gradient, and $Q _ { y } \\subseteq Q$ is the set of targets of $p _ { 1 }$ sampled from the target pool sharing the sample label with $p _ { 1 }$ , with a cardinality of $M$ . ",
+        "bbox": [
+            119,
+            515,
+            885,
+            547
+        ],
+        "page_idx": 16
+    },
+    {
+        "type": "text",
+        "text": "• SIMSIAM (Chen et al., 2020a). The learning rate is set to 0.2 with a linear learning rate warm-up for the first 40 epochs. The projector consists of 3 MLP layers with an output dimension of 2048. The predictor has 2 MLP layers with a hidden dimension of 512. ",
+        "bbox": [
+            107,
+            554,
+            887,
+            599
+        ],
+        "page_idx": 16
+    },
+    {
+        "type": "equation",
+        "img_path": "images/6b8462286f3f5fcfe30c0273e5488bf0fd45dbdb95bbf540b4230a301abb0c34.jpg",
+        "text": "$$\n\\ell _ { \\mathrm { S i m S i a m } } = \\left\\| p _ { 1 } - \\mathrm { s g } ( z _ { 2 } ) \\right\\| _ { 2 } ^ { 2 } ,\n$$",
+        "text_format": "latex",
+        "bbox": [
+            410,
+            597,
+            593,
+            617
+        ],
+        "page_idx": 16
+    },
+    {
+        "type": "text",
+        "text": "where $p _ { 1 }$ and $z _ { 2 }$ are L2-normalized and sg denotes the stop-gradient. ",
+        "bbox": [
+            119,
+            621,
+            571,
+            637
+        ],
+        "page_idx": 16
+    },
+    {
+        "type": "text",
+        "text": "• SUPSIAM. The learning rate is set to 0.2 with a linear learning rate warm-up for the first 40 epochs. The size of target pool $| Q |$ is 8192 and the supervised target $z _ { 2 } ^ { \\mathrm { s u p } }$ is obtained by sampling and averaging all positives in the target pool. The projector consists of 3 MLP layers with an output dimension of 2048, and the predictor has 2 MLP layers with a hidden dimension of 512. ",
+        "bbox": [
+            107,
+            643,
+            885,
+            705
+        ],
+        "page_idx": 16
+    },
+    {
+        "type": "equation",
+        "img_path": "images/3b81ab53e386f831c365705abd833fa646cb100c4d430b16459366062eb58108.jpg",
+        "text": "$$\n\\ell _ { \\mathrm { S u p S i a m } } = \\alpha \\cdot \\Vert p _ { 1 } - \\mathrm { s g } ( z _ { 2 } ) \\Vert _ { 2 } ^ { 2 } + ( 1 - \\alpha ) \\cdot \\Vert p _ { 1 } - \\mathrm { s g } ( z _ { 2 } ^ { \\mathrm { s u p } } ) \\Vert _ { 2 } ^ { 2 } , ~ z _ { 2 } ^ { \\mathrm { s u p } } = \\frac { 1 } { M } \\sum _ { z _ { 2 } ^ { \\prime } \\in Q _ { y } } z _ { 2 } ^ { \\prime } ,\n$$",
+        "text_format": "latex",
+        "bbox": [
+            232,
+            708,
+            772,
+            750
+        ],
+        "page_idx": 16
+    },
+    {
+        "type": "text",
+        "text": "where $p _ { 1 } , z _ { 2 }$ and $z _ { 2 } ^ { \\prime }$ are L2-normalized, sg denotes the stop-gradient, and $Q _ { y } \\subseteq Q$ is the set of targets of $p _ { 1 }$ sampled from the target pool sharing the sample label with $p _ { 1 }$ , with a cardinality of $M$ . ",
+        "bbox": [
+            122,
+            756,
+            883,
+            787
+        ],
+        "page_idx": 16
+    },
+    {
+        "type": "text",
+        "text": "D. Datasets ",
+        "text_level": 1,
+        "bbox": [
+            88,
+            804,
+            184,
+            820
+        ],
+        "page_idx": 16
+    },
+    {
+        "type": "text",
+        "text": "Table D.1 provides a comprehensive overview of datasets, including evaluation metrics for both (a) transfer learning via linear evaluation and (b) few-shot classification. For datasets without an official validation set, a random split is performed using the entire training set. For the few-shot task, the complete dataset is utilized for all datasets except FC100 (Oreshkin et al., 2018). In the case of FC100 (Oreshkin et al., 2018), a meta-test split is used. Detailed evaluation protocols are outlined in Appendix E. ",
+        "bbox": [
+            88,
+            829,
+            887,
+            906
+        ],
+        "page_idx": 16
+    },
+    {
+        "type": "table",
+        "img_path": "images/65b58ad901f691c468c6c470348c92da4bda4aef8adb0e15b63cc874017cca71.jpg",
+        "table_caption": [
+            "Table D.1. Detailed summary of datasets. "
+        ],
+        "table_footnote": [],
+        "table_body": "<table><tr><td>Category</td><td>Dataset</td><td># of classes</td><td>Train set</td><td>Valid set</td><td>Test set</td><td>Metric</td></tr><tr><td rowspan=\"10\">(a) Transfer learning via linear evaluation</td><td>CIFAR10 (Krizhevsky &amp; Hinton, 2009)</td><td>10</td><td>45000</td><td>5000</td><td>10000</td><td>Top-1 accuracy</td></tr><tr><td>CIFAR100 (Krizhevsky &amp; Hinton, 2009)</td><td>100</td><td>45000</td><td>5000</td><td>10000</td><td>Top-1 accuracy</td></tr><tr><td>DTD (split 1) (Cimpoi et al., 2014)</td><td>47</td><td>1880</td><td>1880</td><td>1880</td><td>Top-1 accuracy</td></tr><tr><td>Food (Bossard et al., 2014)</td><td>101</td><td>68175</td><td>7575</td><td>25250</td><td>Top-1 accuracy</td></tr><tr><td>MIT67 (Quattoni &amp; Torralba, 2009)</td><td>67</td><td>4690</td><td>670</td><td>1340</td><td>Top-1 accuracy</td></tr><tr><td>SUN397 (split 1) (Xiao et al., 2010)</td><td>397</td><td>15880</td><td>3970</td><td>19850</td><td>Top-1 accuracy</td></tr><tr><td>Caltech101 (Fei-Fei et al., 2004)</td><td>101</td><td>2525</td><td>505</td><td>5647</td><td>Mean per-class accuracy</td></tr><tr><td>CUB200 (Welinder et al., 2010)</td><td>200</td><td>4990</td><td>1000</td><td>5794</td><td>Mean per-class accuracy</td></tr><tr><td>Dogs (Khosla et al., 2011; Deng et al., 2009)</td><td>120</td><td>10800</td><td>1200</td><td>8580</td><td>Mean per-class accuracy</td></tr><tr><td>Flowers (Nilsback &amp; Zisserman, 2008)</td><td>102</td><td>1020</td><td>1020</td><td>6149</td><td>Mean per-class accuracy</td></tr><tr><td rowspan=\"8\">(b) Few-shot classification</td><td>Aircraft (Maji et al., 2013)</td><td>100</td><td></td><td></td><td>10000</td><td>Average accuracy</td></tr><tr><td>CUB200 (Welinder et al., 2010)</td><td>200</td><td></td><td></td><td>11745</td><td>Average accuracy</td></tr><tr><td>FC100 (Oreshkin et al., 2018)</td><td>20</td><td></td><td></td><td>12000</td><td>Average accuracy</td></tr><tr><td>Flowers (Nilsback &amp; Zisserman, 2008)</td><td>102</td><td></td><td></td><td>8189</td><td>Average accuracy</td></tr><tr><td>Fungi (Schroeder &amp; Cui, 2018)</td><td>1394</td><td></td><td></td><td>89760</td><td>Average accuracy</td></tr><tr><td>Omniglot (Lake et al., 2015)</td><td>1623</td><td></td><td></td><td>32460</td><td>Average accuracy</td></tr><tr><td>DTD (Cimpoi et al., 2014)</td><td>47</td><td></td><td></td><td>5640</td><td>Average accuracy</td></tr><tr><td>Traffic Signs (Houben et al., 2013)</td><td>43</td><td></td><td></td><td>12630</td><td>Average accuracy</td></tr></table>",
+        "bbox": [
+            88,
+            117,
+            883,
+            364
+        ],
+        "page_idx": 17
+    },
+    {
+        "type": "text",
+        "text": "E. Evaluation Protocol ",
+        "text_level": 1,
+        "bbox": [
+            89,
+            428,
+            279,
+            445
+        ],
+        "page_idx": 17
+    },
+    {
+        "type": "text",
+        "text": "E.1. Transfer Learning via Linear Evaluation ",
+        "text_level": 1,
+        "bbox": [
+            89,
+            454,
+            406,
+            469
+        ],
+        "page_idx": 17
+    },
+    {
+        "type": "text",
+        "text": "The linear evaluation protocol for transfer learning follows from Kornblith et al. (2019) and Lee et al. (2021a). Specifically, we divide the entire training dataset into a train set and a validation set to tune the regularization parameter by minimizing the L2-regularized cross-entropy loss using L-BFGS (Liu & Nocedal, 1989). Train and validation set splits are shown in Table D.1. With the best parameter, we extract the frozen representations of $2 2 4 \\times 2 2 4$ center-cropped images without data augmentation and train the linear classifier with the entire training dataset, including the validation set. ",
+        "bbox": [
+            88,
+            478,
+            885,
+            553
+        ],
+        "page_idx": 17
+    },
+    {
+        "type": "text",
+        "text": "E.2. Few-Shot Classfication ",
+        "text_level": 1,
+        "bbox": [
+            89,
+            569,
+            281,
+            584
+        ],
+        "page_idx": 17
+    },
+    {
+        "type": "text",
+        "text": "We adhere to the few-shot classification evaluation protocol outlined by Lee et al. (2021a). Specifically, we conduct logistic regression using the frozen representations extracted from $2 2 4 \\times 2 2 4$ images without data augmentation in an $N$ -way $K$ -shot episode. It’s important to note that as the encoder remains frozen, this protocol does not involve a fine-tuning approach. ",
+        "bbox": [
+            88,
+            593,
+            885,
+            654
+        ],
+        "page_idx": 17
+    },
+    {
+        "type": "text",
+        "text": "F. Additional Experiments ",
+        "text_level": 1,
+        "bbox": [
+            89,
+            672,
+            312,
+            690
+        ],
+        "page_idx": 17
+    },
+    {
+        "type": "text",
+        "text": "We conduct additional experiments with SUPSIAM, varying the loss parameter $\\alpha$ , the number of positives, denoted as $M$ and the batch size. During the experiments on batch size, we also incorporate contrastive learning, specifically SUPCON. Given that the performance recorded in the Table 5 might be suboptimal due to pretraining with a batch size of 128, which could be too small, we re-pretrain SUPCON using an increased batch size. Unless specified otherwise, the remaining settings follow the setup outlined in Appendix C. We apply the evaluation methodology outlined in Appendix E to the dataset introduced in Appendix D. ",
+        "bbox": [
+            88,
+            699,
+            885,
+            790
+        ],
+        "page_idx": 17
+    },
+    {
+        "type": "text",
+        "text": "F.1. Transfer Learning with Different $\\alpha$ ",
+        "text_level": 1,
+        "bbox": [
+            91,
+            806,
+            362,
+            821
+        ],
+        "page_idx": 17
+    },
+    {
+        "type": "text",
+        "text": "We conduct experiments with various $\\alpha$ values to explore the relationship between intra-class variance reduction and representation quality. Table F.1 presents the linear evaluation performances for different $\\alpha$ values. The model performs best in most cases when $\\alpha$ is set to 0.5. Interestingly, the optimal $\\alpha$ appears to vary depending on the downstream dataset. Nevertheless, it is crucial to note that $\\alpha$ should always fall within the range $( 0 , 1 )$ to effectively capture within-class diversity, thereby proving beneficial for downstream tasks. ",
+        "bbox": [
+            88,
+            829,
+            885,
+            905
+        ],
+        "page_idx": 17
+    },
+    {
+        "type": "text",
+        "text": "Table F.1. Transfer learning via linear evaluation results on various downstream datasets, where the model is SUPSIAM pretrained with different $\\alpha$ on ImageNet-100. Avg represents the average performance across each dataset. For each dataset, the best results are in bold and the second-best results are underlined. ",
+        "bbox": [
+            86,
+            93,
+            887,
+            135
+        ],
+        "page_idx": 18
+    },
+    {
+        "type": "table",
+        "img_path": "images/0ba2b5a2ce6367b4161e16b8af928b07dba933aa3b5d42d5a8e89dd78835201f.jpg",
+        "table_caption": [],
+        "table_footnote": [],
+        "table_body": "<table><tr><td>α</td><td>Avg</td><td>CIFAR10</td><td>CIFAR100</td><td>DTD</td><td>Food</td><td>MIT67</td><td>SUN397</td><td>Caltech</td><td>CUB200</td><td>Dogs</td><td>Flowers</td><td>Pets</td></tr><tr><td>0.0</td><td>69.33</td><td>89.18</td><td>69.41</td><td>65.53</td><td>60.72</td><td>65.05</td><td>50.81</td><td>88.83</td><td>41.46</td><td>61.51</td><td>90.04</td><td>80.09</td></tr><tr><td>0.2</td><td>70.14</td><td>89.89</td><td>70.56</td><td>65.89</td><td>61.03</td><td>65.25</td><td>51.34</td><td>88.85</td><td>42.07</td><td>64.28</td><td>90.12</td><td>82.27</td></tr><tr><td>0.5</td><td>70.40</td><td>89.95</td><td>70.88</td><td>66.51</td><td>61.46</td><td>64.45</td><td>51.50</td><td>88.86</td><td>43.48</td><td>64.65</td><td>90.27</td><td>82.38</td></tr><tr><td>0.8</td><td>70.28</td><td>89.39</td><td>70.04</td><td>67.08</td><td>64.06</td><td>66.00</td><td>51.98</td><td>87.45</td><td>42.16</td><td>62.94</td><td>90.26</td><td>81.76</td></tr><tr><td>1.0</td><td>67.07</td><td>87.28</td><td>66.41</td><td>66.06</td><td>63.44</td><td>64.68</td><td>50.69</td><td>85.00</td><td>36.10</td><td>54.57</td><td>88.38</td><td>75.13</td></tr></table>",
+        "bbox": [
+            88,
+            152,
+            883,
+            252
+        ],
+        "page_idx": 18
+    },
+    {
+        "type": "text",
+        "text": "F.2. Ablation Study: Number of Positives from Target Pool ",
+        "text_level": 1,
+        "bbox": [
+            88,
+            267,
+            498,
+            284
+        ],
+        "page_idx": 18
+    },
+    {
+        "type": "text",
+        "text": "We conduct a study on $M$ , which represents the number of positive samples from the target pool. As shown in Table F.2, the model demonstrates robustness to the number of positives. Even when sampling only one positive from the target pool, the performance is similar to sampling many positives. ",
+        "bbox": [
+            88,
+            292,
+            887,
+            337
+        ],
+        "page_idx": 18
+    },
+    {
+        "type": "table",
+        "img_path": "images/c6b5d78e92e733795b97aca774fca0e4aaa4ba04f524bea06654b1035daea23b.jpg",
+        "table_caption": [
+            "Table F.2. Transfer learning via linear evaluation results on various downstream datasets, where the model is SUPSIAM-pretrained with different $M$ on ImageNet-100. all stands for sampling all positives in the target pool. Avg represents the average performance across each dataset. For each dataset, the best results are in bold and the second-best results are underlined. "
+        ],
+        "table_footnote": [],
+        "table_body": "<table><tr><td>M</td><td>Avg</td><td>CIFAR10</td><td>CIFAR100</td><td>DTD</td><td>Food</td><td>MIT67</td><td>SUN397</td><td>Caltech</td><td>CUB200</td><td>Dogs</td><td>Flowers</td><td>Pets</td></tr><tr><td>1</td><td>70.13</td><td>89.58</td><td>70.59</td><td>65.75</td><td>61.39</td><td>64.85</td><td>51.41</td><td>88.57</td><td>42.80</td><td>64.52</td><td>89.92</td><td>82.07</td></tr><tr><td>4</td><td>70.40</td><td>89.94</td><td>70.63</td><td>66.59</td><td>61.66</td><td>65.07</td><td>51.32</td><td>88.82</td><td>42.88</td><td>64.78</td><td>89.85</td><td>82.88</td></tr><tr><td>16</td><td>70.31</td><td>89.94</td><td>70.86</td><td>65.64</td><td>61.40</td><td>64.95</td><td>51.54</td><td>88.65</td><td>43.17</td><td>65.13</td><td>89.66</td><td>82.42</td></tr><tr><td>all</td><td>70.40</td><td>89.95</td><td>70.88</td><td>66.51</td><td>61.46</td><td>64.45</td><td>51.50</td><td>88.86</td><td>43.48</td><td>64.65</td><td>90.27</td><td>82.38</td></tr></table>",
+        "bbox": [
+            88,
+            419,
+            885,
+            505
+        ],
+        "page_idx": 18
+    },
+    {
+        "type": "text",
+        "text": "F.3. Transfer Learning with Different Batch Size ",
+        "text_level": 1,
+        "bbox": [
+            88,
+            520,
+            428,
+            536
+        ],
+        "page_idx": 18
+    },
+    {
+        "type": "text",
+        "text": "We pretrain SUPSIAM using an increased batch size 256. Additionally, we pretrain SUPCON with a batch size of 256, as the performance in Table 5 pre-trained with a batch size of 128 might be suboptimal. Moreover, to enhance the diversity of positive and negative samples, we also pretrain SUPCON with an additional memory bank (target pool) of size 8192, as described in Khosla et al. (2020). The learning rate scaled linearly (Goyal et al., 2017) with the batch size, i.e., for a batch size of 256, the learning rates are set to 0.3 for SUPCON and 0.4 for SUPSIAM, respectively. ",
+        "bbox": [
+            88,
+            545,
+            887,
+            621
+        ],
+        "page_idx": 18
+    },
+    {
+        "type": "table",
+        "img_path": "images/d1b0b56323d2b257a256daf75aecaec821a8efc4c87e2807a441170d7e903c55.jpg",
+        "table_caption": [
+            "Table F.3. Transfer learning via linear evaluation results on various downstream datasets, where the model is pretrained with different batch size on ImageNet-100. Bsz refers to the batch size during pretraining. Avg represents the average performance across each dataset. The model marked with $^ *$ indicates the inclusion of a memory bank. "
+        ],
+        "table_footnote": [],
+        "table_body": "<table><tr><td>Bsz</td><td>Model</td><td>Avg</td><td>CIFAR10</td><td>CIFAR100</td><td>DTD</td><td>Food</td><td>MIT67</td><td>SUN397</td><td>Caltech</td><td>CUB200</td><td>Dogs</td><td>Flowers</td><td>Pets</td></tr><tr><td rowspan=\"3\">128</td><td>SuPCon</td><td>68.19</td><td>88.82</td><td>68.89</td><td>65.18</td><td>59.34</td><td>63.76</td><td>50.09</td><td>87.30</td><td>35.84</td><td>61.68</td><td>89.05</td><td>80.12</td></tr><tr><td>SUPCoN*</td><td>68.97</td><td>89.70</td><td>70.48</td><td>65.65</td><td>59.06</td><td>63.43</td><td>49.86</td><td>87.97</td><td>38.76</td><td>63.74</td><td>89.22</td><td>80.83</td></tr><tr><td>SUPSiaM</td><td>70.40</td><td>89.95</td><td>70.88</td><td>66.51</td><td>61.46</td><td>64.45</td><td>51.50</td><td>88.86</td><td>43.48</td><td>64.65</td><td>90.27</td><td>82.38</td></tr><tr><td rowspan=\"3\">256</td><td>SupCon</td><td>68.42</td><td>89.10</td><td>69.40</td><td>65.32</td><td>59.21</td><td>63.25</td><td>50.63</td><td>88.22</td><td>36.05</td><td>62.60</td><td>89.10</td><td>79.80</td></tr><tr><td>SupCon*</td><td>68.86</td><td>89.46</td><td>70.06</td><td>65.88</td><td>58.73</td><td>63.92</td><td>50.04</td><td>87.84</td><td>38.28</td><td>63.02</td><td>89.06</td><td>81.22</td></tr><tr><td>SUPSIAM</td><td>70.44</td><td>90.07</td><td>70.77</td><td>66.28</td><td>61.89</td><td>65.18</td><td>51.77</td><td>88.83</td><td>43.09</td><td>64.90</td><td>89.99</td><td>82.11</td></tr></table>",
+        "bbox": [
+            89,
+            702,
+            885,
+            810
+        ],
+        "page_idx": 18
+    },
+    {
+        "type": "text",
+        "text": "As shown in Table F.3, supervised ANCL shows a slight improvement in performance when the batch size is increased to 256, though the gain is overall marginal, and it is not heavily influenced by batch size, similar to its self-supervised counterpart (Chen & He, 2021). In the case of SUPCON, performance improves as the batch size increases, and memory bank provides performance gain, although this gain seems to be slightly reduced as the batch size increases. However, it still shows lower performance compared to supervised ANCL, which performs well even with a smaller batch size. ",
+        "bbox": [
+            88,
+            829,
+            885,
+            906
+        ],
+        "page_idx": 18
+    },
+    {
+        "type": "text",
+        "text": "G. ViT Backbone ",
+        "text_level": 1,
+        "bbox": [
+            89,
+            83,
+            235,
+            99
+        ],
+        "page_idx": 19
+    },
+    {
+        "type": "text",
+        "text": "To verify the independence of our proposed method from the encoder backbone, we conduct experiments using the ViT backbone (Dosovitskiy et al., 2021). In contrastive learning, MOCO-V3 (Chen et al., 2021) utilizes ViT as its backbone, and we benchmark this for implementing models such as SUPMOCO, BYOL, and SUPBYOL. In MOCO-V3, unlike the previous MOCO-V2 (Chen et al., 2020b), the queue is removed and a predictor is added, resembling ANCL (Grill et al., 2020; Chen & He, 2021). For SUPMOCO with the ViT backbone, we also incorporate the predictor but retain a queue to ensure the existence of features sharing the same label with a size of 8192. Similarly, SUPBYOL employs a target pool with a size of 8192. ",
+        "bbox": [
+            88,
+            109,
+            885,
+            214
+        ],
+        "page_idx": 19
+    },
+    {
+        "type": "text",
+        "text": "We pretrain ViT-Small on ImageNet-100 (Deng et al., 2009; Tian et al., 2020) for 200 epochs with a batch size of 256. Common parameter settings include using the AdamW optimizer (Loshchilov & Hutter, 2019) with a linear learning rate warm-up for the first 40 epochs, a momentum of 0.9, and a weight decay of 0.1. A cosine learning rate schedule (Loshchilov & Hutter, 2017) is applied to the encoder and projector. We maintain a constant learning rate without decay for BYOL and SUPBYOL following the prior work (Chen & He, 2021), while we apply a cosine learning rate schedule to the predictor of MOCO-V3 and SUPMOCO. ",
+        "bbox": [
+            89,
+            222,
+            887,
+            313
+        ],
+        "page_idx": 19
+    },
+    {
+        "type": "text",
+        "text": "• MOCO-V3 (Chen et al., 2021). We follow the original parameter settings, where the learning rate is set to 1.5e-4 and the temperature parameter for contrastive loss is 0.2. The exponential moving average (EMA) parameter starts from 0.99 and is increased to one during training. The projector consists of 3 MLP layers with an output dimension of 256 and a hidden dimension of 4096. The predictor has 2 MLP layers with a hidden dimension of 4096. ",
+        "bbox": [
+            106,
+            334,
+            885,
+            395
+        ],
+        "page_idx": 19
+    },
+    {
+        "type": "text",
+        "text": "• SUPMOCO (Majumder et al., 2021). The learning rate is set to $1 . 5 \\mathrm { e } { \\cdot } 3$ and the temperature parameter for contrastive loss is 0.2. The EMA parameter starts from 0.99 and is increased to one during training. The projector consists of 3 MLP layers with an output dimension of 256 and a hidden dimension of 4096. The predictor has 2 MLP layers with a hidden dimension of 4096. ",
+        "bbox": [
+            107,
+            410,
+            885,
+            469
+        ],
+        "page_idx": 19
+    },
+    {
+        "type": "text",
+        "text": "• BYOL (Grill et al., 2020). The learning rate is set to 1.5e-3 and the EMA parameter starts from 0.996 and is increased to one during training. The projector consists of 2 MLP layers with an output dimension of 256 and a hidden dimension of 4096. The predictor has 2 MLP layers with a hidden dimension of 4096. ",
+        "bbox": [
+            107,
+            484,
+            885,
+            530
+        ],
+        "page_idx": 19
+    },
+    {
+        "type": "text",
+        "text": "• SUPBYOL. The learning rate is set to 1.5e-3 and the EMA parameter starts from 0.996 and is increased to one during training. The loss parameter $\\alpha$ is set to 0.5 and all supervised target is obtained by sampling and averaging all positives in the target pool. The projector consists of 2 MLP layers with an output dimension of 256 and a hidden dimension of 4096. The predictor has 2 MLP layers with a hidden dimension of 4096. ",
+        "bbox": [
+            107,
+            545,
+            885,
+            606
+        ],
+        "page_idx": 19
+    },
+    {
+        "type": "table",
+        "img_path": "images/841c9fe21e626a26b8ee61e9abea62076b77fdd5d8655d05dba0dad70418922d.jpg",
+        "table_caption": [
+            "Table G.1. Transfer learning via linear evaluation results on various downstream datasets, where the models trained with the ViT-Small backbone on ImageNet-100. CL, Sup, EMA stand for the cases when negative samples are considered, labels are used for pretraining, and the momentum network is adopted, respectively. Avg.Rank represents the average performance ranking across all datasets. For each dataset, the best results are in bold and the second-best results are underlined. Our proposed methods are marked with $\\dagger$ . "
+        ],
+        "table_footnote": [],
+        "table_body": "<table><tr><td>Method</td><td>CL</td><td>Sup</td><td>EMA</td><td>Avg.Rank</td><td>CIFAR10</td><td>CIFAR100</td><td>DTD</td><td>Food</td><td>MIT67</td><td>SUN397</td><td>Caltech</td><td>CUB200</td><td>Dogs</td><td>Flowers</td><td>Pets</td></tr><tr><td>MoCo-v3</td><td>✓</td><td></td><td>✓</td><td>4.00</td><td>84.79</td><td>64.66</td><td>60.27</td><td>59.52</td><td>56.34</td><td>45.17</td><td>75.08</td><td>37.10</td><td>44.71</td><td>85.98</td><td>64.87</td></tr><tr><td>SUPMoCo</td><td>✓</td><td>✓</td><td>✓</td><td>2.18</td><td>89.68</td><td>71.07</td><td>60.90</td><td>59.84</td><td>59.18</td><td>47.45</td><td>83.13</td><td>47.69</td><td>57.83</td><td>89.35</td><td>77.94</td></tr><tr><td>BYOL</td><td></td><td></td><td>✓</td><td>2.36</td><td>87.61</td><td>66.48</td><td>65.48</td><td>63.36</td><td>59.48</td><td>48.41</td><td>80.69</td><td>41.13</td><td>53.49</td><td>88.32</td><td>75.12</td></tr><tr><td>SUPBYOLt</td><td></td><td>✓</td><td>✓</td><td>1.45</td><td>90.29</td><td>71.05</td><td>62.87</td><td>61.61</td><td>60.07</td><td>48.36</td><td>84.37</td><td>47.24</td><td>62.03</td><td>90.31</td><td>81.70</td></tr></table>",
+        "bbox": [
+            88,
+            708,
+            885,
+            776
+        ],
+        "page_idx": 19
+    },
+    {
+        "type": "text",
+        "text": "We observe a slightly lower performance in Table G.1 compared to Table 5, where results are presented using ResNet-50 (He et al., 2016) as the backbone. This discrepancy is likely due to pretraining with ImageNet-100. ViT typically requires more data for effective learning compared to ResNet, and the number of data samples in ImageNet-100 may be slightly insufficient. Nevertheless, supervision in the ANCL framework with the ViT backbone proves effective in enhancing performance. Notably, when compared to supervised contrastive learning, proposed method exhibits slightly better performance across all datasets except one. This underscores the effectiveness of the supervised ANCL approach, which is applicable to the ViT backbone and remains independent of the underlying architecture. ",
+        "bbox": [
+            88,
+            799,
+            887,
+            905
+        ],
+        "page_idx": 19
+    },
+    {
+        "type": "text",
+        "text": "H. Pretraining on CIFAR ",
+        "text_level": 1,
+        "bbox": [
+            89,
+            82,
+            302,
+            101
+        ],
+        "page_idx": 20
+    },
+    {
+        "type": "text",
+        "text": "We conduct additional experiments on the CIFAR (Krizhevsky & Hinton, 2009) dataset, where the image size was reduced to $3 2 \\times 3 2$ . The encoder employes a CIFAR variant of ResNet-18 (He et al., 2016) and is trained for a total of 1000 epochs with a batch size of 256. For the ANCL approach, specifically SIMSIAM and SUPSIAM, we utilize a 2-layer MLP projector, and Gaussian blurring is excluded from the augmentation. For contrastive learning, we select SIMCLR (Chen et al., 2020a) and its supervised version SUPCON (Khosla et al., 2020). For ANCL, SIMSIAM (Chen & He, 2021) and BYOL (Grill et al., 2020) and their supervised counterparts SUPSIAM and SUPBYOL are chosen as models. Learning rates are tuned individually for each model: SIMCLR (0.7), SUPCON (0.6), BYOL (0.6), SUPBYOL (0.5), SIMSIAM (0.7), and SUPSIAM (0.7). For supervised ANCL, the target pool size is reduced to 4096, and the loss parameter $\\alpha$ is set to 0.5 for SUPSIAM and 0.8 for SUPBYOL. ",
+        "bbox": [
+            88,
+            109,
+            885,
+            244
+        ],
+        "page_idx": 20
+    },
+    {
+        "type": "table",
+        "img_path": "images/9a81da3a6bee1e476940aa9925e21d747ab406e32f77d3a84363270dfe5dc0be.jpg",
+        "table_caption": [
+            "Table H.1. Comparision of CL and ANCL with their self-supervised / supervised versions with ResNet-18 on CIFAR10 and 100. We run all experiments for 1000 epochs. If the pretext and downstream datasets are aligned, the supervised version shows improved performance. In contrast, when there is a mismatch, performance gains are observed only in the ANCL scenario. "
+        ],
+        "table_footnote": [],
+        "table_body": "<table><tr><td>Pretext</td><td>Downstream</td><td>SimCLR</td><td>SuPCoN</td><td>SimSiam</td><td>SUPSiaM</td><td>BYOL</td><td>SUPBYOL</td></tr><tr><td>CIFAR10</td><td>CIFAR10 CIFAR100</td><td>89.58</td><td>95.15</td><td>93.36</td><td>94.73</td><td>91.56</td><td>94.88</td></tr><tr><td></td><td>CIFAR10</td><td>56.36 80.36</td><td>53.82 79.99</td><td>60.51 78.81</td><td>61.76 85.19</td><td>50.20 78.35</td><td>55.47 80.09</td></tr><tr><td>CIFAR100</td><td>CIFAR100</td><td>64.77</td><td>74.03</td><td>70.63</td><td>75.05</td><td>65.42</td><td>74.36</td></tr></table>",
+        "bbox": [
+            142,
+            313,
+            830,
+            411
+        ],
+        "page_idx": 20
+    },
+    {
+        "type": "text",
+        "text": "The results in Table H.1 indicate that when the pretext and downstream datasets are the same, the introduction of supervision leads to an increase in linear accuracy. Conversely, in cases where they differ, contrastive learning shows a decline or slight increase in performance. Asymmetric non-contrastive learning, on the other hand, benefits from labels, resulting in increased accuracy and showcasing the best performance. Thus, our proposed supervised ANCL proves to be an effective method for obtaining high-quality representations across various datasets. ",
+        "bbox": [
+            88,
+            435,
+            885,
+            511
+        ],
+        "page_idx": 20
+    }
+]

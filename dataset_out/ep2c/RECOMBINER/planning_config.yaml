@@ -1,0 +1,74 @@
+training:
+  learning_rate: 0.0001        # Initial learning rate for optimizer
+  batch_size: 50               # For image patches: number of patches per batch
+  epochs: 550                  # Total training epochs for CIFAR-10
+  beta_initial: 0.3            # Starting value for beta in β-ELBO, adaptively tuned
+  beta_adjust_step: 0.5        # Step size for adjusting beta during training
+  beta_min: 0.0                # Minimum beta value
+  beta_max: 1.0                # Maximum beta value
+  beta_target_bpp: 0.3         # Target bits per pixel for target rate control
+  optimizer: Adam              # Optimizer type
+  optimizer_params:
+    lr: 0.0001                 # Learning rate, match initial in training
+    betas: [0.9, 0.999]       # Adam beta parameters
+    weight_decay: 1e-5        # Regularization weight
+  seed: 42                     # Random seed for reproducibility
+
+datasets:
+  cifar10:
+    data_dir: "path/to/cifar10"  # Path to CIFAR-10 dataset
+    image_size: 32,32            # Full image size
+    patch_size: 64,64            # Patch size when using high-res patches
+    patches_in_group: 6          # Number of patches in the middle level group
+  kodak:
+    data_dir: "path/to/kodak"    # Path to Kodak images
+    image_size: 768, 512        # Full resolution images
+    patch_size: 128, 128        # Target patch size
+    patches_in_group: 16        # Number of patches at middle level
+  libri_speech:
+    data_dir: "path/to/librispeech"  # Path to LibriSpeech dataset
+    sample_rate: 16000            # Audio sample rate
+    chunk_duration_sec: 1.0       # Duration of each audio chunk
+    patches_in_group: 12          # Number of patches from audio chunks
+  proteins:
+    data_dir: "path/to/proteins"  # Path to protein structure data
+    structure_format: "voxel"     # Data format (voxels or point cloud)
+    voxel_resolution: 64            # Resolution for voxel grid
+    patches_in_group: 4             # Number of patches or segments
+
+model:
+  type: INR_SIREN
+  layers: 4                     # Number of hidden layers
+  hidden_units: 32              # Units per layer
+  activation: sine              # Activation function (SIREN)
+  fourier_features_dim: 16      # Fourier features for coordinate encoding
+  positional_encoding_dim: 128  # Dimensionality for positional encodings (h_z)
+  patch_encoding_dim: 50        # Dimensionality of patch positional encodings
+  input_coord_dim: 2            # 2D for images; 1D or 3D for audio, proteins
+  output_dim: 3                 # For RGB; 1 for grayscale/audio; 3 for proteins rendered
+  hierarchy_levels: 3           # For high-res data: global, group, patch levels
+
+optimization:
+  learning_rate: 0.0001
+  optimizer: Adam
+  optimizer_params:
+    betas: [0.9, 0.999]
+    weight_decay: 1e-5
+  total_epochs: 550
+  beta_initial: 0.3
+  beta_adjust_step: 0.5
+
+bayesian_coding:
+  coding_scheme: BitsBackAStar  # Approximate Bayesian coding implementation
+  permutation_strategy: patch-wise or block-wise  # For spreading KL evenly
+  bits_per_posterior_sample: as in paper (approximate KL times log2(e))
+  fudge_factor: 1e-6            # Small regularization for numerical stability
+
+experiment:
+  seed: 42                     # Random seed for reproducibility
+  experiment_name: "reproduce_RECOMBINER"
+
+unknowns:
+  - Exact CNN architecture parameters for positional encoding CNN (Appendix B.1)
+  - Precise permutation schemes for hierarchical patch modeling
+  - Specific implementation of Bayesian entropy coding (e.g., codebook, bits-back details)

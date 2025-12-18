@@ -1,0 +1,166 @@
+# Main.py Logic Analysis for Reproducing Neural SPH Lagrangian Fluid Dynamics Framework
+
+---
+
+## 1. Overview
+`main.py` serves as the orchestrator of the entire simulation pipeline:
+- Load dataset
+- Initialize models
+- Perform training
+- Execute long-horizon rollouts
+- Apply physics corrections (external force treatment, SPH relaxation)
+- Conduct evaluation
+- Generate visualizations
+- Save checkpoints
+
+It must support flexible configuration driven by `config.yaml`. The code should be modular, with clear dependencies, error handling, and reproducibility considerations (e.g., setting random seed).
+
+---
+
+## 2. Step-by-step Logical Flow
+
+### Step 1: Import Dependencies
+- Import core libraries: JAX, numpy, SciPy, visualization tools (matplotlib)
+- Import project modules: `dataset_loader.py`, `model.py`, `trainer.py`, `evaluation.py`, `utils.py`, `force_smoothing.py`, `sph_relaxation.py`.
+
+### Step 2: Load Configuration
+- Parse `config.yaml` (using `ruamel.yaml`, `PyYAML`, or `yaml` library).
+- Extract parameters:
+  - Dataset path, sequence length, sampling interval
+  - Model type and hyperparameters
+  - Training specifics: optimizer, learning rate, batch, epochs, weight decay, gradient clipping, augmentation
+  - Physics hyperparameters: external force smoothing sigma, relaxation hyperparameters (`alpha`, `beta`, `relaxation_steps`), neighbor search radii
+  - Evaluation steps and metrics
+  - Checkpointing options
+  - Misc flags (debug, seed)
+
+### Step 3: Set Random Seed
+- Set seed (e.g., `np.random.seed()`, `jax.random.PRNGKey`) for reproducibility.
+
+### Step 4: Data Loading
+- Instantiate `DatasetLoader` with dataset path, sequence length, sampling interval.
+- Call `load_data()` to load:
+  - Training sequences
+  - Validation/test sequences
+  - Optional: Precompute external force maps with prescribed smoothing
+  - Verify data integrity (shapes, types)
+  
+### Step 5: Data Preparation & Augmentation
+- Apply optional data augmentation:
+  - Walk noise (via Gaussian perturbations on velocities or positions)
+  - Pushforward trick (simulate small random displacements on historical sequences)
+- Prepare data batches for training:
+  - Input features: last H steps of position, velocity, external force
+  - Targets: acceleration/position differences for supervised training
+  - Batch loader supports shuffling, batching
+  - Ensure compatibility with model input interface
+
+### Step 6: Model Initialization
+- Instantiate `GNNModel` based on `model.type` (`GNS` or `SEGNN`)
+- Pass hyperparameters:
+  - Hidden dims, layer counts, equivariance settings
+- Initialize parameters (random or load pre-trained if resume = True)
+- Support adding explicit external force as input if configured
+  
+### Step 7: Set up Trainer
+- Instantiate `trainer.py` components:
+  - Optimizer: Adam with learning rate, weight decay, gradient clipping
+- Define loss:
+  - Primary: position MSE
+  - Auxiliary: velocity MSE, density MAE, other regularizers
+  - Configuration supports weighting
+- Setup checkpointing:
+  - Directory, save frequency, load previous checkpoint if resuming
+
+### Step 8: Training Loop
+- For each epoch:
+  1. Iterate over training batches:
+     - Extract batch data: positions, velocities, external forces
+     - Compute model predictions for accelerations and external force components
+     - Calculate total loss
+     - Perform backpropagation with gradient clipping
+     - Update model parameters
+  2. Periodically save checkpoint (every `save_frequency`)
+  3. Optional validation at epoch end
+- Log training metrics (loss, errors)
+- Incorporate detailed debugging info if `debug` enabled
+
+### Step 9: Long-term Rollout Simulation
+- Select initial state from loaded dataset (e.g., first frame of a test sequence)
+- Initialize simulation state:
+  - Positions
+  - Velocities
+  - External forces (precomputed and smoothed)
+  - Particle types
+- Set `relaxation` hyperparameters (`alpha`, `beta`, `relaxation_steps`) for the SPH relaxation routine
+- Execute `simulation.run_rollout()`:
+  - Loop over `M` steps:
+    - Extract current features
+    - Compute external forces:
+      - Apply Gaussian or erf smoothing via `force_smoothing.py`
+    - Run the GNN to predict accelerations
+    - Disentangle external force (subtract if necessary, or add explicitly)
+    - Update positions with semi-implicit Euler
+    - Optionally apply SPH relaxation:
+      - Call `sph_relaxation.py` with current positions
+      - Iterate up to `relaxation_steps`
+    - Save per-step states for analysis and visualization
+  - Collect trajectories, including densities, velocities, particle configurations
+
+### Step 10: Evaluation
+- For each trajectory:
+  - Compute primary metrics:
+    - Position MSE over full length
+    - Sinkhorn divergence (distribution similarity)
+    - Kinetic energy error
+    - Density MAE and Dirichlet energy
+    - Chamfer distance
+  - Support multiple trials for statistical robustness
+  - Store metrics for each trial
+- Aggregate results: mean, quantiles
+- Optional: save long-term trajectories, density maps, particle distribution plots
+
+### Step 11: Visualization
+- Generate plots:
+  - Particle distributions colored by density deviation or velocity magnitude
+  - Density field visualizations
+  - Velocity histograms for flow regimes
+  - Error evolution over steps (for ablation analysis)
+- Save figures if `visualization` is enabled
+
+### Step 12: Save Results and Checkpoints
+- Save trained model parameters at epoch checkpoints
+- Save final models (trained weights)
+- Save visualizations and metrics summary
+
+### Step 13: Debugging & Logging
+- Log key steps, hyperparameters, and dataset info
+- Support verbose/debug mode for detailed traces
+- Wrap critical steps with exception handling
+
+---
+
+## 3. Additional Considerations
+- Ensure all data and model states are reproducible via seed controls
+- Handle special cases:
+  - Free surface particles (density clipping, TIC)
+  - Wall boundaries (enforce boundary conditions post-update)
+- Modularize relaxation, force smoothing, and boundary corrections for reusability
+- Support for hyperparameter tuning and scripting of ablation studies is recommended
+- Maintain clear separation of data, model, physics corrections, and evaluation for ease of testing
+
+---
+
+## 4. Summary
+`main.py` provides a structured flow:
+- **Initialization:** configurations, dataset, models
+- **Training:** supervised, with augmentation, checkpointing
+- **Rollout & Correction:** particle predictions, external force application, SPH relaxation
+- **Evaluation:** long-term metrics, visualization
+- **Robustness:** hyperparameter management, reproducibility, error monitoring
+
+This logical flow ensures accurate, scalable, and reproducible implementation aligned with the paper’s methodology and datasets.
+
+---
+
+# End of Logic Analysis

@@ -1,0 +1,188 @@
+# Logic Analysis for `analysis.py`
+
+This file is responsible for implementing the core analysis routines that extract the relevant summary statistics used in the PSPS framework, based on the specified statistical task (`method`). The class `AnalysisRoutine` will provide methods to perform classical statistical procedures—such as mean estimation, regression, quantile estimation, etc.—using the outcome predictions (for predicted data) and possibly observed outcomes (for labeled data), returning the sufficient statistics necessary for the subsequent variance estimation and debiased inference.
+
+Below is a detailed, step-by-step logical blueprint for `analysis.py`:
+
+---
+
+## 1. Class Design: `AnalysisRoutine`
+
+### 1.1 Initialization (`__init__`)
+- **Inputs**:
+  - `model`: The trained ML prediction model, used optionally for residual analysis or variance computation if needed.
+  - `data`: A dictionary containing datasets:
+    - Labeled data: features (`X_lab`), observed outcomes (`Y_lab`).
+    - Predicted outcomes for labeled data: (`f_hat_lab`).
+    - Unlabeled data: features (`X_unlab`), predictions (`f_hat_unlab`).
+  - `method`: String indicating the task type — `'mean'`, `'regression'`, `'quantile'`, `'IV'`, `'NB'`, `'Lasso'`, `'Wilcoxon'`, etc.
+
+- **Purpose**: Store these inputs for use in the computation of the specific summary statistics.
+
+### 1.2 Methods to Implement
+
+For each task, a dedicated method will:
+- Perform the traditional analysis routine, e.g.,
+  - `compute_mean()` for mean estimation.
+  - `compute_regression()` for linear/regression/logistic regression.
+  - `compute_quantile()` for quantile estimation.
+  - `compute_iv()` for instrumental variable estimation.
+  - `compute_nb()` for negative binomial regression.
+  - `compute_wilcoxon()` for hypothesis testing (or the median / rank-based estimators).
+- Extract relevant point estimates, standard errors, residuals, covariance matrices, etc., as sufficient statistics.
+- Return these in a dictionary, e.g.,
+  - `{'estimate': ..., 'variance': ...}`
+  - For regression, return coefficients and variance-covariance matrices.
+  - For mean, just the mean and variance.
+  - For quantile, the quantile estimate and its standard error.
+
+### 1.3. compute_summary_statistics()
+- Main dispatcher method:
+  - Checks the `method` and calls the corresponding routine.
+  - Collects all relevant sufficient statistics.
+  - Returns a dictionary containing:
+    - The point estimate(s),
+    - Variance estimate(s),
+    - Covariance matrices if needed,
+    - Additional info if justified (e.g., residuals, weights).
+
+---
+
+## 2. Implementation Details per Method
+
+### 2.1 Mean Estimation (`compute_mean`)
+- **Input**:
+  - Both observed outcomes (`Y_lab`) and predicted outcomes (`f_hat_lab`, `f_hat_unlab`).
+- **Procedure**:
+  - For labeled data:
+    - Compute sample mean: `mean_Y_lab = np.mean(Y_lab)`
+    - Compute sample variance: `var_Y_lab`
+  - For unlabeled data with predicted outcomes:
+    - Compute mean of predicted outcomes: `mean_f_unlab = np.mean(f_hat_unlab)`
+    - Variance of predicted outcomes: possibly via bootstrap or analytical estimate.
+- **Sufficient statistics**:
+  - Mean outcome on labeled data.
+  - Variance for asymptotic variance estimation.
+  - Can also store the mean of predicted outcomes in the unlabeled data.
+
+### 2.2 Regression (linear/logistic)
+- **Inputs**:
+  - X (features), observed Y
+  - Predicted outcomes (for residual calculations or validation)
+- **Procedure**:
+  - Fit the regression model using the dataset:
+    - For linear regression: OLS:
+      - Compute coefficients: `beta_hat = (X^T X)^{-1} X^T Y`
+      - Covariance matrix of Beta: `(sigma^2)*(X^T X)^{-1}`, with residual variance `sigma^2`.
+    - For logistic regression: use `statsmodels` `Logit`:
+      - Fit model, extract coefficients, covariance.
+  - Sufficient statistics:
+    - Coefficients estimate,
+    - Covariance matrix,
+    - Residual sum of squares or deviance for variance estimation.
+
+### 2.3 Quantile Estimation
+- **Procedure**:
+  - Use `np.quantile()` on observed outcomes:
+    - For observed labeled data (`Y_lab`), directly get the quantile.
+    - Variance or standard error of quantile can be estimated via bootstrap or asymptotic formulas.
+  - For predictions, quantiles of predicted outcomes in unlabeled data may be used for inference on variability.
+
+### 2.4 IV, NB, Lasso, Wilcoxon tests
+- For more complex methods like IV, NB, or high-dimensional Lasso:
+  - Use appropriate models/packages (`statsmodels`, `sklearn`, or custom solvers).
+  - For IV:
+    - Use two-stage least squares (2SLS) with the instrument.
+    - Extract estimated coefficient and variance.
+  - For NB:
+    - Use `statsmodels.discrete.count_model.NegativeBinomial`.
+  - For Lasso:
+    - Use `sklearn.linear_model` with a debiasing procedure to extract estimates.
+  - For Wilcoxon:
+    - Use `scipy.stats.mannwhitneyu()` or `ranksums()`.
+
+---
+
+## 3. Variance and Covariance Estimation
+- For each analysis output, implement bootstrap procedures:
+  - Resample the same dataset many times (~200) with replacement (preferably on labeled data for variance of mean/regression).
+  - Recompute summary statistics for each bootstrap replicate.
+  - Compute the empirical variance-covariance matrix across bootstrap replications.
+- For non-bootstrap methods, derive analytical variance estimates, if available.
+
+## 4. Outputs
+- Return a dictionary, e.g.,
+```python
+{
+    'estimate': estimated_value,
+    'variance': estimated_variance,
+    'covariance': covariance_matrix (if relevant),
+    'additional_info': residuals, weights, etc. (optional)
+}
+```
+- These stats are used downstream by the `inference.py` module to compute the PSPS estimate, confidence intervals, and conduct hypothesis tests.
+
+---
+
+## 5. Practical Implementation Notes
+- The class should normalize all inputs into compatible numpy arrays or pandas DataFrames.
+- For bootstrap:
+  - Parallelize if possible, using `joblib` or `multiprocessing`.
+  - Store bootstrap estimates for variance computation.
+- Modular structure:
+  - Implement each analysis method as a separate private method.
+  - Include a main method `compute_summary_statistics()` for dispatch based on `method`.
+- **Parameter handling**:
+  - Use the configuration to set hyperparameters (e.g., bootstrap_samples).
+  - Use defaults for models unless specific hyperparameters are provided.
+
+---
+
+## 6. Data Format Assumptions
+- Input datasets are dictionaries:
+
+```python
+data = {
+    'X_lab': np.ndarray,
+    'Y_lab': np.ndarray,
+    'f_hat_lab': np.ndarray,
+    'X_unlab': np.ndarray,
+    'f_hat_unlab': np.ndarray
+}
+```
+
+- Consistent sizes and orders:
+```python
+len(Y_lab) = n (labeled sample size),
+len(f_hat_lab) = n,
+len(X_lab) = n,
+len(f_hat_unlab) = N,
+len(X_unlab) = N.
+```
+
+- Ensure proper data types (`float`, `int`) and handle missing or corrupted inputs with validation or assertions.
+
+---
+
+## 7. Validation & Testing
+- Build unit tests for each method:
+  - Generate synthetic data with known properties.
+  - Confirm estimates recover known parameters.
+  - Verify bootstrap variance estimates match analytical calculations in simple cases.
+- Check that variances decrease with larger sample sizes.
+- Confirm implementation is robust to small sample sizes and model misspecification.
+
+---
+
+## Summary
+`analysis.py` will define a class `AnalysisRoutine` that:
+- Is initialized with data, model, and task type.
+- Has dedicated methods per task for classical analysis plus variance estimation.
+- Returns sufficient statistics (estimates and variances) in dictionary form.
+- Supports bootstrap variance estimation to ensure reliable asymptotic inference as per the PSPS framework.
+
+This structure ensures flexibility across a broad spectrum of statistical tasks, enabling the task-agnostic, summary-statistics-based inference outlined in the paper.
+
+---
+
+This concludes the detailed logic analysis for `analysis.py`.

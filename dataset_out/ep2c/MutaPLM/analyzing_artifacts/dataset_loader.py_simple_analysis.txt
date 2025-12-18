@@ -1,0 +1,65 @@
+{
+  "dataset_loader.py": [
+    {
+      "component": "Class: ProteinTextDataset",
+      "description": "Defines a unified dataset class to handle loading, preprocessing, and serving data samples for different phases (pretraining, finetuning, testing).",
+      "key_functions": [
+        " __init__(self, data_path: str, mode: str, config: dict)": Initialize dataset with file path, mode (pretraining/finetuning/test), and configuration.",
+        " __len__(self)": Return dataset size.",
+        " __getitem__(self, idx: int)": Return a preprocessed sample, including protein sequence, textual annotations, mutation info, and optional labels.",
+        " _load_data(self)": Internal method to parse raw data files, converting raw entries into structured samples.",
+        " _preprocess_sample(self, raw_sample: dict)": Convert raw data into model-ready format (tokenized sequences, texts, labels).",
+        " _enrich_text(self, text: str, literature_refs: list)": Use literature references and prompts to expand low-quality annotations, via data enrichment routines."
+      ],
+      "inputs": [
+        "Dataset files in JSONL/CSV format containing fields: 'protein_sequence', 'mutation_info', 'mutational_effect_text', 'literature_refs', 'species', 'sequence_length', etc.",
+        "Optional: enriched textual data stored separately."
+      ],
+      "outputs": [
+        "PyTorch Dataset objects yielding tokenized protein sequences, textual annotations, and mutation labels.",
+        "Processed and tokenized fields: sequence_ids, attention_mask, text_ids, text_attention_mask, mutation_labels (positions, amino acids)."
+      ],
+      "logic": [
+        "Read dataset files (e.g., JSON, CSV) upon initialization.",
+        " For each entry:",
+        "   - Parse protein sequence and mutation info.",
+        "   - Tokenize protein sequences with a shared tokenizer (from transformers).",
+        "   - Tokenize textual annotations; handle low-quality descriptions.",
+        "   - For data augmentation: apply 'reverse' samples by swapping wild-type and mutant info, generating 'opposite' mutation explanations.",
+        "   - Enrich textual annotations for samples with short or low-information descriptions:",
+        "       * Use literature references to retrieve relevant abstracts.",
+        "       * Generate prompts based on templates (A5-A6).",
+        "       * Use GPT APIs or a placeholder function to expand descriptions.",
+        "   - Store enriched text, protein tokens, mutation labels, and associated metadata.",
+        "Handle data splits: during loading, filter or partition data into train/validation/test sets.",
+        "Require flexibility for different modes:",
+        "   - Pretraining: focus on protein-text pairs with sequence masking (no mutation labels).",
+        "   - Finetuning: include mutation annotations and mutation explanation labels.",
+        "   - Testing: include evaluation samples with full info for explanation and proposal tasks."
+      ],
+      "special considerations": [
+        "Ensure consistent tokenization: use same tokenizer for sequences and texts, as per the model (e.g., ESM or BioMedGPT tokenizer).",
+        "When performing text enrichment, process literature abstracts with GPT-3.5 (via API or mocked function).",
+        "Store enriched data for reuse to avoid recomputation.",
+        "Support different data splits: train, validation, test, based on internal logic or external homology/temporal splits (per B.2).",
+        "Manage data augmentation with reversed samples, balancing benign/malignant annotations.",
+        "Include handling for missing data or incomplete annotations.",
+        "Ensure dataset outputs are compatible with collate functions for data loaders."
+      ],
+      "dependencies": [
+        "datasets", "numpy", "json", "csv", "torch", "transformers",
+        "GPT API wrapper or local generator for text enrichment",
+        "homology computation tools if filtering by sequence similarity"
+      ],
+      "unclear_parts": [
+        "Exact dataset file formats and structure (JSON/CSV schemas).",
+        " Whether the literature abstract retrieval is via an external API or pre-downloaded data.",
+        "How to handle variable sequence lengths and text lengths during batching.",
+        "Specific tokenization details for the textual and protein sequences.",
+        "Exact format of enrichment prompts templates."
+      ],
+      "summary": "Design 'ProteinTextDataset' to facilitate multi-phase data loading. Implement internal methods for raw data parsing, tokenization, enrichment (via literature), and data augmentation. Provide configuration-sensitive processing so that for pretraining, only sequences and texts are included; for finetuning, mutation labels and explanations are integrated; for test, evaluation samples are prepared with full info. Data enrichment leverages literature retrieval and GPT-based expansion, with fallbacks if necessary. Properly batch and collate samples for efficient DataLoader usage."
+    }
+  ],
+  "notes": "This detailed logic analysis ensures the dataset loader can handle our extensive dataset with enriched textual annotations, balancing data quality, and supporting diverse training workflows. Implementation should tightly follow the described steps and validate each component with unit tests for data integrity."
+}

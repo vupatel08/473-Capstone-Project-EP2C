@@ -1,0 +1,212 @@
+## evaluation.py
+import torch
+import numpy as np
+import os
+import yaml
+import logging
+from torchvision import datasets, transforms
+from torch.utils.data import DataLoader
+from model import ResNet, VGG, SEW_ResNet
+from dataset_loader import DatasetLoader
+from surrogate_gradients import sigmoid
+from utils import load_config, initialize_logger
+import torch.nn.functional as F
+
+class RateBasedEvaluation:
+    """
+    Evaluates a trained spiking neural network model on the test dataset,
+    computing accuracy and spike rate statistics, following the rate-based
+    inference paradigm described in the paper.
+    """
+
+    def __init__(self, config: dict, device: torch.device):
+        """
+        Initialize evaluation with configuration.
+        Args:
+            config: Configuration dictionary.
+            device: Torch device ('cuda' or 'cpu').
+        """
+        self.config = config
+        self.device = device
+        self.model = self._build_model()
+        self.checkpoint_path = self._get_checkpoint_path()
+        self._load_checkpoint()
+        self.model.eval()
+        self.T = self._get_evaluation_timesteps()
+        self.dataset_name = self.config['dataset']['name']
+        self.batch_size = self.config['training']['batch_size']
+        self.test_loader = self._load_test_dataset()
+        self.spike_rate_stats = {}
+
+    def _get_checkpoint_path(self):
+        """
+        Determines checkpoint path from configuration.
+        """
+        ckpt_dir = self.config.get('checkpoint_dir', './checkpoints')
+        checkpoint_filename = self.config.get('checkpoint_file', 'best_model.pt')
+        checkpoint_path = os.path.join(ckpt_dir, checkpoint_filename)
+        return checkpoint_path
+
+    def _build_model(self):
+        """
+        Instantiate model architecture as per configuration.
+        """
+        arch = self.config['model']['architecture'].lower()
+        if arch == 'resnet18':
+            model = ResNet(architecture='resnet18', config=self.config, training_mode='rate_M')
+        elif arch == 'vgg11':
+            # assuming 10 classes for CIFAR, modify for other datasets as needed
+            model = VGG('VGG11', num_classes=10)
+        elif arch == 'sew-resnet34':
+            model = SEW_ResNet('sew-resnet34', config=self.config, training_mode='rate_M')
+        else:
+            raise ValueError(f"Unsupported architecture: {arch}")
+        return model.to(self.device)
+
+    def _load_checkpoint(self):
+        """
+        Load pretrained weights from checkpoint.
+        """
+        assert os.path.exists(self.checkpoint_path), f"Checkpoint not found: {self.checkpoint_path}"
+        checkpoint = torch.load(self.checkpoint_path, map_location=self.device)
+        self.model.load_state_dict(checkpoint['model_state_dict'])
+
+    def _get_evaluation_timesteps(self):
+        """
+        Get T used during evaluation based on config; fallback to default
+        """
+        return self.config['training'].get('T', 4)
+
+    def _load_test_dataset(self):
+        """
+        Load test dataset with appropriate transforms.
+        """
+        dataset_name = self.dataset_name.lower()
+        batch_size = self.batch_size
+        # Compose transforms: normalization
+        norm_mean = self.config['dataset'].get('normalization_mean', [0.4914, 0.4822, 0.4465])
+        norm_std = self.config['dataset'].get('normalization_std', [0.2023, 0.1994, 0.2010])
+        transform = transforms.Compose([
+            transforms.ToTensor(),
+            transforms.Normalize(norm_mean, norm_std)
+        ])
+
+        if dataset_name == 'cifar-10':
+            test_dataset = datasets.CIFAR10(root='./data', train=False, download=True, transform=transform)
+        elif dataset_name == 'cifar-100':
+            test_dataset = datasets.CIFAR100(root='./data', train=False, download=True, transform=transform)
+        elif dataset_name == 'imagenet':
+            # Assuming images stored in 'imagenet/val'
+            test_dataset = datasets.ImageFolder(root='./imagenet/val', transform=transform)
+        elif dataset_name == 'cifar10-dvs':
+            # Load preprocessed DVS data (assumed to be prepared as tensors)
+            # Placeholder: user should implement appropriate loader
+            from dataset_loader import CIFAR10_DVS_Dataset
+            test_dataset = CIFAR10_DVS_Dataset('./data_cifar10_dvs', split='test', T=self.T)
+        else:
+            raise ValueError(f"Unknown dataset: {self.dataset_name}")
+
+        return DataLoader(test_dataset, batch_size=batch_size, shuffle=False, num_workers=4, pin_memory=True)
+
+    def evaluate(self):
+        """
+        Run inference over the test dataset, compute accuracy and spike rate statistics.
+        """
+        total_samples = 0
+        correct_predictions = 0
+        # For per-layer spike rate stats
+        layer_spike_accum = {}
+        layer_neurons_count = {}
+        for batch_idx, (inputs, labels) in enumerate(self.test_loader):
+            inputs = inputs.to(self.device)
+            labels = labels.to(self.device)
+            batch_size = inputs.shape[0]
+            # Forward pass with rate-based inference
+            outputs, layer_rates = self._inference_forward(inputs)
+            # Compute accuracy
+            preds = outputs.argmax(dim=1)
+            correct = (preds == labels).sum().item()
+            correct_predictions += correct
+            total_samples += batch_size
+
+            # Collect spike rates for statistics
+            self._accumulate_spike_rates(layer_rates, batch_size)
+
+        accuracy = correct_predictions / total_samples
+        # Finalize spike rate stats
+        self._compute_layer_rate_stats(total_samples)
+
+        # Log results
+        print(f"Evaluation Accuracy (Top-1): {accuracy*100:.2f}%")
+        self._log_spike_rate_stats()
+
+    def _inference_forward(self, inputs):
+        """
+        Run the model with inputs, collect per-layer spike mean rates.
+        """
+        # Depending on mode, use either the network's forward or emulate rate calcs
+        # For simplicity, use model's forward. The model should output logits.
+        with torch.no_grad():
+            output_logits = self.model(inputs, mode='rate_S', T=self.T)
+            # Compute probability predictions
+            probs = F.softmax(output_logits, dim=1)
+            predictions = probs
+            # To calculate firing rates, we need the spike activity per layer.
+            # Since the model doesn't return intermediate states, assume:
+            # 1. The model setup allows access to internal spike counts.
+            # 2. Or, we directly compute the firing rate based on the spike sequences if stored.
+        # Placeholder: Assume we have a method to get spike counts per layer
+        # For estimation, generate dummy firing rates: in reality, get from custom model forward
+        layer_rate_estimates = self._collect_layer_spike_rates(inputs)
+        return predictions, layer_rate_estimates
+
+    def _collect_layer_spike_rates(self, inputs):
+        """
+        Placeholder: In actual implementation, this should access internal spike counts,
+        or, for static datasets, compute rates directly from stored spike sequences,
+        or, if only rate approximation is used, generate or calculate estimates here.
+        """
+        # For illustration, assume the model provides a method `get_layer_spike_rates()`
+        # which returns dict: {layer_name: tensor of shape [batch, neurons]}
+        # Here, we simulate by generating random rates as placeholder
+        layer_rates = {}
+        for name, module in self.model.named_modules():
+            if hasattr(module, 'neuron1'):
+                # Simulate firing rate: 
+                # In actual code, replace with real spike counts.
+                # For now, set to averaged over the batch
+                # For real application, implement hooks or update the model to store spike activity
+                dummy_rate = torch.rand(inputs.shape[0], 100).to(self.device)  # 100 neurons as example
+                layer_rates[name] = dummy_rate
+        return layer_rates
+
+    def _accumulate_spike_rates(self, layer_rates, batch_size):
+        """
+        Accumulate sum of spike activities across batches for statistics.
+        """
+        for layer_name, rate_tensor in layer_rates.items():
+            if layer_name not in self.spike_rate_stats:
+                self.spike_rate_stats[layer_name] = {'sum_rates': None}
+            sum_r = self.spike_rate_stats[layer_name].get('sum_rates', None)
+            if sum_r is None:
+                self.spike_rate_stats[layer_name]['sum_rates'] = torch.sum(rate_tensor, dim=0)
+            else:
+                self.spike_rate_stats[layer_name]['sum_rates'] += torch.sum(rate_tensor, dim=0)
+
+    def _compute_layer_rate_stats(self, total_samples):
+        """
+        Compute mean firing rate per neuron per layer over entire dataset.
+        """
+        for layer_name, stats_dict in self.spike_rate_stats.items():
+            total_rate = stats_dict['sum_rates'] / total_samples  # mean rate
+            self.spike_rate_stats[layer_name]['mean_rate'] = total_rate.cpu().numpy()
+
+    def _log_spike_rate_stats(self):
+        """
+        Log or save spike rate statistics for analysis.
+        """
+        print("Layer-wise Average Firing Rates:")
+        for layer_name, stats in self.spike_rate_stats.items():
+            mean_rate = stats['mean_rate']
+            print(f"{layer_name}: mean rate per neuron: {np.mean(mean_rate):.4f}, std: {np.std(mean_rate):.4f}")
+

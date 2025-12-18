@@ -1,0 +1,227 @@
+```python
+## model.py
+import torch
+import torch.nn as nn
+import torch.nn.functional as F
+from torchvision import models
+from torchvision.models import resnet18, resnet50
+from torch.nn import TransformerEncoder, TransformerEncoderLayer
+from sm_operator import SmOperator
+from math import sqrt
+
+class FeatureExtractor(nn.Module):
+    """
+    Pre-trained feature extractor, configurable to be frozen or trainable.
+    Supports ResNet18, ResNet50, and ViT-B-32.
+    Assumes input images of size 512x512.
+    """
+    def __init__(self, name='resnet18', freeze=True):
+        super().__init__()
+        if name == 'resnet18':
+            self.model = resnet18(pretrained=True)
+            feature_dim = 512
+        elif name == 'resnet50':
+            self.model = resnet50(pretrained=True)
+            feature_dim = 2048
+        elif name == 'vit-b-32':
+            # Use torchvision's ViT or a placeholder; here, assume we have a pre-trained ViT
+            # For simplicity, use a dummy linear layer as placeholder
+            # Replace with proper ViT model if available
+            self.model = nn.Identity()
+            feature_dim = 768
+        else:
+            raise ValueError(f"Unknown feature extractor {name}")
+        if freeze:
+            for param in self.model.parameters():
+                param.requires_grad = False
+        self.feature_dim = feature_dim
+
+    def forward(self, x):
+        # Input x: batch x C x H x W
+        if hasattr(self.model, 'children'):
+            # For ResNet
+            features = self.model.conv1(x)
+            features = self.model.bn1(features)
+            features = self.model.relu(features)
+            features = self.model.maxpool(features)
+            features = self.model.layer1(features)
+            features = self.model.layer2(features)
+            features = self.model.layer3(features)
+            features = self.model.layer4(features)
+            features = self.model.avgpool(features)
+            features = torch.flatten(features, 1)
+        else:
+            # Placeholder for ViT: assume features are provided
+            # Should be replaced with actual ViT forward
+            features = torch.flatten(x, 1)  # Dummy
+        return features  # shape: batch x feature_dim
+
+class PositionalEncoding(nn.Module):
+    """
+    Optional positional encoding if needed. Not required for current design.
+    """
+    def __init__(self, d_model, max_len=5000):
+        super().__init__()
+        position = torch.arange(0, max_len).unsqueeze(1)
+        div_term = torch.exp(torch.arange(0, d_model, 2) * -(torch.log(torch.tensor(10000.0)) / d_model))
+        pe = torch.zeros(1, max_len, d_model)
+        pe[0, :, 0::2] = torch.sin(position * div_term)
+        pe[0, :, 1::2] = torch.cos(position * div_term)
+        self.register_buffer('pe', pe)
+
+    def forward(self, x):
+        # x: batch x seq_len x d_model
+        seq_len = x.size(1)
+        return x + self.pe[:, :seq_len, :]
+
+class Model(nn.Module):
+    def __init__(self, config: dict):
+        """
+        Constructs the MIL model with optional transformer and Sm integration.
+        Args:
+            config (dict): from config.yaml
+        """
+        super().__init__()
+        # Feature extractor
+        self.feature_extractor = FeatureExtractor(
+            name=config['model'].get('feature_extractor', 'resnet18'),
+            freeze=config['model'].get('freeze_feature_extractor', True)
+        )
+        self.feature_dim = self.feature_extractor.feature_dim
+
+        # Optional transformer encoder
+        self.use_transformer = config['model'].get('use_transformer', False)
+        if self.use_transformer:
+            encoder_layers = TransformerEncoderLayer(
+                d_model=self.feature_dim,
+                nhead=config['model'].get('transformer_heads', 4),
+                dim_feedforward=2048,
+                dropout=0.1,
+                activation='relu'
+            )
+            self.transformer_encoder = TransformerEncoder(
+                encoder_layer=encoder_layers,
+                num_layers=config['model'].get('transformer_layers', 2)
+            )
+        else:
+            self.transformer_encoder = None
+
+        # Attention pooling weights
+        # As in ABMIL: learnable attention parameters
+        self.attn_W = nn.Linear(self.feature_dim, 1, bias=False)  # for attention score
+        # Final classifier
+        self.classifier = nn.Linear(self.feature_dim, 1)
+
+        # Configuration for Sm
+        self.sm_enabled = config['model'].get('sm_enabled', False)
+        self.sm_points = config['model'].get('sm_points', 'early')  # 'early', 'mid', 'late', 'both'
+        self.sm_num_steps = config['model'].get('sm_num_steps', 10)
+        self.trainable_alpha = config['model'].get('sm_trainable_alpha', True)
+        self.use_spectral_norm = config['model'].get('use_spectral_norm', True)
+
+        if self.sm_enabled:
+            init_alpha = config['model'].get('sm_alpha_init', 0.5)
+            self.sm_operator = SmOperator(
+                num_steps=self.sm_num_steps,
+                alpha_init=init_alpha,
+                use_spectral_norm=self.use_spectral_norm
+            )
+            if self.trainable_alpha:
+                # Alpha as a parameter
+                self.alpha_param = nn.Parameter(torch.tensor(init_alpha))
+            else:
+                self.alpha_param = torch.tensor(init_alpha)
+
+    def get_alpha(self):
+        if self.trainable_alpha:
+            return torch.sigmoid(self.alpha_param).item()
+        else:
+            return self.alpha_param
+
+    def apply_sm(self, embeddings, adjacency, point=''):
+        """
+        Applies 'Sm' operator conditioned on 'point'.
+        """
+        alpha = torch.sigmoid(self.alpha_param) if self.trainable_alpha else self.alpha_param
+        if self.sm_enabled:
+            if point == 'early':
+                return self.sm_operator(embeddings, adjacency, alpha=alpha)
+            elif point == 'mid':
+                return self.sm_operator(embeddings, adjacency, alpha=alpha)
+            elif point == 'late':
+                return self.sm_operator(embeddings, adjacency, alpha=alpha)
+            elif point == 'both':
+                # Apply twice or sequentially at both points, in calling order
+                return self.sm_operator(embeddings, adjacency, alpha=alpha)
+            else:
+                return embeddings
+        else:
+            return embeddings
+
+    def forward(self, input_images=None, pre_extracted_features=None, adjacency=None):
+        """
+        Args:
+            input_images: tensor batch of images if feature extractor is used raw.
+            pre_extracted_features: tensor batch of features (from dataset loader) shape (N, D)
+            adjacency: Tensor (N, N), adjacency matrix for the instances of the batch.
+        Returns:
+            dict with 'bag_pred', 'instance_scores', 'attention_weights'
+        """
+        # Get instance features
+        if pre_extracted_features is not None:
+            H = pre_extracted_features  # shape (N, D)
+        else:
+            # Assume input_images of shape (batch, C, H, W), batch size = number of bags
+            # For multiple bags, the dataset collate will give batch of bags; but as per code, process per bag
+            # Here, implement for batch of size 1 or extend as needed
+            H = self.feature_extractor(input_images)  # shape (N, D)
+
+        # Apply 'early' Sm if configured
+        if self.sm_enabled and self.sm_points in ['early', 'both']:
+            if adjacency is not None:
+                H = self.apply_sm(H, adjacency, point='early')
+            else:
+                # fallback if adjacency not provided, do nothing or compute adjacency
+                pass
+
+        # Pass through transformer if used
+        if self.use_transformer:
+            H_input = H.unsqueeze(0)  # batch dimension, shape: 1 x N x D
+            if self.sm_enabled and self.sm_points in ['mid', 'both']:
+                H_input = self.apply_sm(H_input.squeeze(0), adjacency, point='mid')
+                H_input = H_input.unsqueeze(0)
+            # Transformer encoder
+            H_transform = self.transformer_encoder(H_input)  # shape: 1 x N x D
+            H = H_transform.squeeze(0)  # shape: N x D
+            # Apply 'late' Sm if configured
+            if self.sm_enabled and self.sm_points == 'late':
+                if adjacency is not None:
+                    H = self.apply_sm(H, adjacency, point='late')
+        else:
+            # No transformer
+            pass
+
+        # Compute attention scores
+        f = self.attn_W(H)  # shape: N x 1
+        attention_scores = f.squeeze(-1)  # shape: N
+
+        # Attention weights
+        attn_weights = F.softmax(attention_scores, dim=0)  # normalize over instances
+
+        # Compute bag feature as weighted sum
+        bag_feature = torch.sum(attn_weights.unsqueeze(-1) * H, dim=0)  # shape: D
+
+        # Bag-level prediction
+        bag_logit = self.classifier(bag_feature)  # scalar
+        bag_pred = torch.sigmoid(bag_logit)
+
+        # Instance scores are attention scores (or can be class scores if needed)
+        instance_scores = attention_scores  # for localization
+
+        # For visualization or localization, attention weights are relevant
+        return {
+            'bag_pred': bag_pred,
+            'instance_scores': instance_scores,
+            'attention_weights': attn_weights
+        }
+```

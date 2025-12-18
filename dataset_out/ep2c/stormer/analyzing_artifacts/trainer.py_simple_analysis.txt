@@ -1,0 +1,223 @@
+# Logic Analysis for trainer.py — Stormer Deep Learning Training Module
+
+This document provides a comprehensive, step-by-step logical framework for implementing `trainer.py`, which manages all training-related processes for the Stormer weather forecasting model. The implementation is designed to utilize PyTorch Lightning to facilitate scalable, modular, and reproducible training, including multi-phase training, multi-step fine-tuning, randomized sampling, pressure-weighted loss, checkpointing, and evaluation. The following detailed analysis aligns strictly with the provided paper, plan, design, JSON specifications, and config.yaml.
+
+---
+
+# 1. Core Responsibilities of trainer.py
+
+- **Data Loading and Preparation**
+  - Communicate with dataset.py to load preprocessed ERA5 tensors.
+  - Ensure normalization (mean/std), regridding, and batch sampling are correctly set up.
+- **Model Instantiation**
+  - Instantiate `TransformerModel` with architecture parameters.
+  - Load existing checkpoints during fine-tuning phases.
+- **Training Workflow**
+  - Implement three-phase training:
+    - Phase 1: single-step training (K=1)
+    - Phase 2: fine-tuning with rollout K=4
+    - Phase 3: fine-tuning with rollout K=8
+  - During each epoch:
+    - Sample batch data: initial conditions, true deltas (`Δ_δt`)
+    - Sample random `δt` values according to configuration (uniform over {6, 12, 24} hours)
+    - Generate model predictions for each batch
+    - Compute pressure-weighted MSE loss
+    - Conduct backpropagation with optimizer
+    - Apply gradient checkpointing (if enabled)
+  - Early stopping based on validation loss to prevent overfitting.
+  - Save top-performing model checkpoints at intervals or based on validation metrics.
+- **Multi-Phase Finetuning**
+  - Load previous best checkpoint before subsequent phase.
+  - Continue training for more epochs with more rollout steps.
+  - Use consistent data splits and hyperparameters.
+- **Learning Rate Scheduling**
+  - Linear warm-up followed by cosine decay schedule.
+  - Implement per-phase schedules as specified.
+- **Enabling Mixed-Precision and Parallelism**
+  - Use PyTorch Lightning's support for FP16/bfloat16.
+  - Enable gradient checkpointing and efficient multi-GPU training.
+  - Distribute using DDP across all allocated GPUs.
+- **Monitoring and Logging**
+  - Track primary metrics: validation loss, RMSE, etc.
+  - Log progress, losses, and hyperparameters.
+- **Checkpointing & Early Stopping**
+  - Save checkpoints at specified intervals.
+  - Stop training when no improvement after patience epochs.
+
+---
+
+# 2. Initialization & Setup
+
+- **Hyperparameters & Configs**
+  - Extract parameters from config.yaml:
+    - Architecture: layers, heads, dims
+    - Training: epochs, LR, warmup epochs, batch size
+    - Phases: phase durations and K-values
+    - Loss weights and variables
+    - Checkpoint save intervals
+- **Data Loaders**
+  - Instantiate dataset.py's dataset object:
+    - Provide data path, variables, pressure levels, normalization stats
+  - Get train, validation, and test DataLoaders.
+- **Model and Optimization**
+  - Instantiate `TransformerModel` with architecture params and conditional AdaLN.
+  - Setup optimizer (AdamW) with phase-specific LR.
+  - Setup LR scheduler: cosine decay after warmup.
+- **Lightning Trainer**
+  - Wrap model in PyTorch Lightning `Trainer`.
+  - Configure precision (fp16), gradient checkpointing.
+  - Configure multiple GPUs (DDP).
+
+---
+
+# 3. Training Loop
+
+- **Phase-Dependent Behavior**
+  - Determine the current phase based on epoch count:
+    1. Phase 1: single-step (K=1), train for 100 epochs.
+    2. Phase 2: fine-tune with K=4, for 20 epochs.
+    3. Phase 3: fine-tune with K=8, for 20 epochs.
+  - Load checkpoint before each phase (except phase 1).
+
+- **Batch Processing**
+  - For Each Batch:
+    - Retrieve batch data: initial conditions, true future data at full horizon.
+    - Sample `δt` for the batch:
+      - Random uniform over {6, 12, 24} hours.
+    - Compute true deltas (`Δ_δt`) for the batch.
+    - Pass initial conditions and `δt` to the model:
+      - The model's `forward()` method should condition on `δt` via AdaLN.
+      - Generate predicted `Δ̂_δt`.
+    - Compute pressure-weighted loss:
+      - Multiply squared errors by variable weights, latitude weights, and pressure weights.
+      - Sum and normalize over batch.
+    - Backpropagate, clip gradients if needed.
+    - Update optimizer.
+  - Accumulate running loss for metrics and log.
+
+- **Multi-step Rollouts (Finite-Agency)**
+  - For K>1 phases:
+    - During training, generate K-step rollouts:
+      - Iteratively feed model's previous output as new initial condition.
+      - Compute loss at each step.
+      - Average the loss over K steps.
+    - This mitigates error accumulation during rollouts.
+
+- **Validation & Early Stopping**
+  - Periodically evaluate validation loss across lead times of interest (e.g., 1d, 3d, 5d).
+  - After each epoch, compare validation metrics.
+  - Save checkpoint if improvement.
+  - Stop when early stopping patience exceeded.
+
+- **Checkpointing**
+  - Save at intervals (e.g., every 10 epochs).
+  - Save best models based on combined validation loss.
+
+---
+
+# 4. Multi-Phase Fine-tuning
+
+- **Checkpoint Loading**
+  - Load checkpoint from previous phase before starting finetuning.
+- **Training Settings**
+  - Use smaller LR and epochs.
+  - Keep the same data splits and normalization.
+- **Use consistent `δt` sampling**
+  - Same uniform distribution for sampling `δt` during fine-tuning.
+- **Batch and K-values**
+  - Fix rollout steps (`K=4` or `K=8`) in fine-tuning phases.
+- **Loss & Optimization**
+  - Continue pressure-weighted loss.
+  - Possibly reduce learning rate to ensure stable fine-tuning.
+
+---
+
+# 5. Lightning Module Skeleton
+
+- Implement `LightningModule` class:
+  - Define `configure_optimizers()`: optimizer + scheduler.
+  - Define `training_step()`: process batch, compute loss.
+  - Define `validation_step()`: evaluate validation metrics.
+  - Implement `on_epoch_end()`: log metrics, save checkpoints.
+  - Support loading from checkpoint.
+  - Handle phase adjustments: `K`, LR, epochs.
+  - Incorporate logging via Lightning logger.
+
+---
+
+# 6. Loss Function Details
+
+- **Pressure-Weighted MSE:**
+  - Read pressure levels per variable.
+  - Assign weights based on pressure (provided in config).
+  - For each sample:
+    - Compute per-variable squared error.
+    - Weight error by pressure weight (distance-based).
+    - Sum over variables, space; divide total by total weight.
+
+- **Multi-step Loss**
+  - For `K > 1`:
+    - Perform iterative rollouts within `training_step()`.
+    - Sum and average the losses at each rollout step.
+  
+- **Loss Aggregation**
+  - Log total loss, per-variable loss, and validation loss.
+
+---
+
+# 7. Hyperparameter & Schedule Management
+
+- Use config.yaml parameters for:
+  - Learning rates
+  - Warmup epochs
+  - Epochs per phase
+  - Loss weights
+  - Batch size
+- Implement dynamic adjustment if needed for different phases.
+- Utilize torch.optim.lr_scheduler.CosineAnnealingLR with warmup scheduler.
+
+---
+
+# 8. Checkpointing & Early Stopping
+
+- Use PyTorch Lightning's built-in callbacks:
+  - `ModelCheckpoint` to save best models.
+  - `EarlyStopping` with patience=15 epochs, monitor validation loss.
+- Save models at configured intervals.
+- Log metrics and hyperparameters to facilitate reproducibility.
+
+---
+
+# 9. Additional Considerations
+
+- **Gradient Checkpointing**
+  - Enable in model initialization for large models.
+- **Mixed Precision**
+  - Use Lightning's `precision=16` or `bf16`.
+- **Distributed Training**
+  - Use DDP across all devices.
+- **Logging**
+  - Use standard logging frameworks (TensorBoard, WandB).
+  - Record epoch losses, validation metrics.
+
+---
+
+# 10. Summary
+
+This logic analysis ensures that `trainer.py` will:
+
+- Initiate with the correct data and model configurations.
+- Follow the three-phase training schedule with respective `K` values.
+- Incorporate randomized `δt` sampling and pressure-weighted loss.
+- Support multi-step fine-tuning.
+- Efficiently leverage multi-GPU training with gradient checkpointing and mixed precision.
+- Save checkpoints regularly.
+- Stop early if validation degrades.
+- Fine-tune and resume seamlessly.
+- Execute inference with ensemble combination appropriately, though inference code resides primarily in `inference.py`.
+
+All these steps are aligned with the paper’s methods, design, and experimental protocols, ensuring faithful reproduction and operational scalability.
+
+---
+
+This concludes the thorough logic analysis for implementing `trainer.py` within the Stormer weather forecasting framework according to the detailed specifications and constraints provided.

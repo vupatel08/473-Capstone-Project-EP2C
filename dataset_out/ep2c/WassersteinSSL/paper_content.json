@@ -1,0 +1,158 @@
+{
+  "title": "RETHINKING THE UNIFORMITY METRIC IN SELFSUPERVISED LEARNING",
+  "abstract": "Xianghong Fang The Chinese University of Hong Kong, Shenzhen fangxianghong2@gmail.com",
+  "authors": [],
+  "body_text": [
+    {
+      "text": "# RETHINKING THE UNIFORMITY METRIC IN SELFSUPERVISED LEARNING"
+    },
+    {
+      "text": "Xianghong Fang The Chinese University of Hong Kong, Shenzhen fangxianghong2@gmail.com"
+    },
+    {
+      "text": "Jian Li   \nTencent AI Lab   \nlijianjack@gmail.com"
+    },
+    {
+      "text": "Qiang Sun∗ University of Toronto & MBZUAI qsunstats@gmail.com"
+    },
+    {
+      "text": "Benyou Wang∗   \nThe Chinese University of Hong Kong, Shenzhen & SRIBD   \nwangbenyou@cuhk.edu.cn"
+    },
+    {
+      "text": "# ABSTRACT"
+    },
+    {
+      "text": "Uniformity plays an important role in evaluating learned representations, providing insights into self-supervised learning. In our quest for effective uniformity metrics, we pinpoint four principled properties that such metrics should possess. Namely, an effective uniformity metric should remain invariant to instance permutations and sample replications while accurately capturing feature redundancy and dimensional collapse. Surprisingly, we find that the uniformity metric proposed by Wang & Isola (2020) fails to satisfy the majority of these properties. Specifically, their metric is sensitive to sample replications, and can not account for feature redundancy and dimensional collapse correctly. To overcome these limitations, we introduce a new uniformity metric based on the Wasserstein distance, which satisfies all the aforementioned properties. Integrating this new metric in existing self-supervised learning methods effectively mitigates dimensional collapse and consistently improves their performance on downstream tasks involving CIFAR-10 and CIFAR-100 datasets. Code is available at https://github.com/statsle/WassersteinSSL."
+    },
+    {
+      "text": "# 1 INTRODUCTION"
+    },
+    {
+      "text": "Self-supervised learning excels in acquiring invariant representations to various augmentations (Chen et al., 2020; He et al., 2020; Caron et al., 2020; Grill et al., 2020; Zbontar et al., 2021). It has been outstandingly successful across a wide range of domains, such as multimodality learning, object detection, and segmentation (Radford et al., 2021; Li et al., 2022; Xie et al., 2021; Wang et al., 2021; Yang et al., 2021; Zhao et al., 2021). To gain a deeper understanding of self-supervised learning, thoroughly evaluating the learned representations is necessary (Wang & Isola, 2020; Gao et al., 2021; Tian et al., 2021; Jing et al., 2022)."
+    },
+    {
+      "text": "Alignment, a metric quantifying the similarities between positive pairs, holds significant importance in the evaluation of learned representations (Wang & Isola, 2020). It ensures that positive pairs are mapped to similar features, making them invariant to unnecessary details (Hadsell et al., 2006; Chen et al., 2020). However, relying solely on alignment proves inadequate for effectively assessing the representations. This limitation becomes evident in the presence of extremely small alignment values in collapsing solutions, as observed in Siamese networks (Hadsell et al., 2006), where all outputs collapse to a single point (Chen & He, 2021), as illustrated in Figure 1. In such cases, the learned representations exhibit optimal alignment but fail to provide meaningful information for any downstream tasks. This underscores the necessity of incorporating additional metrics when evaluating learned representations."
+    },
+    {
+      "text": "![](images/5d0a2edc611e8abb25340bf74e601d091b80c5ee057bdac7d58ac05c11442003.jpg)  \nFigure 1: The left figure presents constant collapse, and the right figure visualizes dimensional collapse."
+    },
+    {
+      "text": "To further evaluate the learned representations, Wang & Isola (2020) formally introduced a uniformity metric based on the logarithm of the average pairwise Gaussian potential (Cohn & Kumar, 2007). Uniformity assesses how feature embeddings are distributed uniformly across the unit hypersphere, and higher uniformity indicates more information from the data is preserved. Since its introduction, uniformity has played a pivotal role in understanding self-supervised learning and mitigating constant collapse (Arora et al., 2019; Wang & Isola, 2020; Gao et al., 2021). Nevertheless, the effectiveness of this particular uniformity metric warrants further examination."
+    },
+    {
+      "text": "To delve deeper into the existing uniformity metric proposed by Wang & Isola (2020), we introduce four principled properties that an effective uniformity metric should possess. Guided by these properties, we conduct a theoretical analysis, unveiling key limitations of this metric, particularly its inability to capture feature redundancy and dimensional collapse (Hua et al., 2021). Dimensional collapse refers to the scenario where representations occupy a lower-dimensional subspace rather than the entire embedding space (Jing et al., 2022); see Figure 1. We reinforce our theoretical findings with empirical evidence, demonstrating, for instance, the existing metric’s inability to differentiate between different degrees of dimensional collapse. Subsequently, we propose a novel uniformity metric based on the quadratic Wasserstein distance that satisfies all four properties, thereby surpassing the existing one. Finally, integrating the proposed uniformity metric as an auxiliary loss within existing self-supervised learning methods consistently enhances their performance in downstream tasks."
+    },
+    {
+      "text": "Our main contributions are summarized as follows. (i) We identify four principled properties that an effective uniformity metric should possess, providing new guidelines on designing such metrics. (ii) Surprisingly, we find that the existing uniformity metric (Wang & Isola, 2020) fails to meet the majority of these properties. For example, it can not correctly capture dimensional collapse. (iii) We propose a new uniformity metric based on the Wasserstein distance that satisfies all four properties, addressing key limitations of the existing metric. (iv) Our proposed uniformity metric can seamlessly integrate as an auxiliary loss in various self-supervised learning methods, resulting in improved performance in downstream tasks."
+    },
+    {
+      "text": "# 2 BACKGROUND"
+    },
+    {
+      "text": "# 2.1 SELF-SUPERVISED REPRESENTATION LEARNING"
+    },
+    {
+      "text": "Self-supervised learning leverages the idea that similar samples should have similar representations that are invariant to unnecessary details (Wang & Isola, 2020). For instance, the Siamese network (Hadsell et al., 2006) takes as input positive pairs $\\left( \\mathbf { x } ^ { a } , \\mathbf { x } ^ { b } \\right)$ , often obtained by taking two augmented views of the same sample $\\mathbf { x }$ . These positive pairs are then processed by an encoder network $f$ consisting of a backbone (e.g., ResNet (He et al., 2016)) and a projection MLP head (Chen et al., 2020), yielding representations $( \\mathbf { z } ^ { a } = f ( \\mathbf { x } ^ { a } ) , \\mathbf { z } ^ { b } = f ( \\mathbf { x } ^ { b } ) ^ { 1 }$ . To enforce invariance, a natural approach is to minimize the following alignment loss, defined as the expected distance between positive pairs:"
+    },
+    {
+      "text": "$$\n\\begin{array} { r } { \\mathcal { L } _ { \\boldsymbol { A } } : = \\mathbb { E } _ { ( \\mathbf { z } ^ { a } , \\mathbf { z } ^ { b } ) \\sim p _ { \\mathrm { p o s } } } \\left\\| \\mathbf { z } _ { i } ^ { a } - \\mathbf { z } _ { i } ^ { b } \\right\\| _ { 2 } ^ { 2 } , } \\end{array}\n$$"
+    },
+    {
+      "text": "where $p _ { \\mathrm { p o s } } ( \\cdot , \\cdot )$ is the distribution of positive pairs."
+    },
+    {
+      "text": "However, optimizing the above alignment loss alone may lead to an undesired collapsing solution, where all representations collapse into a single point, as shown in Figure 1."
+    },
+    {
+      "text": "# 2.2 EXISTING SOLUTIONS TO CONSTANT COLLAPSE"
+    },
+    {
+      "text": "To prevent constant collapse, existing solutions include contrastive learning, asymmetric model architecture, and redundancy reduction."
+    },
+    {
+      "text": "Contrastive Learning Contrastive learning offers a potent solution to mitigate constant collapse. The key idea is to leverage negative pairs. For example, SimCLR (Chen et al., 2020) introduced an in-batch negative sampling strategy that utilizes samples within a batch as negative samples. However, its effectiveness is contingent on the use of a large batch size. To address this limitation,"
+    },
+    {
+      "text": "MoCo (He et al., 2020) used a memory bank, which stores additional representations as negative samples. Recent research endeavors have also explored clustering-based contrastive learning, which combines a clustering objective with contrastive learning techniques (Li et al., 2021; Caron et al., 2020)."
+    },
+    {
+      "text": "Asymmetric Model Architecture The use of asymmetric model architecture represents another strategy to combat constant collapse. One plausible explanation for its effectiveness is that such an asymmetric design encourages encoding more information (Grill et al., 2020). To maintain this asymmetry, BYOL (Grill et al., 2020) introduces the concept of using an additional predictor in one branch of the Siamese network while employing momentum updates and stop-gradient operators in the other branch. DINO (Caron et al., 2021), takes this asymmetry a step further by applying it to two encoders, distilling knowledge from the momentum encoder into the other one (Hinton et al., 2015). SimSiam (Chen & He, 2021) removes the momentum update from BYOL, and shows that the momentum update may not be essential in preventing constant collapse. However, MirrorSimSiam (Zhang et al., 2022a) swaps the stop-gradient operator to the other branch. Its failure challenges the assertion made in SimSiam (Chen & He, 2021) that the stop-gradient operator is the key component for preventing constant collapse. Tian et al. (2021) provides a theoretical examination to elucidate why an asymmetric model architecture can effectively avoid constant collapse."
+    },
+    {
+      "text": "Redundancy Reduction The fundamental principle behind redundancy reduction to mitigate constant collapse is to maximize the information preserved by the representations. The key idea is to decorrelate the learned representations. Barlow Twins (Zbontar et al., 2021) aims to achieve decorrelation by focusing on the cross-correlation matrix, while VICReg (Bardes et al., 2022) focuses on the covariance matrix. Zero-CL (Zhang et al., 2022b) takes a hybrid approach, combining instance-wise and feature-wise whitening techniques."
+    },
+    {
+      "text": "# 2.3 THE EXISTING UNIFORMITY METRIC"
+    },
+    {
+      "text": "While the aforementioned solutions effectively prevent constant collapse, they are not as effective in preventing dimensional collapse, wherein representations occupy a lower-dimensional subspace instead of the entire space. This phenomenon has been observed in contrastive learning by visualizing the singular value spectra of representations (Jing et al., 2022; Tian et al., 2021)."
+    },
+    {
+      "text": "To quantitatively measure the degree of collapse, Wang & Isola (2020) introduced a uniformity loss based on the logarithm of the average pairwise Gaussian potential. Given (normalized) feature representations $\\left\\{ \\mathbf { z } _ { 1 } , \\mathbf { z } _ { 2 } , . . . , \\mathbf { z } _ { n } \\right\\}$ , their proposed empirical uniformity loss is:"
+    },
+    {
+      "text": "$$\n\\mathcal { L } _ { \\mathcal { U } } : = \\log \\frac { 1 } { n ( n - 1 ) / 2 } \\sum _ { i = 2 } ^ { n } \\sum _ { j = 1 } ^ { i - 1 } e ^ { - t \\| \\mathbf { z } _ { i } - \\mathbf { z } _ { j } \\| _ { 2 } ^ { 2 } } ,\n$$"
+    },
+    {
+      "text": "where $t > 0$ is a fixed parameter, often set to 2. Then $\\mathrm { - } \\mathcal { L } _ { \\mathcal { U } }$ serves as the corresponding uniformity metric, with a higher value indicating greater uniformity."
+    },
+    {
+      "text": "We demonstrate in this work that this metric is insensitive to dimensional collapse, both theoretically in Section 3.2 and empirically in Section 5.2."
+    },
+    {
+      "text": "# 3 WHAT MAKES AN EFFECTIVE UNIFORMITY METRIC?"
+    },
+    {
+      "text": "In this section, we begin by presenting four fundamental properties that an effective uniformity metric should possess. Leveraging these properties as a lens, we then scrutinize the existing uniformity metric $\\mathrm { - } \\mathcal { L } _ { \\mathcal { U } }$ , shedding light on its limitations."
+    },
+    {
+      "text": "# 3.1 FOUR PROPERTIES FOR UNIFORMITY"
+    },
+    {
+      "text": "A uniformity metric $\\mathcal { U } : \\mathbb { R } ^ { m ^ { n } }  \\mathbb { R }$ is a function that maps a set of learned representations to a scalar indicator of uniformity. In the following section, we introduce four principled properties that an effective uniformity metric should possess. Let $\\mathcal { D } = \\mathbf { z } _ { 1 } , . . . , \\mathbf { z } _ { n } \\in \\mathbb { R } ^ { m n }$ represent the learned representations. To avoid the trivial case, we assume that $\\mathbf { z } _ { 1 } , \\ldots , \\mathbf { z } _ { n }$ are not all equal, meaning that not all points collapse to a single constant point."
+    },
+    {
+      "text": "First, an effective uniformity metric should be invariant to the permutation of instances, as the distribution of representations should not be affected by permutations."
+    },
+    {
+      "text": "Property 1 (Instance Permutation Constraint (IPC)). An effective uniformity metric U should satisfy"
+    },
+    {
+      "text": "$$\n\\mathcal { U } ( \\pi ( \\mathcal { D } ) ) = \\mathcal { U } ( \\mathcal { D } ) ,\n$$"
+    },
+    {
+      "text": "where π is a permutation over the instances."
+    },
+    {
+      "text": "Second, an effective uniformity metric should be invariant to instance clones, as instance cloning does not vary the distribution of representations."
+    },
+    {
+      "text": "Property 2 (Instance Cloning Constraint (ICC)). An effective uniformity metric U should satisfy"
+    },
+    {
+      "text": "$$\n\\mathcal { U } ( \\mathcal { D } \\not \\Rightarrow \\mathcal { D } ) = \\mathcal { U } ( \\mathcal { D } ) ,\n$$"
+    },
+    {
+      "text": "where ${ \\mathcal { D } } \\not \\\\sqcup { \\mathcal { D } } : = \\{ { \\mathbf { z } } _ { 1 } , { \\mathbf { z } } _ { 2 } , . . . , { \\mathbf { z } } _ { n } , { \\mathbf { z } } _ { 1 } , { \\mathbf { z } } _ { 2 } , . . . , { \\mathbf { z } } _ { n } \\} .$"
+    },
+    {
+      "text": "Third, an effective uniformity metric should strictly decrease as feature-level cloning for each instance occurs, as this duplication introduces redundancy, which corresponds to dimensional collapse (Zbontar et al., 2021; Bardes et al., 2022)."
+    },
+    {
+      "text": "Property 3 (Feature Cloning Constraint (FCC)). An effective uniformity metric $\\mathcal { U }$ should satisfy"
+    },
+    {
+      "text": "$$\n\\mathcal { U } ( \\mathcal { D } \\oplus \\mathcal { D } ) < \\mathcal { U } ( \\mathcal { D } ) ,\n$$"
+    },
+    {
+      "text": "$$\n\\mathcal { D } \\oplus \\mathcal { D } : = \\{ \\mathbf { z } _ { 1 } \\oplus \\mathbf { z } _ { 1 } , \\mathbf { z } _ { 2 } \\oplus \\mathbf { z } _ { 2 } , . . . , \\mathbf { z } _ { n } \\oplus \\mathbf { z } _ { n } \\} \\ a n d \\mathbf { z } _ { i } \\oplus \\mathbf { z } _ { i } : = ( z _ { i 1 } , \\cdot \\cdot , z _ { i m } , z _ { i 1 } , \\cdot \\cdot \\cdot , z _ { i m } ) ^ { \\mathrm { { T } } } \\in \\mathbb { R } ^ { 2 m } .\n$$"
+    },
+    {
+      "text": "Fourth, an effective uniformity metric should strictly decrease with the addition of constant features for each instance, as this introduces uninformative and thus redundant features, which again corresponds to dimensional collapse."
+    },
+    {
+      "text": "Property 4 (Feature Baby Constraint (FBC)). An effective uniformity metric $\\mathcal { U }$ should satisfy"
+    }
+  ],
+  "url": ""
+}

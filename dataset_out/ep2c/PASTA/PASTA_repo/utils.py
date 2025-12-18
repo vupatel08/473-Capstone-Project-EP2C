@@ -1,0 +1,327 @@
+## utils.py
+import yaml
+import os
+import logging
+from typing import Any, Dict, List, Tuple, Optional
+import json
+import re
+
+from transformers import PreTrainedTokenizer
+
+##########################
+# 1. Configuration Parsing
+##########################
+
+def load_config(config_path: str = 'config.yaml') -> Dict[str, Any]:
+    """
+    Load and parse the YAML configuration file.
+    Args:
+        config_path (str): Path to the YAML config file.
+    Returns:
+        dict: Parsed configuration dictionary.
+    Raises:
+        FileNotFoundError: If the config file does not exist.
+        yaml.YAMLError: If there is an error parsing the YAML.
+    """
+    if not os.path.exists(config_path):
+        raise FileNotFoundError(f"Configuration file not found at {config_path}")
+    with open(config_path, 'r') as f:
+        try:
+            config = yaml.safe_load(f)
+        except yaml.YAMLError as e:
+            raise RuntimeError(f"Error parsing YAML file: {e}")
+    return config
+
+def get_config_param(config: Dict[str, Any], key_path: str, default: Any = None) -> Any:
+    """
+    Retrieve a nested parameter from the config dictionary given a dotted path.
+    Args:
+        config (dict): The configuration dictionary.
+        key_path (str): Dot-separated path to the config parameter.
+        default (Any): Default value if key not found.
+    Returns:
+        Any: The parameter value or default.
+    """
+    keys = key_path.split('.')
+    val = config
+    for key in keys:
+        if isinstance(val, dict) and key in val:
+            val = val[key]
+        else:
+            return default
+    return val
+
+##########################
+# 2. Logging Setup
+##########################
+
+def setup_logging(log_level: str = 'INFO'):
+    """
+    Configure logging for the pipeline.
+    Args:
+        log_level (str): Logging level as string; default 'INFO'.
+    """
+    numeric_level = getattr(logging, log_level.upper(), None)
+    if not isinstance(numeric_level, int):
+        numeric_level = logging.INFO
+    logging.basicConfig(
+        format='%(asctime)s - %(levelname)s - %(message)s',
+        level=numeric_level
+    )
+
+##########################
+# 3. Prompt Template Rendering
+##########################
+
+def create_prompt(
+    template_str: str,
+    input_text: str,
+    highlighted_spans: List[Tuple[int, int]],
+    instruction: str,
+    emphasis_marker: str = "**"
+) -> str:
+    """
+    Generate a prompt by inserting emphasized spans into the template.
+    Args:
+        template_str (str): The prompt template with placeholders.
+        input_text (str): The raw input text.
+        highlighted_spans (List[Tuple[int, int]]): List of (start_char, end_char) spans to emphasize.
+        instruction (str): Additional instruction text, if needed.
+        emphasis_marker (str): Markers to denote emphasis (default "**").
+    Returns:
+        str: Formatted prompt string ready for model input.
+    """
+    # Create a HTML or markdown style emphasized version of input_text
+    emphasized_text = input_text
+    # Offset adjustment for multiple spans
+    offset = 0
+    for start_char, end_char in sorted(highlighted_spans, key=lambda x: x[0]):
+        start_idx = start_char + offset
+        end_idx = end_char + offset
+        span_text = input_text[start_char:end_char]
+        mark_span = f"{emphasis_marker}{span_text}{emphasis_marker}"
+        emphasized_text = (
+            emphasized_text[:start_idx] + mark_span + emphasized_text[end_idx:]
+        )
+        offset += len(mark_span) - (end_char - start_char)
+    # Format prompt by replacing placeholders
+    prompt = template_str.format(
+        instruction=instruction,
+        highlighted_spans=emphasized_text
+    )
+    return prompt
+
+##########################
+# 4. Dataset Loading & Preprocessing
+##########################
+
+def load_dataset(task_name: str, dataset_paths: Dict[str, str]) -> List[Dict[str, Any]]:
+    """
+    Load dataset for a specific task from provided path.
+    Args:
+        task_name (str): Name of the task/data.
+        dataset_paths (dict): Dict containing dataset paths keyed by task names.
+    Returns:
+        list: List of dataset samples as dictionaries.
+    Raises:
+        FileNotFoundError: If dataset file not found.
+        ValueError: If dataset format is unknown or malformed.
+    """
+    path = dataset_paths.get(task_name)
+    if path is None or not os.path.exists(path):
+        raise FileNotFoundError(f"Dataset for task '{task_name}' not found at {path}")
+    # Assume datasets are in JSON lines (jsonl) or json format, extend as needed
+    data = []
+    with open(path, 'r') as f:
+        for line in f:
+            line = line.strip()
+            if not line:
+                continue
+            try:
+                sample = json.loads(line)
+                data.append(sample)
+            except json.JSONDecodeError:
+                # fallback if CSV/TSV, or malformed
+                # For simplicity, raise error here; extend if needed
+                raise ValueError(f"Malformed dataset line: {line}")
+    return data
+
+def extract_highlight_indices(text: str, emphasis_marker: str = "**") -> Tuple[str, List[int]]:
+    """
+    For a given text, find tokens that are emphasized via markers and return clean text 
+    plus list of token indices for highlighted tokens.
+    Args:
+        text (str): Raw text with emphasis markers.
+        emphasis_marker (str): Marker used for emphasis (default "**").
+    Returns:
+        Tuple[str, List[int]]: cleaned text without markers and list of token indices (characters) that are emphasized.
+    """
+    # Using regex to find all emphasized spans
+    pattern = re.escape(emphasis_marker) + '(.*?)' + re.escape(emphasis_marker)
+    emphasize_spans = [(m.start(), m.end()) for m in re.finditer(pattern, text)]
+    clean_text = re.sub(pattern, r'\1', text)
+    # Generate list of emphasized token indices
+    emphasized_positions = []
+    for start, end in emphasize_spans:
+        # Here, we return character indices in clean_text
+        # Could map to token indices if tokenized; for now, just character positions
+        emphasized_positions.extend(range(start, end - 2 * len(emphasis_marker)))
+    return clean_text, emphasized_positions
+
+def tokenize_text(tokenizer: PreTrainedTokenizer, text: str) -> Dict[str, Any]:
+    """
+    Tokenize text using provided tokenizer.
+    Args:
+        tokenizer: Hugging face tokenizer.
+        text (str): Input text.
+    Returns:
+        dict: Contains 'input_ids' and 'attention_mask'
+    """
+    encoding = tokenizer(
+        text,
+        return_tensors='pt',
+        truncation=True,
+        max_length=512
+    )
+    return {
+        'input_ids': encoding['input_ids'],
+        'attention_mask': encoding['attention_mask']
+    }
+
+def save_json(data: Any, filename: str):
+    """
+    Save data as JSON to file.
+    Args:
+        data (Any): Data to save.
+        filename (str): Output filename.
+    """
+    with open(filename, 'w') as f:
+        json.dump(data, f, ensure_ascii=False, indent=2)
+
+def load_json(filename: str) -> Any:
+    """
+    Load JSON data from file.
+    Args:
+        filename (str): Path to JSON file.
+    Returns:
+        Any: Parsed JSON data.
+    """
+    with open(filename, 'r') as f:
+        return json.load(f)
+
+##########################
+# 5. Helper for Attention Reweighting and Hooks
+##########################
+
+def register_attention_hooks(model):
+    """
+    Register hooks to capture attention scores during inference.
+    Args:
+        model: The Hugging Face model instance.
+    Returns:
+        list: A list of hook handle objects for potential deregistration.
+    """
+    attention_logs = []
+
+    def hook(module, input, output):
+        # output is a tuple: (attention_scores, ...)
+        # Depending on the model, output[0] is attention scores
+        attention_scores = output[1] if isinstance(output, tuple) else output
+        attention_logs.append(attention_scores.detach())
+
+    handles = []
+    for layer in model.modules():
+        if hasattr(layer, 'attn'):
+            handle = layer.attn.register_forward_hook(hook)
+            handles.append(handle)
+    return handles, attention_logs
+
+def modify_attention_scores(
+    attention_scores: torch.Tensor,
+    highlighted_tokens: List[int],
+    alpha: float = 0.01
+) -> torch.Tensor:
+    """
+    Apply post-hoc reweighting to attention scores based on highlighted tokens.
+    Args:
+        attention_scores (torch.Tensor): Shape (batch_size, num_heads, seq_len, seq_len)
+        highlighted_tokens (List[int]): List of token indices to emphasize.
+        alpha (float): Reweighting coefficient, default 0.01.
+    Returns:
+        torch.Tensor: Reweighted attention scores with the same shape.
+    """
+    # Copy to avoid in-place modification
+    reweighted_scores = attention_scores.clone()
+    batch_size, num_heads, seq_len, _ = reweighted_scores.shape
+
+    # Create highlight mask: shape (seq_len)
+    mask = torch.zeros(seq_len, device=attention_scores.device)
+    if highlighted_tokens:
+        mask[highlighted_tokens] = 1.0
+    # Compute normalization per row
+    # Operate head-wise
+    for b in range(batch_size):
+        for h in range(num_heads):
+            scores = reweighted_scores[b, h]  # shape: (seq_len, seq_len)
+            # Apply scaling
+            # For each row i, scale the scores
+            # Use broadcasting
+            scale_vector = torch.where(mask == 1, torch.ones_like(mask), torch.full_like(mask, alpha))
+            # Expand to match (seq_len, seq_len)
+            scale_matrix = scale_vector.unsqueeze(0).expand_as(scores)  # each row scaled accordingly
+            scores = scores * scale_matrix
+            # Normalize row-wise
+            C_i = scores.sum(dim=1, keepdim=True)  # shape (seq_len,1)
+            # Prevent division by zero
+            C_i = torch.where(C_i == 0, torch.ones_like(C_i), C_i)
+            scores = scores / C_i
+            reweighted_scores[b, h] = scores
+    return reweighted_scores
+
+##########################
+# 6. Miscellaneous Utilities
+##########################
+
+def ensure_dir(directory: str):
+    """
+    Create directory if it doesn't exist.
+    Args:
+        directory (str): Directory path.
+    """
+    if not os.path.exists(directory):
+        os.makedirs(directory)
+
+def validate_path(path: str, must_exist: bool = True):
+    """
+    Validate a filesystem path.
+    Args:
+        path (str): Path to validate.
+        must_exist (bool): If True, path must exist.
+    Raises:
+        FileNotFoundError: if must_exist and path does not exist.
+    """
+    if must_exist and not os.path.exists(path):
+        raise FileNotFoundError(f"Path does not exist: {path}")
+
+def get_device(cfg: Dict[str, Any]) -> str:
+    """
+    Determine the device for model inference.
+    Args:
+        cfg (dict): Configuration dictionary.
+    Returns:
+        str: 'cuda' or 'cpu'
+    """
+    device_str = get_config_param(cfg, 'training.device', 'cpu')
+    # Check if CUDA is available
+    import torch
+    if device_str == 'cuda' and torch.cuda.is_available():
+        return 'cuda'
+    return 'cpu'
+
+def print_banner(msg: str):
+    """
+    Print a formatted banner for clarity in logs.
+    Args:
+        msg (str): Message to print.
+    """
+    print(f"\n{'=' * 10} {msg} {'=' * 10}\n")

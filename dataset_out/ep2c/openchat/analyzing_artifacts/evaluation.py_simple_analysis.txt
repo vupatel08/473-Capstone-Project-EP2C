@@ -1,0 +1,123 @@
+# Evaluation.py: Logic Analysis
+
+This module implements the `Evaluation` class, which facilitates model inference, response scoring, and metric computation during evaluation on benchmark datasets. It depends on the `model.py` module for handling the language model and `datasets` library (or equivalent preprocessing tools) for managing evaluation datasets. The core purposes are to generate model responses for given prompts, score these responses against benchmark standards, and compute overall metrics such as win rate and average score.
+
+---
+
+## Core Components & Responsibilities
+
+### 1. Initialization (`__init__`)
+- **Inputs:**
+  - Trained `model` object: an instance of the `Model` class from `model.py`.
+  - `eval_dataset`: structured dataset containing evaluation prompts, responses, class labels, and possibly reference responses or scoring info.
+- **Setup:**
+  - Store references to the model and dataset.
+  - Prepare a scoring evaluator or plugin: e.g., initialize GPT-4 or GPT-3.5 API for automatic scoring if scoring involves external LLMs, or load an internal scoring function.
+  - Configure parameters such as number of samples per prompt, whether to perform pairwise comparisons or single-response scoring.
+
+---
+
+### 2. Response Generation (`generate_response`)
+- **Inputs:**
+  - A `prompt` string, formatted according to the benchmark or evaluation setting.
+  - Optional parameters: `max_new_tokens`, `temperature`, `top_k`, etc.
+- **Workflow:**
+  - Call the `model.generate()` method, passing the prompt and generation parameters.
+  - Return the generated text as the model's response.
+- **Notes:**
+  - During evaluation, responses must adhere to the benchmark format.
+  - Use consistent prompts matching training format, e.g., including class-conditioned prompts.
+
+---
+
+### 3. Response Scoring (`score_response`)
+- **Inputs:**
+  - `prompt`: the input prompt given to model.
+  - `response`: the model response to evaluate.
+- **Scoring Approaches:**
+  - **Automated Scoring (preferred):**
+    - Use GPT-4 or GPT-3.5 API with a prompt template (as in Table 6) to evaluate response quality objectively.
+    - The prompt includes instructions to act as an impartial judge, considering helpfulness, relevance, accuracy, etc.
+    - Parse the returned score (e.g., a number 1-10).
+  - **Alternative:** 
+    - Use string matching, reference-based scores, or pre-trained quality classifiers (less preferred).
+- **Output:**
+  - Numeric score (e.g., float or int from 1 to 10).
+
+---
+
+### 4. Benchmark Evaluation (`evaluate`)
+- **Inputs:**
+  - List of benchmark names (e.g., ["AlpacaEval", "MT-bench", "Vicuna-bench", "AGIEval"]).
+  - Number of samples per prompt (e.g., `num_eval_samples=128`).
+  - Evaluation mode: single response scoring or pairwise comparison.
+- **Workflow:**
+  - For each dataset:
+    - Load the prompts/tasks.
+    - For each prompt:
+      - Generate `num_eval_samples` responses by calling `generate_response()`.
+      - For scoring:
+        - Use `score_response()` for each response.
+        - If pairwise, compare responses from two models and determine which is better according to the evaluator.
+    - Record scores for each prompt.
+  - Aggregate results:
+    - Compute win rate: proportion of responses where model response outperforms baseline or others, using pairwise comparison.
+    - Compute average score per prompt.
+    - Collect overall metrics per benchmark.
+
+---
+
+### 5. Metrics Calculation
+- **Win Rate:**
+  - For pairwise comparisons, define:
+    
+    \[
+    \text{Win}_{A,B} = \frac{\text{Number of times } response_A \text{ outperforms response_B}}{\text{Total comparisons}}
+    \]
+  - For single-response metrics:
+    - Use the scoring function to assign a score to each model's response.
+    - Derive a win/lose/tie based on the comparison of scores.
+- **Average Score:**
+  - Sum all response scores and divide by the number of responses evaluated.
+- **Correlation or consistency checks:**
+  - Optional: compute Pearson/Spearman correlation between different automatic evaluators if multiple scoring models are used.
+
+---
+
+### 6. Handling Benchmark-specific Details
+- Implement separate prompt templates or formatting for each benchmark, ensuring responses adhere to their expected styles.
+- For AGIEval or multiple-choice tasks:
+  - Responses may require parsing the model's answer string to extract selected options.
+  - Compute correctness based on answer matching against the known answer.
+- For pairwise evaluation:
+  - Sample responses for two models on the same prompt.
+  - Use the scoring function to compare pair responses, and record the winner.
+
+---
+
+## Practical Implementation Considerations
+
+- **Response Generation:**
+  - Use batching where possible for multiple prompts to improve efficiency.
+  - Control randomness with fixed seed and temperature.
+- **Scoring:**
+  - To reduce API costs, consider caching responses or batching scoring prompts.
+  - Ensure robust prompt templates (see Table 6) for consistent evaluation.
+- **Evaluation Data:**
+  - Dataset loading involves reading JSON/CSV files with prompt-response pairs, possibly including class labels.
+  - Sensitive to formatting; ensure prompts and responses match the format used in training (e.g., class-conditioned prompts).
+- **Logging & Result Storage:**
+  - Store per-prompt responses, scores, and overall metrics.
+  - Save evaluation metrics and comparison results for reproducibility.
+
+---
+
+## Summary
+The `Evaluation` class should provide:
+- Initialization to load a trained model and benchmarks.
+- A generation method for obtaining responses on prompts.
+- A scoring method to rate responses, typically via external LLMs like GPT-4.
+- An evaluation method to systematically assess performance across multiple tasks, compute win rates, average scores, and generate comprehensive reports.
+- Modular design allowing easy extension to new benchmarks or evaluation metrics.
+
+All these components should operate coherently, leveraging existing modules (`model.py`, datasets) and ensuring consistent prompt formatting aligned with training procedures. The class should facilitate robust, objective, and reproducible assessment of the fine-tuned model's capabilities.

@@ -1,0 +1,104 @@
+{
+  "evaluation.py": [
+    {
+      "purpose": "Implement routines to evaluate the performance of the MIL model at both bag and instance levels, generate visualizations of attention maps for localization, and compute relevant metrics such as AUROC and F1 scores.",
+      "main_functions": [
+        {
+          "name": "compute_metrics",
+          "description": "Calculate AUROC and F1 scores for bag and instance predictions comparing model outputs with ground truth labels.",
+          "inputs": [
+            "predictions (dict): Dictionary containing 'bag_predictions', 'bag_labels', 'instance_predictions', 'instance_labels' (optional)."
+          ],
+          "outputs": [
+            "metrics_dict: Dictionary with 'AUROC_bag', 'F1_bag', 'AUROC_inst', 'F1_inst' (if label info available)."
+          ],
+          "details": "Use sklearn.metrics.roc_auc_score and sklearn.metrics.f1_score. For F1, determine optimal threshold if not provided, perhaps via Youden's J statistic or validation data."
+        },
+        {
+          "name": "plot_attention_maps",
+          "description": "Generate overlay heatmaps of attention scores on input images/patches for localization assessment.",
+          "inputs": [
+            "attention_weights (Tensor): Attention scores or instance scores of shape [N], within the batch or dataset.",
+            "images (Tensor): Corresponding raw images or image patches to overlay heatmaps.",
+            "colormap (str): Colormap for heatmaps, default 'jet'."
+          ],
+          "outputs": [
+            "images with attention overlay as saved figure files or plots."
+          ],
+          "details": "Normalize attention scores to [0,1], generate heatmaps, resize or overlay onto original images, save figures for qualitative analysis."
+        },
+        {
+          "name": "visualize_attention_maps",
+          "description": "Automatically produce visualization overlays for selected samples, optionally in grid format to compare different methods.",
+          "inputs": [
+            "attention_maps (list or Tensor): List of attention heatmaps or instance scores.",
+            "images (list or Tensor): Corresponding input images.",
+            "save_path (str): Directory or filename to save plots."
+          ],
+          "details": "Loop over sample images, generate overlays, and save for further qualitative comparison."
+        }
+      ],
+      "support_functions": [
+        {
+          "name": "calculate_auc_score",
+          "description": "Wrapper around sklearn.metrics.roc_auc_score to handle edge cases where predictions are constant or labels are degenerate.",
+          "inputs": [
+            "preds (array-like): Continuous predictions.",
+            "labels (array-like): Ground truth labels."
+          ],
+          "outputs": [
+            "AUROC (float)"
+          ],
+          "details": "Check for cases where labels are all one class, handle with default or approximate AUROC."
+        },
+        {
+          "name": "calculate_f1_score",
+          "description": "Compute F1 score at an optimal threshold, possibly using a threshold search over predictions.",
+          "inputs": [
+            "preds (array-like): Continuous predictions or scores.",
+            "labels (array-like): Ground truth labels."
+          ],
+          "outputs": [
+            "best_f1 (float)",
+            "best_threshold (float)"
+          ],
+          "details": "Iterate over thresholds or use metrics like precision-recall curve to find optimal cutoff."
+        },
+        {
+          "name": "normalize_attention_scores",
+          "description": "Scale scores/attention weights into [0,1] range for visualization.",
+          "inputs": [
+            "attention_scores (Tensor or array)."
+          ],
+          "outputs": [
+            "normalized_scores."
+          ],
+          "details": "Use min-max normalization or softmax scaling."
+        }
+      ],
+      "data_handling": {
+        "input_format": "Predictions and ground truth labels should come from the model's output dictionaries; typically, model inference functions produce 'bag_predictions' (probabilities or scores), 'instance_predictions', and corresponding true labels.",
+        "ground_truth_labels": "Available only in test datasets for localization; must be aligned with generated prediction data.",
+        "attention_scores": "Obtained from the model's attention weights or instance scores, need to be stored during inference for visualization."
+      },
+      "visualization": {
+        "approach": "Overlay heatmaps on input images (e.g., WSIs patches, WSI slices, or CT slices) to see the correlation between high attention regions and ground truth labels.",
+        "tools": "Use matplotlib.pyplot, seaborn, or cv2 for overlays. Resize attention maps to match images if necessary.",
+        "color_map": "Default 'jet', configurable via input argument."
+      },
+      "testing": {
+        "validation": "Ensure that during evaluation, predictions are collected per sample, and that corresponding ground truth labels are accessible. For instance, in the test phase, collect predictions from multiple samples, compute overall metrics.",
+        "statistical_significance": "Results should be averaged across multiple runs (e.g., 5 runs), with standard deviations reported. Incorporate these in the report (e.g., as error bars or detailed tables)."
+      },
+      "reproducibility": {
+        "notes": "Care must be taken to match the input data order, labels, and predictions. Save intermediate results for thorough analysis.",
+        "visualization": "Save generated images in a dedicated folder, with clear naming to accompany quantitative scores."
+      },
+      "limitations": {
+        "possible issues": "Attention maps may be noisy or diffuse; normalization helps visualization, but interpretability relies on the quality of attention scores.",
+        "ground truth": "Instance labels for localization may not be available for training, only for test/validation; visualization aids qualitative assessment."
+      }
+    }
+  ],
+  "anything_unclear": "Clarification required on the exact input data formats, especially how model outputs are structured (e.g., dictionaries with scores, attention weights). Also, whether to generate visualizations for all samples or selected examples; A standard approach would be to visualize top-k positive and negative samples for inspection."
+}

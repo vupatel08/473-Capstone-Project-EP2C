@@ -1,0 +1,78 @@
+**Logic Analysis for dataset_loader.py**
+
+The purpose of this script is to define a `Dataset` class responsible for loading, preprocessing, and providing access to images from the DIV2K dataset, specifically the validation split, for the experiments outlined in the paper. The class should facilitate reproducible experiments by ensuring consistent data loading, normalization, augmentation (if necessary), and formatted output compatible with downstream analysis.
+
+### Core Responsibilities:
+
+1. **Data Access and Indexing:**
+   - Load a list of image file paths from the dataset directory.
+   - Support retrieval of images by index with a `__getitem__()` method.
+   - Return images as NumPy arrays (consistent with `np.ndarray`) suitable for further processing in spectral analysis and model inference.
+
+2. **Preprocessing:**
+   - Convert images to RGB if not already in RGB.
+   - Normalize pixel values according to the specified setting (e.g., [0, 1]).  
+     - If `normalize: true` (as per config), pixel values will be scaled from the [0, 255] range to [0, 1].
+   - Ensure images are of the specified size (`image_size` in config). 
+     - If images are larger, can crop or resize to the target size.
+     - If images are smaller, either pad or resize as needed, but since spectral experiments are sensitive, prefer fixed-size crops/resizes.
+
+3. **Data Augmentation:**
+   - Implement basic augmentation methods (rotation, horizontal/vertical flips) if `training` mode is active.
+   - For impulse response tests (mainly synthetic data), augmentation is not necessary.
+
+4. **Dataset Structure:**
+   - Store file paths in a list.
+   - When `load_data()` is called, load and store images or generate a list of file paths for lazy loading.
+   - Provide `__len__()` to support iteration.
+
+5. **Reproducibility:**
+   - Set fixed random seed for any stochastic augmentation.
+   - Use consistent preprocessing parameters for all runs.
+
+### Implementation Details:
+
+- **Loading Data:**
+  - Use a standard image loading library such as `PIL.Image.open()` for reading images.
+  - Store full paths to images on disk.
+  - Ensure the dataset directory corresponds to the local clone or download of DIV2K validation images.
+
+- **Preprocessing:**
+  - Convert images to RGB if needed, using PIL's `.convert('RGB')`.
+  - Resize images uniformaly to `image_size` (e.g., 128x128), either by cropping or resizing.
+  - Convert images to NumPy array (`np.array()`).
+  - Normalize pixel values: `image = image / 255.0` if `normalize: true`.
+
+- **Data Augmentation:**
+  - Implement optional augmentations:
+    - Random horizontal flip
+    - Random vertical flip
+    - Random rotation (e.g., 0°, 90°, 180°, 270°)
+  - Use random seed from `utils.py` or set via `np.random.seed()` for reproducibility.
+
+- **Interface:**
+  - Constructor initializes dataset path, load paths, image size, normalization flag.
+  - `load_data()` populates the internal list of image paths.
+  - `__getitem__(index)` loads the image at index, applies preprocessing and augmentation, returns a clean NumPy array.
+  - `__len__()` returns total number of images loaded.
+
+### Additional Notes:
+- **Handling File Paths:**
+  - Detect dataset root directory from config or default.
+  - Support dataset path validation.
+  - For datasets not locally available, include instructions or hooks to download.
+
+- **Code Robustness:**
+  - Add error handling for file reading (missing files, corrupted images).
+  - Include verbose options for debugging.
+  - Use consistent data types and formats.
+
+- **Reproducibility:**
+  - Implement seed initialization at the class level.
+  - Avoid stochastic data shuffling unless explicitly required and seed-fixed.
+
+---
+
+**Summary:**
+
+The `Dataset` class in `dataset_loader.py` should efficiently load images from the specified directory, preprocess them to match the experiment’s needs, support optional augmentation for training, and expose a simple API for indexing and length. Its design ensures the data is prepared in a standardized, reproducible manner consistent with the experimental protocol and helps facilitate analyses such as spectral transforms and impulse response visualizations.

@@ -1,0 +1,164 @@
+**Logic Analysis for main.py**
+
+---
+
+### Purpose:
+- Serve as the primary entry point of the codebase.
+- Initialize dataset loader, diffusion model, and sampler based on configurations.
+- Orchestrate the entire experimental pipeline: load data, set up models, run training if needed, and perform sampling for evaluation.
+- Support different guidance and sigma scheduling schemes.
+- Log and save outputs, metrics, and checkpoints.
+- Facilitate systematic experimentation over varying hyperparameters (guidance scale, Sigma).
+
+---
+
+### Core Components and Responsibilities:
+
+#### 1. **Configuration Loading**
+- Parse `config.yaml`:
+  - Extract training parameters (`learning_rate`, `batch_size`, `epochs`, etc.).
+  - Extract dataset parameters: `dataset_path`, `dataset_type`, `dataset_name`, `image_size`.
+  - Extract model parameters: `architecture`, `pretrained_checkpoint`, `freeze_backbone`, `attention_blur`, etc.
+  - Guidance setup: guidance scale (`guidance_scale`), guidance variants, sigma schedule.
+  - Sampling parameters: number of steps, sampler type, guidance type, default sigma.
+
+#### 2. **Initialization**
+
+**A. Dataset Loader**
+- Instantiate `DatasetLoader` with:
+  - dataset path (e.g., `/path/to/dataset`).
+  - dataset type (`unconditional` or `conditional`).
+  - image size ([512, 512]).
+- Load datasets:
+  - For training:
+    - Load training dataset (unconditional or conditional).
+  - For evaluation:
+    - Load validation/testing set.
+  - Support for batching, shuffling, and data normalization according to model requirements.
+
+**B. Diffusion Model**
+- Instantiate `DiffusionModel` class:
+  - Pass architecture (`SDXL`) and checkpoint path.
+- Load pretrained weights:
+  - Load checkpoint file.
+  - If `freeze_backbone` is true:
+    - Set model weights accordingly (frozen except attention modules, if applicable).
+- Confirm availability of attention layers/modules that support Gaussian blur.
+
+**C. Diffusion Sampler**
+- Instantiate `DiffusionSampler` with:
+  - The model instance.
+  - Guidance guidance_scale (initially as per config, tunable during experiments).
+  - Guidance type (`segmented_attention` etc.).
+  - Sigma schedule (`sigma_schedule`) for varying Gaussian blur strength.
+- Provide sampling parameters:
+  - Number of steps (e.g., 1000).
+  - Sampler type (`ddim`, `ddpm`, etc.).
+  - Default sigma value (used unless overridden for specific runs).
+
+**D. Additional Setup**
+- Set random seeds for reproducibility (if desired).
+- Prepare logging (e.g., print statements, TensorBoard, or file logs).
+
+---
+
+### 3. Execution Workflow
+
+**A. Load or Train Model**
+- **IF** training is desired:
+  - Call `train()` method in `Trainer` class or equivalent.
+  - Pass datasets, optimizer configs, and hyperparameters.
+  - Save checkpoint after training.
+- **ELSE**:
+  - Load existing pretrained model from `pretrained_checkpoint`.
+  - Confirm model loaded successfully.
+
+---
+
+**B. Sampling & Evaluation Loop**
+- For systematic experiments, iterate over desired `sigma` values:
+  - Loop over `sigma_schedule` e.g., [0, 1, 2, 5, 10, 20, 50, 100].
+  - For each `sigma`:
+    - Set `sigma` parameter in sampler.
+    - Possibly adjust guidance scale or guidance variant.
+    - Generate images:
+      - Use `sample()` or `run_reverse_process()` method.
+      - For each sampling run:
+        - During each step:
+          - Invoke model's forward pass.
+          - At attention layer(s), apply Gaussian blur to queries or keys (based on `sigma`).
+          - Generate the output prediction.
+          - Incorporate guidance (original or smoothed) in the denoising process as per guidance variant.
+    - Save generated images, optionally store intermediate results.
+    - Run evaluation metrics:
+      - FID, CLIP, LPIPS, or task-specific metrics.
+      - Save metrics for comparison and analysis.
+
+**C. Guidance Adjustment**
+- Use fixed guidance scale (`3.0`) or vary during experiments.
+- For guidance variants, pass guidance options:
+  - None (original).
+  - "segmented_attention" (using blurred attention).
+- For each run, ensure the `sigma` parameter matches the intended setting and is communicated to the model during inference.
+
+---
+
+### 4. Reproducibility & Logging
+- Log hyperparameters, selected `sigma`, guidance scale, and other relevant metrics.
+- Save the generated images and evaluation results in organized folders.
+- Save model checkpoints periodically or after training completion.
+- Record experimental parameters to facilitate later analysis.
+
+---
+
+### 5. User Flexibility & Experimentation
+- Support command-line arguments or interactive inputs to override default configs:
+  - Custom guidance scales.
+  - Custom sigma schedules or single sigma values.
+- Allow toggling training vs. inference modes.
+- Implement optional evaluation triggers (e.g., run metrics after each sampling batch).
+
+---
+
+### 6. Error Handling & Robustness
+- Check file existence for dataset, model checkpoint.
+- Validate loaded dataset and model.
+- Catch exceptions during training/inference.
+- Assert validity of hyperparameters (positive values for sigma, guidance scale).
+
+---
+
+### 7. Summary of Logical Sequence in `main.py`
+
+```plaintext
+- Load configuration from 'config.yaml'
+- Initialize DatasetLoader with dataset parameters
+- Load datasets (training, validation)
+- Instantiate DiffusionModel with pretrained checkpoint
+  - Load weights
+  - Optionally freeze backbone
+- Instantiate DiffusionSampler with guidance parameters
+- If training:
+  - Run training loop
+  - Save model
+- Else:
+  - Load existing checkpoint if not loaded
+- For each sigma in sigma_schedule:
+  - Set sampler's sigma
+  - For each guidance scale (fixed or varying):
+    - Generate images with `sample()`
+    - Save images
+    - Run and save metrics
+```
+
+---
+
+### 8. Clarifications Needed
+- Confirm whether training will be run every time or just inference.
+- Clarify dataset formats and loading conventions.
+- Confirm if any specific data augmentation or preprocessing steps are expected.
+- Verify if a custom or existing diffusion codebase is used.
+
+---
+
+**End of Logic Analysis.**

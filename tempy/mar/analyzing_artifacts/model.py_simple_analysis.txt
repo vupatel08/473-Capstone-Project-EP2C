@@ -1,0 +1,136 @@
+# Logic Analysis for model.py
+
+This file is responsible for defining the core architectural components required for the autoregressive image generation system described in the paper, particularly:
+
+- **TransformerModel**: A flexible Transformer architecture capable of operating in both causal (autoregressive) and masked (masked autoregressive) modes.
+- **DiffusionHead**: A lightweight MLP used to predict the noise component in the diffusion process, conditioned on the sequence representations produced by the Transformer.
+- **Supporting utilities**: Initialization, configuration handling, and attention mechanisms, in accordance with the provided `config.yaml`.
+
+Below is a structured, detailed plan of the logic, data flow, and implementation considerations.
+
+---
+
+# 1. Class: TransformerModel
+
+## 1.1. Purpose
+- To model sequences of tokens (discrete or continuous features) with a Transformer architecture.
+- To support **two modes**:
+  - **causal (autoregressive)**: attention mask prevents future token info.
+  - **bidirectional/masked**: attention allows full context, with optional masking for predictive tasks like MAR.
+
+## 1.2. Inputs
+- **tokens**: Tensor of shape `(batch_size, sequence_length, feature_dim)`:
+  - For discrete tokens: embedded via an embedding layer.
+  - For continuous tokens: provided directly as real vectors.
+- **mask**: optional attention mask, particularly for causal mode (causal mask).
+- **condition**: optional tensor of shape `(batch_size, feature_dim)`:
+  - For the autoregressive model, the condition `z` per token is produced by an encoder (see 1.3).
+  - For diffusion, this conditioning influences the diffusion head.
+
+## 1.3. Components
+- **Positional Embeddings**:
+  - Sine or learned positional encoding, added to token embeddings.
+  - Embeddings are fixed or learned, depending on configuration.
+- **Input Embedding Layer**:
+  - For discrete tokens: embedding layer (K x D).
+  - For continuous tokens: identity (pass through).
+- **Attention Layers**:
+  - Multi-head attention with support for **causal** or **bidirectional** masks.
+  - Attention mask:
+    - Causal: lower triangular mask.
+    - Bidirectional: no masking or full attention.
+- **Feed-forward Layers**:
+  - Each block has LayerNorm, MultiHeadAttention, residual, and MLP.
+- **Mode Handling**:
+  - Set attention mode (`causal` or `bidirectional`) during initialization.
+  - During forward pass, produce the appropriate attention mask.
+
+## 1.4. Processing Flow
+- Input tokens are embedded (or passed directly).
+- Positional embeddings are added.
+- For each block:
+  - Apply LayerNorm.
+  - Compute attention with mask:
+    - causal: causal mask.
+    - bidirectional: full attention (no mask or explicit full mask).
+  - Apply residual connection.
+  - Pass through feed-forward network.
+- Output:
+  - Sequence representations: `(batch_size, sequence_length, model_width)`.
+  - These will be used to produce the **condition vector `z`** for diffusion head (via an auxiliary method).
+
+## 1.5. Additional Methods
+- `get_condition(tokens)`:
+  - For each position, produce a vector `z` (possibly the last hidden state or pooled output).  
+  - Or, for the entire sequence, produce a single `z`.
+- `set_attention_mode(mode)`:
+  - To switch between causal and bidirectional attention modes as required.
+
+---
+
+# 2. Class: DiffusionHead
+
+## 2.1. Purpose
+- A small MLP to predict the noise vector `ε` in the diffusion process:
+  - Input: noisy token `x_t`, timestep `t`, and optional conditioning vector `z`.
+  - Output: predicted noise vector of shape `(batch_size, feature_dim)`.
+
+## 2.2. Inputs
+- **x_t**: the current noisy token; shape `(batch_size, feature_dim)`.
+- **t**: current timestep (scalar tensor or embedded) to condition the network on the noise schedule.
+- **condition z**: from Transformer, e.g., per-token or pooled.
+
+## 2.3. Components
+- Layers:
+  - The MLP: typically 3 residual blocks.
+  - Each residual block: LayerNorm → Linear → SiLU → Linear, residual skip connection.
+  - Condition inclusion:
+    - Add the timestep encoding (sinusoidal or learned).
+    - Add the condition vector `z`.
+- The `__init__` method will configure internal layer sizes based on `input_dim` (model width).
+
+## 2.4. Processing Flow
+- Receives `(x_t, t, z)` inputs.
+- Incorporates conditioning via addition (e.g., AdaLN or simple addition).
+- Performs forward pass through residual blocks.
+- Outputs `(batch_size, feature_dim)` noise prediction.
+
+---
+
+# 3. Attention and Masking
+- Implement attention with optional **causal mask**:
+  - In causal mode: upper off-diagonal masked out.
+  - In bidirectional mode: no masking or full sequence mask.
+- Mask creation is handled in the forward method or during initialization.
+- Attention layers should be flexible to switch modes, based on configuration.
+
+# 4. Initialization and Hyperparameters
+- Use Xavier (Glorot) initialization for all Linear layers.
+- Normalize inputs to standard scales if necessary.
+- Embedding layers initialized per typical practice.
+- Attention heads: determined by `model_width` and number of heads (e.g., 8 or 16).
+
+# 5. Interactions with other modules
+- `Main` code will instantiate this model, providing mode (`causal`/`bidirectional`) based on training config.
+- During training:
+  - Use causal mode for autoregressive sequence modeling.
+  - Use masked/bidirectional mode for MAR training.
+- During inference:
+  - For autoregressive generation, invoke the model in causal mode, step-by-step.
+  - For parallel masked prediction, switch to bidirectional mode.
+
+# 6. Additional Considerations
+- Ensure support for:
+  - Batch and sequence processing.
+  - Efficient masking for attention.
+  - Optional dropout for regularization.
+- Expose methods to switch modes, get hidden states, or produce conditioning vectors for diffusion head.
+
+---
+
+# Summary
+- **TransformerModel**: configurable for causal or bidirectional operation, composed of multiple Transformer blocks, with positional embedding and attention masking.
+- **DiffusionHead**: small, residual MLP conditioned on `(x_t, t, z)` to predict noise, critical for diffusion training and inference.
+- These components will be connected such that the sequence representations `z` are used as conditioned input to the denoising diffusion process, as detailed in the paper.
+
+This structured logic ensures faithful implementation aligned with the paper's methodology, maintaining flexibility, clarity, and modularity for the experimental variations outlined.

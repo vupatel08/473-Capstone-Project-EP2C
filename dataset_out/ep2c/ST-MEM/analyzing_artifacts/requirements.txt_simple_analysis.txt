@@ -1,0 +1,134 @@
+# requirements.txt
+
+# Core deep learning framework for model definition, training, and evaluation
+torch==1.9.0
+
+# Numerical operations, tensor manipulation, normalization
+numpy==1.21.0
+
+# Signal processing, filtering, signal normalization, and segmentation
+scipy==1.7.0
+
+# Metrics for evaluation: AUROC, F1 score, accuracy
+scikit-learn==0.24.2
+
+# Visualization for embedding analysis, attention maps, and training curves
+matplotlib==3.4.3
+
+# Progress bar for training loops
+tqdm==4.62.3
+
+# Transformer architecture implementation, including multi-head attention, layer norm, positional encoding
+transformers==4.11.3
+
+# Flexible configuration management, experiment control, hyperparameter setting
+hydra-core==1.1.2
+
+# Additional notes on implementation logic:
+
+1. **Dataset Loading & Preprocessing:**
+   - Implement `datasets.py` with an `ECGDataset` class that:
+     - Loads raw ECG data from specified paths.
+     - Resamples all signals to 250 Hz.
+     - Crops signals to 10 seconds segments.
+     - Normalizes signals via Z-normalization (subtract mean, divide by std).
+     - Segments signals into non-overlapping patches of size 32 samples (~128 ms).
+     - Handles data augmentation as specified (erase, flip, drop, sine wave, partial sine, white noise) with configurable probabilities.
+     - Applies masking of patches dynamically during training with a specified ratio (e.g., 15%).
+
+2. **Model Architecture:**
+   - In `model.py`, define:
+     - `TransformerEncoder`: a ViT-inspired module with adjustable number of layers (1, 4, 8, 11), each including multi-head self-attention, MLP, residual connections, layer normalization.
+     - Embeddings:
+       - Patch embeddings: linear projection of flattened patches (size: 32 samples).
+       - Lead embeddings: learnable per lead (size: lead count x embedding_dim).
+       - Positional embeddings: learnable per patch position (size: max number of patches).
+     - `TransformerDecoder`: a transformer with configurable number of layers (default 4), sharing parameters across leads.
+       - Cross-attention with encoder output.
+       - Reconstruction head to output patches matching original signals.
+   - Incorporate lead-wise shared decoder, lead embeddings, SEP embeddings.
+   - Integrate positional embeddings as fixed or learned parameters.
+   - Use dropout rates and layer normalization as indicated.
+
+3. **Pretraining Routine (`trainer.py`):**
+   - Initialize the encoder and decoder with specified hyperparameters.
+   - For each epoch:
+     - Loop over dataset batches.
+     - For each batch:
+       - Apply augmentation transforms as per configuration.
+       - Segment signals into patches.
+       - Apply random masking based on the ratio (default 15%, can vary).
+       - Add lead embedding + positional embedding to each patch embedding.
+       - Pass unmasked patches through the encoder.
+       - Feed encoder output and masked patches into the decoder.
+       - Compute reconstruction loss (mean squared error) between original and reconstructed patches of masked tokens.
+       - Backpropagate and update parameters.
+   - Save checkpoint after training.
+
+4. **Fine-tuning & Downstream Evaluation (`evaluation.py`):**
+   - Load encoder weights loaded from pretraining.
+   - Freeze encoder or allow fine-tuning based on experiment.
+   - Attach a linear classifier head (fully connected layer matching the number of classes).
+   - Train classifier on labeled downstream dataset:
+     - Use appropriate loss (cross-entropy).
+     - Use standard optimizer (AdamW) with small learning rate.
+   - Evaluate on validation/test sets:
+     - Compute AUROC, F1-score.
+     - Perform considerations for class imbalance (macro-averaged metrics).
+   - For reduced lead sets:
+     - Manipulate lead embeddings so that the model can process fewer leads.
+     - Maintain input size by patching signals accordingly.
+   
+5. **Attention Map Analysis & Visualization (`visualization.py`):**
+   - Extract self-attention weights from the encoder.
+   - Generate attention maps for specific query patches.
+   - Visualize embedding spaces with t-SNE.
+   - Use GMM clustering for spatial relationship validation.
+   
+6. **Augmentation Logic:**
+   - Implement augmentation functions with probability controls:
+     - Erase: zero out entire patches.
+     - Flip: invert signal polarity.
+     - Drop: zero out segments within patches.
+     - Sine noise addition: add sine wave noise into patches.
+     - Partial sine: add sine wave to segments.
+     - White noise: Gaussian noise addition.
+   
+7. **Configuration Management (`config.yaml`):**
+   - Define all hyperparameters, dataset paths, and augmentation probabilities.
+   - Use Hydra to load configurations and pass to modules.
+
+8. **Execution flow:**
+   - Main script (`main.py`) orchestrates:
+     - Dataset loading and splitting
+     - Model initialization
+     - Pretraining loop
+     - Saving/checkpointing
+     - Loading weights for downstream fine-tuning
+     - Evaluation and visualization
+   
+9. **Hyperparameters & Defaults:**
+   - Mask ratio: 0.15 (experiments with variations)
+   - Decoder layers: 4 (testing 1, 8, 11)
+   - Embedding size: 64
+   - Number of patches: 128
+   - Learning rate: 0.0012 with cosine decay
+   - Batch size: 1024
+   - Epochs: 800 for pretraining, 100 for fine-tuning
+   - Dropout rate: 0.1
+   - Lead count: 12 (configurable for reduced lead scenarios)
+
+---
+
+**Summary of Logical Components:**
+
+- Data loading with augmentation and patchifying.
+- Masking and reconstruction as the self-supervised task.
+- Transformer-based encoder capturing spatio-temporal dependencies.
+- Lead-specific embeddings and SEP modules to incorporate spatial information.
+- Decoder designed to reconstruct masked patches.
+- Fine-tuning on downstream classification with standard metrics.
+- Visualization and analysis for interpretability.
+- Modular design supporting ablation studies (layer number, masking ratio, lead modules).
+
+This thorough logical decomposition provides the foundation for detailed implementation aligned with the paper's methodology and experimental setup.

@@ -1,0 +1,47 @@
+----------------------------------------
+[Required packages]
+- torch==1.13.1
+- transformers==4.28.0
+- numpy==1.21.0
+- PyYAML==6.0
+- scipy==1.10.0
+- multiprocessing-logging==0.3.1
+
+----------------------------------------
+[Required Other language third-party packages]
+- No third-party dependencies required
+
+----------------------------------------
+[Logic Analysis]
+- ['main.py', 'Entry point; orchestrates configuration loading, dataset initialization, model setup, sampling, evaluation, and logging. Depends on config.yaml for parameters. Calls DatasetLoader, ModelWrapper, Sampler, DistanceEvaluator, and Evaluation.']
+- ['dataset_loader.py', 'Handles loading datasets from local files or online sources. Provides methods to get dataset splits, particularly for STS, SNLI, WordNet, and CxC datasets. Supplies sentence pairs or word pairs for evaluation tasks.']
+- ['model.py', 'Defines ModelWrapper class, parameterized by model name and device. Handles model loading (from HuggingFace), tokenization, and inference functions: generate_continuations(prompt, n, m, temperature), compute_log_prob(sequence, prompt). Ensures compatibility with text and multimodal models.']
+- ['sampling.py', "Contains Sampler class, which manages parallel sampling of trajectories for each prompt in batches. Uses ModelWrapper's generate_continuations, manages max length (m), number of samples (n), temperature. Implements sampling to facilitate multiple trajectories generation, using multiprocessing or threading for speed."]
+- ['likelihood.py', 'Contains LikelihoodCalculator class, which uses ModelWrapper to compute sequence log probabilities efficiently, caching where possible. Supports batch computation on multiple sequences.']
+- ['distance.py', 'Contains DistanceEvaluator class, which computes the semantic distances and relations between prompts using Monte Carlo estimates from sampled trajectories. Implements the distance formula, conjunction (min), and relation inference algorithms, such as entailment and hyponym detection.']
+- ['relation.py', 'Extends DistanceEvaluator to include logic for asymmetric relations (entailment, hypernym/hyponym) based on distance comparisons and set operations. Adds methods for thresholding relation hypotheses and relation directionality decisions.']
+- ['evaluation.py', 'Implements function to evaluate on datasets: compute correlation scores (e.g., Spearman) for STS, classification accuracy for SNLI entailment, WordNet hyponym detection, and image-text similarity tasks like CxC. Uses DistanceEvaluator outputs for metrics computation.']
+
+----------------------------------------
+[Task list]
+- main.py
+- dataset_loader.py
+- model.py
+- sampling.py
+- likelihood.py
+- distance.py
+- relation.py
+- evaluation.py
+
+----------------------------------------
+[Full API spec]
+
+
+----------------------------------------
+[Shared Knowledge]
+Common utilities include a config loader, batch sampling functions, and a logging setup. The model API relies on HuggingFace transformers. Hyperparameters are configurable through a YAML file. The approach assumes familiarity with PyTorch, transformers, and dataset formats.
+
+----------------------------------------
+[Anything UNCLEAR]
+Need clarification on how multimodal data (images) are tokenized and fed into models like LLaVA. Additionally, confirmation on whether pre-computed trajectories are stored for efficiency or generated per run.
+

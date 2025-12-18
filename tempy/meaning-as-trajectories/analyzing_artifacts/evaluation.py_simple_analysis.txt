@@ -1,0 +1,182 @@
+# Evaluation.py Logic Analysis
+
+The purpose of evaluation.py is to implement functions that perform the final performance assessment of the trajectory-based semantic representations produced by the main sampling and distance components. This includes computing metrics such as correlation for semantic textual similarity and accuracy for entailment or hyponym detection, across multiple datasets. 
+
+### Core Responsibilities:
+- Receive dataset inputs (sentence or word pairs, image-caption pairs, etc.).
+- Generate or retrieve the set of sample trajectories for each prompt involved in the task.
+- Compute pairwise semantic distances or relation scores between prompts, utilizing the DistanceEvaluator's methods.
+- Calculate specific evaluation metrics (e.g., Spearman correlation for similarity, accuracy for entailment, WordNet relations).
+- Return or log the metric scores for analysis and comparison.
+
+---
+
+## 1. Inputs and Outputs
+
+**Inputs:**
+- `dataset_name` (str): e.g., 'STS-B', 'SNLI', 'WordNet', 'CxC'.
+- `dataset_split` (str): e.g., 'validation', 'test'.
+- `distance_eval` (DistanceEvaluator): object, initialized with sampling parameters, that can compute distances and detect relations between pairs.
+- `dataset_pairs` (list of tuple): list of pairs relevant to the dataset (e.g., sentence pairs, word pairs, image-caption pairs).
+
+**Outputs:**
+- Dictionary of metric results, e.g.,
+  ```python
+  {
+    'score': float (e.g., Spearman correlation or accuracy),
+    'details': dict (optional, e.g., per-pair info),
+  }
+  ```
+
+---
+
+## 2. Main Workflow
+
+1. **Dataset Loading:**
+   - Use the dataset loader module to load the dataset split as specified, or accept pre-loaded data.
+   - For instance, `dataset_pairs` could be loaded from local files or datasets library, containing pairs for evaluation.
+
+2. **Preparatory Steps:**
+   - Set a reproducible random seed from config.
+   - For each prompt (e.g., sentence), generate or retrieve the set of sampled trajectories:
+     - `sampled_trajectories`: list of strings, obtained by calling `Sampler.sample_trajectories` for each prompt.
+
+3. **Distance/Relation Computation:**
+   - For each pair:
+     - Instantiate the distance evaluator logic:
+       - For similarity tasks (STS), compute the distance `d(M_u, M_v)` directly.
+       - For relation tasks (SNLI, WordNet), use methods like `compute_relation()`:
+         - For entailment, check if `d(M_u ∧ M_v, M_v) < d(M_u ∧ M_v, M_u)`.
+         - For hyponym/hypernym detection, similarly.
+     - For multimodal data (images + text), normally, the trajectories are sampled from the model conditioned on the combined input sequence.
+
+4. **Metrics Calculation:**
+   - **Semantic Similarity (STS) Datasets:**
+     - Collect the list of similarity scores (from dataset annotations, scaled appropriately).
+     - Collect the model-predicted similarity scores (from the inverse of the computed distances, normalized suitably).
+     - Compute Spearman correlation between human scores and model scores.
+
+   - **Entailment Detection:**
+     - Convert relation decisions into binary labels, compare against gold labels.
+     - Calculate accuracy over all pairs.
+
+   - **WordNet Hyponym Relations:**
+     - For each pair, determine if the relation holds based on distance relations.
+     - Compute accuracy or precision/recall if multiple annotations.
+
+   - **Image-Text Similarity (CXC):**
+     - Similar process to textual similarity; output similarity scores.
+     - Correlate with human annotations.
+
+5. **Score Aggregation and Logging:**
+   - Aggregate scores over all pairs.
+   - Return a dictionary of results.
+
+---
+
+## 3. Usage of DistanceEvaluator Methods
+
+- Distance calculation:
+  - For prompt pairs `(u, v)`, derive trajectories via sampler.
+  - Call `distance_eval.compute_distance(u, v)` which:
+    - Uses sampled trajectories.
+    - Computes the approximate `d(M_u, M_v)` based on the formula in eq. (2) of the paper.
+- Relation detection:
+  - For entailment and hyponym tasks:
+    - Call `distance_eval.compute_relation(u, v, relation_type='entailment')` or `'hyponym'`.
+    - Internally applies the thresholds and comparisons as documented.
+  
+---
+
+## 4. Handling Multimodal Data
+- When datasets include images:
+  - Prompts (image tokens) are processed similarly.
+  - Use uniform interface to generate trajectories conditioned on image prompts.
+- Maintain consistency:
+  - When evaluating text-image or image-image similarity, ensure trajectories are generated from the multimodal models with appropriate prompts, optionally aligning prompts as per the paper's guidance.
+
+---
+
+## 5. Implementation Details
+
+- Use a consistent seed for reproducibility.
+- For each prompt:
+  - Generate `n` trajectories via `sampler.sample_trajectories()`.
+- For each pair:
+  - Calculate or retrieve trajectory likelihoods.
+  - Compute the distance or relation score.
+- For datasets with labels:
+  - Map relation detections to binary labels.
+  - Calculate metrics like correlation or accuracy.
+- Optional:
+  - Support per-pair debugging or more detailed logging.
+  - Use a thresholding heuristic for binary relation detection when needed.
+
+---
+
+## 6. Summary
+
+The evaluation.py module should:
+- Flexibly handle various datasets and tasks.
+- Interface with the sampler, likelihood, and distance evaluator modules.
+- Compute the appropriate metrics, following the algebraic relation logic.
+- Support reproducibility and efficiency, perhaps with batch processing.
+- Offer clear functions for each dataset type's evaluation.
+
+---
+
+## 7. Pseudocode Sketch (for internal understanding)
+
+```python
+def evaluate_dataset(dataset_pairs, dataset_labels, dataset_name, distance_eval, sampler, likelihood, config):
+    scores_or_labels = []
+    predicted = []
+
+    for (prompt_u, prompt_v, label) in dataset_pairs:
+        # Generate or retrieve trajectories
+        T_u = sampler.sample_trajectories(prompt_u)
+        T_v = sampler.sample_trajectories(prompt_v)
+
+        # Compute distances or relation
+        dist = distance_eval.compute_distance(prompt_u, prompt_v, sampler, likelihood)
+        is_entailment = distance_eval.compute_relation(prompt_u, prompt_v, sampler, likelihood, relation_type='entailment')
+        # For similarity tasks:
+        model_score = 1 / dist  # or scaled/normalized as in paper
+
+        # Save for metrics
+        scores_or_labels.append(model_score)
+        predicted.append(label or is_entailment)
+
+    # Compute metrics
+    if dataset_name.startswith('STS'):
+        human_scores = load_human_scores(dataset_name, split)
+        spearman_corr = scipy.stats.spearmanr(human_scores, scores_or_labels)
+        return {'spearman': spearman_corr.correlation}
+    elif dataset_name == 'SNLI':
+        accuracy = compute_accuracy(predicted, dataset_labels)
+        return {'accuracy': accuracy}
+    elif dataset_name == 'WordNet':
+        accuracy = compute_accuracy(predicted, dataset_labels)
+        return {'accuracy': accuracy}
+    elif dataset_name == 'CxC':
+        # Similar to STS
+        human_scores = load_human_scores('CxC', split)
+        spearman_corr = scipy.stats.spearmanr(human_scores, scores_or_labels)
+        return {'spearman': spearman_corr.correlation}
+    else:
+        # fallback or error
+        pass
+```
+
+---
+
+## 8. Final Notes
+
+- Make sure to abstract dataset loading from this module so that it receives pre-processed pairs.
+- Ensure sampling functions are called uniformly and efficiently.
+- Modularize metric calculations and relation logic for clarity.
+- Validate datasets’ labels and annotations before processing.
+
+---
+
+This comprehensive logic analysis should guide code implementation to faithfully reproduce the evaluation methodology presented in the paper.

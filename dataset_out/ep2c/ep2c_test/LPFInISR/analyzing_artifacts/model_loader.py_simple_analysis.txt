@@ -1,0 +1,149 @@
+**Logic Analysis for model_loader.py**
+
+**Purpose:**  
+The primary goal of the `model_loader.py` module is to implement a class `ModelLoader` that handles the loading of pre-trained super-resolution neural network models (e.g., SwinIR, RDN). It must facilitate flexible loading of models based on configuration, ensuring the models are ready for inference in the spectral response analysis pipeline.
+
+---
+
+### Core Functional Requirements:
+
+1. **Initialization (`__init__`):**
+   - Accept a `model_path` (string) pointing to the stored model weights file.
+   - Accept a `model_name` or infer from config, indicating the architecture type (e.g., SwinIR, RDN).
+   - Optionally, accept a `device` parameter (default: 'cuda' or 'cpu') to specify whether model weights are loaded on GPU or CPU.
+   
+2. **Model Construction (`build_model()`):**
+   - Based on `model_name`, instantiate the corresponding neural network architecture class.
+   - Ensure the architecture code is compatible, either through importing existing model classes or through a modular backend.
+   - Configure model parameters (input size, scale factor, etc.) to match the experiment setup.
+
+3. **Loading Weights (`load_model()`):**
+   - Load the checkpoint (`.pth` or `.pt`) file from the provided `model_path`.
+   - Load the state dictionary into the model.
+   - Move the model to the specified device (`cuda` or `cpu`).
+   - Set model to evaluation mode (`model.eval()`).
+
+4. **Output:**
+   - Return the fully constructed and loaded PyTorch model object (`torch.nn.Module`).
+
+5. **Error Handling & Validation:**
+   - Check if the `model_path` exists.
+   - Validate that the checkpoint contains matching model parameters.
+   - Handle errors gracefully, such as missing files, incompatible checkpoint structures, or unsupported models.
+
+---
+
+### Implementation Details & Considerations:
+
+- **Model Architecture Selection:**
+  - Use a mapping (dictionary) from `model_name` string to import or instantiate the corresponding class.
+  - The implementation should not include the full model code but should assume existing modules or classes defined elsewhere, e.g., `from models.swinir import SwinIR`, `from models.rdn import RDN`.
+  - Ensure the imported class constructors accept necessary parameters as per configuration (`input_size`, `scale_factor`, etc.).
+
+- **Importing Models:**
+  - At the top of the file, import model classes needed for instantiation.
+  - The code must be adaptable for multiple architectures; e.g., a dictionary:
+    ```python
+    MODEL_ARCHS = {
+        "SwinIR": SwinIR,
+        "RDN": RDN,
+        # add other architectures as needed
+    }
+    ```
+
+- **Checkpoint Loading:**
+  - Use `torch.load()` to load checkpoint.
+  - Confirm the checkpoint contains a `state_dict`.
+  - Load with `model.load_state_dict()`.
+
+- **Device Handling:**
+  - Move model to device specified during initialization.
+  - Optionally, support model half-precision if needed (`model.half()`).
+
+- **Configuration Handling:**
+  - The `ModelLoader` class may accept parameters directly (`model_path`, `model_name`, `device`) or be configured through a configuration dictionary/object.
+  - If passed configuration is a dict, extract relevant parameters.
+
+- **Design for Reusability and Extensibility:**
+  - Design `load_model()` to be called multiple times without re-instantiating the class.
+  - Allow for reloading model weights or architecture switching.
+
+---
+
+### Pseudocode:
+
+```python
+class ModelLoader:
+    def __init__(self, model_path: str, model_name: str, device: str = 'cuda'):
+        self.model_path = model_path
+        self.model_name = model_name
+        self.device = device
+        self.model = None
+
+    def build_model(self):
+        # Map model_name to class
+        architecture_map = {
+            'SwinIR': SwinIR,
+            'RDN': RDN,
+            # add other architectures as needed
+        }
+        if self.model_name not in architecture_map:
+            raise ValueError(f"Unsupported model architecture: {self.model_name}")
+        # Instantiate model with parameters suitable for this experiment
+        self.model = architecture_map[self.model_name](/* config params */)
+        # Return the model instance
+        return self.model
+
+    def load_model(self):
+        # Build the model architecture
+        model = self.build_model()
+
+        # Validate model checkpoint file
+        if not os.path.exists(self.model_path):
+            raise FileNotFoundError(f"Model weights not found at {self.model_path}")
+
+        # Load state_dict into the model
+        checkpoint = torch.load(self.model_path, map_location=self.device)
+        if 'state_dict' in checkpoint:
+            state_dict = checkpoint['state_dict']
+        else:
+            state_dict = checkpoint
+
+        # Load state_dict
+        model.load_state_dict(state_dict)
+
+        # Move to device
+        model.to(self.device)
+        model.eval()
+
+        # Return the pretrained model
+        return model
+```
+
+---
+
+### Additional Points:
+
+- **Pretrained model path validation:** Check existence before loading.
+- **Inference readiness:** set `model.eval()`.
+- **Support for model fine-tuning or partial loading:** Can be extended; not required now.
+- **Logging:** Optional logging for debugging.
+
+---
+
+### Summary of Steps for Implementation:
+
+- Import model classes.
+- Define a `ModelLoader` class with initializer parameters (`model_path`, `model_name`, `device`).
+- Implement `build_model()` to instantiate the architecture based on `model_name`.
+- Implement `load_model()` to:
+  - Validate file existence,
+  - Load checkpoint,
+  - Load state_dict into model,
+  - Move model to device,
+  - Set to evaluation mode,
+  - Return model object.
+
+This structured approach aligns with the requirements of the experimental framework, ensuring reproducible loading of models for spectral and impulse response analysis.
+
+**End of logic analysis.**

@@ -1,0 +1,36 @@
+training:
+  learning_rate: 0.1        # Initial learning rate, as per Table 3; tuned with decay
+  batch_size: 128           # Standard batch size for CIFAR-10/100
+  epochs: 300               # Number of training epochs, as used in the experiments
+  weight_decay: 5e-4        # Typical weight decay, following common training settings
+  decay_schedule: exponential # Decay schedule; use exponential decay per epoch
+  decay_rate: 0.95          # Decay factor, as per Table 3
+  momentum: 0.9             # Momentum for optimizer
+  optimizer: Adam           # Optimizer choice
+  surrogate_alpha: 4.0      # Surrogate gradient parameter (sigmoid inverse temperature)
+  T: 4                      # Number of timesteps for static datasets (e.g., CIFAR-10/100)
+  mode: rate_M              # Default mode, can switch to rate_S for single-step
+model:
+  architecture: ResNet-18   # Main architecture as per experimental settings
+  neuron_type: LIF          # Leaky Integrate-and-Fire neuron model
+  # Hyperparameters for neuron:
+  V_th: 1.0                 # Threshold voltage
+  decay_lambda: 0.95        # Membrane potential decay factor
+  surrogate_grad: sigmoid   # Surrogate gradient function
+  alpha: 4.0                # Surrogate gradient steepness parameter
+dataset:
+  name: CIFAR-10            # Default dataset; can be changed to CIFAR-100, ImageNet, CIFAR10-DVS
+  input_encoding: direct    # Direct spike encoding
+  augmentation: AutoAugment + Cutout
+  normalization_mean: [0.4914, 0.4822, 0.4465] # CIFAR normalization
+  normalization_std: [0.2023, 0.1994, 0.2010]
+  train_split_ratio: 0.8  # 80% training, 20% validation
+  test_split_ratio: 0.2
+  size: 32x32             # CIFAR image size
+training_mode:
+  mode: rate_M             # Can switch to rate_S for single-step mode
+  sequence_length: 4      # T=4 as default; can be set to other values (2, 6, 8, 16)
+  online: false           # Default setting: offline training; change for online modes
+evaluation:
+  metrics: accuracy       # Top-1 accuracy as primary metric
+  evaluation_script: eval.py

@@ -1,0 +1,226 @@
+```python
+# trainer.py
+import jax
+import jax.numpy as jnp
+import optax
+import numpy as np
+from typing import List, Dict, Any, Tuple, Callable, Optional
+from jax import jit, grad, vmap, random
+from evaluation import compute_metrics
+from dataset_loader import load_training_data, load_validation_data, load_test_data
+from basis_generator import BasisGenerator
+from model import DeepUNF
+import yaml
+
+# Load configuration from 'config.yaml'
+with open('config.yaml', 'r') as f:
+    config = yaml.safe_load(f)
+
+# Extract training settings
+learning_rate = config['training'].get('learning_rate', 0.001)
+batch_size = config['training'].get('batch_size', 128)
+inner_steps = config['training'].get('inner_steps', 2000)
+meta_iterations = config['training'].get('meta_iterations', 50000)
+population_size = config['training'].get('meta_population_size', 64)
+noise_std = config['training'].get('noise_std', 0.01)
+meta_optimizer_config = config['training']['optimizer']
+dataset_name = config['dataset'].get('name', 'FashionMNIST')
+sample_seed = config['sample'].get('seed', 42)
+
+# Load datasets
+train_dataset = load_training_data(seed=sample_seed)
+val_dataset = load_validation_data(seed=sample_seed)
+test_dataset = load_test_data(seed=sample_seed)
+
+# Define dataset iterator for inner training
+def dataset_iterator(dataset, batch_size, rng):
+    # yields batches indefinitely
+    n = len(dataset.inputs)
+    perm = jax.random.permutation(rng, n)
+    while True:
+        for i in range(0, n, batch_size):
+            indices = perm[i: i + batch_size]
+            yield dataset.inputs[indices], dataset.labels[indices]
+
+# Instantiate basis generator with architecture spec (assuming loaded or predefined)
+# For demonstration, create a placeholder architecture spec
+architecture_spec = ...  # Placeholder: should be loaded/predefined for your architecture
+basis_generator = BasisGenerator(architecture_spec)
+
+# Generate basis functions for model layers (assuming list of tensor specs)
+# For simplicity, suppose architecture_spec provides tensor specs
+tensor_specs = ...  # List of TensorSpec objects for all weight tensors
+basis_per_layer = {}
+for tensor_spec in tensor_specs:
+    basis_per_layer[tensor_spec] = basis_generator.generate_basis(tensor_spec)
+
+# Initialize meta-parameters: coefficients for each basis in each layer
+# structure: dict[layer_name] -> parameter array shape: [number_of_basis]
+# For simplicity, pack all coefficients in a single vector
+# Suppose we flatten all basis coefficients across layers into a vector
+def initialize_coefficients():
+    coeffs_list = []
+    layer_basis_sizes = {}
+    for layer_name, basis_list in basis_per_layer.items():
+        size = len(basis_list)
+        layer_basis_sizes[layer_name] = size
+        # initialize with zeros or small random (here zeros)
+        coeffs_list.append(np.zeros(size, dtype=np.float32))
+    # concatenate all coefficients
+    return np.concatenate(coeffs_list), layer_basis_sizes
+
+# Create optimizer for meta-parameters (coefficients)
+meta_optimizer = optax.adam(learning_rate=1e-3)
+params = initialize_coefficients()
+opt_state = meta_optimizer.init(params)
+
+# Helper to reconstruct per-layer basis coefficient slices
+def unpack_coeffs(params_flat, layer_basis_sizes):
+    slices = {}
+    idx = 0
+    for layer_name, size in layer_basis_sizes.items():
+        slices[layer_name] = params_flat[idx: idx + size]
+        idx += size
+    return slices
+
+# Placeholder for building target model (architecture specific)
+def init_target_weights(rng_key):
+    # Returns initial weights of target model, as a nested dict or list
+    # Replace with your architecture's initialization
+    pass
+
+@jit
+def apply_f(inputs: List[jnp.ndarray], params_coeffs: jnp.ndarray, layer_basis_sizes: Dict[str, int], basis_per_layer: Dict):
+    """
+    Apply the neural functional f to compute an update.
+    - inputs: list of tensors (layer weight tensors)
+    - params_coeffs: array of concatenated basis coefficients
+    - layer_basis_sizes: dict of size per layer
+    - basis_per_layer: dict of layer_name -> list of basis ArrayOperation
+    """
+    start_idx = 0
+    result_updates = []
+    for layer_name, basis_list in basis_per_layer.items():
+        size = layer_basis_sizes[layer_name]
+        coeffs = params_coeffs[start_idx: start_idx + size]
+        start_idx += size
+        # Compute linear combo of basis functions
+        # basis_list: List[ArrayOperation], coeffs: shape=[size]
+        # Apply each basis function to appropriate input tensors
+        layer_update = 0
+        for c, basis_fn in zip(coeffs, basis_list):
+            out = basis_fn(*inputs)  # assuming basis_fn takes input tensors
+            layer_update += c * out
+        result_updates.append(layer_update)
+    return result_updates
+
+# Inner training loop
+def inner_train(rng_key, init_weights, coeffs, layer_basis_sizes, basis_per_layer, train_iter, dataset_iter):
+    """
+    Performs inner-loop training for a target network with optimizer parametrized by current coeffs.
+    """
+    weights = init_weights
+    for step in range(inner_steps):
+        batch_inputs, batch_labels = next(dataset_iter)
+        # Compute gradients w.r.t. weights
+        # Here, assume loss_fn is defined for target model, depends on architecture
+        def loss_fn(w):
+            preds = target_model_apply(w, batch_inputs)  # architecture-specific
+            loss = ...  # e.g., cross-entropy
+            return loss
+
+        grads = grad(loss_fn)(weights)
+
+        # Compute updates via the current UNF - based on basis functions
+        # Inputs to basis functions: need to be extracted from weights
+        # Extract relevant tensors for basis (depends on architecture)
+        basis_inputs = ...  # depends on architecture
+        # Compute update
+        updates = apply_f(basis_inputs, coeffs, layer_basis_sizes, basis_per_layer)
+        # Update weights (assuming simple SGD)
+        # Update rule depends on optimizer, assuming explicit SGD here:
+        weights = {k: weights[k] - learning_rate * grads[k] + updates[k] for k in weights}
+    # After inner steps, evaluate final performance
+    final_loss = loss_fn(weights)
+    final_acc = ...  # compute accuracy on validation set
+    return final_loss, final_acc
+
+# Vectorized evaluation over population noise
+@jit
+def evaluate_population(rng, base_coeffs, noise_vectors, basis_per_layer, layer_basis_sizes, dataset_iter):
+    """
+    Evaluate each noisy candidate in the population.
+    Return array of rewards (performance metrics).
+    """
+    def evaluate_one(rng, noise):
+        coeffs_noisy = base_coeffs + noise * noise_std
+        init_weights = init_target_weights(rng)
+        val_loss, val_acc = inner_train(rng, init_weights, coeffs_noisy, layer_basis_sizes, basis_per_layer, inner_steps, dataset_iter)
+        # Use validation accuracy or negative loss as reward
+        reward = val_acc  # or -val_loss if optimizing loss
+        return reward
+
+    rngs = jax.random.split(rng, len(noise_vectors))
+    rewards = vmap(evaluate_one)(rngs, noise_vectors)
+    return rewards
+
+# Meta-optimization step
+def meta_update(rng_key, current_params, meta_opt_state, basis_per_layer, layer_basis_sizes, dataset_iter):
+    """
+    Perform one meta-iteration with ES.
+    """
+    # Sample noise vectors
+    key, subkey = jax.random.split(rng_key)
+    noise_shape = (population_size, params.shape[0])
+    noise_vectors = jax.random.normal(subkey, shape=noise_shape)
+
+    # Evaluate population
+    rewards = evaluate_population(key, current_params, noise_vectors, basis_per_layer, layer_basis_sizes, dataset_iter)
+
+    # Compute gradient estimation via ES
+    normalized_rewards = (rewards - jnp.mean(rewards)) / (jnp.std(rewards) + 1e-8)
+    # Gradient estimate: weighted sum
+    grad_estimate = (1. / (population_size * noise_std)) * jnp.mean(
+        (noise_vectors.T * normalized_rewards).T, axis=0
+    )
+
+    # Meta optimizer update
+    updates, new_opt_state = meta_optimizer.update(grad_estimate, meta_opt_state)
+    new_params = optax.apply_updates(current_params, updates)
+    return new_params, new_opt_state
+
+# Main meta-training loop
+def meta_train(rng_seed: int = 42):
+    rng = jax.random.PRNGKey(rng_seed)
+    dataset_iter = dataset_iterator(train_dataset, batch_size, rng)
+    coeffs, layer_basis_sizes = initialize_coefficients()
+
+    # Convert coefficients to jax DeviceArray
+    coeffs = jnp.array(coeffs)
+
+    for meta_iter in range(meta_iterations):
+        rng, subkey = jax.random.split(rng)
+        coeffs, opt_state = meta_update(subkey, coeffs, opt_state, basis_per_layer, layer_basis_sizes, dataset_iter)
+
+        # Optional: evaluate current f periodically
+        if meta_iter % 1000 == 0:
+            print(f"Meta iteration {meta_iter}")
+            # Evaluate on validation set
+            # For simplicity, perform a single inner train with current coeffs
+            init_w = init_target_weights(rng)
+            val_loss, val_acc = inner_train(rng, init_w, coeffs, layer_basis_sizes, basis_per_layer, inner_steps, dataset_iter)
+            print(f"Validation accuracy: {val_acc:.4f}")
+
+        # Save checkpoint if needed
+
+    return coeffs
+
+# Run meta-training
+if __name__ == "__main__":
+    final_coeffs = meta_train(rng_seed=sample_seed)
+
+    # Final evaluation on test set
+    init_w = init_target_weights(jax.random.PRNGKey(sample_seed))
+    val_loss, val_acc = inner_train(jax.random.PRNGKey(sample_seed), init_w, final_coeffs, basis_per_layer, basis_per_layer, inner_steps, dataset_iterator(test_dataset, batch_size, jax.random.PRNGKey(sample_seed)))
+    print(f"Final validation accuracy: {val_acc:.4f}")
+```

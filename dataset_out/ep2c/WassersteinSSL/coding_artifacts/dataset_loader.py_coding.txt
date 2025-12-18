@@ -1,0 +1,113 @@
+```python
+## dataset_loader.py
+import torch
+from torch.utils.data import DataLoader
+from torchvision import datasets, transforms
+import logging
+
+# Optional: Implement a custom GaussianBlur transform if not using built-in transforms
+class GaussianBlur(object):
+    def __init__(self, kernel_size=23, sigma=0.5):
+        self.kernel_size = kernel_size
+        self.sigma = sigma
+
+    def __call__(self, img):
+        # Use torchvision.transforms.GaussianBlur if torchvision >= 0.10.0
+        # For compatibility, implement a simple placeholder here
+        # but in practice, replace with torchvision.transforms.GaussianBlur
+        return img  # Placeholder: replace with actual implementation if needed
+
+# Default mean/std for CIFAR normalization
+_CIFAR_MEAN = [0.4914, 0.4822, 0.4465]
+_CIFAR_STD = [0.2470, 0.2435, 0.2616]
+
+
+class DatasetLoader:
+    def __init__(self, dataset_name: str, batch_size: int, augmentations: list, is_train: bool = True):
+        """
+        Initialize DatasetLoader.
+
+        Args:
+            dataset_name (str): "CIFAR-10" or "CIFAR-100"
+            batch_size (int): Number of samples per batch
+            augmentations (list): List of augmentation dicts e.g.,
+                [{"RandomCrop": [32, 32, 4]}, {"HorizontalFlip": True}, ...]
+            is_train (bool): Whether loading training data or validation/test data
+        """
+        self.dataset_name = dataset_name
+        self.batch_size = batch_size
+        self.augmentations = augmentations
+        self.is_train = is_train
+
+        self.transform = self._build_transform()
+
+    def _build_transform(self):
+        """
+        Build the composition of transformations based on augmentations.
+        Always include ToTensor and Normalize.
+        """
+        transform_list = []
+
+        # Apply data augmentations for training
+        if self.is_train:
+            # If augmentations are provided, add them accordingly
+            for aug in self.augmentations:
+                for key, value in aug.items():
+                    key_lower = key.lower()
+                    if key_lower == 'randomcrop':
+                        if isinstance(value, list) and len(value) >= 2:
+                            size = value[0]
+                            padding = value[2] if len(value) > 2 else 4
+                            transform_list.append(transforms.RandomCrop(size, padding=padding))
+                        else:
+                            # fallback or warning
+                            transform_list.append(transforms.RandomCrop(32, padding=4))
+                    elif key_lower == 'horizontalflip':
+                        if value:
+                            transform_list.append(transforms.RandomHorizontalFlip())
+                    elif key_lower == 'colorjitter':
+                        if isinstance(value, list) and len(value) == 4:
+                            transform_list.append(transforms.ColorJitter(
+                                brightness=value[0],
+                                contrast=value[1],
+                                saturation=value[2],
+                                hue=value[3]))
+                    elif key_lower == 'gaussianblur':
+                        # If torchvision version supports, replace with:
+                        # transforms.GaussianBlur(kernel_size=23, sigma=0.5)
+                        # For compatibility, here's a placeholder
+                        transform_list.append(GaussianBlur())
+                    else:
+                        # Unknown augmentation, log warning
+                        logging.warning(f"Unknown augmentation key: {key}. Skipping.")
+        # Common transformations
+        transform_list.extend([
+            transforms.ToTensor(),
+            transforms.Normalize(mean=_CIFAR_MEAN, std=_CIFAR_STD),
+        ])
+        return transforms.Compose(transform_list)
+
+    def load_data(self):
+        """
+        Load dataset with specified transformations and batching.
+        Returns a PyTorch DataLoader.
+        """
+        dataset_class = datasets.CIFAR10 if self.dataset_name == 'CIFAR-10' else datasets.CIFAR100
+
+        # Determine dataset split
+        train_flag = True if self.is_train else False
+
+        # Load dataset
+        dataset = dataset_class(root='./data', train=train_flag, transform=self.transform, download=True)
+
+        data_loader = DataLoader(
+            dataset,
+            batch_size=self.batch_size,
+            shuffle=self.is_train,
+            num_workers=2,
+            pin_memory=True,
+            drop_last=True  # keep batch size consistent
+        )
+
+        return data_loader
+```

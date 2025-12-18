@@ -1,0 +1,140 @@
+{
+  "utility_functions": [
+    {
+      "function_name": "log_results",
+      "description": "Logs the success status, EW score, number of refinement iterations, and resource usage details for each environment run to facilitate reproducibility and post-hoc analysis.",
+      "inputs": [
+        "env_id (str): Unique identifier for the environment/test case.",
+        "success (bool): Whether the plan successfully achieved the goal in the environment.",
+        "ew_score (float): The EW similarity score at the time of evaluation.",
+        "iterations (int): Number of refinement iterations performed for this environment.",
+        "resource_usage (dict): Dictionary containing relevant resource metrics, such as token counts and time."
+      ],
+      "outputs": ["None"],
+      "notes": "This function should handle logging levels, possibly output to console and save to a log file, respecting 'log_dir' and 'log_level' from configuration. It maintains traceability for experiments."
+    },
+    {
+      "function_name": "generate_prompt_initial_problem",
+      "description": "Constructs a prompt string for the LLM to generate an initial problem PDDL based on NL description, object list, and API signatures, using a predefined template.",
+      "inputs": [
+        "nl_description (str): Natural language description of the environment's task.",
+        "object_list (list): List of object identifiers and types involved in the environment.",
+        "api_signatures (dict): Signatures of environment API actions, including parameters and expected responses."
+      ],
+      "outputs": ["prompt (str)"],
+      "notes": "Uses the 'initial_prompt_template' from config.prompting; templates should be filled with the inputs. Ensures prompts are formatted consistently for repeatability."
+    },
+    {
+      "function_name": "generate_prompt_initial_domain",
+      "description": "Constructs a prompt string for the LLM to generate a domain PDDL given NL descriptions and API signatures, facilitating initial domain hypotheses.",
+      "inputs": [
+        "nl_description (str): NL domain description.",
+        "api_signatures (dict): Signatures of environment API actions."
+      ],
+      "outputs": ["prompt (str)"],
+      "notes": "Uses the 'domain_prompt_template' from config.prompting. Critical for generating a starting domain model for the refinement loop."
+    },
+    {
+      "function_name": "refine_prompt",
+      "description": "Constructs a refinement prompt to guide the LLM towards improving current domain model based on environment feedback and EW score.",
+      "inputs": [
+        "current_domain (str): The current PDDL domain model string.",
+        "environment_feedback (str or float): Feedback or EW-related scalar indicating current model shortcomings.",
+        "additional_context (dict, optional): Any supplementary info such as previous prompts or EW scores."
+      ],
+      "outputs": ["prompt (str)"],
+      "notes": "Uses the 'refinement_prompt_template' from config.prompting. The output prompt incorporates previous domain details and the feedback metric to steer LLM improvements."
+    },
+    {
+      "function_name": "execute_plan_in_environment",
+      "description": "Submits a plan, along with domain and problem files, to the environment API for execution and success verification.",
+      "inputs": [
+        "domain_file (str): PDDL domain file path or content string.",
+        "problem_file (str): PDDL problem file path or content string.",
+        "plan (str): Action sequence in PDDL plan format."
+      ],
+      "outputs": ["success (bool)"],
+      "notes": "The success indicates whether the plan achieves the environment's goal post-execution, as per environment API (see '/interact_environment'). In simulation, can be implemented by invoking the environment's execute or simulate method, capturing errors or success status."
+    },
+    {
+      "function_name": "is_plan_executable_in_environment",
+      "description": "Checks whether a given action sequence is feasible in the environment without full execution (e.g., using environment API or simulation).",
+      "inputs": [
+        "domain (str): Current PDDL domain string.",
+        "problem (str): Current PDDL problem string.",
+        "action_sequence (list): List of actions (strings) to verify."
+      ],
+      "outputs": ["feasible (bool)"],
+      "notes": "Should query environment API or interpreter to verify feasibility; does not necessarily execute but tests action steps for feasibility."
+    },
+    {
+      "function_name": "sample_action_sequences",
+      "description": "Samples a set of diverse action sequences from the environment, constrained by the maximum sampling length T_max and number of samples.`,
+      "inputs": [
+        "domain (str): PDDL domain content or object representing model.",
+        "problem (str): PDDL problem content or object.",
+        "sequence_length (int): Length T_max of each sequence.",
+        "num_samples (int): Number of sequences to sample."
+      ],
+      "outputs": ["List[List[str]]"],
+      "notes": "Generates random but valid action sequences based on environment's API, perhaps guided by current domain model or sampling heuristics. Used for computing EW scores."
+    },
+    {
+      "function_name": "compute_ew_score",
+      "description": "Calculates the Exploration Walk (EW) similarity metric between two domain models over a set of sampled sequences, based on environment feedback.",
+      "inputs": [
+        "domain1 (str): PDDL domain string for environment D.",
+        "domain2 (str): PDDL domain string for candidate or refined environment D_hat.",
+        "sequences1 (list): List of sampled sequences from domain1.",
+        "sequences2 (list): List of sampled sequences from domain2.",
+        "environment (Environment): Environment object encapsulating API to verify sequence executability.",
+        "max_length (int): The maximum length T_max for the EW walks."
+      ],
+      "outputs": ["ew_score (float)"],
+      "notes": "Implements the described EW metric involving sampling sequences, executing in environments, measuring executability probabilities, and combining via harmonic mean. Ensures metrics are symmetric and robust to trivial similarities."
+    },
+    {
+      "function_name": "evaluate_plan_success",
+      "description": "Determines if a plan is successful in achieving the environment goal, by checking against environment state or task completion signals.",
+      "inputs": [
+        "plan (str): Action plan in PDDL format.",
+        "environment (Environment): Environment object to verify goal achievement."
+      ],
+      "outputs": ["success (bool)"],
+      "notes": "May involve executing in environment or analyzing environment state/assertions indicating goal achievement."
+    },
+    {
+      "function_name": "parse_pddl_string",
+      "description": "Utility to parse a PDDL string and verify syntax correctness, predicate definitions, and action signatures.",
+      "inputs": ["pddl_str (str)"],
+      "outputs": ["parsed_structure (dict) or bool"],
+      "notes": "Support checking validity of generated PDDL files; potentially validate syntax before usage."
+    },
+    {
+      "function_name": "load_resource_metrics",
+      "description": "Extracts and formats resource usage stats (tokens, time, memory) from logs or API responses for reproducibility.",
+      "inputs": ["raw_output (dict or str)"],
+      "outputs": ["resource_metrics (dict)"],
+      "notes": "Captures token counts, runtime duration, and memory to support computing resource analysis."
+    },
+    {
+      "function_name": "save_to_logfile",
+      "description": "Saves structured logs—could be JSON or structured CSV—containing environment id, success flag, EW score, iterations, resource metrics.",
+      "inputs": [
+        "log_path (str): Path to log file directory.",
+        "log_data (dict): Data to persist, including environment id, metrics, resource usage."
+      ],
+      "outputs": ["None"],
+      "notes": "Supports detailed record-keeping for experiment reproducibility and analysis."
+    }
+  ],
+  "notes": [
+    "All functions should use consistent formatting for prompts, PDDL actions, and resource metrics, as per the templates provided.",
+    "Functions wrapped with resource management and exception handling to ensure robust execution.",
+    "Logging functions should adhere to the 'log_level' setting, and ensure logs are timestamped and uniquely tagged by environment id.",
+    "All functions should be designed with modularity, enabling easy testing and extension for new environments or feedback schemas.",
+    "When implementing, ensure that the environment API functions (execute_plan, check_feasibility) are consistent with the formal contract described in the system design and API spec.",
+    "Prioritize efficiency: for example, sample_action_sequences should minimize environment calls while providing representative samples for EW calculation.",
+    "In the final code, include docstrings, type annotations, and comments explaining the logic steps for clarity and ease of reproducibility."
+  ]
+}

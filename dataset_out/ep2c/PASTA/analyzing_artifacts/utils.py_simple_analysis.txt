@@ -1,0 +1,97 @@
+{
+  "title": "Logic Analysis for utils.py",
+  "purpose": "Implement utility functions to support overall pipeline, including configuration parsing, prompt generation with emphasis markers, dataset handling, logging, and any helper methods needed for model inference and profiling.",
+  "core functionalities": [
+    {
+      "name": "Configuration Parsing",
+      "description": "Load and validate the YAML configuration file (`config.yaml`).",
+      "details": [
+        "Use PyYAML to parse `config.yaml`.",
+        "Provide functions to access nested config fields with default fallbacks.",
+        "Ensure parameters like alpha, batch sizes, model names, dataset paths, etc., are properly loaded and accessible."
+      ],
+      "considerations": [
+        "Implement error handling for missing or malformed entries.",
+        "Add validation to check data types (e.g., float for alpha, int for number of heads)."
+      ]
+    },
+    {
+      "name": "Prompt Template Rendering",
+      "description": "Generate prompts dynamically given input text, highlighted spans, and task-specific templates.",
+      "details": [
+        "Provide functions such as `create_prompt(template_str, input_text, highlighted_spans, instruction)`.",
+        "Handle emphasis markers (e.g., `**` or custom delimiters), replacing placeholders in the templates.",
+        "Support multi-span highlights; spans can be continuous or discontinuous, with multiple emphasis parts.",
+        "Ensure prompts are well-formatted and compatible with the models' expectations."
+      ],
+      "considerations": [
+        "Make marker customization (e.g., emoji, markdown syntax) configurable via arguments or config.",
+        "Escape or sanitize input if necessary to prevent formatting issues."
+      ]
+    },
+    {
+      "name": "Dataset Loading & Preprocessing",
+      "description": "Provide functions to load datasets for each task, split into train/validation/test sets, and prepare samples for profiling and evaluation.",
+      "details": [
+        "Function like `load_dataset(task_name, dataset_paths)` to read datasets in expected formats (JSON, TSV, CSV).",
+        "Support parsing emphasis markers to determine highlighted token indices.",
+        "Tokenize datasets' input texts using the model tokenizer, ensuring alignment between tokens and original spans.",
+        "Implement a helper for creating small profiling datasets (`~1000 samples`) and larger test sets (`~5000`)."
+      ],
+      "considerations": [
+        "Ensure dataset files have consistent format, with tokens and labels aligned.",
+        "For datasets with emphasis annotations, extract token indices for `𝒢` (highlighted tokens)."
+      ]
+    },
+    {
+      "name": "Attention Score Extraction & Modification",
+      "description": "Provide functions to hook into model's internal attention scores, extract them, and modify them based on highlighted tokens.",
+      "details": [
+        "Implement functions such as `register_attention_hooks(model)` that attach hooks to model layers/heads for capturing attention matrices during forward pass.",
+        "Create `modify_attention_scores(attention_scores, highlighted_token_indices, alpha)` that applies the scaling and normalization as per the paper.",
+        "Support reweighting only heads specified during profiling; store head indices for applying modifications.",
+        "Ensure the reweighting is done **before** the softmax to avoid affecting downstream calculations.",
+        "Provide an interface to pass in the raw attention matrices and get back reweighted attention matrices, keeping the original data structure intact."
+      ],
+      "considerations": [
+        "Attention scores are typically tensors of shape `(batch_size, num_heads, seq_len, seq_len)`.",
+        "Modify attention scores head-wise, layer-wise, preserving model integrity."
+      ]
+    },
+    {
+      "name": "Logging & Helper Methods",
+      "description": "Implement logging functions to monitor progress, debug information, and evaluation results.",
+      "details": [
+        "Log steps such as dataset loading, profiling results, hyperparameter settings, inference progress, and evaluation metrics.",
+        "Use Python's `logging` module for flexible logging configurations."
+      ],
+      "considerations": [
+        "Include timestamps, task identifiers, and hyperparameter summaries in logs for reproducibility."
+      ]
+    },
+    {
+      "name": "Miscellaneous Helpers",
+      "description": "Additional functions for input validation, argument parsing, file management, and validation.",
+      "details": [
+        "Functions like `validate_params()` to ensure inputs are within expected ranges.",
+        "Helpers for saving/loading profiling results and attention head selections (e.g., serialize as JSON).",
+        "Functions to check if files exist, create directories, and manage temporary files."
+      ],
+      "considerations": [
+        "Implement robust error handling for file I/O."
+      ]
+    }
+  ],
+  "general considerations": [
+    "Ensure all functions are modular, stateless where possible, and clearly documented.",
+    "Design for flexibility: allow marker tokens and templates to be customizable via parameters or config entries.",
+    "Maintain compatibility: all functions should operate on data structures compatible with model inference (e.g., tokenized input, attention matrices).",
+    "Keep side effects minimal; only functions related to inference, dataset, or file I/O should modify external state."
+  ],
+  "uncertainties / clarifications needed": [
+    "Clarify the precise format of attention matrices from different models (e.g., Hugging Face transformers vs. custom models).",
+    "Confirm the best method for intercepting attention scores during inference—whether hooks are sufficient or model modifications are needed.",
+    "Determine if handling multiple models with different attention implementations requires additional abstraction."
+  ],
+  "final note": "All utility functions should serve to streamline dataset handling, prompt generation, attention modification, and logging, thus supporting the core experimental pipeline described in the plan while adhering closely to the paper's methodology."
+}

@@ -1,0 +1,43 @@
+----------------------------------------
+[Required packages]
+- numpy==1.21.0
+- torch==1.9.0
+- scipy==1.7.0
+- matplotlib==3.4.3
+- scikit-image==0.18.3
+- lpips==0.1.4
+
+----------------------------------------
+[Required Other language third-party packages]
+- No third-party dependencies required
+
+----------------------------------------
+[Logic Analysis]
+- ['dataset_loader.py', 'Defines Dataset class to load and preprocess DIV2K images, including normalization and augmentation if training from scratch. Implements functions to load images, provide indexing, and return image arrays as NumPy ndarrays.']
+- ['model.py', 'Contains neural network classes for implemented super-resolution architectures like EDSR, RCAN, SwinIR. Implements loading pretrained weights or training from scratch. Includes a function to generate the impulse response by feeding an impulse image through the model.']
+- ['signal_analysis.py', 'Provides functions to perform Fourier transforms, spectra analysis, and spectral spectrum comparison. Implements extraction of impulse responses, decomposition of network output into linear and nonlinear parts, and FSDS metric calculation.']
+- ['evaluation.py', 'Provides functions to compute PSNR, SSIM, LPIPS, and FSDS between HR and SR images. Includes functions to visualize spectra, impulse responses, and spectral similarity plots.']
+- ['main.py', 'Serves as the entry point orchestrating dataset loading, model inference, spectral analysis, and visualization. Coordinates execution order: load data -> load models -> generate impulse responses -> spectral analyses -> evaluate metrics -> visualize results.']
+- ['utils.py', 'Contains utility functions such as spectral normalization, spectral plotting, spectral similarity calculation, convolution operations, and helper functions to ensure code modularity.']
+
+----------------------------------------
+[Task list]
+- dataset_loader.py
+- model.py
+- signal_analysis.py
+- evaluation.py
+- utils.py
+- main.py
+
+----------------------------------------
+[Full API spec]
+openapi: 3.0.0 ...  # Not required unless integrating with a GUI or remote API. For core scripts, no API endpoints needed.
+
+----------------------------------------
+[Shared Knowledge]
+The scripts share common utilities such as spectral normalization, Fourier transform functions, and spectral plot routines stored in utils.py. Model weight paths and dataset parameters should be configurable via a config file or command-line arguments.
+
+----------------------------------------
+[Anything UNCLEAR]
+Clarify whether pretrained model weights are available or need to be trained from scratch. Confirm spectral analysis parameters such as FFT size, windowing functions, and specific model hyperparameters used in the original training.
+

@@ -1,0 +1,92 @@
+## generator.py
+import torch
+from typing import List, Optional
+from model import Model
+
+class ResponseGenerator:
+    """
+    ResponseGenerator provides an interface for generating responses using a language model.
+    It wraps around the core 'Model' class, supporting batch response generation with configurable parameters.
+    """
+
+    def __init__(self, model: Model, config: dict):
+        """
+        Initialize the ResponseGenerator with a preloaded model and configuration settings.
+        Sets default generation parameters based on config.yaml values.
+
+        Args:
+            model (Model): An instance of the core Model class, already loaded and on the correct device.
+            config (dict): Configuration dictionary loaded from 'config.yaml'.
+        """
+        self.model = model
+        self.tokenizer = model.tokenizer  # Access tokenizer from the model
+        self.device = model.model.device
+
+        # Retrieve default generation parameters from config or set defaults
+        gen_config = config.get('generation', {})
+        self.max_length = gen_config.get('max_length', 100)
+        self.temperature = gen_config.get('temperature', 0.7)
+
+    def generate_responses(
+        self,
+        prompts: List[str],
+        max_length: Optional[int] = None,
+        temperature: Optional[float] = None
+    ) -> List[str]:
+        """
+        Generate responses for a list of prompts using the language model.
+        Supports batching for efficiency.
+
+        Args:
+            prompts (List[str]): List of input prompt strings.
+            max_length (Optional[int]): Max tokens per response; defaults to class attribute or config.
+            temperature (Optional[float]): Sampling temperature; defaults to class attribute or config.
+
+        Returns:
+            List[str]: Generated response strings, clean and post-processed.
+        """
+        max_len = max_length if max_length is not None else self.max_length
+        temp = temperature if temperature is not None else self.temperature
+
+        # Tokenize prompts
+        inputs = self.tokenizer(prompts, return_tensors='pt', padding=True, truncation=True).to(self.device)
+
+        # Generate responses with model.generate
+        with torch.no_grad():
+            output_ids = self.model.model.generate(
+                input_ids=inputs['input_ids'],
+                attention_mask=inputs['attention_mask'],
+                max_length=max_len,
+                temperature=temp,
+                do_sample=True,
+                top_k=50,
+                top_p=0.95,
+                num_return_sequences=1,
+                eos_token_id=self.tokenizer.eos_token_id,
+                pad_token_id=self.tokenizer.pad_token_id
+            )
+
+        responses: List[str] = []
+        for ids in output_ids:
+            # Decode generated token IDs to text
+            text = self.tokenizer.decode(ids, skip_special_tokens=True)
+            # Post-process the response (e.g., strip whitespace)
+            clean_text = self._post_process(text)
+            responses.append(clean_text)
+
+        return responses
+
+    def _post_process(self, response: str) -> str:
+        """
+        Clean and normalize generated responses.
+
+        Args:
+            response (str): Raw text response from the model.
+
+        Returns:
+            str: Post-processed, cleaned response.
+        """
+        # Remove leading/trailing whitespace and collapse multiple spaces
+        response = response.strip()
+        # Further cleaning can be added here if needed
+        return response

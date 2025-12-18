@@ -1,0 +1,63 @@
+dataset:
+  name: MOVI
+  resolution: 128x128
+  frames_per_video: 24
+  dataset_split: official_split
+  object_max_count: 10 # for MOVI-A/B/C, set to 16 for D/E
+  is_realistic_scene: true
+
+training:
+  total_steps: 150000
+  batch_size: 32  # for MOVI-A/B/C; use 24 for D/E
+  segment_length: 3
+  learning_rate_schedule:
+    warmup_steps: 5000
+    max_lr: 1e-4
+    plateau_steps: 100000
+    decay_steps: 50_000
+  initial_lr: 1e-5
+  final_lr: 1e-5
+  warmup_lr: 1e-5
+  warmup_start_lr: 1e-6
+  kl_anneal_start_step: 0
+  kl_anneal_end_step: 50000
+  kl_final_weight: 0.7
+  kl_initial_weight: 0.0
+  use_replay_buffer: true
+  replay_buffer_size: 10000  # in frames
+  
+model:
+  slot_number: 11  # for MOVI-A/B/C; set to 16 for D/E
+  slot_embedding_dim: 128
+  transformer_mask_layers: 3
+  transformer_mask_heads: 3
+  transformer_prior_layers: 2
+  transformer_prior_heads: 3
+  decoder_layers: 3
+  decoder_heads: 3
+  feature_extractor: ResNet-like architecture
+  attention_unet_depth: 5 residual blocks
+  attention_unet_channels: 64 (initial channels, can be scaled)
+  slot_latent_dim: 128
+
+optimization:
+  optimizer: Adam
+  max_gradient_norm: 0.1
+  gradient_clipping: true
+  clip_norm_value: 0.1
+  slot_prior_weight: 1.0
+  result_save_path: ./results/
+  model_save_path: ./checkpoints/
+
+evaluation:
+  metrics:
+    fg_ari: true
+    mIoU: true
+  mask_threshold: 0.3
+  evaluation_interval: every 10k steps
+  visualization: true
+
+misc:
+  seed: 42
+  device: cuda
+  visualization_frames: 3 (select key frames for visualization)

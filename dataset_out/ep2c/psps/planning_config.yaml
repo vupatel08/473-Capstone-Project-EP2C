@@ -1,0 +1,28 @@
+training:
+  # As paper does not specify, use typical default for random forest and classic models
+  learning_rate: null  # Not applicable for tree-based models; placeholder
+  batch_size: null     # Not applicable for scikit-learn models; placeholder
+  epochs: null         # Not applicable for scikit-learn models; placeholder
+
+model:
+  type: RandomForestRegressor
+  n_estimators: 500
+  max_depth: null  # Use default, unless hyperparameter tuning is specified later
+  random_state: 42
+
+data:
+  synthetic: true  # Set to false if loading real datasets (e.g., UK Biobank)
+  labeled_size: 500
+  unlabeled_sizes: [1000, 2500, 5000, 10000]
+
+variance_estimation:
+  bootstrap_samples: 200
+
+analysis:
+  method: regression  # Options: 'mean', 'regression', 'quantile', etc. (set based on use case)
+
+experiment:
+  repetitions: 1000
+
+output:
+  results_dir: "results/"

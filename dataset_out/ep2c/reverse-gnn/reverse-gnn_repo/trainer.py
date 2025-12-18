@@ -1,0 +1,191 @@
+## trainer.py
+import torch
+import torch.nn as nn
+import torch.nn.functional as F
+
+class Trainer:
+    def __init__(self, model, predictor, data, hyperparams, device):
+        """
+        Initialize the Trainer with model, predictor, dataset, hyperparameters, and device.
+        Args:
+            model (DiffusionModel): diffusion-based GNN with inverse process capabilities.
+            predictor (nn.Module): classification head (e.g., linear or MLP).
+            data (tuple): (adj, features, labels, train_mask, val_mask, test_mask)
+            hyperparams (dict): hyperparameters like learning rate, epochs, diffusion times, etc.
+            device (torch.device): CPU or CUDA device.
+        """
+        self.model = model
+        self.predictor = predictor
+        self.adj, self.features, self.labels, self.train_mask, self.val_mask, self.test_mask = data
+        self.device = device
+
+        # Extract hyperparameters with defaults
+        self.lr = hyperparams.get('learning_rate', 1e-3)
+        self.batch_size = hyperparams.get('batch_size', self.features.shape[0])
+        self.epochs = hyperparams.get('epochs', 100)
+        self.weight_decay = hyperparams.get('weight_decay', 5e-4)
+        self.dropout = hyperparams.get('dropout', 0.5)
+        self.patience = hyperparams.get('patience', 10)
+        self.M = hyperparams.get('fixed_point_iter', 16)
+        self.L_F = hyperparams.get('num_forward_layers', 4)
+        self.L_R = hyperparams.get('num_reverse_layers', 4)
+        self.diff_TF = hyperparams.get('diffusion_time_TF', 1.0)
+        self.diff_TR = hyperparams.get('diffusion_time_TR', -1.0)
+        self.diff_step_size = hyperparams.get('diffusion_step_size', 0.1)
+        self.device = device
+
+        # Set optimizer: params of model and predictor
+        self.optimizer = torch.optim.Adam(
+            list(self.model.parameters()) + list(self.predictor.parameters()),
+            lr=self.lr,
+            weight_decay=self.weight_decay
+        )
+
+        self.best_val_acc = 0.0
+        self.wait = 0  # For early stopping
+        self.best_state_dict = None
+
+        # Ensure model weights have correct initial normalization if needed
+        self._normalize_weights()
+
+    def _normalize_weights(self):
+        """
+        Normalize weight matrices in the model to satisfy Lipschitz < 1 for invertibility.
+        Specifically, for W matrices, scale so that ||A||_2 * ||W||_F < 1.
+        """
+        # Assuming model has method to normalize residual layer weights
+        # e.g., model.normalize_all_weights()
+        if hasattr(self.model, 'normalize_weights_fn'):
+            self.model.normalize_weights_fn()
+
+    def train(self):
+        """
+        Full training loop with early stopping and model checkpointing.
+        """
+        for epoch in range(1, self.epochs + 1):
+            loss_value = self._train_one_epoch(epoch)
+            val_metrics = self._validate()
+
+            val_acc = val_metrics.get('accuracy', 0.0)
+            # Save best model
+            if val_acc > self.best_val_acc:
+                self.best_val_acc = val_acc
+                self.wait = 0
+                self.best_state_dict = {
+                    'model': self.model.state_dict(),
+                    'predictor': self.predictor.state_dict()
+                }
+            else:
+                self.wait += 1
+                if self.wait >= self.patience:
+                    print(f"Early stopping at epoch {epoch}")
+                    break
+        # Load best model
+        if self.best_state_dict is not None:
+            self.model.load_state_dict(self.best_state_dict['model'])
+            self.predictor.load_state_dict(self.best_state_dict['predictor'])
+
+    def _train_one_epoch(self, epoch):
+        """
+        Perform one epoch of training: diffusion forward, inverse, representation, loss, backprop.
+        """
+        self.model.train()
+        self.predictor.train()
+
+        # Reset gradients
+        self.optimizer.zero_grad()
+
+        # Forward diffusion: obtain diffused features at T_F
+        x0 = self.features
+        xT = self.model.forward_diffusion(x0=x0, M=self.M, dt=self.diff_step_size)
+        # Inverse process: approximate features at T_R
+        xT_R = self.model.inverse_process(xT=xT, T_R=self.diff_TR, M=self.M)
+
+        # Compute forward representation from features (could be features directly or diffused)
+        # Here, for consistent usage, we take features as initial x0
+        # and run forward through L_F layers (or use diffusion output)
+        # For simplicity, run diffusion for L_F + 1 steps (or just take xT)
+        # but following the paper, we can perform multiple residual layers
+        # For clarity, assume features go through L_F-layer stacking
+        # For this implementation, we perform diffusions with L_F steps separately
+        # Alternatively, we can batch process diffusion over full steps or reuse per-layer features.
+        # Here, we do a simple approach: run diffusion once, and use the final diffused features.
+        # For consistency with the paper, you may want to run multiple diffusion steps per layer.
+
+        # For simplicity, here:
+        fwd_repr = self.model.forward(x0)  # forward diffusion layers: call model.forward
+        # For multiple layers, in practice, run step-by-step; but here, suffice
+
+        # Similarly, get reverse representation at L_R layers (inverse process)
+        rev_repr = self.model.inverse(xT)  # apply inverse layers
+
+        # Compute logits: concatenate representations
+        logits = self.predictor.predict_logits(fwd_repr, rev_repr)
+
+        # Loss computation (classification)
+        loss_fn = nn.CrossEntropyLoss()
+        loss = loss_fn(logits[self.train_mask], self.labels[self.train_mask])
+
+        # Backpropagation
+        loss.backward()
+        self._clip_gradients()
+        self.optimizer.step()
+
+        # Normalize weights for invertibility
+        self._normalize_weights()
+
+        # Return loss for logging
+        return loss.item()
+
+    def _clip_gradients(self, max_norm=1.0):
+        """
+        Optional gradient clipping for training stability.
+        """
+        nn.utils.clip_grad_norm_(self.model.parameters(), max_norm)
+        nn.utils.clip_grad_norm_(self.predictor.parameters(), max_norm)
+
+    def _validate(self):
+        """
+        Run validation: diffusion forward, inverse, compute accuracy.
+        """
+        self.model.eval()
+        self.predictor.eval()
+
+        with torch.no_grad():
+            # Similar to train, but no backprop
+            x0 = self.features
+            xT = self.model.forward_diffusion(x0=x0, M=self.M, dt=self.diff_step_size)
+            xT_R = self.model.inverse_process(xT=xT, T_R=self.diff_TR, M=self.M)
+
+            # Obtain forward features
+            fwd_repr = self.model.forward(x0)
+            # Obtain reverse features
+            rev_repr = self.model.inverse(xT)
+
+            logits = self.predictor.predict_logits(fwd_repr, rev_repr)
+            preds = logits.argmax(dim=1)
+
+            correct = (preds[self.val_mask] == self.labels[self.val_mask]).sum().item()
+            total = self.val_mask.sum().item()
+            accuracy = correct / total
+
+        return {'accuracy': accuracy}
+
+    def save_model(self, path):
+        """
+        Save the model and predictor states.
+        """
+        torch.save({
+            'model_state_dict': self.model.state_dict(),
+            'predictor_state_dict': self.predictor.state_dict()
+        }, path)
+
+    def load_model(self, path=None):
+        """
+        Load saved model: if path is given, load from file.
+        """
+        if path is not None:
+            checkpoint = torch.load(path, map_location=self.device)
+            self.model.load_state_dict(checkpoint['model_state_dict'])
+            self.predictor.load_state_dict(checkpoint['predictor_state_dict'])
+        # else, load best saved weights if saved during training

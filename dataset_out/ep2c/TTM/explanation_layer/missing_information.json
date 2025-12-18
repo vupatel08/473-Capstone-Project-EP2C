@@ -1,0 +1,16 @@
+[
+  {
+    "type": "implementation",
+    "parameter": "placeholder",
+    "description": "Placeholder values found in models.py",
+    "severity": "medium",
+    "suggestion": "Replace placeholders with actual values"
+  },
+  {
+    "type": "hardware",
+    "parameter": "gpu",
+    "description": "GPU/CUDA code found but hardware requirements not specified in paper",
+    "severity": "low",
+    "suggestion": "Verify GPU requirements match paper's experimental setup"
+  }
+]

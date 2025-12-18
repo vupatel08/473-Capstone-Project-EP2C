@@ -1,0 +1,159 @@
+## model.py
+from transformers import AutoModelForCausalLM, AutoTokenizer
+import torch
+import os
+from typing import Optional
+
+class Model:
+    def __init__(self, model_name: str, device: str = 'cuda'):
+        """
+        Initialize the Model with a specified pre-trained model and device.
+
+        Args:
+            model_name (str): Name or path of the pretrained model. Supported: 'Llama-2-7b', 'Llama-2-13b', 'Llama-2-chat'.
+            device (str): 'cuda' or 'cpu'.
+        """
+        self.model_name = model_name
+        self.device = device
+        self.model = None
+        self.tokenizer = None
+        self._load_tokenizer()
+        self._load_model()
+        self.model.eval()
+
+    def _load_tokenizer(self):
+        """
+        Load the tokenizer for the specified model.
+        """
+        if self.model_name == 'Llama-2-7b':
+            # Use Meta's Llama-2-7b tokenizer
+            self.tokenizer = AutoTokenizer.from_pretrained('meta-llama/Llama-2-7b-hf')
+        elif self.model_name == 'Llama-2-13b':
+            # Use Meta's Llama-2-13b tokenizer
+            self.tokenizer = AutoTokenizer.from_pretrained('meta-llama/Llama-2-13b-hf')
+        elif self.model_name == 'Llama-2-chat':
+            # Use Llama-2-chat-specific model
+            # Assuming availability; otherwise, use Llama-2-7b with prompt engineering
+            self.tokenizer = AutoTokenizer.from_pretrained('meta-llama/Llama-2-7b-hf')
+        else:
+            raise ValueError(f"Unsupported model name: {self.model_name}")
+
+        # Ensure tokenizer has pad token
+        if self.tokenizer.pad_token is None:
+            self.tokenizer.add_special_tokens({'pad_token': self.tokenizer.eos_token})
+
+    def _load_model(self):
+        """
+        Load the pretrained model based on the model name.
+        """
+        if self.model_name == 'Llama-2-7b':
+            self.model = AutoModelForCausalLM.from_pretrained('meta-llama/Llama-2-7b-hf', torch_dtype=torch.float16)
+        elif self.model_name == 'Llama-2-13b':
+            self.model = AutoModelForCausalLM.from_pretrained('meta-llama/Llama-2-13b-hf', torch_dtype=torch.float16)
+        elif self.model_name == 'Llama-2-chat':
+            # Assuming chat variant is available under same identifier
+            self.model = AutoModelForCausalLM.from_pretrained('meta-llama/Llama-2-7b-hf', torch_dtype=torch.float16)
+        else:
+            raise ValueError(f"Unsupported model name: {self.model_name}")
+
+        self.model.to(self.device)
+
+    def generate(self, prompt: str, temperature: float = 1.0, max_tokens: int = 250) -> str:
+        """
+        Generate a response given a prompt.
+
+        Args:
+            prompt (str): Input prompt text.
+            temperature (float): Sampling temperature.
+            max_tokens (int): Maximum tokens to generate.
+
+        Returns:
+            str: Generated response text.
+        """
+        inputs = self.tokenizer(prompt, return_tensors='pt').to(self.device)
+        input_ids = inputs['input_ids']
+        attention_mask = inputs['attention_mask']
+
+        with torch.no_grad():
+            output_ids = self.model.generate(
+                input_ids=input_ids,
+                attention_mask=attention_mask,
+                max_new_tokens=max_tokens,
+                temperature=temperature,
+                do_sample=True,
+                top_p=0.9,
+                top_k=50,
+                pad_token_id=self.tokenizer.eos_token_id
+            )
+        # Response tokens are after prompt
+        response_ids = output_ids[0][input_ids.shape[-1]:]
+        response_text = self.tokenizer.decode(response_ids, skip_special_tokens=True)
+        return response_text.strip()
+
+    def log_probability(self, prompt: str, response: str) -> float:
+        """
+        Compute log probability of the response given the prompt.
+
+        Args:
+            prompt (str): Input prompt.
+            response (str): Response text.
+
+        Returns:
+            float: Average log probability of response tokens conditioned on prompt.
+        """
+        # Concatenate prompt and response
+        combined_text = prompt + response
+        inputs = self.tokenizer(combined_text, return_tensors='pt')
+        input_ids = inputs['input_ids'].to(self.device)
+        # Prepare inputs for model
+        with torch.no_grad():
+            outputs = self.model(input_ids)
+            logits = outputs.logits  # shape: (seq_len, vocab_size)
+        # Compute log softmax
+        log_probs = torch.nn.functional.log_softmax(logits, dim=-1)
+        # Extract input_ids for prompt+response
+        seq_len = input_ids.shape[1]
+        # For each token, get the log probability of the actual token
+        # The probability of token at position i is conditioned on tokens before it
+        # So, shift predictions by one to match tokens
+        # For position i, the predicted distribution is logits for position i-1
+        # But torch's logits are aligned with input_ids at position i
+        # For computing response likelihood, focus on response tokens after prompt
+        prompt_ids = self.tokenizer(prompt, return_tensors='pt')['input_ids'].to(self.device)
+        prompt_len = prompt_ids.shape[1]
+
+        total_log_prob = 0.0
+        count = 0
+        for i in range(prompt_len, seq_len):
+            token_id = input_ids[0, i]
+            token_log_prob = log_probs[i - 1, 0, token_id]
+            total_log_prob += token_log_prob.item()
+            count += 1
+        # Average over response tokens
+        if count == 0:
+            return 0.0  # No response tokens, unlikely but safe fallback
+        avg_log_prob = total_log_prob / count
+        return avg_log_prob
+
+    def save(self, save_path: str):
+        """
+        Save the model weights and tokenizer.
+
+        Args:
+            save_path (str): Directory path to save model and tokenizer.
+        """
+        os.makedirs(save_path, exist_ok=True)
+        self.model.save_pretrained(save_path)
+        self.tokenizer.save_pretrained(save_path)
+
+    def load(self, load_path: str):
+        """
+        Load model weights and tokenizer from directory.
+
+        Args:
+            load_path (str): Directory path to load model from.
+        """
+        self.tokenizer = AutoTokenizer.from_pretrained(load_path)
+        self.model = AutoModelForCausalLM.from_pretrained(load_path, torch_dtype=torch.float16)
+        self.model.to(self.device)
+        self.model.eval()

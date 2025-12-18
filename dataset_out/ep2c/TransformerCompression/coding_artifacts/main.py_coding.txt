@@ -1,0 +1,173 @@
+```python
+## main.py
+import yaml
+import os
+import torch
+
+from dataset_loader import DatasetLoader
+from model import ModelWrapper
+from pca_transform import PCAProcessor
+from slicer import Slicer
+from fine_tuning import FineTuner
+from evaluation import Evaluator
+
+def main():
+    # 1. Load configuration from YAML
+    with open('config.yaml', 'r') as f:
+        config = yaml.safe_load(f)
+
+    # Extract relevant parameters
+    model_name = config['model']['model_name']
+    model_ckpt_path = config['model'].get('model_checkpoint_path', None)
+    use_rmsnorm = config['model'].get('use_rmsnorm', True)
+
+    calibration_dataset_cfg = config['data']['calibration_dataset']
+    fine_tuning_dataset_cfg = config['data'].get('fine_tuning_dataset', None)
+
+    slicing_ratio = config['slicing'].get('ratio', 0.25)
+    spectrum_threshold = config['slicing'].get('spectrum_threshold', 'auto')
+    keep_ratio_for_spectrum = 1 - slicing_ratio  # For eigen-spectrum retention
+
+    evaluation_cfg = config.get('evaluation', {})
+    eval_tasks = evaluation_cfg.get('tasks', [
+        'piqa', 'wic', 'hellaswag', 'arc_e', 'arc_c'
+    ])
+    eval_device = evaluation_cfg.get('hardware', {}).get('device', 'cuda')
+    gpus = evaluation_cfg.get('hardware', {}).get('gpus', 1)
+    use_speed = evaluation_cfg.get('hardware', {}).get('use_speed_measure', True)
+
+    # 2. Initialize dataset loader for calibration
+    calib_samples = calibration_dataset_cfg.get('sample_size', 1024)
+    calib_seq_len = calibration_dataset_cfg.get('sequence_length', 2048)
+    dataset_loader = DatasetLoader(
+        dataset_name=calibration_dataset_cfg['name'],
+        dataset_path=None,  # assuming public datasets, or specify if local
+        model_name_or_path='gpt2', # tokenizer support (used for tokenization)
+        sample_size=calib_samples,
+        sequence_length=calib_seq_len,
+        batch_size=32,
+        seed=42
+    )
+
+    # 3. Load or initialize model
+    model_wrapper = ModelWrapper(
+        model_name=model_name,
+        model_checkpoint_path=model_ckpt_path,
+        use_rmsnorm=use_rmsnorm
+    )
+    model_wrapper.load_model()
+
+    # 4. Convert to RMSNorm if flag set
+    if use_rmsnorm:
+        print("Converting model to RMSNorm...")
+        model_wrapper.convert_to_rmsnorm()
+
+    # 5. Collect signals via model forward on dataset
+    print("Collecting signals for PCA...")
+    signals = dataset_loader.get_signals(model_wrapper)
+
+    # 6. Compute PCA eigenvectors for each layer
+    pca_processor = PCAProcessor(
+        signals,
+        model_wrapper,
+        spectrum_threshold=spectrum_threshold,
+        save_path='eigenvectors/',
+        debug=True
+    )
+
+    # 7. Compute or load eigenvectors (Q matrices)
+    if not os.path.exists('eigenvectors'):
+        os.makedirs('eigenvectors')
+    # Assuming the signals are collected per layer or as a list; here, dummy call:
+    pca_processor.compute_eigenvectors()
+    pca_processor.save_eigenvectors('eigenvectors/')
+
+    # 8. Load eigenvectors explicitly if required
+    pca_processor.load_eigenvectors('eigenvectors/')
+
+    # 9. Apply orthogonal transformations
+    print("Applying orthogonal transformations to weights...")
+    for layer_idx in range(len(pca_processor.Qs)):
+        Q = pca_processor.Qs[layer_idx]
+        model_wrapper.apply_transformation(Q, layer_idx)
+
+    # 10. Slicing weights based on eigen-spectrum analysis
+    print("Slicing weights based on selected spectrum threshold...")
+    slicer = Slicer(
+        model_wrapper,
+        eigenvectors=pca_processor.Qs,
+        spectrum_threshold=spectrum_threshold,
+        debug=True
+    )
+
+    # 11. Perform slicing (retaining top components)
+    slicer.slice_all_layers(keep_ratio=keep_ratio_for_spectrum)
+
+    # 12. Optional: residual adjustments for block-wise orthogonal invariance
+    # (handled internally or as per your implementation. For simplicity, skipped here)
+
+    # 13. Fine-tuning / Recovery (if enabled)
+    fine_tune_flag = config['training'].get('fine_tune', True)
+    if fine_tune_flag:
+        print("Starting recovery fine-tuning...")
+        num_steps = config['training'].get('steps', 1000)
+        lora_rank = 16  # or from config
+        fine_tuner = FineTuner(
+            model=model_wrapper,
+            dataset=DatasetLoader(
+                dataset_name=fine_tuning_dataset_cfg['name'],
+                dataset_path=None,
+                model_name_or_path='gpt2',
+                sample_size=fine_tuning_dataset_cfg.get('sample_size', 5000),
+                sequence_length=fine_tuning_dataset_cfg.get('sequence_length', 1024),
+                batch_size=32,
+                seed=42
+            ),
+            device=eval_device,
+            learning_rate=config['training'].get('learning_rate', 1e-4),
+            batch_size=32,
+            steps=num_steps,
+            lora_rank=lora_rank
+        )
+        fine_tuner.train()
+    else:
+        print("Skipping fine-tuning step.")
+
+    # 14. Final evaluation
+    print("Starting evaluation...")
+    evaluator = Evaluator(
+        model=model_wrapper,
+        calib_dataset=dataset_loader,
+        tasks=eval_tasks,
+        device=eval_device,
+        gpus=gpus,
+        use_speed_measure=use_speed
+    )
+
+    perplexity = evaluator.evaluate_perplexity()
+    zero_shot_results = evaluator.evaluate_zero_shot()
+    throughput = evaluator.measure_throughput(
+        batch_size=128,
+        sequence_length=128,
+        device=eval_device
+    )
+
+    # 15. Print summarized results
+    print("\n=== Final Results ===")
+    print(f"Perplexity: {perplexity:.2f}")
+    print("Zero-shot accuracy on tasks:")
+    for task, score in zero_shot_results.items():
+        if task != 'all_tasks_avg':
+            print(f" - {task}: {score:.2f}%")
+    print(f"Average zero-shot accuracy: {zero_shot_results.get('all_tasks_avg', 0):.2f}%")
+    print(f"Throughput: {throughput:.2f} tokens/sec (batch=128, seq=128)")
+
+    # 16. Save the sliced + fine-tuned model for reproducibility
+    sliced_model_path = 'sliced_model_checkpoint'
+    os.makedirs(sliced_model_path, exist_ok=True)
+    torch.save(model_wrapper.get_model().state_dict(), os.path.join(sliced_model_path, 'model_weights.pt'))
+    print(f"Saved sliced model at {sliced_model_path}")
+
+if __name__ == '__main__':
+    main()
+```

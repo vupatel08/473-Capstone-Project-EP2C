@@ -1,0 +1,95 @@
+{
+  "trainer.py": {
+    "Overview": "This module orchestrates the training, validation, and testing procedures for both pretraining and finetuning phases of the MutaPLM system. It manages data iteration, forward passes through models, loss computation for multiple objectives, backpropagation, optimizer updates, learning rate scheduling, checkpointing, and evaluation. It supports multi-task objectives, including sequence masking, text generation, cross-modal alignment, mutation explanation, and mutation proposal tasks, aligned with the paper's methodology.",
+    "Main Components": {
+      "Initialization": {
+        "Inputs": [
+          "model (from model.py)",
+          "datasets (from dataset_loader.py)",
+          "prompt templates (from prompt_templates.py)",
+          "training hyperparameters (from config.yaml)",
+          "optimizer, scheduler, loss functions"
+        ],
+        "Tasks": [
+          "Instantiate neural network components: PLMs, text encoders, delta networks",
+          "Wrap datasets with proper batching and tokenization",
+          "Initialize optimizer, scheduler with provided hyperparameters",
+          "Set up checkpointing, logging, and evaluation hooks"
+        ]
+      },
+      "Training Loop": {
+        "Stages": [
+          "Pretraining phase:",
+          "Finetuning phase:"
+        ],
+        "Per-Epoch Process": {
+          "Data Loading": "Iterate over datasets in batches",
+          "Forward Pass": {
+            "common": "For each batch, compute model outputs",
+            "pretraining": [
+              "Sequence masking prediction",
+              "Text generation prediction",
+              "Cross-modal embedding alignment"
+            ],
+            "finetuning": [
+              "Function description generation (first round)",
+              "Mutational effect explanation (second round)",
+              "Mutation proposal prediction (second round)"
+            ]
+          },
+          "Loss Calculation": {
+            "Objectives": [
+              "Sequence masking loss (cross-entropy with masked amino acids)",
+              "Text generation loss (cross-entropy over generated tokens)",
+              "Cross-modal embedding loss (alignment between text and protein features)",
+              "Mutation explanation loss (ROUGE, BLEU, METEOR approximations or token-level CE)",
+              "Mutation proposal loss (classification of mutations, positional and amino acid heads)"
+            ],
+            "Implementation": "Combine all or sub-objectives with appropriate weights (from hyperparameters)",
+            "Notes": "Use functions from utils.py for loss computation; follow the paper's detailed formulas"
+          },
+          "Backward & Optimization": {
+            "Gradient Calculation": "Backpropagate total loss",
+            "Gradient Clipping": "Apply gradient clipping with value from config to stabilize training",
+            "Optimizer Step": "Update model parameters",
+            "Learning Rate Scheduler": "Adjust learning rate as scheduled"
+          },
+          "Checkpointing & Logging": {
+            "Frequency": "Every N steps or epochs, as configured",
+            "Content": "Model weights, optimizer states, training metrics, loss history"
+          }
+        }
+      },
+      "Validation & Evaluation": {
+        "Frequency": "At regular intervals (every epoch or specified steps)",
+        "Procedures": {
+          "Evaluation on validation set": "Compute defined metrics (ROUGE-L, BLEU, METEOR for explanation; recall@50, accuracy for proposals)",
+          "Model selection": "Save best checkpoints based on validation performance",
+          "Evaluation on test set": "At final stage, similarly profile and report metrics"
+        }
+      },
+      "Supporting functions": {
+        "Batch Preparation": "Tokenize sequences, texts, prepare input tensors",
+        "Loss functions": "Implement per-objective loss functions with masking and weighting",
+        "Model Saving": "Save checkpoints and logs in structured directories",
+        "Learning Rate Scheduling": "Implement warmup + cosine decay or linear warmup schedule",
+        "Logging": "Track metrics with tensorboard or simple logging for reproducibility"
+      },
+      "Special Considerations": {
+        "Multi-task Handling": "Combine multiple losses with weights; ensure gradients are properly accumulated",
+        "Chain-of-Thought Prompts": "Generate specific prompts for first and second round dialogues during training, possibly with teacher forcing",
+        "Data Handling": "Ensure data batches preserve sequence order, alignment, and enriched textual info",
+        "Model Components": "Maintain modularity to allow swapping between different PLMs or text encoders",
+        "Reproducibility": "Set random seeds, document hyperparameters, maintain code version & environment info"
+      },
+      "Unclear / Needs Confirmation": {
+        "Loss balancing": "Exact weights for multi-objective losses (e.g., sequence CE vs. text CE) not specified, approximate from paper",
+        "Evaluation metrics implementations": "Use established packages (e.g., nltk, rouge-score, sacrebleu) for BLEU, ROUGE",
+        "Training schedule details": "Exact schedule (warmup steps, decay) to match paper preferences",
+        "Handling special tokens": "Ensure prompt tokens, <BOP>, <EOP>, <BOM>, <EOM> are correctly tokenized and integrated"
+      }
+    },
+    "Summary": "The trainer.py module’s core logic encompasses dataset iteration, model forward passes, multi-task loss calculation, backpropagation, and evaluation, supporting both pretraining and finetuning. It integrates the components from model.py, dataset_loader.py, and prompt_templates.py, following the described multi-task objectives. Proper modular design, hyperparameter consistency, and detailed logging are essential to faithfully reproduce the experiments as per the paper’s methodology.",
+    "Next steps": "Once the logic is validated, implementation can proceed with ontology-compliant code, modular abstraction, and careful hyperparameter tuning to match the paper’s experimental settings."
+  }
+}

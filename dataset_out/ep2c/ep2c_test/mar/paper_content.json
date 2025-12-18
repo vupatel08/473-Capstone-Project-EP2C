@@ -1,0 +1,158 @@
+{
+  "title": "Autoregressive Image Generation without Vector Quantization",
+  "abstract": "Tianhong Li1 Yonglong Tian2 He Li3 Mingyang Deng1 Kaiming He1",
+  "authors": [],
+  "body_text": [
+    {
+      "text": "# Autoregressive Image Generation without Vector Quantization"
+    },
+    {
+      "text": "Tianhong Li1 Yonglong Tian2 He Li3 Mingyang Deng1 Kaiming He1"
+    },
+    {
+      "text": "1MIT CSAIL 2Google DeepMind 3Tsinghua University"
+    },
+    {
+      "text": "# Abstract"
+    },
+    {
+      "text": "Conventional wisdom holds that autoregressive models for image generation are typically accompanied by vector-quantized tokens. We observe that while a discrete-valued space can facilitate representing a categorical distribution, it is not a necessity for autoregressive modeling. In this work, we propose to model the per-token probability distribution using a diffusion procedure, which allows us to apply autoregressive models in a continuous-valued space. Rather than using categorical cross-entropy loss, we define a Diffusion Loss function to model the pertoken probability. This approach eliminates the need for discrete-valued tokenizers. We evaluate its effectiveness across a wide range of cases, including standard autoregressive models and generalized masked autoregressive (MAR) variants. By removing vector quantization, our image generator achieves strong results while enjoying the speed advantage of sequence modeling. We hope this work will motivate the use of autoregressive generation in other continuous-valued domains and applications. Code is available at https://github.com/LTH14/mar."
+    },
+    {
+      "text": "# 1 Introduction"
+    },
+    {
+      "text": "Autoregressive models are currently the de facto solution to generative models in natural language processing [38, 39, 3]. These models predict the next word or token in a sequence based on the previous words as input. Given the discrete nature of languages, the inputs and outputs of these models are in a categorical, discrete-valued space. This prevailing approach has led to a widespread belief that autoregressive models are inherently linked to discrete representations."
+    },
+    {
+      "text": "As a result, research on generalizing autoregressive models to continuous-valued domains—most notably, image generation—has intensely focused on discretizing the data [6, 13, 40]. A commonly adopted strategy is to train a discrete-valued tokenizer on images, which involves a finite vocabulary obtained by vector quantization (VQ) [51, 41]. Autoregressive models are then operated on the discrete-valued token space, analogous to their language counterparts."
+    },
+    {
+      "text": "In this work, we aim to address the following question: Is it necessary for autoregressive models to be coupled with vector-quantized representations? We note that the autoregressive nature, i.e., “predicting next tokens based on previous ones”, is independent of whether the values are discrete or continuous. What is needed is to model the per-token probability distribution, which can be measured by a loss function and used to draw samples from. Discrete-valued representations can be conveniently modeled by a categorical distribution, but it is not conceptually necessary. If alternative models for per-token probability distributions are presented, autoregressive models can be approached without vector quantization."
+    },
+    {
+      "text": "With this observation, we propose to model the per-token probability distribution by a diffusion procedure operating on continuous-valued domains. Our methodology leverages the principles of diffusion models [45, 24, 33, 10] for representing arbitrary probability distributions. Specifically, our method autoregressively predicts a vector $z$ for each token, which serves as a conditioning for a denoising network (e.g., a small MLP). The denoising diffusion procedure enables us to represent an underlying distribution $p ( x | z )$ for the output $x$ (Figure 1). This small denoising network is trained jointly with the autoregressive model, with continuous-valued tokens as the input and target. Conceptually, this small prediction head, applied to each token, behaves like a loss function for measuring the quality of $z$ . We refer to this loss function as Diffusion Loss."
+    },
+    {
+      "text": "![](images/0efe93c0763fb5fda649b38452a1cf4ffc67e465d2ef17f9535bf1631af7bc61.jpg)  \nFigure 1: Diffusion Loss. Given a continuous-valued token $x$ to be predicted, the autoregressive model produces a vector $z$ , which serves as the condition of a denoising diffusion network (a small MLP). This offers a way to model the probability distribution $p ( x | z )$ of this token. This network is trained jointly with the autoregressive model by backpropagation. At inference time, with a predicted $z$ , running the reverse diffusion procedure can sample a token following the distribution: $x \\sim p ( x | z )$ . This method eliminates the need for discrete-valued tokenizers."
+    },
+    {
+      "text": "Our approach eliminates the need for discrete-valued tokenizers. Vector-quantized tokenizers are difficult to train and are sensitive to gradient approximation strategies [51, 41, 40, 27]. Their reconstruction quality often falls short compared to continuous-valued counterparts [42]. Our approach allows autoregressive models to enjoy the benefits of higher-quality, non-quantized tokenizers."
+    },
+    {
+      "text": "To broaden the scope, we further unify standard autoregressive (AR) models [13] and masked generative models [4, 29] into a generalized autoregressive framework (Figure 3). Conceptually, masked generative models predict multiple output tokens simultaneously in a randomized order, while still maintaining the autoregressive nature of “predicting next tokens based on known ones”. This leads to a masked autoregressive (MAR) model that can be seamlessly used with Diffusion Loss."
+    },
+    {
+      "text": "We demonstrate by experiments the effectiveness of Diffusion Loss across a wide variety of cases, including AR and MAR models. It eliminates the need for vector-quantized tokenizers and consistently improves generation quality. Our loss function can be flexibly applied with different types of tokenizers. Further, our method enjoys the advantage of the fast speed of sequence models. Our MAR model with Diffusion Loss can generate at a rate of $< 0 . 3$ second per image while achieving a strong FID of $< 2 . 0$ on ImageNet $2 5 6 \\times 2 5 6$ . Our best model can approach 1.55 FID."
+    },
+    {
+      "text": "The effectiveness of our method reveals a largely uncharted realm of image generation: modeling the interdependence of tokens by autoregression, jointly with the per-token distribution by diffusion. This is in contrast with typical latent diffusion models [42, 37] in which the diffusion process models the joint distribution of all tokens. Given the effectiveness, speed, and flexibility of our method, we hope that the Diffusion Loss will advance autoregressive image generation and be generalized to other domains in future research."
+    },
+    {
+      "text": "# 2 Related Work"
+    },
+    {
+      "text": "Sequence Models for Image Generation. Pioneering efforts on autoregressive image models [17, 50, 49, 36, 7, 6] operate on sequences of pixels. Autoregression can be performed by RNNs [50], CNNs [49, 7], and, most lately and popularly, Transformers [36, 6]. Motivated by language models, another series of works [51, 41, 13, 40] model images as discrete-valued tokens. Autoregressive [13, 40] and masked generative models [4, 29] can operate on the discrete-valued token space. But discrete tokenizers are difficult to train, which has recently drawn special focus [27, 54, 32]."
+    },
+    {
+      "text": "Related to our work, the recent work on GIVT [48] also focuses on continuous-valued tokens in sequence models. GIVT and our work both reveal the significance and potential of this direction. In GIVT, the token distribution is represented by Gaussian mixture models. It uses a pre-defined number of mixtures, which can limit the types of distributions it can represent. In contrast, our method leverages the effectiveness of the diffusion process for modeling arbitrary distributions."
+    },
+    {
+      "text": "Diffusion for Representation Learning. The denoising diffusion process has been explored as a criterion for visual self-supervised learning. For example, DiffMAE [53] replaces the L2 loss in the original MAE [21] with a denoising diffusion decoder; DARL [30] trains autoregressive models with a denoising diffusion patch decoder. These efforts have been focused on representation learning, rather than image generation. In their scenarios, generating diverse images is not a goal; these methods have not presented the capability of generating new images from scratch."
+    },
+    {
+      "text": "Diffusion for Policy Learning. Our work is conceptually related to Diffusion Policy [8] in robotics. In those scenarios, the distribution of taking an action is formulated as a denoising process on the robot observations, which can be pixels or latents [8, 34]. In image generation, we can think of generating a token as an “action” to take. Despite this conceptual connection, the diversity of the generated samples in robotics is less of a core consideration than it is for image generation."
+    },
+    {
+      "text": "# 3 Method"
+    },
+    {
+      "text": "In a nutshell, our image generation approach is a sequence model operated on a tokenized latent space [6, 13, 40]. But unlike previous methods that are based on vector-quantized tokenizers (e.g., variants of VQ-VAE [51, 13]), we aim to use continuous-valued tokenizers (e.g., [42]). We propose Diffusion Loss that makes sequence models compatible with continuous-valued tokens."
+    },
+    {
+      "text": "# 3.1 Rethinking Discrete-Valued Tokens"
+    },
+    {
+      "text": "To begin with, we revisit the roles of discrete-valued tokens in autoregressive generation models. Denote as $x$ the ground-truth token to be predicted at the next position. With a discrete tokenizer, $x$ can be represented as an integer: $0 \\leq x < K$ , with a vocabulary size $K$ . The autoregressive model produces a continuous-valued $D$ -dim vector $z \\in \\mathbb { R } ^ { D }$ , which is then projected by a $K$ -way classifier matrix $W \\in \\mathbb { R } ^ { K \\times D }$ . Conceptually, this formulation models a categorical probability distribution in the form of $p ( x | z ) = \\operatorname { s o f t m a x } ( W z )$ ."
+    },
+    {
+      "text": "In the context of generative modeling, this probability distribution must exhibit two essential properties. (i) A loss function that can measure the difference between the estimated and true distributions. In the case of categorical distribution, this can be simply done by the cross-entropy loss. (ii) A sampler that can draw samples from the distribution $x \\sim p ( x | z )$ at inference time. In the case of categorical distribution, this is often implemented as drawing a sample from $p ( x | z ) = \\operatorname { s o f t m a x } ( W z / \\tau )$ , in which $\\tau$ is a temperature that controls the diversity of the samples. Sampling from a categorical distribution can be approached by the Gumbel-max method [18] or inverse transform sampling."
+    },
+    {
+      "text": "This analysis suggests that discrete-valued tokens are not necessary for autoregressive models. Instead, it is the requirement of modeling a distribution that is essential. A discrete-valued token space implies a categorical distribution, whose loss function and sampler are simple to define. What we actually need are a loss function and its corresponding sampler for distribution modeling."
+    },
+    {
+      "text": "# 3.2 Diffusion Loss"
+    },
+    {
+      "text": "Denoising diffusion models [24] offer an effective framework to model arbitrary distributions. But unlike common usages of diffusion models for representing the joint distribution of all pixels or all tokens, in our case, the diffusion model is for representing the distribution for each token."
+    },
+    {
+      "text": "Consider a continuous-valued vector $x \\in \\mathbb { R } ^ { d }$ , which denotes the ground-truth token to be predicted at the next position. The autoregressive model produces a vector $\\mathbf { \\boldsymbol { z } } \\in \\mathbb { R } ^ { D }$ at this position. Our goal is to model a probability distribution of $x$ conditioned on $z$ , that is, $p ( x | z )$ . The loss function and sampler can be defined following the diffusion models [24, 33, 10], described next."
+    },
+    {
+      "text": "Loss function. Following [24, 33, 10], the loss function of an underlying probability distribution $p ( x | z )$ can be formulated as a denoising criterion:"
+    },
+    {
+      "text": "$$\n\\mathcal { L } ( z , x ) = \\mathbb { E } _ { \\varepsilon , t } \\left[ \\left. \\varepsilon - \\varepsilon _ { \\theta } ( x _ { t } \\vert t , z ) \\right. ^ { 2 } \\right] .\n$$"
+    },
+    {
+      "text": "Here, $\\varepsilon \\in \\mathbb { R } ^ { d }$ is a noise vector sampled from $\\mathcal { N } ( \\mathbf { 0 } , \\mathbf { I } )$ . The noise-corrupted vector $x _ { t }$ is $\\begin{array} { r l } { x _ { t } } & { { } = } \\end{array}$ $\\sqrt { \\bar { \\alpha } _ { t } } x + \\sqrt { 1 - \\bar { \\alpha } _ { t } } \\varepsilon$ , where $\\bar { \\alpha } _ { t }$ defines a noise schedule [24, 33]. $t$ is a time step of the noise schedule. The noise estimator $\\varepsilon _ { \\theta }$ , parameterized by $\\theta$ , is a small MLP network (see Sec. 4). The notation $\\varepsilon _ { \\boldsymbol { \\theta } } ( x _ { t } | t , z )$ means that this network takes $x _ { t }$ as the input, and is conditional on both $t$ and $z$ . As per [46, 47], Eqn. (1) conceptually behaves like a form of score matching: it is related to a loss function concerning the score function of $p ( x | z )$ , that is, $\\nabla \\log _ { x } p ( x | z )$ . Diffusion Loss is a parameterized loss function, in the same vein as the adversarial loss [15] or perceptual loss [56]."
+    },
+    {
+      "text": "It is worth noticing that the conditioning vector $z$ is produced by the autoregressive network: $z =$ $f ( \\cdot )$ , as we will discuss later. The gradient of $z = f ( \\cdot )$ is propagated from the loss function in Eqn. (1). Conceptually, Eqn. (1) defines a loss function for training the network $f ( \\cdot )$ ."
+    },
+    {
+      "text": "We note that the expectation $\\mathbb { E } _ { \\varepsilon , t } [ \\cdot ]$ in Eqn. (1) is over $t$ , for any given $z$ . As our denoising network is small, we can sample $t$ multiple times for any given $z$ . This helps improve the utilization of the loss function, without recomputing $z$ . We sample $t$ by 4 times during training for each image."
+    },
+    {
+      "text": "Sampler. At inference time, it is required to draw samples from the distribution $p ( x | z )$ . Sampling is done via a reverse diffusion procedure [24]: xt−1 = √1αt $\\begin{array} { r } { x _ { t - 1 } = \\frac { 1 } { \\sqrt { \\alpha _ { t } } } \\left( x _ { t } - \\frac { 1 - \\alpha _ { t } } { \\sqrt { 1 - \\bar { \\alpha } _ { t } } } \\varepsilon _ { \\theta } ( x _ { t } | t , z ) \\right) + \\sigma _ { t } \\delta . } \\end{array}$ . Here $\\delta$ is sampled from the Gaussian distribution $\\mathcal { N } ( \\mathbf { 0 } , \\mathbf { I } )$ and $\\sigma _ { t }$ is the noise level at time step $t$ . Starting with $\\chi _ { T } \\sim \\mathcal { N } ( \\mathbf { 0 } , \\mathbf { I } )$ , this procedure produces a sample $x _ { 0 }$ such that $x _ { 0 } \\sim p ( x | z )$ [24]."
+    },
+    {
+      "text": "When using categorical distributions (Sec. 3.1), autoregressive models can enjoy the benefit of having a temperature $\\tau$ for controlling sample diversity. In fact, existing literature, in both languages and images, has shown that temperature plays a critical role in autoregressive generation. It is desired for the diffusion sampler to offer a temperature counterpart. We adopt the temperature sampling presented in [10]. Conceptually, with temperature $\\tau$ , one may want to sample from the (renormalized) probability of $p ( x | z ) ^ { \\frac { 1 } { \\tau } }$ , whose score function is $\\begin{array} { r } { \\frac { 1 } { \\tau } \\nabla \\log _ { x } p ( x | z ) } \\end{array}$ . In practice, [10] suggests to either divide $\\varepsilon _ { \\theta }$ by $\\tau$ , or scale the noise by $\\tau$ . We adopt the latter option: we scale $\\sigma _ { t } \\delta$ in the sampler by $\\tau$ . Intuitively, $\\tau$ controls the sample diversity by adjusting the noise variance."
+    },
+    {
+      "text": "# 3.3 Diffusion Loss for Autoregressive Models"
+    },
+    {
+      "text": "Next, we describe the autoregressive model with Diffusion Loss for image generation. Given a sequence of tokens $\\{ x ^ { 1 } , x ^ { 2 } , . . . , x ^ { n } \\}$ where the superscript $1 \\leq i \\leq n$ specifies an order, autoregressive models [17, 50, 49, 36, 7, 6] formulate the generation problem as “next token prediction”:"
+    },
+    {
+      "text": "$$\np ( x ^ { 1 } , . . . , x ^ { n } ) = \\prod _ { i = 1 } ^ { n } p ( x ^ { i } \\mid x ^ { 1 } , . . . , x ^ { i - 1 } ) .\n$$"
+    },
+    {
+      "text": "A network is used to represent the conditional probability $p ( x ^ { i } \\mid x ^ { 1 } , . . . , x ^ { i - 1 } )$ . In our case, $x ^ { i }$ can be continuous-valued. We can rewrite this formulation in two parts. We first produce a conditioning vector $z ^ { i }$ by a network (e.g., Transformer [52]) operating on previous tokens: $z ^ { i } = f ( x ^ { 1 } , . . . , x ^ { i - 1 } )$ . Then, we model the probability of the next token by $p \\bar { ( } x ^ { i } | z ^ { \\bar { i } } )$ . Diffusion Loss in Eqn. (1) can be applied on $p ( x ^ { i } | z ^ { i } )$ . The gradient is backpropagated to $z ^ { \\ i }$ for updating the parameters of $f ( \\cdot )$ ."
+    },
+    {
+      "text": "# 3.4 Unifying Autoregressive and Masked Generative Models"
+    },
+    {
+      "text": "We show that masked generative models, e.g., MaskGIT [4] and MAGE [29], can be generalized under the broad concept of autoregression, i.e., next token prediction."
+    },
+    {
+      "text": "Bidirectional attention can perform autoregression. The concept of autoregression is orthogonal to network architectures: autoregression can be done by RNNs [50], CNNs [49, 7], and Transformers [38, 36, 6]. When using Transformers, although autoregressive models are popularly implemented by causal attention, we show that they can also be done by bidirectional attention. See Figure 2. Note that the goal of autoregression is to predict the next token given the previous tokens; it does not constrain how the previous tokens communicate with the next token."
+    },
+    {
+      "text": "We can adopt the bidirectional attention implementation as done in Masked Autoencoder (MAE) [21]. See Figure 2(b). Specifically, we first apply an MAE-style encoder1 on the known tokens (with positional embedding [52]). Then we concatenate the encoded sequence with mask tokens (with positional embedding added again), and map this sequence with an MAE-style decoder. The positional embedding on the mask tokens can let the decoder know at which positions are to be predicted. Unlike causal attention, here the loss is computed only on the unknown tokens [21]."
+    },
+    {
+      "text": "With the MAE-style trick, we allow all known tokens to see each other, and also allow all unknown tokens to see all known tokens. This full attention introduces better communication across tokens than causal attention. At inference time, we can generate tokens (one or more per step) using this bidirectional formulation, which is a form of autoregression. As a compromise, we cannot use the key-value (kv) cache [44] of causal attention to speed up inference. But as we can generate multiple tokens together, we can reduce generation steps to speed up inference. Full attention across tokens can significantly improve the quality and offer a better speed/accuracy trade-off."
+    },
+    {
+      "text": "![](images/457f9043b5424562f9139b93045361ba6e283c9024c9d10f9615590e04ede723.jpg)  \nFigure 2: Bidirectional attention can do autoregression. In contrast to conventional wisdom, the broad concept of “autoregression” (next token prediction) can be done by either causal or bidirectional attention. (a) Causal attention restricts each token to attend only to current/previous tokens. With input shifted by one start token [s], it is valid to compute loss on all tokens at training time. (b) Bidirectional attention allows each token to see all tokens in the sequence. Following MAE [21], mask tokens [m] are applied in a middle layer, with positional embedding added. This setup only computes loss on unknown tokens, but it allows for full attention capabilities across the sequence, enabling better communication across tokens. This setup can generate tokens one by one at inference time, which is a form of autoregression. It also allows us to predict multiple tokens simultaneously.   \nFigure 3: Generalized Autoregressive Models. (a) A standard, raster-order autoregressive model predicts one next token based on the previous tokens. (b) A random-order autoregressive model predicts the next token given a random order. It behaves like randomly masking out tokens and then predicting one. (c) A Masked Autoregressive (MAR) model predicts multiple tokens simultaneously given a random order, which is conceptually analogous to masked generative models [4, 29]. In all cases, the prediction of one step can be done by causal or bidirectional attention (Figure 2)."
+    },
+    {
+      "text": "Autoregressive models in random orders. To connect to masked generative models [4, 29], we consider an autoregressive variant in random orders. The model is given a randomly permuted sequence. This random permutation is different for each sample. See Figure 3(b). In this case, the position of the next token to be predicted needs to be accessible to the model. We adopt a strategy similar to MAE [21]: we add positional embedding (that corresponds to the unshuffled positions) to the decoder layers, which can tell what positions to predict. This strategy is applicable for both causal and bidirectional versions."
+    },
+    {
+      "text": "As shown in Figure 3 (b)(c), random-order autoregression behaves like a special form of masked generation, in which one token is generated at a time. We elaborate on this as follows."
+    },
+    {
+      "text": "Masked autoregressive models. In masked generative modeling [4, 29], the models predict a random subset of tokens based on known/predicted tokens. This can be formulated as permuting the token sequence by a random order, and then predicting multiple tokens based on previous tokens. See Figure 3(c). Conceptually, this is an autoregressive procedure, which can be written as estimating the conditional distribution: $p ( \\{ x ^ { i } , x ^ { i + 1 } . . . , x ^ { j } \\} \\mid x ^ { 1 } , . . . , x ^ { i - 1 } )$ , where multiple tokens $\\{ x ^ { i } , x ^ { i + 1 } . . . , x ^ { j } \\}$ are to be predicted $( i \\leq j )$ . We can write this autoregressive model as:"
+    },
+    {
+      "text": "$$\np ( x ^ { 1 } , . . . , x ^ { n } ) = p ( X ^ { 1 } , . . . , X ^ { K } ) = \\prod _ { k } ^ { K } p ( X ^ { k } \\mid X ^ { 1 } , . . . , X ^ { k - 1 } ) .\n$$"
+    }
+  ],
+  "url": ""
+}

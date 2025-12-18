@@ -1,0 +1,10 @@
+# requirements.txt
+
+torch==1.9.0
+numpy==1.21.0
+scipy==1.7.0
+scikit-learn==0.24.2
+matplotlib==3.4.3
+tqdm==4.62.3
+transformers==4.11.3
+hydra-core==1.1.2

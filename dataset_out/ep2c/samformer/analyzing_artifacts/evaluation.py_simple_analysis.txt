@@ -1,0 +1,75 @@
+{
+  "evaluation.py": [
+    "Purpose & Scope:",
+    "The Evaluation class is designed to perform inference on trained models over test datasets, compute relevant metrics (Mean Squared Error (MSE) and Mean Absolute Error (MAE)), compare different models, and generate visualization plots such as attention heatmaps and loss landscape visualizations. It acts as the final step in the reproducibility pipeline for assessing model performance and interpretability.",
+    
+    "Main Components & Methodology:",
+    "1. Initialization:",
+    "   - Instantiate with: trained model instance, test dataset loader, normalization layer (RevIN), device (CPU/GPU), and configuration of metrics and visualization options.",
+    "   - Load and set the trained model in evaluation mode.",
+    "   - Ensure all normalization statistics (mean, std) used during training are accessible for denormalization.",
+    
+    "2. Test Set Inference:",
+    "   - Loop over the test dataset loader (which yields batches of input sequences and targets).",
+    "   - For each batch:",
+    "       a. Apply normalization (RevIN normalization parameters) to input sequences before passing to the model.",
+    "       b. Forward pass the normalized inputs through the model to get predictions.",
+    "       c. Denormalize the model outputs using stored normalization stats and parameters to align with original data scale.",
+    "       d. Collect the denormalized predictions and ground truth labels.",
+    "   - After processing all batches, concatenate all predictions and ground truths for global metric calculation.",
+    
+    "3. Metric Computation:",
+    "   - Calculate MSE and MAE globally over the entire test set predictions vs. targets.",
+    "   - Given that the datasets are segmented into windows, compute metrics across all samples for each horizon and dataset.",
+    "   - Store these metrics for reporting.",
+    "   - Support multiple horizons H: for each prediction horizon, slice the predicted output and true target sequences accordingly before metric calculation.",
+    "   - Use numpy or torch to efficiently compute squared errors and absolute errors.",
+    
+    "4. Model Comparison:",
+    "   - With multiple models (e.g., SAMformer, transformer, other baselines), load their corresponding test predictions if saved, or perform inference with each.",
+    "   - Collect metrics for each model and dataset/horizon combination.",
+    "   - Implement statistical tests (e.g., t-test) to assess significance of performance differences, based on mean and standard deviations over multiple runs.",
+    "   - Organize comparison results into tables or arrays for reporting.",
+    
+    "5. Visualization & Plots:",
+    "   - Attention Heatmaps:",
+    "     - Extract attention matrices from the trained model (available via model's internal state or stored during inference).",
+    "     - For each dataset, plot the attention matrices as heatmaps using matplotlib or seaborn to visualize self-correlation among features.",
+    "     - If multiple batches or epochs are involved, average over them for a smoother visualization.",
+    "   - Loss Landscape visualization:",
+    "     - Accept stored loss history or precomputed sharpness metrics across training epochs or parameter perturbations.",
+    "     - Plot the loss landscape (e.g., using 2D slices of the loss around the trained parameters).",
+    "     - Use utility functions such as plot_loss_landscape, ensuring axes represent parameter perturbations and color indicates loss value.",
+    "   - Forecast Predictions & Residuals:",
+    "     - Plot actual vs predicted sequences for a selection of samples, horizons, and datasets.",
+    "     - Visualize residuals or errors to assess model fit quality.",
+    "   - Additional plots may include attention entropy distributions, nuclear norms of matrices, or other interpretability measures as guided by the paper.",
+    
+    "6. Denormalization & Data Handling:",
+    "   - Use stored normalization parameters (means, stds, beta, gamma) from RevIN for each feature to denormalize outputs.",
+    "   - Confirm consistent normalization during training and inference.",
+    "   - Manage multiple datasets with their specific feature counts and normalization stats, ensuring correctness in denormalization.",
+    "   - Maintain data structures for predictions and ground truths, e.g., numpy arrays of shape (number of samples, feature, horizon).",
+    
+    "7. Output & Reporting:",
+    "   - Return or save test metrics (MSE, MAE) for each dataset, horizon, and model into structured files (CSV, JSON).",
+    "   - Log additional diagnostics: attention matrix distributions, entropy measures, nuclear norms, and training loss landscapes.",
+    "   - Generate comparative tables and plots for publication or analysis.",
+    
+    "8. Implementation Considerations:",
+    "   - Leverage the shared knowledge: use utility functions for plotting, denormalization, statistical testing.",
+    "   - Make sure that the code accommodates multi-horizon evaluation, slicing sequences accordingly.",
+    "   - Ensure compatibility with models trained using different seeds and hyperparameters, possibly aggregating results.",
+    "   - Modular design: separate inference, metrics, visualization, and statistical analysis for maintainability.",
+    "   - Maintain reproducibility by fixing random seeds and consistent normalization procedures.",
+    
+    "Summary: The logic encompasses:",
+    "- Sequential inference over test data with proper normalization/denormalization.",
+    "- Metric calculation with numpy/torch optimized computations.",
+    "- Stimulating interpretability and diagnostic plots (attention heatmaps, loss landscape).",
+    "- Statistical comparison and robust reporting with clear visualization.",
+    "- Reproducibility, modularity, and dataset-specific handling based on the configuration YAML.",
+    
+    "This comprehensive plan directly aligns with the requirements in the paper, ensuring that the implementation faithfully reproduces the experimental results and visualizations described therein."
+  ]
+}

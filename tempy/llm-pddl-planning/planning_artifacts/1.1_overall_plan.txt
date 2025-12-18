@@ -1,0 +1,193 @@
+# Reproduction Plan for "Leveraging Environment Interaction for Automated PDDL Translation and Planning with Large Language Models"
+
+This comprehensive plan details the steps necessary to faithfully implement the methodology described in the paper, as well as to set up experiments aligned with their evaluation protocol. It emphasizes fidelity to the paper’s techniques, datasets, parameters, and evaluation metrics, providing clear guidance for subsequent coding.
+
+---
+
+## 1. Understanding the Core Methodology
+
+### Overview
+- **Goal:** Automate generation of PDDL domain and problem files for a set of environments using only natural language descriptions, environment feedback, and interactions, *without human correction*.
+- **Key Components:**
+  - Use of a **Large Language Model (LLM)** (e.g., GPT-4) to:
+    - Generate initial PDDL domain (`d`) and problem (`p`) files from NL descriptions.
+    - Iteratively refine these files based on environment feedback and an **Exploration Walk (EW)** metric.
+  - **Environment Interaction:**
+    - Evaluate the executability of sampled action sequences via the environment’s API (assumed accessible).
+    - Use validation functions (`E_{d,p}` for executability, `V_{d,p}` for plan validation).
+  - **Feedback & Refinement:**
+    - Generate multiple candidate PDDL files (`sampling`) and select the best via the EW metric.
+    - Recursive or iterative process involving:
+      - Generate candidate domain/problem files.
+      - Sample random action sequences (EW).
+      - Run classical planner (e.g., FastDownward) for the problem.
+      - Use success or failure signals for guidance.
+  - **Comparison & Metrics:**
+    - **Task solve rate:** fraction of tasks where a valid plan is found (`V_{d,p}(C(d,p))=1`).
+    - **EW score:** measures domain alignment/exploration efficacy, based on the likelihood that sampled actions are executable in the environment under the current PDDL models.
+
+### Implementation details extracted from the paper:
+- **Algorithm:** As per Algorithm 1, involving:
+  - Initialization with templated domain and problem NL descriptions.
+  - Using the LLM to generate initial PDDL files.
+  - Sampling multiple candidate problems (`n_p`) and domains (`n_d`) in each iteration.
+  - Computing EW scores to guide selection.
+  - Refining via environment interactions (exploration walks).
+
+---
+
+## 2. Dataset and Environment Requirements
+
+### Environments
+- At least **10 real PDDL environments** (from Liu et al. [15], Seipp et al. [22], etc.).
+- For each environment:
+  - A **ground-truth PDDL domain** (`d`) and multiple **ground-truth problems** (`p_{1:N}`).
+- Consider **modified variants** (e.g., the "Grippersood" domain) to ensure no pretraining bias when relevant.
+- **Natural language (NL) descriptions**:
+  - For domains: general NL describing environment concepts/actions.
+  - For problems: NL task descriptions with initial state and goals.
+- Generate NL descriptions using:
+  - Back-translation or translation from PDDL.
+  - Few-shot prompts including known environments (e.g., BlocksWorld) for better NL to PDDL translation.
+
+### Data for Experiments
+- The set of **problem PDDL files** (`p_{1:N}`) for each environment.
+- Corresponding NL descriptions for domain and problems.
+- “Ground-truth” PDDL domain and problem files for validation (not used for learning but for evaluation).
+
+### Environment Interaction Functions
+- **Executability function:** `E_{d,p}(q)`:
+  - Given an action sequence `q`, return `1` if executable in environment `e`, else `0`.
+- **Plan Validator:** `V_{d,p}(q)`:
+  - Returns `1` if the plan solves the task, else `0`.
+- Assumed **API access**:
+  - To environment object list.
+  - To API functions: execute action, check executability, reset environment.
+- **Note:** For simulation purposes, implement or interface with existing environment simulators (e.g., from existing PDDL benchmarks).
+
+---
+
+## 3. Model & Prompts Details
+- Use GPT-4 with a **temperature setting**:
+  - `τ=0` for greedy, single-sample generation.
+  - `τ=0.7` or higher for sampling multiple responses (`n_p`, `n_d`) to facilitate selection.
+- **Prompt strategies:**
+  - One-shot or few-shot prompting for initial PDDL generation.
+  - Structured prompt templates including:
+    - NL description.
+    - Example PDDL domain/problem.
+    - Clear instructions to produce structured, syntactically correct PDDL.
+  - Prompt for refinement: include environment feedback, action sequences' executability, and previous PDDL versions.
+
+### PDDL Generation Prompts
+- For **initial domain/problem**:
+  - Provide NL description + sample examples.
+  - Request outputs to be valid PDDL code with annotations/commented explanations.
+- For **refinement**:
+  - Include feedback notes (`f(c)`) on previous attempts.
+  - Request incremental improvements aimed at increasing EW score and task success.
+
+---
+
+## 4. Implementation Details & Hyperparameters
+
+### PDDL and NL
+- **Initial templates**:
+  - Use minimalistic templated PDDL domain/problem files similar to those in the appendix.
+  - Use predefined templates for common environment components (e.g., "move" actions, predicates).
+- **Sampling parameters**:
+  - `n_p` (problem candidates per iteration): e.g., 5.
+  - `n_d` (domain candidates per iteration): e.g., 10.
+  - `c_{max}` (max refinement cycles): e.g., 4.
+- **EW sampling**:
+  - Generate uniformly random action sequences from `E_{d,p}`.
+  - Sample `T_{max}` steps, e.g., 10.
+  - Compute average executability (EW score).
+
+### Environment Execution
+- **Sample random action sequences**:
+  - At each step, consult `E_{d,p}` to decide executable actions.
+- **Plan search**:
+  - Use **FastDownward** or similar classical planner.
+  - Support both plan execution and validation.
+
+### Scoring & Selection
+- Compute EW scores for each candidate.
+- Select the candidate with maximum EW score.
+- Save the PDDL files accordingly.
+
+---
+
+## 5. Experimental Procedure
+
+### For Each Environment
+1. **Initialization**:
+   - Generate initial NL domain and problem descriptions.
+   - Use GPT-4 to produce initial PDDL `d(0)` and `p(0)`.
+2. **Iterative Refinement**:
+   - For each iteration `i` in `[1, c_{max}]`:
+     - Generate `n_p` candidate problems, `n_d` candidate domains using GPT-4 given current best `d(i-1)` and `p(i-1)`.
+     - For each candidate:
+       - Sample exploration walks (`T_{max}` steps).
+       - Compute EW score.
+       - Run classical planner with `d` and `p`.
+       - Record plan success (`V_{d,p}`).
+     - Select **best candidate** based on EW score.
+     - Replace current `d(i)` or `p(i)` with the selected candidate.
+     - Optionally, refine domain files based on environment feedback using prompts with `f(c)` (feedback).
+3. **Final Evaluation**:
+   - With the last refined `d` and all `p_{1:N}`:
+     - Run classical planner on each problem.
+     - Validate solutions with ground truth validator `V_{d,p}`.
+     - Record success rate.
+     - Compute average EW score over all problems.
+
+### Collect Metrics
+- **Task solve rate**: fraction of problems solved.
+- **EW score**: average over all environment/problem pairs.
+- **Comparison**:
+  - Benchmark against:
+    - GPT-4's intrinsic plan with chain-of-thought.
+    - Single-shot PDDL generation baselines.
+    - Response sampling strategies.
+
+---
+
+## 6. Additional Considerations
+- **Robustness**:
+  - Multiple seeds per environment.
+  - Variance analysis for stability.
+- **Resource Usage**:
+  - Record token counts for prompts.
+  - Track runtime for sampling, planning, and environment interaction.
+- **Manual checks**:
+  - For initial debugging, verify correctness of generated PDDL code.
+  - Employ plan validators and environment simulators thoroughly.
+
+---
+
+## 7. Implementation Challenges & Clarifications Needed
+- **Details missing or ambiguous:**
+  - Exact prompt wording and formatting for each step.
+  - How to generate initial templates for PDDL.
+  - Precise functions for environment API calls.
+  - Handling syntax errors in generated PDDL.
+  - How to incorporate environment feedback (`f(c)`) into prompts.
+  
+*These should be resolved by adopting prompt templates from Appendix A (e.g., Listings 5-12), possibly adjusted based on experiments.*
+
+---
+
+## **Summary of the Reproduction Roadmap**
+- Prepare datasets: PDDL ground-truth files, NL descriptions.
+- Implement environment APIs for execution, validation, and executability checks.
+- Set up GPT-4 API calls with well-crafted prompts.
+- Develop algorithms for:
+  - Initial generation of PDDL from NL.
+  - Iterative refinement guided by EW scores.
+  - Sampling action sequences.
+  - Running classical planner and environment tests.
+- Collect and analyze metrics following the experimental protocol.
+- Run multiple seeds and compare with baselines.
+
+This plan offers a detailed, scalable roadmap to reproduce the paper’s core methodology and experimental benchmarks reliably.

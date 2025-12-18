@@ -1,0 +1,190 @@
+```python
+## dataset_loader.py
+import os
+import json
+import csv
+import random
+from typing import List, Tuple, Dict, Optional
+
+import nltk
+from nltk.corpus import wordnet as wn
+
+# Ensure WordNet is downloaded
+try:
+    wn.synsets()
+except LookupError:
+    nltk.download('wordnet')
+
+
+class DatasetLoader:
+    def __init__(self, dataset_paths: Dict[str, str]):
+        """
+        Initialize the DatasetLoader with optional dataset file paths.
+        Args:
+            dataset_paths (dict): Mapping from dataset name to file path or URL.
+                Supported keys: 'STS', 'SNLI', 'WordNet', 'CxC'
+        """
+        self.dataset_paths = dataset_paths
+        self.datasets: Dict[str, any] = {}  # Cache for loaded datasets
+        # Fixed seed for reproducibility
+        self._seed = 42
+
+    def load_datasets(self) -> Dict[str, any]:
+        """
+        Load all datasets specified in dataset_paths.
+        Returns:
+            dict: Dictionary with dataset name keys and loaded data.
+        """
+        for dataset_name, path in self.dataset_paths.items():
+            if dataset_name == 'STS':
+                self.datasets['STS'] = self._load_sts(path)
+            elif dataset_name == 'SNLI':
+                self.datasets['SNLI'] = self._load_snli(path)
+            elif dataset_name == 'WordNet':
+                self.datasets['WordNet'] = self._load_wordnet_pairs()
+            elif dataset_name == 'CxC':
+                self.datasets['CxC'] = self._load_cxc(path)
+            else:
+                print(f"Warning: Unsupported dataset '{dataset_name}', skipping.")
+        return self.datasets
+
+    def get_pairs(self, task_name: str) -> List[Tuple[str, str]]:
+        """
+        Retrieve list of pairs for specified task.
+        Args:
+            task_name (str): One of 'STS', 'SNLI', 'WordNet', 'CxC'
+        Returns:
+            list of tuples: [(text1, text2), ...]
+        """
+        if task_name not in self.datasets:
+            raise ValueError(f"Dataset '{task_name}' has not been loaded.")
+        return self.datasets[task_name]
+
+    def _load_sts(self, path: str) -> List[Tuple[str, str, float]]:
+        """
+        Load STS datasets (e.g., STS-B or STS* datasets).
+        Assumes CSV with columns: 'sentence1', 'sentence2', 'score'
+        Args:
+            path (str): Path to dataset CSV file.
+        Returns:
+            list of tuples: (sentence1, sentence2, score)
+        """
+        data = []
+        # If path is a URL or local CSV file
+        if not os.path.isfile(path):
+            raise FileNotFoundError(f"STS dataset file not found at {path}")
+        with open(path, 'r', encoding='utf-8') as f:
+            reader = csv.DictReader(f)
+            for row in reader:
+                sent1 = row.get('sentence1') or row.get('sentence1' if 'sentence1' in row else None)
+                sent2 = row.get('sentence2') or row.get('sentence2' if 'sentence2' in row else None)
+                score_str = row.get('score') or row.get('similarity') or row.get('score')
+                if sent1 is None or sent2 is None or score_str is None:
+                    continue
+                try:
+                    score = float(score_str)
+                except:
+                    continue
+                # Normalize score to [0,1]
+                norm_score = score / 5.0
+                data.append((sent1.strip(), sent2.strip(), norm_score))
+        # Shuffle for reproducibility
+        random.Random(self._seed).shuffle(data)
+        return data
+
+    def _load_snli(self, path: str) -> List[Tuple[str, str, str]]:
+        """
+        Load SNLI dataset.
+        Assumes JSONL or CSV with 'premise', 'hypothesis', 'label'.
+        Args:
+            path (str): Path to SNLI dataset.
+        Returns:
+            list of tuples: (premise, hypothesis, label)
+        """
+        data = []
+        if not os.path.isfile(path):
+            raise FileNotFoundError(f"SNLI dataset file not found at {path}")
+        # Support CSV
+        with open(path, 'r', encoding='utf-8') as f:
+            try:
+                # Try CSV
+                reader = csv.DictReader(f)
+                for row in reader:
+                    prem = row.get('premise') or row.get('sentence1')
+                    hyp = row.get('hypothesis') or row.get('sentence2')
+                    label = row.get('label')
+                    if prem is None or hyp is None or label is None:
+                        continue
+                    data.append((prem.strip(), hyp.strip(), label.strip()))
+            except csv.Error:
+                # Fallback: support JSONL
+                f.seek(0)
+                for line in f:
+                    try:
+                        obj = json.loads(line)
+                        prem = obj.get('premise') or obj.get('sentence1')
+                        hyp = obj.get('hypothesis') or obj.get('sentence2')
+                        label = obj.get('label')
+                        if prem is None or hyp is None or label is None:
+                            continue
+                        data.append((prem.strip(), hyp.strip(), label.strip()))
+                    except:
+                        continue
+        # Shuffle for reproducibility
+        random.Random(self._seed).shuffle(data)
+        return data
+
+    def _load_wordnet_pairs(self) -> List[Tuple[str, str]]:
+        """
+        Use nltk WordNet to extract hypernym/hyponym pairs.
+        Returns:
+            list of tuples: (word1, word2), where word2 is a hyponym/hypernym of word1
+        """
+        pairs: List[Tuple[str, str]] = []
+        # Iterate over all synsets
+        for syn in wn.all_synsets():
+            # For hyponyms (more specific)
+            hyponyms = syn.hyponyms()
+            for hypo in hyponyms:
+                # Use synset names (lemmas) as words
+                # here, for simplicity, use the lemma names
+                for lemma in syn.lemmas():
+                    word1 = lemma.name().replace('_', ' ')
+                    for hypo_lemma in hypo.lemmas():
+                        word2 = hypo_lemma.name().replace('_', ' ')
+                        pairs.append((word1, word2))
+        # Deduplicate pairs
+        pairs = list(set(pairs))
+        # Shuffle for reproducibility
+        random.Random(self._seed).shuffle(pairs)
+        return pairs
+
+    def _load_cxc(self, path: str) -> List[Tuple[str, str, float]]:
+        """
+        Load Crisscrossed Captions (CxC) dataset.
+        Assumes CSV with columns: 'image_id', 'caption', 'similarity_score'.
+        Here, for simplicity, return pairs with similarity scores.
+        """
+        data: List[Tuple[str, str, float]] = []
+        if not os.path.isfile(path):
+            raise FileNotFoundError(f"CxC dataset file not found at {path}")
+        with open(path, 'r', encoding='utf-8') as f:
+            reader = csv.DictReader(f)
+            for row in reader:
+                caption = row.get('caption')
+                score_str = row.get('similarity_score')
+                if caption is None or score_str is None:
+                    continue
+                try:
+                    score = float(score_str)
+                except:
+                    continue
+                # For pairs, we need two captions; assuming data is in pairwise lines
+                # Here, since the schema may vary, adapt as needed.
+                # For simplicity, assume pairing consecutive lines (requires dataset adjustment).
+                # Without specific file schema, skip implementation.
+                # Placeholder: skip implementation.
+                pass
+        # Return empty list if not implemented
+        return data
+```

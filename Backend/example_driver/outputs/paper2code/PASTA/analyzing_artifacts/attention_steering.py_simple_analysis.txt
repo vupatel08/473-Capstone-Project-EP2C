@@ -1,0 +1,60 @@
+{
+  "attention_steering.py - Logic Analysis": [
+    {
+      "module purpose": "Implement the 'AttentionSteering' class responsible for adjusting attention scores during inference based on user-identified emphasized spans and pre-selected attention heads. This class acts as a core component for real-time attention reweighting, enabling post-hoc steering without retraining the model."
+    },
+    {
+      "high-level design": "The class should initialize with model reference, selected head set, and hyperparameters such as alpha (scaling coefficient). It must contain a method that, given raw attention scores and emphasis spans, outputs reweighted attention scores to bias the model’s focus toward specified tokens."
+    },
+    {
+      "core logic steps": [
+        "Upon inference, for each head in the selected set, intercept the attention score matrices (prior to softmax) using hooks or wrapper functions.",
+        "For each attention head (layer l, head h), retrieve the corresponding attention score matrix A^(l,h).",
+        "Given a set of emphasis spans (represented as token indices), identify tokens to emphasize and tokens to downweight in that attention head.",
+        "Apply the reweighting transformation: scale down attention scores for non-emphasized tokens by multiplying by alpha, normalize across each query token (row-wise) to produce a valid probability distribution for the attention mechanism.",
+        "Inject the adjusted attention scores back into the model's computation flow, replacing the original attention scores at the specific head(s)."
+      ],
+      "note": "Implementation should support per-head reweighting during inference, compatible with executing via hooks, capturing the attention scores just before softmax or within the attention computation function."
+    },
+    {
+      "detailed steps": [
+        "Initialize AttentionSteering class with parameters:",
+        " - model reference (or model wrapper), to register hooks or manipulate attention internally.",
+        " - selected_heads: List of (layer, head) tuples to steer.",
+        " - alpha: scaling factor (default 0.01).",
+        " - emphasis_spans: list of token indices corresponding to the user-highlighted spans.",
+        "Implement a method 'apply_reweighting(attention_scores, emphasis_spans)' that:",
+        " - For each (layer, head) in selected_heads:",
+        "   - Access corresponding attention score matrix (shape: [batch_size, num_query_tokens, num_key_tokens])",
+        "   - Create a mask for tokens outside emphasis spans: a boolean mask where tokens in emphasis spans are True, others False.",
+        "   - For each attention score matrix:",
+        "     - Downweight non-emphasized token scores: multiply by alpha at positions where tokens are outside emphasis spans.",
+        "     - Keep emphasized token scores unchanged.",
+        "     - Normalize each row (query token): divide by the sum of all scaled scores to ensure the distribution remains valid.",
+        " - Return the reweighted attention scores.",
+        "The class should contain methods to:",
+        " - Register hooks into model's attention layers that call 'apply_reweighting' during attention computation.",
+        " - Accept emphasis spans dynamically at inference time, derived from prompt parsing.",
+        " - Potentially handle batching and multiple heads efficiently."
+      ],
+      "note": "Careful attention is required to access internal attention scores within the model architecture—preferably via predefined hooks or by modifying the forward pass if hook API is insufficient. All reweighting must preserve differentiability and valid probability distributions, conforming to the original attention computation process."
+    },
+    {
+      "considerations": [
+        "Ensure attention reweighting is only applied to the selected heads as profiled (per task).",
+        "Design the reweighting process to be modular and stateless, so it can be invoked during inference per input instance.",
+        "Handle variable sequence lengths and batch sizes properly.",
+        "Maintain numerical stability: normalization after reweighting is critical.",
+        "Validate that the attention manipulation preserves overall model functioning and does not introduce artifacts or inconsistencies."
+      ]
+    },
+    {
+      "validation": "Unit test the reweighting:
+        - Create mock attention matrices and emphasis spans.
+        - Verify that after reweighting:
+        - (a) emphasis tokens have increased attention weights.
+        - (b) non-emphasized tokens are scaled down by alpha.
+        - (c) each row sums to 1 (probability distribution preserved)."
+    }
+  ]
+}

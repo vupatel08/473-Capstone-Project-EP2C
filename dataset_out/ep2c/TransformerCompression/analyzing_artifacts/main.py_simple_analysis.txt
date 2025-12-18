@@ -1,0 +1,60 @@
+{
+  "main.py": {
+    "Overview": "This script orchestrates the entire process of loading, transforming, slicing, fine-tuning, and evaluating the transformer-based large language model (LLM) as specified in the plan and configuration. It follows a step-by-step pipeline: initialize components, load model, convert to RMSNorm, load dataset, compute PCA eigenvectors, apply orthogonal transformations, perform weight slicing, optionally fine-tune, and finally evaluate performance metrics to ensure reproducibility and fidelity to the methodology.",
+    "Step-by-step logic": [
+      {
+        "Step": "Load configuration",
+        "Detail": "Parse 'config.yaml' using YAML parser to extract all hyperparameters, dataset parameters, model info, slicing ratio, spectrum threshold, and evaluation settings."
+      },
+      {
+        "Step": "Initialize dataset loader",
+        "Detail": "Create an instance of DatasetLoader (from dataset_loader.py) with parameters: dataset name, sample size, sequence length, and data path (if needed). Load the calibration dataset for PCA signal collection. Also load the fine-tuning dataset for subsequent recovery fine-tuning if applicable."
+      },
+      {
+        "Step": "Initialize model wrapper",
+        "Detail": "Create an instance of ModelWrapper (from model.py) with model_name, checkpoint path, and use_rmsnorm flag as per configuration. Call load_model() to instantiate the model."
+      },
+      {
+        "Step": "Convert model to RMSNorm (if not already)",
+        "Detail": "Check the use_rmsnorm flag. If true (per config), invoke convert_to_rmsnorm() method, which adjusts layer normalization layers by absorbing LayerNorm scales into linear weights and mean adjustments as described in Section 3.2."
+      },
+      {
+        "Step": "Collect signals for PCA",
+        "Detail": "Use the dataset loader to generate activation signals: pass the calibration dataset through the model (via forward calls or hooks) to extract the signals from each layer of interest (attention, FFN, embedding). Collect these signals into tensors and store them temporarily."
+      },
+      {
+        "Step": "Compute PCA eigenvectors for each layer",
+        "Detail": "Pass collected signals to PCAProcessor (from pca_transform.py). For each layer: compute the covariance matrix, perform eigen-decomposition with torch.linalg.eigh in FP64, sort eigenvectors by eigenvalues. Save or load precomputed eigenvectors as specified. Store the eigenvector matrices (Q) for later transformations."
+      },
+      {
+        "Step": "Apply orthogonal transformations to weights",
+        "Detail": "For each layer: retrieve weights via get_weights(). Transform the relevant matrices: \n- Embedding matrix: W_emb → W_emb * Q_0\n- Attention and FFN input matrices: W_in^l → Q_l^T * W_in^l\n- Output matrices: W_out^l → W_out^l * Q_l\nUpdate the model weights with set_weights() to replace the original weights with transformed versions. This aligns the signals with principal components suitable for slicing."
+      },
+      {
+        "Step": "Decide slicing ratios and thresholds",
+        "Detail": "Use configured slicing ratio (e.g., 0.25 for 25%) and spectrum thresholds (e.g., variance accounted for) to determine the number of eigen components to keep in each layer. Alternatively, for spectral-based layer-wise slicing, threshold is set accordingly, advancing from spectrum decay analysis (Sections A.4, A.6)."
+      },
+      {
+        "Step": "Perform weight slicing",
+        "Detail": "For each layer: \n- Use the eigenvectors (Q) to retrain the weights, retaining only the top components (those with the largest eigenvalues). \n- Reconstruct the weight matrices with the selected eigenvectors, effectively removing minor principal components.\n- Update W_in and W_out via set_weights() with sliced matrices.\n- Also in the case of input embeddings, apply the same eigen-based row removal.\n- Ensure residual connections, skip paths, and necessary adjustments in the model architecture accommodate the reduced dimensions."
+      },
+      {
+        "Step": "Apply residual linear transforms for block-wise orthogonal rotations",
+        "Detail": "Insert residual pathway adjustments involving Q_l matrices as per Figure 4, modifying residual connections with inserted Q matrices to maintain invariance, enabling subsequent slicing and inference speedup."
+      },
+      {
+        "Step": "Optional recovery fine-tuning",
+        "Detail": "If configured in 'training' section: initialize FineTuner (from fine_tuning.py) with model and fine-tuning dataset. Run steps: \n- train() with specified steps, using LoRA of specified rank; \n- monitor for performance and stability.\n- Save fine-tuned model checkpoint for later evaluation."
+      },
+      {
+        "Step": "Evaluation",
+        "Detail": "Instantiate Evaluator (from evaluation.py) with the sliced/fine-tuned model and datasets. Conduct evaluations:\n- Perplexity measurement: run the model on the test set, compute perplexity.\n- Zero-shot accuracy: evaluate the model on specified NLP tasks (PIQA, WinoGrande, HellaSwag, ARC) using the evaluation harness.\n- Throughput and inference latency: measure token/sec, ms/token on specified GPU hardware and configurations (from config's hardware section).\n- Record metrics for comparison with dense and own baseline models."
+      },
+      {
+        "Step": "Output and save",
+        "Detail": "Print summarized metrics, such as perplexity, zero-shot scores, throughput, and accuracy. Save the sliced and optionally fine-tuned model checkpoints for reproducibility. Save logs for diagnostics and spectrum analysis comparison."
+      }
+    ],
+    "Remarks": "This logic flow strictly adheres to the modular design, ensuring that each component (dataset_loader.py, model.py, pca_transform.py, slicer.py, fine_tuning.py, evaluation.py) is invoked in the correct sequence. Explicitly, all weight transformations and slicing are performed according to the eigen-spectrum and orthogonal transformations, ensuring the experimental fidelity of the SliceGPT methodology."
+  }
+}

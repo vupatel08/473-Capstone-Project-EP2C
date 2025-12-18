@@ -1,0 +1,99 @@
+{
+  "main.py": {
+    "Purpose": "Orchestrate the entire reproduction pipeline for SEABO: load offline datasets, perform reward labeling via nearest neighbor search, train the offline RL policy with the labeled data, and evaluate the policy's performance.",
+    "Steps": [
+      {
+        "Step": "Load configuration",
+        "Description": "Read the configuration parameters from the provided 'config.yaml' file, including dataset paths, hyperparameters, model settings, and evaluation setup."
+      },
+      {
+        "Step": "Initialize environment",
+        "Description": "Set up the environment for evaluation using the 'environment_name' specified in the config. This can use Gym or other simulation environments compatible with the offline RL training."
+      },
+      {
+        "Step": "Load datasets",
+        "Description": "Utilize the DatasetLoader class to load expert demonstrations and unlabeled offline datasets. The expert demonstration may contain only observations or state-action pairs depending on 'only_observations'."
+        ,
+        "Details": [
+          "Call DatasetLoader.load_data()",
+          "Obtain 'expert_data' and 'unlabeled_data' as numpy arrays or dicts, ensuring consistent formats."
+        ]
+      },
+      {
+        "Step": "Construct reward labels",
+        "Description": "Create an instance of RewardLabeler with expert samples and hyperparameters ('alpha', 'beta', 'neighbors').",
+        "Details": [
+          "Pass the expert demonstration data and hyperparameters to RewardLabeler.",
+          "Call assign_rewards(unlabeled_data) to compute pseudo-rewards for each transition.",
+          "Handle the following scenarios:"
+        ],
+        "Handling": [
+          "If 'only_observations' is true for expert demo, build the nearest neighbor search with observations only.",
+          "Use the specified distance metric (e.g., Euclidean).",
+          "Incorporate normalization if needed."
+        ],
+        "Output": "Get a reward array corresponding to unlabeled data transitions."
+      },
+      {
+        "Step": "Augment dataset with pseudo-rewards",
+        "Description": "Combine 'unlabeled_data' transitions with the assigned pseudo-rewards to form a labeled dataset suitable for offline RL training.",
+        "Details": [
+          "Ensure dataset format is compatible with the offline RL algorithm's expected input.",
+          "For datasets with actions, include actions; otherwise, process observations only."
+        ]
+      },
+      {
+        "Step": "Initialize offline RL model",
+        "Description": "Create an instance of OfflineModel (e.g., IQL), passing model parameters from the config ('type' and 'params').",
+        "Details": [
+          "Implement or utilize existing code for IQL or the specified model type.",
+          "Ensure that the network architecture, learning rates, batch size, etc., are configured properly."
+        ]
+      },
+      {
+        "Step": "Train offline RL policy",
+        "Description": "Set up the Trainer with the initialized model and labeled dataset.",
+        "Details": [
+          "Call train() to perform training over the specified number of epochs or steps.",
+          "Monitor training loss, reward signals, and other metrics for debugging."
+        ]
+      },
+      {
+        "Step": "Save trained policy",
+        "Description": "Persist the trained policy model for later evaluation in the environment."
+      },
+      {
+        "Step": "Evaluate policy performance",
+        "Description": "Use the Evaluation class to run the policy in the evaluation environment for a set number of episodes ('eval_episodes').",
+        "Details": [
+          "Load the saved policy weights into the environment.",
+          "Compute average returns and possibly other metrics (success rate, episode length).",
+          "Normalize scores if applicable, based on the environment's scoring scheme."
+        ],
+        "Output": "Report and record evaluation metrics (e.g., mean return, normalized score)."
+      },
+      {
+        "Step": "Output results",
+        "Description": "Display or log the evaluation metrics for comparison with baselines or ground-truth rewards.",
+        "Optional": [
+          "Generate plots of training curves if saved during training.",
+          "Save evaluation results to file for record-keeping."
+        ]
+      }
+    ],
+    "Handling Uncertainties": [
+      "Expert demonstration format: account for whether only observations or (s, a) pairs are used, based on 'only_observations'.",
+      "Dataset normalization: ensure consistent preprocessing (mean/std scaling or min-max scaling) across the loading and reward assignment process.",
+      "Distance metric choice: default to Euclidean unless specified otherwise; can be extended later.",
+      "Hyperparameter consistency: verify that 'alpha', 'beta', and 'neighbor count' match those used in reward labeling and hyperparameter studies."
+    ],
+    "Dependencies & Interactions": [
+      "main.py depends on 'dataset_loader.py' for data loading.",
+      "main.py interacts with 'reward_labeler.py' to generate pseudo-rewards.",
+      "main.py initializes and trains an 'OfflineModel' via 'trainer.py'.",
+      "main.py uses 'evaluation.py' to perform policy evaluation.",
+      "All modules should be compatible with dataset formats and hyperparameters specified in config."
+    ],
+    "Summary": "main.py serves as the high-level orchestrator executing dataset loading, reward labeling, policy training, and evaluation steps in sequence. It ensures all components are configured with the provided hyperparameters and handles multiple runs or seed variations for reproducibility."
+  }
+}

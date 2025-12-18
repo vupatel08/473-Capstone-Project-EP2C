@@ -1,0 +1,148 @@
+# Evaluation Logic Analysis for `evaluation.py`
+
+## Purpose:
+Implement functions to quantify the performance of time series anomaly detection models, aligning with the paper's evaluation protocols, particularly the point-wise F1, Precision, Recall, the range-wise F1 (using APPRC), and supporting detailed reporting.
+
+---
+
+## Core Responsibilities:
+1. **Threshold determination:**  
+   - Derive suitable thresholds (e.g., at the 95th percentile) on training/error scores to discriminate anomalies in test data.
+   - Implement flexible methods (percentile-based, fixed thresholds) as per configuration.
+
+2. **Binary Classification Generation:**  
+   - Convert continuous anomaly scores to binary predictions using thresholds.
+   - Support both points (per-timestamp labels) and range-based (contiguous interval overlaps).
+
+3. **Point-wise Metrics Calculation:**  
+   - Compute TP, FP, FN based on predicted and true point labels.
+   - Calculate precision, recall, F1-score at point level.
+
+4. **Range-wise Metrics Calculation:**  
+   - Identify ground-truth anomaly intervals and predicted anomaly intervals.
+
+   - Compute overlap metrics using IOU between these intervals over various hit ratio thresholds (from 0.2 to 0.95, step 0.05).
+   
+   - Use the formulae as specified:
+     - Precision and recall as weighted sums over ground truth/predicted interval overlaps.
+     - Calculate the F1 score as the harmonic mean of range-based precision and recall.
+
+5. **APRC / Range-based F1 score:**  
+   - Use the Intersection over Union (IOU) of detected intervals and true anomaly intervals with various hit ratio thresholds.
+   - Average across thresholds for the final range-based F1.
+
+6. **Evaluation output:**  
+   - Produce a comprehensive dictionary of metrics:
+     - Point-wise: precision, recall, F1, threshold.
+     - Range-wise: precision, recall, F1, threshold, APRC.
+   - Logging or printing detailed report for analysis.
+
+7. **Input/Output Data:**
+   - Inputs:
+     - predicted scores (continuous): `scores`
+     - ground truth labels: `labels`
+     - optional thresholds (computed or fixed): `thresholds`
+   - Outputs:
+     - Metrics dictionary / report, possibly saved or printed.
+
+---
+
+## Detailed Step-by-Step Logic:
+
+### 1. Threshold Determination
+- **Input:** Array of scores from model predictions and validation data.
+- **Process:**  
+  - If method is `'percentile'`, compute the threshold as the percentile (e.g., 95th) of training scores.
+  - If a fixed value is provided, use that.
+- **Output:** Scalar threshold value to binarize scores.
+
+### 2. Binarization
+- **Input:** Continuous scores, threshold.
+- **Process:**  
+  - Predicted labels:  
+    ```python
+    y_pred = scores > threshold
+    ```  
+    (Boolean array, then convert to int: 0 or 1).
+- **Output:** Binary label array (per timestamp).
+
+### 3. Point-wise Metrics
+- **Input:** `y_pred`, `labels`.
+- **Process:**  
+  - TP: count of timestamps where both predicted and true label are 1.
+  - FP: count where predicted label is 1 but true label is 0.
+  - FN: count where predicted label is 0 but true label is 1.
+  - Precision = TP / (TP + FP), if denominator > 0.
+  - Recall = TP / (TP + FN), if denominator > 0.
+  - F1 = 2 * Precision * Recall / (Precision + Recall), if sum > 0.
+- **Threshold optimization:**  
+  - Iterate over thresholds or use ROC/PR curve to pick the best as per F1.
+  - Select the threshold that yields the maximum F1 during validation or test (as per the paper’s protocol).
+
+### 4. Range-based (Interval) Extraction
+- **Identify true anomaly intervals:**  
+  ```python
+  true_intervals = get_anomaly_intervals(labels)
+  ```
+- **Identify predicted anomaly intervals:**  
+  ```python
+  pred_intervals = get_anomaly_intervals(y_pred)
+  ```
+  - These are lists of contiguous segments where labels are 1.
+
+### 5. Intersection over Union (IOU) Calculation
+- **For each pair of predicted interval and ground truth interval:**
+  - Calculate IOU as:
+    ```python
+    IOU = intersect_length / union_length
+    ```
+- **Hit ratio for *A* in [a_s, b_s]:**  
+  - Fraction of timestamps in \([a_s, b_s]\) with predicted labels=1.
+  - For *covering* threshold (the hit ratio \(r\)), an interval is considered detected if its maximum predicted label overlap exceeds \(r\).
+- **Interval matches:**  
+  - An interval in ground truth is "detected" if matched by any predicted interval with IOU \(\geq r\).
+
+### 6. Range metrics for various hit ratios:
+- **For each hit ratio threshold \(r\) in [0.2:0.95:0.05]**:
+  - Compute detection overlaps for each ground truth interval.
+  - Calculate true positives (correctly detected) and total predicted/actual intervals.
+  - Use the formula:
+    \[
+    \text{Precision}_T = \frac{1}{|\mathcal{P}|} \sum_{P} \gamma(|A_P|, P) \frac{|\cup \mathcal{A} \cap P| }{|P|}
+    \]
+    and similarly for recall.
+  - \(\gamma( n, A )\) as defined: \(\left(\frac{|A|-1}{|A|}\right)^{n-1}\).  
+  - Compute the F1 as usual:  
+    \[
+    F1_T = 2 * (Prec_T * Rec_T)/(Prec_T + Rec_T)
+    \]
+- **Finally,** average F1 over all thresholds to obtain the overall range-wise F1 (`F1_T`).
+
+### 7. Final Output
+- Return a dictionary with:
+  - Point-wise metrics: `precision`, `recall`, `F1`, and the chosen threshold.
+  - Range-based metrics: same, plus `APRC` (computed as average over all IOU thresholds).
+  - All computed for specified thresholds but report the maximum F1s and corresponding thresholds as per setting.
+
+---
+
+## Additional Considerations
+- Ensure that `labels` and `scores` arrays are aligned in time.
+- For multi-sensor data, the logic applies per timestamp; for range metrics, proper interval detection is vital.
+- Normalization of scores might be necessary before thresholding.
+- Tight control over random seeds for reproducibility if randomness involved in detection (e.g., if thresholds are stochastic).
+
+---
+
+## Summary:
+The `evaluation.py` module will:
+- Accept raw continuous scores and labels.
+- Determine thresholds using the specified method (percentile or fixed).
+- Calculate point-wise detection metrics.
+- Convert labels and scores into intervals, compute IOU, and subsequently range-wise detection metrics with various hit ratio thresholds.
+- Aggregate metrics like F1, precision, recall, and APRC.
+- Return and/or print detailed performance summaries, suitable for comparative analysis.
+
+---
+
+This detailed logic plan should guide precise implementation of `evaluation.py` aligned with the paper’s evaluation methodology.

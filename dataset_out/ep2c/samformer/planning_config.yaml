@@ -1,0 +1,60 @@
+training:
+  learning_rate: 0.001  # Starting learning rate; tuned around 1e-3 as per typical recommendations
+  batch_size: 32        # Standard batch size for training; adjust based on hardware capabilities
+  epochs: 300           # Total training epochs; use early stopping as needed
+  weight_decay: 1e-4    # Regularization parameter; tuned around 1e-4
+  rho: 1e-4             # Neighborhood radius for SAM; small value, tune around 1e-4 to 1e-3
+  optimizer: AdamW      # Chosen for stability, particularly with SAM
+  seed: 42              # Set seed for reproducibility
+  warmup_epochs: 10     # Optional: number of warm-up epochs if scheduler used
+
+dataset:
+  datasets:
+    - name: ETTh1
+      path: data/ETTh1.csv
+      features: 7
+      sequence_length: 17420
+      prediction_horizon: 96
+      granularity: hourly
+    - name: ETTh2
+      path: data/ETTh2.csv
+      features: 7
+      sequence_length: 69680
+      prediction_horizon: 192
+      granularity: hourly
+    - name: ETTm1
+      path: data/ETTm1.csv
+      features: 321
+      sequence_length: 26304
+      prediction_horizon: 336
+      granularity: 15min
+    - name: ETTm2
+      path: data/ETTm2.csv
+      features: 8
+      sequence_length: 7588
+      prediction_horizon: 96
+      granularity: 15min
+    - name: Electricity
+      path: data/electricity.csv
+      features: 96
+      sequence_length: 17544
+      prediction_horizon: 96
+      granularity: hourly
+    - name: Exchange
+      path: data/exchange.csv
+      features: 21
+      sequence_length: 52696
+      prediction_horizon: 720
+      granularity: daily
+    - name: Traffic
+      path: data/traffic.csv
+      features: 8
+      sequence_length: 17544
+      prediction_horizon: 96
+      granularity: hourly
+    - name: Weather
+      path: data/weather.csv
+      features: 21
+      sequence_length: 52696
+      prediction_horizon: 96
+      granularity: hourly

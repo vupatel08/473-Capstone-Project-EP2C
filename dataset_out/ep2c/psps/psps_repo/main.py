@@ -1,0 +1,163 @@
+# main.py
+import os
+import yaml
+import numpy as np
+from dataset_loader import DatasetLoader
+from model import MLModel
+from trainer import Trainer
+from analysis import AnalysisRoutine
+from variance_estimation import VarianceEstimator
+from inference import Inference
+
+def main():
+    # Load configuration from 'config.yaml'
+    with open('config.yaml', 'r') as f:
+        config = yaml.safe_load(f)
+
+    # Set general parameters
+    data_params = config.get('data', {})
+    model_params = config.get('model', {})
+    variance_params = config.get('variance_estimation', {})
+    analysis_method = config.get('analysis', {}).get('method', 'regression')
+    repetitions = config.get('experiment', {}).get('repetitions', 1000)
+    results_dir = config.get('output', {}).get('results_dir', 'results/')
+
+    # Create results directory if not exist
+    os.makedirs(results_dir, exist_ok=True)
+
+    # Data configuration
+    synthetic = data_params.get('synthetic', True)
+    labeled_size = data_params.get('labeled_size', 500)
+    unl_sizes = data_params.get('unlabeled_sizes', [1000, 2500, 5000, 10000])
+    seed = 42
+    np.random.seed(seed)
+
+    # Initialize a list to keep aggregated results
+    simulation_results = []
+
+    # Loop over each specified unlabeled size
+    for N_unlab in unl_sizes:
+        print(f"\nStarting simulation for unlabeled size N={N_unlab}...")
+
+        # Load or generate dataset
+        dataset_loader = DatasetLoader({
+            'synthetic': synthetic,
+            'labeled_size': labeled_size,
+            'unlabeled_sizes': [N_unlab],
+            'seed': seed
+        })
+        data_dict = dataset_loader.get_data()
+        X_labeled = data_dict['X']
+        Y_labeled = data_dict['Y']
+        X_unlabeled = data_dict['X_unlabeled'][N_unlab]
+
+        # Initialize and train ML model
+        model = MLModel(model_params)
+        model.train(X_labeled, Y_labeled)
+
+        # Generate predictions
+        f_hat_labeled = model.predict(X_labeled)
+        f_hat_unlabeled = model.predict(X_unlabeled)
+
+        # Prepare dataset for analysis routines
+        dataset = {
+            'X_lab': X_labeled,
+            'Y_lab': Y_labeled,
+            'f_hat_lab': f_hat_labeled,
+            'X_unlab': X_unlabeled,
+            'f_hat_unlab': f_hat_unlabeled
+        }
+
+        # Storage for metrics per simulation
+        coverages = []
+        ci_widths = []
+        p_values = []
+        estimates = []
+
+        for rep in range(repetitions):
+            # 1. Instantiate analysis routine based on task
+            analysis = AnalysisRoutine(model, dataset, method=analysis_method)
+            # 2. Compute summary statistics
+            summary_stats = analysis.compute_summary_statistics()
+
+            # 3. Variance estimation via bootstrap
+            var_estimator = VarianceEstimator(dataset, summary_stats, {
+                'variance_estimation': {'bootstrap_samples': 200}
+            })
+            var_estimator.bootstrap_variance(analysis.compute_summary_statistics, n_bootstrap=200)
+            var_covs = var_estimator.estimate(analysis.compute_summary_statistics)
+
+            # 4. Compute weights for PSPS
+            n_nlab = len(X_labeled)
+            n_unlab_curr = N_unlab
+            rho = n_nlab / n_unlab_curr
+            # Variance and covariance matrices from bootstrap
+            Var_eta_L = var_covs['Var_eta']
+            Var_eta_U = var_covs['Var_eta_unlabeled']
+            Cov_theta_eta = var_covs['Cov_theta_eta']
+
+            # Compute omega_0
+            # Add small epsilon for numerical stability
+            epsilon = 1e-8
+            A_inv = np.linalg.inv(Var_eta_L + rho * Var_eta_U + epsilon * np.eye(Var_eta_L.shape[0]))
+            omega_0 = A_inv @ Cov_theta_eta.squeeze()
+
+            # 5. Final PSPS estimator
+            delta_eta = summary_stats['eta']['eta_U'] - summary_stats['eta']['eta_L']
+            delta_eta = np.array(delta_eta).flatten()
+            theta_hat = summary_stats['theta_hat']
+            theta_psps = theta_hat + np.dot(omega_0, delta_eta)
+
+            # 6. Variance of PSPS estimator
+            # Algebraic approximation using bootstrap variances
+            Var_theta = var_covs['Var_theta']
+            # Compute the variance using the formula from paper
+            var_psps = (
+                Var_theta
+                - np.dot(
+                    np.dot(Cov_theta_eta, np.linalg.inv(Var_eta_L + rho * Var_eta_U)),
+                    Cov_theta_eta
+                )
+            )
+            var_psps = float(var_psps) if np.isscalar(var_psps) else np.array(var_psps).flatten()[0]
+            # To be conservative, we can set variance estimate as bootstrap estimate
+            # Here, for simplicity, we use the algebraic approximation
+
+            # 7. Confidence interval and p-value
+            se_psps = np.sqrt(var_psps)
+            z_alpha = norm.ppf(1 - 0.025)  # 95% CI
+            ci_lower = theta_psps - z_alpha * se_psps
+            ci_upper = theta_psps + z_alpha * se_psps
+            p_value = 2 * (1 - norm.cdf(abs(theta_psps / se_psps)))
+
+            # 8. Save metrics
+            coverages.append(1 if (ci_lower <= 0 <= ci_upper) else 0)  # For theta=0 (simulate)
+            ci_widths.append(ci_upper - ci_lower)
+            p_values.append(p_value)
+            estimates.append(theta_psps)
+
+        # After repetitions, compute coverage probability, mean CI width, and power
+        coverage_rate = np.mean(coverages)
+        mean_width = np.mean(ci_widths)
+        # For power, compare p-values against 0.05
+        power = np.mean(np.array(p_values) < 0.05)
+        # Store results
+        result = {
+            'unlabeled_size': N_unlab,
+            'coverage': coverage_rate,
+            'ci_width': mean_width,
+            'power': power,
+            'estimate_mean': np.mean(estimates),
+            'estimate_std': np.std(estimates)
+        }
+        simulation_results.append(result)
+        print(f"Results for N={N_unlab}: coverage={coverage_rate:.3f}, width={mean_width:.3f}, power={power:.3f}")
+
+    # Save results to file
+    import json
+    results_path = os.path.join(results_dir, 'simulation_summary.json')
+    with open(results_path, 'w') as f:
+        json.dump(simulation_results, f, indent=2)
+
+if __name__ == '__main__':
+    main()

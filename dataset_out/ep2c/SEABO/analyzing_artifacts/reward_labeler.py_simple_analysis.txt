@@ -1,0 +1,160 @@
+**Logic Analysis for `reward_labeler.py`**
+
+---
+
+### **Objective**
+
+The primary purpose of the `RewardLabeler` class in `reward_labeler.py` is to assign pseudo-rewards to each transition in the unlabeled offline dataset, based on proximity to expert demonstration data. This process converts an unlabeled dataset into a reward-annotated dataset suitable for offline RL training, following the methodology outlined in the SEABO paper.
+
+---
+
+### **Core Responsibilities**
+
+1. **Input Data:**
+   - **Expert Samples:** An array of expert transitions (either observations or state-action pairs).
+   - **Unlabeled Data:** A set of transitions without rewards, each represented similarly.
+2. **Hyperparameters:**
+   - **Alpha (\(\alpha\))**: Reward scale factor.
+   - **Beta (\(\beta\))**: Decay parameter controlling how proximity affects reward.
+   - **Neighbors (N)**: Number of nearest neighbors to consider during search.
+3. **Output:**
+   - An array of labeled transitions with assigned rewards, matching the structure of the unlabeled dataset but with added reward labels.
+
+---
+
+### **Step-by-Step Logical Workflow**
+
+**1. Data Preparation**
+
+- **Loading Expert Samples**:
+  - The expert demonstration data (loaded from `expert_demo_path`) may contain:
+    - `observations` only (if `only_observations=True`).
+    - Or `state-action` pairs.
+  - The data should be structured as a numpy array or list, with consistent features for each transition.
+- **Loading Unlabeled Dataset**:
+  - Transitions are loaded similarly.
+  - Features should be in the same format as expert data for meaningful distance computation.
+- **Normalization**:
+  - Features (states, actions) are often normalized to improve the accuracy and stability of nearest neighbor search:
+    - Could be min-max or standard (zero mean, unit variance).
+  - This step is crucial if features differ vastly in scale and should be executed outside or inside the class based on implementation.
+
+**2. Building the Search Index**
+
+- **Construct a KD-Tree or Ball-Tree**:
+  - On the expert samples (`expert_samples`), using `sklearn.neighbors.KDTree` or `sklearn.neighbors.BallTree`.
+  - The features (observation and/or action) are fed into the tree.
+  - Store this spatial index for fast query operations.
+  - Hyperparameters for the search structures (e.g., `leaf_size`) are set to default or tuned values.
+
+**3. Querying Unlabeled Transitions**
+
+- **Feature Extraction**:
+  - For each transition in the unlabeled dataset:
+    - Extract features used for nearest neighbor search:
+      - Typically: `(state, action, next_state)` if actions are involved.
+      - Or `(observation, next_observation)` if only observations and `only_observations=True`.
+  - Features should be scaled accordingly, matching the expert data feature scaling.
+  
+- **Nearest Neighbor Search**:
+  - Perform a batch query to improve efficiency, requesting `N` nearest neighbors per transition, using `kneighbors()` method.
+  - Retrieve the distances `d_i` for each neighbor.
+  - Use the closest neighbor (minimum distance) for reward calculation.
+  
+**4. Computing Distances and Rewards**
+
+- **Distance Measurement**:
+  - Use Euclidean distance (or other metrics if specified).
+  - For each transition's closest expert neighbor:
+    - `d = min(distances)` (or the average if taking multiple neighbors).
+  - If multiple neighbors are considered (`N > 1`), aggregate their distances:
+    - Typical choice: mean or median, depending on robustness.
+  
+- **Reward Calculation**:
+  - Apply the exponential squashing function:
+  
+    \[
+    r = \alpha \exp \left( - \frac{\beta \times d}{|\mathcal{A}|} \right)
+    \]
+  
+  - Here:
+    - `d`: computed distance.
+    - `|\mathcal{A}|`: dimension of the action space; used to normalize the distance.
+  - This controls how proximity translates into reward signals:
+    - Closer (small `d`) → larger reward.
+    - Farther away (large `d`) → smaller reward.
+    
+- **Handling Observations-only Expert Data**:
+  - The same procedure applies; only the features utilized are observations.
+  - Distance is computed in observation space; the same exponential decay applies.
+
+**5. Assign Rewards to Transitions**
+
+- For each transition in the unlabeled dataset:
+  - Assign the computed reward.
+  - Append or return modified data including `s`, `a`, `s'`, and `reward`.
+  
+**6. Output Data Structure**
+
+- Return an array or list with each transition augmented with its reward label, preserving data format for downstream offline RL training.
+- Format:
+  - Same as dataset, but with an extra `reward` field.
+  - Compatible with data pipelines for offline RL algorithms.
+
+---
+
+### **Design & Implementation Details**
+
+- **Efficiency**:
+  - Batch querying via `kneighbors()` ensures computational efficiency with large datasets.
+  - Use default hyperparameters unless tuning is necessary.
+  
+- **Hyperparameters Implementation**:
+  - \(\alpha, \beta\): float values from config or input parameters.
+  - number of neighbors `N`: integer, default 1.
+  - Distance normalization: divide distance by `|\mathcal{A}|`
+  
+- **Modularity**:
+  - `RewardLabeler` class methods:
+    - Constructor: initializes with expert samples and hyperparameters.
+    - `assign_rewards(unlabeled_data)`: performs the entire process:
+      - Build index once.
+      - Query all transitions.
+      - Compute and assign rewards.
+  
+- **Considerations for Data in Different Domains**:
+  - High-dimensional data: approximate nearest neighbor methods can be considered if needed.
+  - Visual observations: preprocess via encoding if necessary, but the default setting assumes raw features.
+
+---
+
+### **Potential Pitfalls / Clarifications Needed**
+
+- **Expert Data Format**:
+  - Confirm whether expert demo contains only observations or `(s, a)`; affects feature extraction.
+- **Normalization**:
+  - Ensure consistent scaling between expert and unlabeled data.
+- **Distance Metric**:
+  - Confirm Euclidean or alternative; default is Euclidean.
+- **Hyperparameter Tuning**:
+  - It's straightforward to tune \(\beta\) and \(\alpha\) via validation.
+- **Action Normalization**:
+  - Dividing the distance by `|\mathcal{A}|` accounts for action dimension variance.
+
+---
+
+### **Summary of `assign_rewards()` Logic**
+
+1. Load expert samples and form feature matrix.
+2. Build spatial index (KD-tree or Ball-tree).
+3. For each transition in the unlabeled dataset:
+   - Extract features.
+   - Query the index for `N` nearest neighbors.
+   - Compute minimal distance.
+   - Calculate reward via exponential function.
+4. Attach reward to transition.
+5. Return augmented dataset ready for offline RL training.
+
+---
+
+This comprehensive logic forms the foundation for implementing `RewardLabeler`. It ensures fidelity to the paper’s method, efficiency, and flexibility.

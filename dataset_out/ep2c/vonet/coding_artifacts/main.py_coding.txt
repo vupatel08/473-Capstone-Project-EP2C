@@ -1,0 +1,146 @@
+```python
+# main.py
+import os
+import yaml
+import torch
+import torch.nn as nn
+import torch.optim as optim
+import numpy as np
+import matplotlib.pyplot as plt
+from tqdm import tqdm
+
+from dataset_loader import MoviSequenceDataset
+from model import build_vonet_from_config
+from utils import (
+    kl_annealing,
+    set_seed,
+    load_checkpoint,
+    save_checkpoint,
+    adjust_learning_rate
+)
+from trainer import Trainer
+from evaluation import Evaluator
+
+def main():
+    # 1. Load configuration
+    with open('config.yaml', 'r') as f:
+        config = yaml.safe_load(f)
+
+    device = torch.device(config['misc'].get('device', 'cuda'))
+    seed = config['misc'].get('seed', 42)
+    set_seed(seed)
+    torch.manual_seed(seed)
+    if torch.cuda.is_available():
+        torch.backends.cudnn.benchmark = True
+
+    # 2. Dataset and DataLoader
+    dataset_dir = './dataset'  # update if different
+    split_files = ['./splits/train_split.txt']
+    # For validation/testing
+    val_split_files = ['./splits/validation_split.txt']
+
+    dataset = MoviSequenceDataset(
+        dataset_dir=dataset_dir,
+        split_files=split_files,
+        sequence_length=config['training'].get('segment_length', 3),
+        training=True,
+        transform=None,
+        dataset_split='official_split',
+        object_max_count=10  # for MOVI-A/B/C, change to 16 for D/E if needed
+    )
+
+    val_dataset = MoviSequenceDataset(
+        dataset_dir=dataset_dir,
+        split_files=val_split_files,
+        sequence_length=config['training'].get('segment_length', 3),
+        training=False,
+        transform=None,
+        dataset_split='official_split',
+        object_max_count=10
+    )
+
+    batch_size = config['training'].get('batch_size', 32)
+    dataloader = torch.utils.data.DataLoader(
+        dataset, batch_size=batch_size, shuffle=True,
+        num_workers=4, collate_fn=None, pin_memory=True
+    )
+
+    val_dataloader = torch.utils.data.DataLoader(
+        val_dataset, batch_size=batch_size, shuffle=False,
+        num_workers=4, collate_fn=None, pin_memory=True
+    )
+
+    # 3. Instantiate model
+    model = build_vonet_from_config(config)
+    model.to(device)
+
+    # 4. Optimizer and scheduler
+    optimizer = optim.Adam(model.parameters(), lr=1e-5)
+    schedule_params = config['training'].get('learning_rate_schedule', {})
+
+    # Implement simple LambdaLR as placeholder for schedule
+    def lr_lambda(current_step):
+        return adjust_learning_rate(optimizer, current_step, schedule_params)
+    scheduler = optim.lr_scheduler.LambdaLR(optimizer, lr_lambda=lr_lambda)
+
+    # 5. Initialize Trainer
+    trainer = Trainer(
+        model=model,
+        dataset_loader=dataloader,
+        optimizer=optimizer,
+        scheduler=scheduler,
+        config=config,
+        device=device
+    )
+
+    # 6. Start training
+    trainer.train()
+
+    # 7. Optional: run final evaluation on validation set
+    evaluator = Evaluator(
+        model=model,
+        dataset=val_dataset,
+        device=device,
+        fg_ari=True,
+        mip_iu=True,
+        mask_threshold=0.3,
+        visualization=True,
+        save_dir=os.path.join(trainer.result_save_path, 'final_eval')
+    )
+
+    os.makedirs(evaluator.save_dir, exist_ok=True)
+
+    print("Running final evaluation on validation set...")
+    total_metrics = []
+    for idx in tqdm(range(len(val_dataset)), desc='Evaluating'):
+        # Load a single video sequence (simulate)
+        # Can load full video or sample one sequence:
+        # Here, for illustration, pick one sequence (e.g., index=0)
+        # For full validation, iterate through val_dataloader
+        # Alternatively, process all validation videos individually
+        # Here, process the first validation sequence
+        # You can extend to run over the set
+        video_frames, gt_masks, meta = val_dataset[idx]
+        # Convert list of frames to list of tensors
+        # Each frame is tensor [3, H, W]
+        if isinstance(video_frames, list):
+            frames_list = video_frames
+        else:
+            frames_list = [video_frames[t] for t in range(len(video_frames))]
+        metrics = evaluator.evaluate_video(
+            video_frames=frames_list,
+            gt_masks=gt_masks if gt_masks is not None else None,
+            max_frames=24,
+            save_visualization=True
+        )
+        total_metrics.append(metrics)
+    # Aggregate metrics
+    # Here, simply compute mean over the batch of videos
+    fg_ari_vals = [m.get('FG-ARI', 0) for m in total_metrics]
+    mIoU_vals = [m.get('mIoU', 0) for m in total_metrics]
+    print(f"Final FG-ARI: {np.mean(fg_ari_vals):.4f} ± {np.std(fg_ari_vals):.4f}")
+    print(f"Final mIoU: {np.mean(mIoU_vals):.4f} ± {np.std(mIoU_vals):.4f}")
+
+if __name__ == '__main__':
+    main()
+```

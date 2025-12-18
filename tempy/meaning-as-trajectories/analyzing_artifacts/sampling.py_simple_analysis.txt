@@ -1,0 +1,148 @@
+**Logic Analysis for sampling.py**
+
+---
+
+### 1. Purpose and Responsibilities:
+The `sampling.py` module implements the `Sampler` class, which is responsible for generating multiple sample trajectories (continuation sequences of tokens) for given prompts using a pre-loaded language model. It handles:
+
+- Parallel batch sampling of multiple prompts to improve efficiency.
+- Sampling multiple trajectories (`n`) per prompt to approximate the distribution of all possible continuations.
+- Managing constraints such as maximum trajectory length (`m`).
+- Configurable parameters such as temperature (`λ`) and the number of trajectories (`n`).
+
+### 2. Inputs and Outputs:
+- **Inputs to `Sampler`:**
+  - A `ModelWrapper` instance which provides methods:
+    - `generate_continuations(prompt, n, m, temperature)` — returns a list of `n` generated string continuations for a single prompt.
+    - Or a batch version for multiple prompts.
+  - Hyperparameters:
+    - `num_trajectories` (n): integer, number of trajectories per prompt.
+    - `max_length` (m): integer, maximum tokens per trajectory.
+    - `temperature` (λ): float, sampling temperature.
+
+- **Outputs:**
+  - For each prompt:
+    - A list of `n` sampled trajectories (strings).
+  - For batch processing:
+    - A dictionary keyed by prompt string, with corresponding list of sampled trajectories.
+
+### 3. Core Functions and Methods:
+
+#### 3.1 `__init__(self, model: ModelWrapper, n: int, m: int, temperature: float)`:
+- Instantiates the `Sampler` object with the given model and hyperparameters.
+- Sets up internal configuration and data structures for subsequent sampling.
+
+#### 3.2 `sample_trajectories(self, prompt: str) -> list[str]`:
+- Executes the sampling process for a single prompt.
+- Invokes `ModelWrapper.generate_continuations()` with the current prompt:
+  - Generates `n` sequences, each up to `m` tokens.
+  - Uses the specified temperature `λ`.
+- Returns the list of sampled sequences (strings).
+
+#### 3.3 `parallel_sample(self, prompts: list[str]) -> dict[str, list[str]]`:
+- Implements batch sampling for multiple prompts simultaneously.
+- Uses Python's `multiprocessing` or `concurrent.futures.ThreadPoolExecutor`:
+   - Creates a pool of worker processes/threads.
+   - Dispatches `sample_trajectories()` calls for each prompt.
+- Collects results into a dictionary:
+  - Keys: prompt strings.
+  - Values: list of `n` trajectories per prompt.
+
+### 4. Implementation Details and Considerations:
+
+- **Sampling Process:**
+  - For each prompt, generate `n` trajectories.
+  - Each trajectory is obtained by iteratively sampling next tokens conditioned on the current sequence until:
+    - `[EOS]` token is generated, or
+    - the sequence reaches length `m`.
+
+- **Sequence Generation:**
+  - Should call `ModelWrapper.generate_continuations()` internally with parameters:
+    - `prompt`
+    - `num_samples=n`
+    - `max_length=m`
+    - `temperature=λ`
+  - This method produces `n` sequences, which may already be properly padded or terminated.
+
+- **Parallelism Strategy:**
+  - For efficiency, especially with large models:
+    - Use multiprocessing pool to spawn multiple workers.
+    - Each worker calls `generate_continuations()` independently.
+  - The batch size can be the total number of prompts, or a fixed batch size for scalability.
+  - Synchronization: Wait for all workers to complete and gather results.
+
+- **Caching/Optimization:**
+  - Optionally, pre-cache the likelihood scores of generated trajectories if required in later distance calculations.
+  - Maintain a consistent seed (if stochasticity needs control) for reproducibility.
+
+- **Error Handling:**
+  - Catch exceptions during API calls and sampling.
+  - Log errors and fallback if necessary.
+
+- **Reproducibility:**
+  - Fix random seeds in `ModelWrapper` and in sampling functions for consistent results, if supported.
+  - Use consistent sampling parameters.
+
+### 5. Dependencies:
+- `multiprocessing` or `concurrent.futures` for parallel execution.
+- Proper thread-safety or process safety in `ModelWrapper` if shared state exists.
+- Logging for tracing sampling steps.
+
+---
+
+### 6. Summary of Workflow:
+
+1. **Initialization:**
+   - Instantiate `Sampler` with model and hyperparameters (`n`, `m`, `λ`).
+   
+2. **Sampling per prompt:**
+   - Call `sample_trajectories(prompt)` to generate `n` trajectories:
+     - Internally invoke model's continuation generator.
+     - Collect and return sequences.
+
+3. **Batch sampling:**
+   - For a list of prompts, invoke `parallel_sample()`:
+     - Distribute prompts across workers.
+     - Collect all trajectories mapped to each prompt.
+
+4. **Result:**
+   - Return a dict: `{prompt_string: [trajectories]}`.
+
+---
+
+### 7. Pseudocode Outline:
+
+```python
+class Sampler:
+    def __init__(self, model, n, m, temperature):
+        self.model = model
+        self.n = n
+        self.m = m
+        self.temperature = temperature
+
+    def sample_trajectories(self, prompt):
+        # Call model to generate multiple continuations
+        trajectories = self.model.generate_continuations(prompt, self.n, self.m, self.temperature)
+        return trajectories
+
+    def parallel_sample(self, prompts):
+        with concurrent.futures.ThreadPoolExecutor() as executor:
+            futures = {prompt: executor.submit(self.sample_trajectories, prompt) for prompt in prompts}
+            results = {}
+            for prompt, future in futures.items():
+                try:
+                    results[prompt] = future.result()
+                except Exception as e:
+                    # handle errors
+                    results[prompt] = []
+        return results
+```
+
+---
+
+### **Final Notes:**
+- Ensure that `ModelWrapper.generate_continuations()` is capable of batch processing for multiple prompts for maximal efficiency.
+- Confirm tokenization, special token handling (`[EOS]`), and sequence length constraints for different model types.
+- Implement logging for traceability if needed.
+
+This comprehensive reasoning provides a clear, implementation-agnostic framework to develop the `sampling.py` module aligned with the research methodology, ensuring accurate, reproducible trajectory sampling for the model interpretation.

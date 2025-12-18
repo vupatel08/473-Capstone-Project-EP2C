@@ -1,0 +1,33 @@
+training:
+  learning_rate: 3e-5  # Initial learning rate as used in experiments
+  batch_size: 16     # Number of images per batch
+  epochs: 100        # Total number of training epochs
+  lr_decay_epoch: 80 # Epoch at which to decay the learning rate
+  lr_decay_factor: 0.01 # Factor by which to decay learning rate
+model:
+  backbone: "mit-b1"  # Segformer MiT-B1 backbone
+  num_classes: 21   # 20 object categories + 1 background
+  proto_num_per_class: 5 # Number of prototypes per class (global prototypes)
+  proto_momentum: 0.99 # Momentum for prototype updates
+  prototype_extraction_topk: 0.5 # Top-k percentage during prototype extraction
+loss:
+  partial_ce_scale: 1.0  # Weight for partial cross entropy loss
+  lambda_local: 0.02   # Loss weight for local prototype consistency
+  lambda_global: 0.05  # Loss weight for global prototype consistency
+data:
+  image_size: 512     # Cropped size for training images
+  augmentation:
+    random_scale: [0.5, 2.0]
+    rotation_degrees: [-10, 10]
+    horizontal_flip: True
+    gaussian_blur: True
+  dataset_path: "path/to/VOC2012" # Path to Pascal VOC 2012 dataset
+  scribble_annotations_path: "path/to/ScribbleAnnotations" # Path to scribble masks
+prototypes:
+  interaction_topk: 0.5 # Top-k percentage from feature vectors
+  global_proto_count: 5 # Number of prototypes per class in memory bank
+  update_momentum: 0.99 # Momentum for updating global prototypes
+  warmup_epochs: 10 # Epochs before prototypes are used
+inference:
+  use_prototypes: true # Whether to use prototypes during inference
+  class_guidance: false # Whether to use class label guidance during inference

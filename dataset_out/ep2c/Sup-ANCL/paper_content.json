@@ -1,0 +1,158 @@
+{
+  "title": "On the Effectiveness of Supervision in Asymmetric Non-Contrastive Learning",
+  "abstract": "Jeongheon Oh 1 Kibok Lee 1",
+  "authors": [],
+  "body_text": [
+    {
+      "text": "# On the Effectiveness of Supervision in Asymmetric Non-Contrastive Learning"
+    },
+    {
+      "text": "Jeongheon Oh 1 Kibok Lee 1"
+    },
+    {
+      "text": "# Abstract"
+    },
+    {
+      "text": "Supervised contrastive representation learning has been shown to be effective in various transfer learning scenarios. However, while asymmetric non-contrastive learning (ANCL) often outperforms its contrastive learning counterpart in selfsupervised representation learning, the extension of ANCL to supervised scenarios is less explored. To bridge the gap, we study ANCL for supervised representation learning, coined SUPSIAM and SUPBYOL, leveraging labels in ANCL to achieve better representations. The proposed supervised ANCL framework improves representation learning while avoiding collapse. Our analysis reveals that providing supervision to ANCL reduces intraclass variance, and the contribution of supervision should be adjusted to achieve the best performance. Experiments demonstrate the superiority of supervised ANCL across various datasets and tasks. The code is available at: https: //github.com/JH-Oh-23/Sup-ANCL."
+    },
+    {
+      "text": "on negative samples. To prevent learned representations from collapsing, ANCL employs an asymmetric structure by placing a predictor after one side of the projector."
+    },
+    {
+      "text": "A key component in both CL and ANCL is acquisition of positive pairs, which is typically achieved through data augmentation. Given that datasets for pretraining often include labels, Khosla et al. (2020) proposed to incorporate supervision into CL by treating samples with the same class label as positive pairs as well. Supervised CL has demonstrated superior performance across diverse tasks, such as few-shot learning (Majumder et al., 2021), long-tail recognition (Kang et al., 2021), continual learning (Cha et al., 2021), and natural language processing (Gunel et al., 2021)."
+    },
+    {
+      "text": "While supervision helps to discover more positive samples, it does not directly help to identify effective negative samples. Consequently, ANCL has a better potential to benefit from supervision, as it focuses on positive pairs only. However, in contrast to CL, there are a limited number of studies on leveraging supervision to improve ANCL, despite its strong performance in self-supervised learning. To bridge this gap, we study the effect of supervision in ANCL by introducing the supervised ANCL framework and investigating its behavior through theoretical and empirical analysis."
+    },
+    {
+      "text": "# 1. Introduction"
+    },
+    {
+      "text": "Self-supervised learning has recently been proven to be an effective paradigm for representation learning (Chen et al., 2020a; Chen & He, 2021; He et al., 2022). Among various pretext tasks for self-supervised learning, contrastive learning (CL) (van den Oord et al., 2018; Chen et al., 2020a; He et al., 2020) first promised outstanding performance, surpassing the transfer learning performance of supervised pretraining (Razavian et al., 2014), which learns representations by attracting positive pairs while repelling negative pairs. However, CL requires negative samples to ensure good performance, which might not be possible under limited batch sizes. On the other hand, asymmetric non-contrastive learning (ANCL) (Grill et al., 2020; Chen & He, 2021) has emerged as a promising alternative to CL, which maximizes the similarity between positive pairs without relying"
+    },
+    {
+      "text": "To the best of our knowledge, our work is the first to conduct a theoretical analysis of the behavior of representations learned through supervised ANCL. Our experiments confirm the effectiveness of supervision observed through our theoretical analysis, as well as the superiority of representations learned via supervised ANCL across various datasets and tasks. Specifically, as illustrated in Figure 1, we consider SUPSIAM and SUPBYOL, which are supervised adaptations of the two popular ANCL methods, SIMSIAM (Chen & He, 2021) and BYOL (Grill et al., 2020), respectively. Our contributions are summarized as follows:"
+    },
+    {
+      "text": "• We propose a supervised ANCL framework for representation learning while avoiding collapse, which surpasses the performance of its self-supervised counterpart when supervision is available. • Our analysis demonstrates that incorporating supervision into ANCL reduces the intra-class variance of latent features, and that learning to capture both intra- and interclass variance is crucial for representation learning."
+    },
+    {
+      "text": "![](images/b55fedae64d7fb56b9e51bc4d375ec2612f1f9cc5f3f0aaf527097158dcf2e28.jpg)  \nFigure 1. Our proposed supervised ANCL framework. The components we added to the standard ANCL are highlighted with a red box. We manage a target pool to ensure the existence of positive samples sharing the same class label in the form of $z _ { 2 } ^ { \\mathrm { s u p } }$ . Stop-gradient (sg) applied to $z _ { 2 }$ and $z _ { 2 } ^ { \\mathrm { s u p } }$ ensures that the gradients propagate through the online branch with the predictor only. The target branch without the predictor either shares parameters with the online branch (SUPSIAM), or exhibits a momentum network (SUPBYOL)."
+    },
+    {
+      "text": "• Our experiments validate our analysis and demonstrate the superiority of representations learned via supervised ANCL across various datasets and tasks."
+    },
+    {
+      "text": "# 2. Related Works"
+    },
+    {
+      "text": "Supervised CL. Although SUPCON (Khosla et al., 2020) demonstrated remarkable linear probing performance on pretrained datasets, its efficacy on other downstream datasets is comparable or inferior to that of self-supervised methods. In response, subsequent works have been underway to better utilize supervision to enhance representation learning. Wei et al. (2021) proposed to improve CL by taking top- $K$ positive neighbors into account and assigning soft labels to positive samples based on similarity, such that it better reflects task-specific semantic features and task-agnostic appearance features. Wang et al. (2023) argued that naively incorporating supervised signals might conflict with the self-supervised signals. To address this issue, Wang et al. (2023) proposed to impose hierarchical supervisions with an additional projector. Graf et al. (2021) provided both theoretical and empirical evidence demonstrating that the SUPCON loss is minimized when each class collapses to a single point, resulting in poor generalization of learned representations. Chen et al. (2022) found that the SUPCON loss is invariant to class-fixing permutations, indicating that the loss remains unchanged when data points within the same class are arbitrarily permuted in representation space, which also leads to poor generalization of learned representations. Chen et al. (2022) proposed incorporating a weighted class-conditional InfoNCE loss to avoid class collapse, and constraining the encoder, adding a class-conditional autoencoder, and using data augmentation to break permutation invariance. Xue et al. (2023) argued that features learned through supervised CL are prone to class collapse, whereas those learned through self-supervised CL suffer from feature suppression, i.e., easy and class-irrelevant features suppress to learn harder and class-relevant features. They claimed that balancing the losses of supervised and self-supervised CL is crucial for improving the quality of learned representations. Notably, these efforts have concentrated on CL, motivating us to investigate the effect of supervision in ANCL. Although several studies on supervised ANCL exist, such as Asadi et al. (2022) and Maser et al. (2023), their contributions lack a theoretical understanding of the effect of supervision and/or are limited to specific domains."
+    },
+    {
+      "text": "Theoretical Analysis on ANCL. While the initial ANCL works (Grill et al., 2020; Chen & He, 2021) have demonstrated impressive performance, the learning dynamics that enable effective representation learning without negative pairs while avoiding collapse to trivial solutions remain unclear. Tian et al. (2021) elucidated the dynamics of ANCL through the spectral decomposition of the correlation matrix. Specifically, assuming the predictor is linear, they proved that the eigenspace of the learned predictor aligns with the eigenspace of the correlation matrix of the latent features. Liu et al. (2022) empirically observed that, as learning progresses, both the linear predictor and the correlation matrix of latent features converge to a (scaled) identity matrix in ANCL. Based on this observation, they argued that the asymmetric architecture in ANCL implicitly encourages feature decorrelation, achieving a similar effect to symmetric non-CL methods that explicitly decorrelate features such as Barlow Twins (Zbontar et al., 2021) and VICReg (Bardes et al., 2022). Zhuo et al. (2023) suggested that the predictor in ANCL operates as a low-pass filter, thereby decreasing the rank of the predictor outputs. They argued that the rank difference between the correlation matrix of the projector outputs and that of the predictor outputs mitigates dimensional collapse by gradually increasing the effective rank of them as training progresses. Inspired by the prior works on self-supervised ANCL, we analyze supervised ANCL under a similar framework with additional assumptions. On the other hand, Halvagal et al. (2023) found that prior works overlook the L2 normalization of projector/predictor outputs, which is a common practice in ANCL, before computing the loss. They investigated the learning dynamics by incorporating the L2 normalization and compared it with the case without the L2 normalization. Our work also considers the L2 normalization; however, instead of normalizing the features directly, we consider it as a constraint and employ a Lagrangian formulation."
+    },
+    {
+      "text": "# 3. Method"
+    },
+    {
+      "text": "In this section, we first review the problem setting of selfsupervised ANCL. Then, we introduce supervised ANCL. The overall framework is illustrated in Figure 1."
+    },
+    {
+      "text": "# 3.1. Preliminary: Self-Supervised ANCL"
+    },
+    {
+      "text": "Let $f , g$ , and $h$ be the encoder, projector, and predictor of the online branch, respectively, and $\\tilde { f }$ and $\\tilde { g }$ be the encoder and projector of the target branch, respectively. For a data point $x$ , let $z = ( g \\circ f ) ( x )$ and $p = ( h \\circ g \\circ f ) ( x )$ be the output of the projector and predictor, respectively. In self-supervised ANCL, two views $x _ { 1 }$ and $x _ { 2 }$ are generated from the data $x$ through augmentation, and the model learns to minimize the distance between these views encoded at different levels: it compares the prediction of the first view $p _ { 1 } = ( h \\circ g \\circ f ) ( x _ { 1 } )$ with the projection of the second view $z _ { 2 } = ( \\tilde { g } \\circ \\tilde { f } ) ( x _ { 2 } )$ . It has been observed that the asymmetric architecture introduced by the predictor $h$ helps prevent representation collapse by predicting the latent feature of the second view $z _ { 2 }$ from that of the first view $z _ { 1 }$ , i.e., $z _ { 2 } \\simeq$ $p _ { 1 } = h ( z _ { 1 } )$ (Chen & He, 2021). The self-supervised ANCL loss $\\ell _ { \\mathrm { s s l } }$ is expressed as:"
+    },
+    {
+      "text": "$$\n\\ell _ { \\mathrm { s s l } } ( p _ { 1 } , z _ { 2 } ) = \\| p _ { 1 } - \\mathrm { s g } \\left( z _ { 2 } \\right) \\| _ { 2 } ^ { 2 } ,\n$$"
+    },
+    {
+      "text": "where sg is the stop-gradient operation and $p _ { 1 }$ and $z _ { 2 }$ are L2- normalized. The inclusion of stop-gradient is also crucial for preventing collapsing, making it an essential component of the loss formulation (Chen & He, 2021)."
+    },
+    {
+      "text": "The target branch can either share parameters with the online branch (Chen & He, 2021), or exhibit a momentum network (Grill et al., 2020). When a momentum network is employed, its parameters follow the exponential moving average (EMA) update rule: $\\theta _ { \\tilde { g } \\circ \\tilde { f } }  m \\cdot \\theta _ { \\tilde { g } \\circ \\tilde { f } } + ( 1 - m ) \\cdot \\theta _ { g \\circ f }$ where $m$ is the momentum, ${ \\dot { \\theta } } _ { g \\circ f }$ is the set of learnable parameters in $f$ and $g$ . The parameters of the target model $\\theta _ { \\tilde { g } \\circ \\tilde { f } }$ are initialized to those of the online model $\\theta _ { g \\circ f }$ ."
+    },
+    {
+      "text": "# 3.2. Supervised ANCL"
+    },
+    {
+      "text": "We propose to enhance supervised ANCL by integrating supervision through an additional loss function: for an anchor $x _ { 1 }$ and its supervised target $x _ { 2 } ^ { \\mathrm { { s u p } } }$ sharing the same label $y$ , the loss minimizes the distance between $p _ { 1 } = ( h \\circ g \\circ f ) ( x _ { 1 } )$ and $z _ { 2 } ^ { \\mathrm { s u p } } = ( \\tilde { g } \\circ \\tilde { f } ) ( x _ { 2 } ^ { \\mathrm { s u p } } )$ . However, the additional loss may not always be effective, because the current batch might not contain any samples sharing the same label as the anchor, particularly when the batch size is small."
+    },
+    {
+      "text": "To address this issue, we introduce a target pool to ensure the presence of targets sharing the same label as each anchor in the batch, regardless of batch size. Similar to the memory bank utilized in prior works (Wu et al., 2018), the target pool $Q$ is a queue storing targets $z _ { 2 }$ along with their corresponding labels. The target pool offers another advantage that positive samples from the target pool help mitigate collapse because they are updated more slowly than those sampled from the batch, as empirically observed in Table 8. The proposed target pool is flexible in its design, such that it can be a vanilla queue, a collection of per-class queues ensuring the presence of targets from all labels even when the queue size is small, or a set of learnable class prototypes; the impact of these design choices is investigated in Table 7."
+    },
+    {
+      "text": "Now, we sample the supervised target $z _ { 2 } ^ { \\mathrm { s u p } }$ sharing the same class as the anchor $x$ from the target pool $Q$ . Specifically, we sample $M$ targets and average them to formulate the supervised ANCL loss $\\ell _ { \\mathrm { s u p } }$ :"
+    },
+    {
+      "text": "$$\n\\ell _ { \\mathrm { s u p } } ( p _ { 1 } , z _ { 2 } ^ { \\mathrm { s u p } } ) = \\left\\| p _ { 1 } - \\mathrm { s g } \\left( z _ { 2 } ^ { \\mathrm { s u p } } \\right) \\right\\| _ { 2 } ^ { 2 } , z _ { 2 } ^ { \\mathrm { s u p } } = \\frac { 1 } { M } \\sum _ { z _ { 2 } ^ { \\prime } \\in Q _ { y } } z _ { 2 } ^ { \\prime } ,\n$$"
+    },
+    {
+      "text": "where $p _ { 1 }$ and $z _ { 2 } ^ { \\prime }$ are L2-normalized and $Q _ { y } \\subseteq Q$ is the set of $M$ targets sampled from $Q$ sharing the same label $y$ as $x$ We sample all positives in $Q$ in experiments, and the effect of $M$ is discussed in Appendix F.2. Finally, the total loss is defined by the convex combination of $\\ell _ { \\mathrm { s s l } }$ and $\\ell _ { \\mathrm { s u p } }$ :"
+    },
+    {
+      "text": "$$\n\\ell ( p _ { 1 } , z _ { 2 } , z _ { 2 } ^ { \\operatorname { s u p } } ) = \\alpha \\cdot \\ell _ { \\mathrm { s s l } } ( p _ { 1 } , z _ { 2 } ) + ( 1 - \\alpha ) \\cdot \\ell _ { \\operatorname { s u p } } ( p _ { 1 } , z _ { 2 } ^ { \\operatorname { s u p } } ) ,\n$$"
+    },
+    {
+      "text": "where $\\alpha \\in [ 0 , 1 ]$ adjusts the contribution of $\\ell _ { \\mathrm { s s l } }$ and $\\ell _ { \\mathrm { s u p } }$ and we symmetrize the loss in experiments following the convention. We argue that the introduction of $\\ell _ { \\mathrm { s u p } }$ reduces intra-class variance and $\\alpha$ adjusts the amount of reduction, where details can be found in Section 4.3."
+    },
+    {
+      "text": "Note that our strategy for incorporating supervision into the loss differs from that of SUPCON (Khosla et al., 2020). We first average the supervised loss before combining it with the self-supervised loss, whereas SUPCON weights all persample losses equally, regardless of whether they are selfsupervised or supervised. Since our focus is on analyzing the overall effects of self-supervised and supervised losses rather than per-sample losses, our strategy aligns with the analysis presented in the following section."
+    },
+    {
+      "text": "# 4. Analysis of the Effect of Supervision"
+    },
+    {
+      "text": "In this section, we analyze the effect of supervision in ANCL. We argue that incorporating supervision into ANCL reduces intra-class variance, and that its contribution should be adjusted to achieve better representations. Detailed mathematical proofs are provided in Appendix A."
+    },
+    {
+      "text": "# 4.1. Problem Setup"
+    },
+    {
+      "text": "For simplicity in our analysis, we adopt several assumptions from Tian et al. (2021); Zhuo et al. (2023):"
+    },
+    {
+      "text": "Assumption 4.1. The encoder followed by the projector $g \\circ f$ and the predictor $h$ are linear: $z = ( g \\circ f ) ( x ) = W x$ and $p = h ( z ) = W _ { p } z$ , where $W _ { p }$ is a symmetric matrix."
+    },
+    {
+      "text": "Assumption 4.2. The distribution of the data augmentation $P ( { \\tilde { X } } | { \\tilde { X } } )$ has a mean $X$ and a covariance matrix $\\sigma _ { e } ^ { 2 } I$ ."
+    },
+    {
+      "text": "While previous studies on self-supervised ANCL assume that the distribution of the input data has a zero mean and a scaled identity covariance matrix, class-conditional distributions should be considered when incorporating supervision. Specifically, we assume the class-conditional and class-prior distributions over $C$ classes as follows:"
+    },
+    {
+      "text": "Assumption 4.3. The class-prior distribution follows the uniform distribution: $P ( Y = y ) = 1 / C$ ."
+    },
+    {
+      "text": "Assumption 4.4. For an input data $X$ and its class $Y$ , the conditional distribution $P ( X | Y )$ is characterized by a mean $\\mu _ { y }$ and a covariance matrix $\\Sigma _ { y }$ , where the total mean and total covariance matrix are zero and the identity matrix, respectively: $\\textstyle \\sum _ { y } \\mu _ { y } = 0$ and $\\begin{array} { r } { S _ { T } = \\frac { 1 } { C } \\sum _ { y } \\left( \\mu _ { y } \\mu _ { y } ^ { \\dagger } + \\Sigma _ { y } \\right) = \\bar { I } } \\end{array}$ ."
+    },
+    {
+      "text": "Assumption 4.3 is made for simplicity of analysis; our analysis holds without this assumption, albeit the derivation becomes more complex. Assumption 4.4 can be naturally satisfied through data whitening."
+    },
+    {
+      "text": "# 4.2. Supervision Reduces Intra-Class Variance"
+    },
+    {
+      "text": "For simplicity, assume we sample one target from the pool, i.e., $M \\ = \\ 1$ . We first express the loss in Eq. (3) with constraints to ensure the L2 normalization of features:"
+    },
+    {
+      "text": "$$\n\\begin{array} { r l r } & { \\ell = \\alpha \\left\\| { W _ { p } z _ { 1 } - z _ { 2 } } \\right\\| _ { 2 } ^ { 2 } + ( 1 - \\alpha ) \\left\\| { W _ { p } z _ { 1 } - z _ { 2 } ^ { \\operatorname* { s u p } } } \\right\\| _ { 2 } ^ { 2 } } & \\\\ & { = \\left\\| { W _ { p } z _ { 1 } - \\left( \\alpha \\cdot z _ { 2 } + ( 1 - \\alpha ) \\cdot z _ { 2 } ^ { \\operatorname* { s u p } } \\right) } \\right\\| _ { 2 } ^ { 2 } + \\mathrm { c o n s t } } & \\\\ & { \\mathrm { s . t . } \\left\\| { z _ { 2 } } \\right\\| _ { 2 } ^ { 2 } = \\left\\| { z _ { 2 } ^ { \\operatorname* { s u p } } } \\right\\| _ { 2 } ^ { 2 } = \\left\\| { W _ { p } z _ { 1 } } \\right\\| _ { 2 } ^ { 2 } = 1 , } & \\end{array}\n$$"
+    },
+    {
+      "text": "where we omit stop-gradient applied to $z _ { 2 }$ and $z _ { 2 } ^ { \\mathrm { s u p } }$ for brevity, and the equality in the second line holds due to the linearity of the L2 loss between L2-normalized features with respect to the target (Lee et al., 2021b). Hence, this optimization can be interpreted as mapping one view $z _ { 1 }$ to an interpolated target between another view $z _ { 2 }$ and the supervised target $z _ { 2 } ^ { \\mathrm { s u p } }$ . Intuitively, when $\\alpha = 1$ , the model cannot determine the exact augmentation applied to $x _ { 2 }$ by observing $x _ { 1 }$ , such that it predicts $z _ { 2 }$ from $z _ { 1 }$ through low-rank approximation via principal component analysis (PCA) (Richemond et al., 2023). Similarly, when $\\alpha = 0$ the model cannot infer the exact supervised target zsu2 by observing z1; instead, it predicts zsu2 by mapping $z _ { 1 }$ to the class centroid. Here, it has been known that least squares with targets independent of each other (ignoring centering, if applied) is equivalent to linear discriminant analysis (LDA) (Lee & Kim, 2015), where LDA simultaneously maximizes between-class scatter and minimizes within-class scatter. Hence, we can hypothesize that incorporating supervision into ANCL reduces intra-class variance, and the degree of reduction is controlled by $\\alpha$ ."
+    },
+    {
+      "text": "To prove that incorporating supervision into ANCL reduces intra-class variance, we establish the following: 1) the optimal predictor $W _ { p } ^ { * }$ generates features of data with reduced intra-class variance by a factor of $\\alpha$ , and 2) the optimal $W _ { p }$ and $W$ share the same eigenspace, thereby $W$ learns to reduce intra-class variance of features."
+    },
+    {
+      "text": "First, we formulate the Lagrangian function of Eq. (4) and take the expectation over $x _ { 1 } , x _ { 2 }$ , and $x _ { 2 } ^ { \\mathrm { { s u p } } }$ :"
+    },
+    {
+      "text": "$$\n\\begin{array} { r l r } {  { \\mathcal { L } = 2 - 2 \\alpha \\cdot \\mathrm { t r } \\big ( W _ { p } ^ { \\top } \\mathbb { E } [ z _ { 2 } z _ { 1 } ^ { \\top } ] \\big ) - 2 \\big ( 1 - \\alpha \\big ) \\cdot \\mathrm { t r } \\big ( W _ { p } ^ { \\top } \\mathbb { E } [ z _ { 2 } ^ { \\operatorname* { s u p } } z _ { 1 } ^ { \\top } ] \\big ) } } \\\\ & { } & { + \\lambda _ { 1 } ( \\mathrm { t r } ( \\mathbb { E } [ z _ { 2 } z _ { 2 } ^ { \\top } ] ) - 1 ) + \\lambda _ { 2 } ( \\mathrm { t r } ( \\mathbb { E } [ z _ { 2 } ^ { \\operatorname* { s u p } } z _ { 2 } ^ { \\operatorname* { s u p } \\top } ] ) - 1 ) } \\\\ & { } & { + \\lambda _ { 3 } ( \\mathrm { t r } ( W _ { p } ^ { \\top } W _ { p } \\mathbb { E } [ z _ { 1 } z _ { 1 } ^ { \\top } ] ) - 1 ) , \\qquad ( 5 ) } \\end{array}\n$$"
+    },
+    {
+      "text": "where $\\lambda _ { 1 } , \\lambda _ { 2 }$ , and $\\lambda _ { 3 }$ are the Lagrange multipliers. Note that $x$ and $x ^ { \\mathrm { s u p } }$ are independently sampled from the conditional distribution $P ( X | Y = y )$ , $x _ { 1 }$ and $x _ { 2 }$ are independently sampled from $P ( \\widetilde { X } | X \\ = \\ x )$ , and $x _ { 2 } ^ { \\mathrm { { s u p } } }$ is sampled from $P ( \\widetilde X | X = x ^ { \\mathrm { s u p } } )$ ."
+    }
+  ],
+  "url": ""
+}

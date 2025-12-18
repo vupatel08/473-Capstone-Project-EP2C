@@ -1,0 +1,98 @@
+## Config file for Stormer weather forecasting model
+
+dataset:
+  data_path: "path/to/ERA5_processed_data.nc"
+  variables:
+    surface:
+      - T2m
+      - U10
+      - V10
+      - MSLP
+    atmospheric:
+      - Z
+      - T
+      - U
+      - V
+      - Q
+  pressure_levels: [50, 100, 150, 200, 250, 300, 400, 500, 600, 700, 850, 925, 1000]
+  grid_resolution: 128  # Target grid resolution
+  downsample_hours: 6  # 6-hourly data
+  train_start: "1979-01-01"
+  train_end: "2018-12-31"
+  valid_start: "2019-01-01"
+  valid_end: "2019-12-31"
+  test_start: "2020-01-01"
+  test_end: "2020-12-31"
+
+model:
+  # Transformer architecture parameters
+  patch_size: 2
+  hidden_dim: 1024
+  num_layers: 24
+  num_heads: 16
+  mlp_ratio: 4
+  dropout_rate: 0.1
+  attention_dropout: 0.1
+  max_position_embeddings: 1024
+
+training:
+  batch_size: 128  # Number of samples per device
+  epochs_phase1: 100
+  epochs_finetune_2: 20
+  epochs_finetune_3: 20
+  learning_rate_phase1: 5e-4
+  learning_rate_finetune_2: 5e-6
+  learning_rate_finetune_3: 5e-7
+  warmup_epochs: 10
+  warmup_epochs_finetune: 5
+  weight_decay: 1e-5
+  optimizer: AdamW
+  scheduler: cosine
+  gradient_checkpointing: true
+  mixed_precision: true
+  device_count: 128
+
+training_strategies:
+  randomized_delta_t: [6, 12, 24]  # Hours
+  rollout_steps: [1, 4, 8]
+  interval_combinations: "generate using utils.py"  # Use utility functions for combinations
+
+loss:
+  pressure_weighting: true
+  pressure_levels: [50, 100, 150, 200, 250, 300, 400, 500, 600, 700, 850, 925, 1000]
+  variable_weights:
+    surface: 1.0
+    U10: 0.1
+    V10: 0.1
+    MSLP: 0.1
+  loss_function: MSE
+
+inference:
+  lead_time_intervals: [6, 12, 24]  # Hours
+  combination_mode: "heterogeneous"
+  ensemble_top_m: 3
+  ensemble_n: 128  # Number of random combinations to evaluate
+  combine_method: "mean"  # Or "ensemble"
+
+evaluation:
+  metrics:
+    - RMSE
+    - ACC
+    - SSR
+  lead_times: [1, 3, 5, 7, 10, 14]  # Days
+  regrid_data: true  # Ensure all forecasts are on the same grid
+
+logging:
+  save_dir: "checkpoints/stormer/"
+  save_checkpoint_interval: 10  # Save every 10 epochs
+  early_stopping_patience: 15
+
+dataset_statistics:
+  normalization_stats: "computed over training set"
+  pressure_weighting_scheme: "as per paper; pressure levels used for weighting"
+
+hardware:
+  devices: 128 A100 40GB GPUs
+  use_mixed_precision: true
+  enable_gradient_checkpointing: true
+  cluster_strategy: "DistributedDataParallel"

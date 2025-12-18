@@ -1,0 +1,148 @@
+# Logic Analysis for `dataset.py`
+
+The purpose of `dataset.py` is to define reusable dataset classes and data loaders that facilitate both synthetic toy data generation and real image datasets (such as ImageNet-100 and downstream datasets). The implementation must support training, validation, and test splits, handle appropriate data augmentation, and interface seamlessly with PyTorch’s `torch.utils.data.Dataset` and `DataLoader`.
+
+---
+
+## Core Components to Implement:
+
+### 1. **ToyDataset Class (Synthetic Data)**
+- **Objective:** Generate a synthetic dataset of 3 classes, each following a Gaussian distribution with orthogonal means, shared isotropic covariance.
+- **Key Details:**
+  - Number of classes: 3
+  - Dimensionality: 2048
+  - Number of samples:
+    - Training: 1000 samples per class (3000 total)
+    - Testing: 500 samples per class (1500 total)
+  - Means: orthogonal vectors derived from the left singular vectors of a Gaussian matrix.
+  - Covariance: identity scaled by 0.35.
+  - Data augmentation:
+    - For each sample, replace approximately 60% of features with the overall data mean vector (to mimic the described augmentation).
+  - Responses:
+    - Return data samples (`x`) and associated labels (`y`).
+
+- **Implementation™:**
+  - Generate means during dataset initialization, store as class attributes.
+  - For each sample:
+    - Draw from the class Gaussian distribution.
+    - Perform augmentation (feature masking/ replacement as specified).
+  - Support indexing (`__getitem__`) returning a tensor and label.
+  - Implement a `__len__()` method.
+
+---
+
+### 2. **Image Dataset Class (Using torchvision)**
+- **Objective:** Wrap torchvision dataset loading for ImageNet-100 (or other datasets) with train/test splits and proper augmentations.
+- **Key Details:**
+  - Load datasets via torchvision datasets or custom loader if needed.
+  - Support train, val, test splits.
+  - Apply well-defined data augmentations:
+    - Standard augmentations: RandomResizedCrop, RandomHorizontalFlip, ColorJitter, RandomGrayScale, GaussianBlur.
+  - Ensure reproducibility by fixing the random seed.
+  - Support optional transforms for each phase.
+
+---
+
+### 3. **Augmentation Handling**
+- **For Synthetic Data:**
+  - Augmentation: Replace ~60% of features in the vector with the mean vector (or apply a similar masking).
+  - Possibly simulate augmentation with a custom function operating on the synthesized features.
+- **For Image Data:**
+  - Use torchvision.transforms with standard augmentations.
+  - Compose transforms conditioned on dataset phase (train/test).
+
+---
+
+### 4. **Dataset Management**
+- **Supervision:**
+  - Each dataset should return `(x, y)` pairs, where `x` is a tensor (image or vector) and `y` is the label.
+- **Splits:**
+  - `train_dataset`: Use training data.
+  - `val_dataset`: Use validation subset of dataset (if granular split exists).
+  - `test_dataset`: Use test subset.
+  - Implement proper splitting for validation, either through torchvision datasets split, or custom splitting if needed.
+
+---
+
+### 5. **DataLoader Integration**
+- Instantiate PyTorch DataLoader objects for each dataset split, with configurable batch sizes, shuffling, and num_workers.
+- For training datasets, shuffling should be enabled.
+- For validation/testing, shuffling typically disabled.
+- Support setting the seed for deterministic reproducibility.
+
+---
+
+## Implementation Steps:
+
+### A. **Synthetic Toy Dataset (`ToyDataset`)**
+- **During `__init__`:**  
+  - Generate class means (orthogonal vectors):  
+    - Sample a random Gaussian matrix  
+    - Perform SVD, extract left singular vectors as class means  
+    - Rescale to match covariance specifications (or directly use the scaled identity)
+  - Generate samples:
+    - For each class:
+      - Sample from `N(μ_y, 0.35 * I)`
+    - Store all data and labels.
+- **Augmentation:**
+  - Implement a function to simulate the augmentation:
+    - Randomly replace 60% of features with the overall mean (computed during init).
+- **`__getitem__`:**
+  - Return augmented sample and label.
+
+### B. **Image Dataset Wrapper (`ImageDataset`)**
+- **Uses torchvision.datasets.ImageFolder or custom dataset.**
+- **Transforms:**
+  - Compose data augmentation transformations.
+- **Splitting:**
+  - Handle validation split, if datasets lack an explicit val set.
+- **`__getitem__`:**
+  - Return image tensor and label.
+
+---
+
+### C. **Common Interfaces**
+- All dataset classes should:
+  - Inherit from `torch.utils.data.Dataset`.
+  - Define `__len__()` and `__getitem__()`.
+- Use consistent data types (e.g., float32 tensors).
+- Retain labels as integers.
+- Accept configuration parameters:
+  - `split` type: train/test/validation.
+  - `augmentations`: apply as needed.
+  - `dataset_path`: for image datasets.
+
+---
+
+## Additional Considerations
+- Ensure deterministic behavior:
+  - Use a fixed seed.
+  - Consistent shuffling if needed.
+- Data normalization:
+  - For image datasets: standard ImageNet mean/std normalization.
+  - For toy data: normalization may be optional; features are post-augmentation.
+- Support DataLoader batching naturally.
+
+---
+
+## Summary
+
+- **`ToyDataset`:**
+  - Generate class means with SVD for orthogonal vectors.
+  - Sample from Gaussian distributions per class.
+  - Implement augmentation by feature masking/replacement.
+  - Return `(x, y)` as tensors for each index.
+
+- **`ImageDataset`:**
+  - Load datasets via torchvision.
+  - Apply augmentations with torchvision.transforms.
+  - Support train, val, test splits.
+  - Return `(image_tensor, label)`.
+
+- **Pool & DataLoader:**
+  - Instantiate DataLoader with batch size, shuffling, seed setting.
+  - Maintain flexibility for two datasets (toy and image).
+
+---
+
+This detailed explanation provides a concrete, step-by-step plan for coding `dataset.py` in line with the research paper, plan, and configuration, ensuring compatibility with subsequent modules such as training, loss, and evaluation.

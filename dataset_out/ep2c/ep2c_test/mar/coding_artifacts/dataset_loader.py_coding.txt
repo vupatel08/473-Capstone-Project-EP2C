@@ -1,0 +1,139 @@
+```python
+## dataset_loader.py
+import os
+import glob
+import numpy as np
+import torch
+from torch.utils.data import Dataset, DataLoader
+
+import yaml
+
+# Load configuration from 'config.yaml'
+# Assuming this script is run in the same directory as the config.yaml
+with open('config.yaml', 'r') as f:
+    config = yaml.safe_load(f)
+
+# Extract dataset parameters from config
+DATASET_PATH = config['dataset'].get('path', './')  # default fallback
+TOKENIZER_TYPE = config['dataset'].get('tokenizer_type', 'vq-gan')  # default
+TOKENIZER_NAME = config['dataset'].get('tokenizer_name', 'vgg-16')  # default
+SEQ_LEN = config['dataset'].get('sequence_length', 1024)
+NORMALIZATION = config['dataset'].get('normalization', True)
+
+# Define the filename pattern based on the tokenizer
+# This depends on how the dataset files are stored.
+# For example, assume they are numpy files: '*.npy'
+# and stored with consistent naming.
+if TOKENIZER_TYPE == 'vq-gan':
+    FILE_PATTERN = os.path.join(DATASET_PATH, '*.npy')  # discrete token IDs
+elif TOKENIZER_TYPE == 'continuous':
+    FILE_PATTERN = os.path.join(DATASET_PATH, '*.npy')  # latent vectors
+else:
+    raise ValueError(f"Unknown tokenizer_type: {TOKENIZER_TYPE}")
+
+# Optional: Define padding token for discrete tokens
+PAD_TOKEN_ID = 0
+
+class ImageTokensDataset(Dataset):
+    """
+    Dataset class for loading tokenized images for autoregressive diffusion training.
+    Supports both discrete token IDs (from VQ-GAN) and continuous latent vectors.
+    """
+    def __init__(self, dataset_path, tokenizer_type='vq-gan', sequence_length=1024,
+                 normalization=True, shuffle_buffer_size=65536):
+        """
+        Args:
+            dataset_path (str): Path to directory containing token files.
+            tokenizer_type (str): Type of tokenizer ('vq-gan' or 'continuous').
+            sequence_length (int): Fixed length of token sequences.
+            normalization (bool): Whether to normalize continuous tokens.
+            shuffle_buffer_size (int): Size for shuffling buffer.
+        """
+        super().__init__()
+        self.dataset_path = dataset_path
+        self.tokenizer_type = tokenizer_type
+        self.sequence_length = sequence_length
+        self.normalization = normalization
+        self.shuffle_buffer_size = shuffle_buffer_size
+
+        # List all data sample files
+        self.samples = sorted(glob.glob(os.path.join(self.dataset_path, '*.npy')))
+        assert len(self.samples) > 0, f"No data files found in {self.dataset_path}"
+
+        # For shuffling, create a random permutation of indices
+        self.indices = np.arange(len(self.samples))
+        np.random.seed(42)
+        np.random.shuffle(self.indices)
+
+    def __len__(self):
+        return len(self.samples)
+
+    def __getitem__(self, idx):
+        """
+        Load a single sample, process it, and return as tensor.
+        """
+        # Map idx through permutation for shuffling
+        real_idx = self.indices[idx]
+        filename = self.samples[real_idx]
+        data = np.load(filename)
+
+        # data shape depends on tokenizer
+        # For 'vq-gan': data shape = (sequence_length,) of int IDs
+        # For 'continuous': data shape = (sequence_length, D) of floats
+        if self.tokenizer_type == 'vq-gan':
+            tokens = data.astype(np.int64)  # ensure integer dtype
+            # Pad if necessary
+            if tokens.shape[0] < self.sequence_length:
+                pad_length = self.sequence_length - tokens.shape[0]
+                tokens = np.pad(tokens, (0, pad_length), constant_values=PAD_TOKEN_ID)
+            elif tokens.shape[0] > self.sequence_length:
+                tokens = tokens[:self.sequence_length]
+            tokens_tensor = torch.from_numpy(tokens)
+            # No normalization needed for discrete tokens
+            return tokens_tensor
+
+        elif self.tokenizer_type == 'continuous':
+            # Assumed data shape = (sequence_length, D)
+            # Possibly stored as float32
+            if data.shape[0] < self.sequence_length:
+                pad_length = self.sequence_length - data.shape[0]
+                pad_vals = np.zeros((pad_length, data.shape[1]), dtype=data.dtype)
+                data = np.concatenate([data, pad_vals], axis=0)
+            elif data.shape[0] > self.sequence_length:
+                data = data[:self.sequence_length]
+            tokens_tensor = torch.from_numpy(data).float()
+
+            # Normalize if flag is set
+            if self.normalization:
+                # Normalize to zero mean, unit variance
+                mean = tokens_tensor.mean()
+                std = tokens_tensor.std()
+                if std > 0:
+                    tokens_tensor = (tokens_tensor - mean) / std
+                else:
+                    tokens_tensor = tokens_tensor - mean
+            return tokens_tensor
+        else:
+            raise ValueError(f"Unknown tokenizer_type: {self.tokenizer_type}")
+
+# Optional: create a DataLoader for batching, shuffling
+# You can instantiate in your training script as:
+# dataset = ImageTokensDataset(DATASET_PATH, TOKENIZER_TYPE, SEQ_LEN, NORMALIZATION)
+# dataloader = DataLoader(dataset, batch_size=..., shuffle=True, num_workers=4, drop_last=True)
+
+# Example of how to instantiate:
+# dataset = ImageTokensDataset(
+#     dataset_path=DATASET_PATH,
+#     tokenizer_type=TOKENIZER_TYPE,
+#     sequence_length=SEQ_LEN,
+#     normalization=NORMALIZATION
+# )
+
+# For external use, export the class
+if __name__ == "__main__":
+    # Test loading a sample
+    dataset = ImageTokensDataset(DATASET_PATH, TOKENIZER_TYPE, SEQ_LEN, NORMALIZATION)
+    print(f"Loaded {len(dataset)} samples.")
+    sample = dataset[0]
+    print(f"Sample shape: {sample.shape}")
+```

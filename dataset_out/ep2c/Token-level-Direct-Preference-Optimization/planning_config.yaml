@@ -1,0 +1,28 @@
+training:
+  learning_rate: 5e-6
+  batch_size: 64
+  epochs: 10
+  max_response_tokens: 512
+  divergence_beta: 0.1
+  alpha: 0.5
+  divergence_scale: 1.0
+  train_steps: 200
+  warmup_steps: 50
+  gradient_clipping: 1.0
+model:
+  pretrained_model_name: gpt2-medium
+  checkpoint_path: null  # specify if resuming from checkpoint
+dataset:
+  train_data_path: "path/to/train/dataset"
+  validation_data_path: "path/to/validation/dataset"
+  test_data_path: "path/to/test/dataset"
+evaluation:
+  use_gpt4: true
+  gpt4_api_key: "YOUR_API_KEY"
+  evaluation_interval: 50  # steps between evaluations
+  save_checkpoint_interval: 100  # steps
+hyperparameters:
+  beta: 0.1  # KL divergence coefficient
+  alpha: 0.5  # divergence balancing in TDPo_2
+  divergence_offset: 1.0  # for divergence offset in loss
+  stop_gradient: true  # whether to stop gradient for divergence term

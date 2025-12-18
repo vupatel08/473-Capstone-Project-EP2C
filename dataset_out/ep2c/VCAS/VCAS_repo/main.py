@@ -1,0 +1,146 @@
+## main.py
+import yaml
+import torch
+import random
+import numpy as np
+
+from dataset_loader import DatasetLoader
+from model import get_model
+from importance_sampler import ImportanceSampler
+from variance_estimator import VarianceEstimator
+from trainer import Trainer
+from evaluation import Evaluation
+
+def main():
+    # Load configuration from 'config.yaml'
+    with open('config.yaml', 'r') as f:
+        config = yaml.safe_load(f)
+
+    # Set random seeds for reproducibility
+    seed = 42
+    random.seed(seed)
+    np.random.seed(seed)
+    torch.manual_seed(seed)
+    if torch.cuda.is_available():
+        torch.cuda.manual_seed_all(seed)
+
+    # Device setup
+    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+
+    # ==========================
+    # 1. Dataset Loading
+    # ==========================
+    dataset_cfg = config.get('dataset', {})
+    dataset_loader = DatasetLoader(**dataset_cfg)
+    train_loader = dataset_loader.get_loader()
+
+    # Optionally, load validation set for evaluation
+    val_loader = None
+    if 'split' in dataset_cfg:
+        # For eval, use validation split if available
+        val_cfg = dataset_cfg.copy()
+        val_cfg['split'] = 'validation' if 'validation' in dataset_cfg['split'] else 'test'
+        val_loader_obj = DatasetLoader(**val_cfg)
+        val_loader = val_loader_obj.get_loader()
+
+    # ============================
+    # 2. Model Initialization
+    # ============================
+    model_cfg = config.get('model', {})
+    model = get_model(model_cfg)
+    model.to(device)
+
+    # ============================
+    # 3. Importance Sampler & Variance Estimator
+    # ============================
+    layer_num = None
+    # Infer number of layers from model
+    # For simplicity, assume model has attribute 'num_layers' or infer from model modules.
+    if hasattr(model, 'model'):
+        for name, module in model.model.named_modules():
+            if isinstance(module, torch.nn.Linear):
+                layer_num = getattr(model, 'num_layers', None)
+                break
+    if layer_num is None:
+        # Fallback: assume model has attribute or set default
+        layer_num = 12  # default, or derive dynamically
+
+    importance_method = config.get('importance_sampling', {}).get('importance_method', 'gradient_norm')
+    init_ratio = config.get('importance_sampling', {}).get('initial_ratio', 1.0)
+
+    importance_sampler = ImportanceSampler(
+        layer_num=layer_num,
+        initial_ratio=init_ratio,
+        importance_method=importance_method,
+        activation_threshold=config['hyperparameters'].get('variance_control_thresholds', {}).get('activation', 0.025),
+        weight_threshold=config['hyperparameters'].get('variance_control_thresholds', {}).get('weight', 0.025),
+        update_step_alpha=config['hyperparameters'].get('update_step_alpha', 0.01),
+        ratio_scaling_beta=config['hyperparameters'].get('ratio_scaling_beta', 0.95),
+        variance_update_frequency=config['hyperparameters'].get('variance_update_frequency', 100)
+    )
+
+    M = config['hyperparameters'].get('monte_carlo_samples', 4)
+    variance_estimator = VarianceEstimator(num_samples=M)
+
+    # ============================
+    # 4. Hyperparameters & Training Setup
+    # ============================
+    total_steps = config['training'].get('total_steps', 10000)
+    epochs = config['training'].get('epochs', 3)
+    batch_size = config['training'].get('batch_size', 32)
+    lr = config['training'].get('learning_rate', 2e-5)
+    warmup_steps = config['training'].get('warmup_steps', 500)
+
+    update_ratio_freq = config['hyperparameters'].get('variance_update_frequency', 100)
+    tau_act = config['hyperparameters'].get('variance_control_thresholds', {}).get('activation', 0.025)
+    tau_w = config['hyperparameters'].get('variance_control_thresholds', {}).get('weight', 0.025)
+    alpha = config['hyperparameters'].get('update_step_alpha', 0.01)
+    beta = config['hyperparameters'].get('ratio_scaling_beta', 0.95)
+
+    # Initialize sample ratios for each layer (activation and token)
+    importance_sampler.rho = [1.0 for _ in range(layer_num)]
+    importance_sampler.nu = [1.0 for _ in range(layer_num)]
+
+    # ==============================
+    # 5. Instantiate Trainer
+    # ==============================
+    trainer = Trainer(
+        model=model,
+        dataset_config=dataset_cfg,
+        importance_sampler=importance_sampler,
+        variance_estimator=variance_estimator,
+        hyperparameters={
+            'variance_control_thresholds': {'activation': tau_act, 'weight': tau_w},
+            'update_step_alpha': alpha,
+            'ratio_scaling_beta': beta,
+            'variance_update_frequency': update_ratio_freq,
+            'monte_carlo_samples': M
+        },
+        train_loader=train_loader,
+        total_steps=total_steps,
+        num_epochs=epochs,
+        learning_rate=lr,
+        warmup_steps=warmup_steps,
+        device=device
+    )
+
+    # =======================
+    # 6. Training & Variance Adaptation
+    # =======================
+    print("Starting training with VCAS...")
+    trainer.train()
+
+    # ============================
+    # 7. Final Evaluation
+    # ============================
+    print("Training completed. Running evaluation...")
+    eval_obj = Evaluation(model, dataset_loader)  # Use dataset_loader for validation/test
+    results = eval_obj.evaluate()
+
+    # Print evaluation results
+    print("==== Final Evaluation Results ====")
+    for metric_name, value in results.items():
+        print(f"{metric_name}: {value:.4f}")
+
+if __name__ == "__main__":
+    main()

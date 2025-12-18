@@ -1,0 +1,130 @@
+# Logic Analysis for `dataset_loader.py`
+
+## Objective:
+Implement the `DatasetLoader` class responsible for loading, preprocessing, and providing datasets suitable for training and evaluation of the diffusion model, supporting both unconditional and conditional datasets such as LAION, FFHQ, CIFAR, etc. The loader must output normalized tensors (images) and handle optional conditioning prompts (e.g., class labels, text prompts, segmentation maps). It should be compatible with PyTorch `Dataset` and `DataLoader` paradigms, utilizing `torchvision`, `PIL`, and other dataset-specific libraries as needed.
+
+---
+
+## Core Requirements:
+1. **Dataset Support**:
+   - Load datasets from specified paths or from well-known datasets (CIFAR, FFHQ, LAION).
+   - Support dataset types:
+     - Unconditional: images only.
+     - Conditional: images with prompts/labels (e.g., text, segmentation masks).
+   
+2. **Preprocessing & Transformation**:
+   - Resize images to `image_size` (default: 512×512).
+   - Normalize images to `[−1, 1]` or `[0, 1]` (consistent with the backbone model preprocessing).
+   - Convert images to tensors.
+   - Optional: Load conditioned prompts (text, segmentation masks, other conditions).
+   - Support for different dataset formats (e.g., ImageFolder structure, custom dataset files).
+
+3. **Dataset Interface**:
+   - Provide an initialization method (`__init__`) accepting configuration parameters.
+   - Implement `__len__` to give dataset size.
+   - Implement `__getitem__`:
+     - Return preprocessed image tensor.
+     - Return optional prompt or conditioning data if available.
+
+4. **Dataset Variants**:
+   - For known datasets (`CIFAR`, `FFHQ`):
+     - Use torchvision datasets (e.g., `CIFAR10`, `FFHQ` from `dset` loaders or custom datasets).
+   - For LAION or large datasets:
+     - Load from custom indices, paths, or preprocessed cache.
+     - Implement optional prompt loading.
+   
+5. **Handling Conditioning**:
+   - If dataset_type is "conditional":
+     - Return a tuple `(image_tensor, condition)` where `condition` could be:
+       - Text prompt (string or tokenized).
+       - Segmentation map or other auxiliary data.
+     - Otherwise, return only the image tensor.
+
+6. **Normalization & Transformation Pipeline**:
+   - Use `torchvision.transforms`:
+     - Resize
+     - Convert to Tensor
+     - Normalize (using mean/std of ImageNet or model-requirements).
+7. **Optional Augmentations**:
+   - Not discussed in the plan, but could be added later with random crops, flips, etc.
+
+8. **Dataset Initialization Parameters**:
+   - `dataset_path`: path to dataset folder or datasets configuration.
+   - `image_size`: target size `[height, width]`.
+   - `dataset_type`: "unconditional" or "conditional".
+   - `dataset_name`: "laion", "ffhq", "cifar", etc.
+   - Optionally, `prompt_file`, `conditioning_file`, or dataset-specific parameters if needed.
+
+---
+
+## Detailed Step-by-Step Logic:
+### 1. Constructor (`__init__`)
+- Accept parameters:
+  - `dataset_path`
+  - `image_size`
+  - `dataset_type`
+  - `dataset_name`
+  - any additional parameters (e.g., split ratios, prompts path).
+- Validate dataset_type and dataset_name.
+- Based on dataset_name:
+  - **CIFAR**:
+    - Load via `torchvision.datasets.CIFAR10` or `CIFAR100`.
+    - Set `transform` pipeline.
+  - **FFHQ / Other datasets**:
+    - Load from local directory using `ImageFolder` or custom dataset class if segmentation prompts are involved.
+  - **LAION or large custom datasets**:
+    - Load file list from index files or folders.
+    - Support optional prompt loading.
+- Store references:
+  - `self.dataset` (PyTorch Dataset object).
+  - `self.transform` (for image normalization, resizing).
+  - `self.prompt_loader` or similar if prompts are involved.
+
+### 2. Data Loading & Preprocessing
+- For each `__getitem__`:
+  - Load image:
+    - From PIL or raw file.
+  - Resize to `image_size`.
+  - Convert to tensor.
+  - Normalize to `[−1, 1]` (mean/std or [0,1]).
+- For conditional datasets:
+  - Fetch associated prompt or condition:
+    - For text prompts: load string, tokenize if needed.
+    - For masks/labels: load segmentation masks or labels as tensors.
+- Return:
+  - `(images_tensor, conditions)` if applicable.
+  - `images_tensor` only if unconditional.
+
+### 3. Dataset Output Format
+- The dataset should provide:
+  - `image: torch.FloatTensor` of shape `[C, H, W]`.
+  - `condition: Optional[str or tensor]`.
+- Ensure consistent normalization for model input.
+
+### 4. Compatibility & Extension
+- Implement support for:
+  - Dataset split (train/test).
+  - Lazy loading for large datasets.
+  - Handling multiple dataset formats.
+- Maintain extendability for future datasets or additional conditioning modalities.
+
+---
+
+## Additional Considerations:
+- **Reproducibility**:
+  - Fix random seed in data transforms if needed.
+  - Document dataset augmentation choices.
+- **Efficiency**:
+  - Use dataset caching if large external files or network are involved.
+- **Compatibility with training pipeline**:
+  - Outputs should match expected input sizes.
+  - Data types should be `float32`.
+
+---
+
+## Summary:
+The `DatasetLoader` class will be a PyTorch `Dataset`-compatible class initialized with dataset parameters, supporting multiple dataset types (private or public), standard preprocessing, and optional conditioning data. It will serve as the data interface to enable training and evaluation of the diffusion model with or without conditioning, facilitating experiments on diverse datasets aligned with the paper's methodology.
+
+---
+
+This thorough analysis should guide precise implementation in `dataset_loader.py`.

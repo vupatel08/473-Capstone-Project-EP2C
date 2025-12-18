@@ -1,0 +1,274 @@
+```python
+## dataset_loader.py
+
+import os
+import json
+import random
+from typing import List, Tuple, Dict, Optional
+
+import torch
+from torch.utils.data import Dataset
+import numpy as np
+import pandas as pd
+from scipy.cluster.hierarchy import linkage, fcluster
+from scipy.spatial.distance import pdist
+from sentence_transformers import SentenceTransformer
+
+from tqdm import tqdm
+
+class DatasetLoader:
+    """
+    DatasetLoader is responsible for:
+      - Loading triplet data (prompt, positive, negative images, and signals)
+      - Filtering based on view counts, NSFW flags, prompt length
+      - Clustering prompts using hierarchical clustering
+      - Splitting into train, val, test sets ensuring prompt-level separation
+    """
+
+    def __init__(self,
+                 dataset_path: str,
+                 max_prompt_words: int = 5,
+                 min_view_count: int = 10,
+                 max_view_count: int = 1000,
+                 filter_negative_signals: bool = True,
+                 seed: int = 42,
+                 clustering_method: str = "ward",
+                 num_clusters: int = 173,
+                 prompt_embedding_model_name: str = "sentence-transformers/all-MiniLM-L6-v2",
+                 verbose: bool = True):
+        """
+        Initializes the DatasetLoader with dataset path and preprocessing parameters.
+
+        Args:
+            dataset_path (str): Path to the curated dataset directory/csv file.
+            max_prompt_words (int): Max number of words in prompt.
+            min_view_count (int): Minimum view count for images.
+            max_view_count (int): Maximum view count for images.
+            filter_negative_signals (bool): Whether to filter images with zero remix counts.
+            seed (int): Random seed for reproducibility.
+            clustering_method (str): Linkage method for hierarchical clustering.
+            num_clusters (int): Number of clusters for prompt clustering.
+            prompt_embedding_model_name (str): Model name for prompt embedding.
+            verbose (bool): Whether to display progress info.
+        """
+        self.dataset_path = dataset_path
+        self.max_prompt_words = max_prompt_words
+        self.min_view_count = min_view_count
+        self.max_view_count = max_view_count
+        self.filter_negative_signals = filter_negative_signals
+        self.seed = seed
+        self.clustering_method = clustering_method
+        self.num_clusters = num_clusters
+        self.prompt_embedding_model_name = prompt_embedding_model_name
+        self.verbose = verbose
+
+        # Containers for data
+        self.raw_data = []  # will hold raw triplet dicts
+        self.train_data = []
+        self.val_data = []
+        self.test_data = []
+        self.prompt_embeddings_cache = {}  # prompt text -> embedding tensor
+        self.prompt_cluster_labels = {}  # prompt text -> cluster id
+
+        # Load and process dataset
+        self._load_data()
+        self._filter_data()
+        self._compute_prompt_embeddings()
+        self._perform_clustering()
+        self._split_data()
+
+    def _load_data(self):
+        """
+        Loads the raw dataset from files.
+        Assumes data is stored in a CSV or JSONL with necessary fields:
+        prompt, pos_image_path, neg_image_path, remix_counts, creator_signal, view_counts, nsfw_flag
+        """
+        # Infer file format from dataset_path: assume CSV for simplicity
+        try:
+            data_df = pd.read_csv(self.dataset_path)
+        except Exception:
+            # fallback: try JSONL
+            with open(self.dataset_path, 'r') as f:
+                lines = f.readlines()
+            data_list = [json.loads(line) for line in lines]
+            data_df = pd.DataFrame(data_list)
+
+        # Expected columns:
+        # 'prompt', 'pos_image_path', 'neg_image_path',
+        # 'remix_counts', 'creator_signal', 'view_counts', 'nsfw_flag'
+        required_cols = ['prompt', 'pos_image_path', 'neg_image_path',
+                         'remix_counts', 'creator_signal', 'view_counts', 'nsfw_flag']
+        for col in required_cols:
+            if col not in data_df.columns:
+                raise ValueError(f"Missing required column: {col}")
+
+        # Convert to list of dicts for flexibility
+        for _, row in data_df.iterrows():
+            triplet = {
+                'prompt': row['prompt'],
+                'pos_image_path': row['pos_image_path'],
+                'neg_image_path': row['neg_image_path'],
+                'remix_counts': float(row['remix_counts']),
+                'creator_signal': bool(row['creator_signal']),
+                'view_counts': float(row['view_counts']),
+                'nsfw_flag': bool(row['nsfw_flag'])
+            }
+            self.raw_data.append(triplet)
+
+        if self.verbose:
+            print(f"Loaded {len(self.raw_data)} total triplets from dataset.")
+
+    def _filter_data(self):
+        """
+        Applies filtering based on:
+        - View counts (min and max)
+        - NSFW flag
+        - Prompt length
+        - Remix/signals if specified
+        """
+        filtered_data = []
+
+        for triplet in self.raw_data:
+            # Filter NSFW
+            if triplet['nsfw_flag']:
+                continue
+
+            # Filter view counts
+            view_count = triplet['view_counts']
+            if view_count < self.min_view_count or view_count > self.max_view_count:
+                continue
+
+            # Filter prompt length
+            prompt_word_count = len(triplet['prompt'].split())
+            if prompt_word_count > self.max_prompt_words:
+                continue
+
+            # Filter remix signals if applicable
+            if self.filter_negative_signals:
+                # Keep only images with remix_counts >= 1 for positives
+                # For negatives, remix_counts should be zero
+                # But we will handle in sampling phase; for dataset, keep all for now
+                pass
+
+            filtered_data.append(triplet)
+
+        self.filtered_data = filtered_data
+        if self.verbose:
+            print(f"After filtering, {len(self.filtered_data)} triplets remain.")
+
+    def _compute_prompt_embeddings(self):
+        """
+        Computes embeddings for all prompts using SentenceTransformer.
+        Caches embeddings for efficiency.
+        """
+        self.model = SentenceTransformer(self.prompt_embedding_model_name)
+        prompts = list(set([triplet['prompt'] for triplet in self.filtered_data]))
+        self.prompt_embeddings_cache = {}
+
+        if self.verbose:
+            print(f"Computing embeddings for {len(prompts)} prompts...")
+
+        for prompt in tqdm(prompts, desc="Encoding prompts"):
+            emb = self.model.encode(prompt, convert_to_tensor=True)
+            self.prompt_embeddings_cache[prompt] = emb
+
+    def _perform_clustering(self):
+        """
+        Performs hierarchical clustering on prompt embeddings to assign cluster labels.
+        """
+        # Collect unique prompts and their embeddings
+        prompts = list(self.prompt_embeddings_cache.keys())
+        embeddings = torch.stack([self.prompt_embeddings_cache[prompt] for prompt in prompts])
+        embeddings_np = embeddings.cpu().numpy()
+
+        # Compute pairwise distances
+        if self.verbose:
+            print("Performing hierarchical clustering...")
+        Z = linkage(pdist(embeddings_np, metric='cosine'), method=self.clustering_method)
+
+        # Assign cluster labels with a fixed number of clusters
+        cluster_labels = fcluster(Z, t=self.num_clusters, criterion='maxclust')
+
+        # Map prompts to cluster ids
+        for prompt, label in zip(prompts, cluster_labels):
+            self.prompt_cluster_labels[prompt] = label
+
+        if self.verbose:
+            cluster_counts = np.bincount(cluster_labels)
+            print(f"Clustering complete. Cluster counts: {cluster_counts}")
+
+    def _split_data(self):
+        """
+        Splits data into train, val, test sets based on prompt clusters or prompt texts.
+        Ensure no prompt appears in multiple sets.
+        """
+        # Collect all unique prompts
+        prompts = list(set([triplet['prompt'] for triplet in self.filtered_data]))
+        random.seed(self.seed)
+
+        # Shuffle prompts
+        random.shuffle(prompts)
+
+        total = len(prompts)
+        train_cut = int(0.7 * total)
+        val_cut = int(0.8 * total)
+
+        # Assign prompts to splits
+        train_prompts = set(prompts[:train_cut])
+        val_prompts = set(prompts[train_cut:val_cut])
+        test_prompts = set(prompts[val_cut:])
+
+        # Allocate triplets based on their prompt
+        for triplet in self.filtered_data:
+            prompt = triplet['prompt']
+            if prompt in train_prompts:
+                self.train_data.append(triplet)
+            elif prompt in val_prompts:
+                self.val_data.append(triplet)
+            else:
+                self.test_data.append(triplet)
+
+        if self.verbose:
+            print(f"Data split: {len(self.train_data)} train, {len(self.val_data)} val, {len(self.test_data)} test triplets.")
+
+    def get_train_data(self) -> List[Dict]:
+        """Return list of training triplets."""
+        return self.train_data
+
+    def get_val_data(self) -> List[Dict]:
+        """Return list of validation triplets."""
+        return self.val_data
+
+    def get_test_data(self) -> List[Dict]:
+        """Return list of test triplets."""
+        return self.test_data
+
+    def get_prompt_embedding(self, prompt: str) -> torch.Tensor:
+        """Return the embedding tensor for a specific prompt."""
+        return self.prompt_embeddings_cache.get(prompt, None)
+
+    def get_prompt_cluster_id(self, prompt: str) -> int:
+        """Return the cluster ID of a prompt."""
+        return self.prompt_cluster_labels.get(prompt, -1)
+
+    def get_triplet_sample(self, split: str = 'train') -> Tuple[str, str, str]:
+        """
+        Sample a triplet from the specified split.
+
+        Args:
+            split (str): 'train', 'val', or 'test'
+
+        Returns:
+            Tuple[prompt, positive_image_path, negative_image_path]
+        """
+        data_split = {
+            'train': self.train_data,
+            'val': self.val_data,
+            'test': self.test_data
+        }
+        data_list = data_split.get(split, [])
+        if not data_list:
+            raise ValueError(f"No data available for split: {split}")
+        triplet = random.choice(data_list)
+        return (triplet['prompt'], triplet['pos_image_path'], triplet['neg_image_path'])
+```

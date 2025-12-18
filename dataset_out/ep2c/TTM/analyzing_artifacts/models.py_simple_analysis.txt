@@ -1,0 +1,158 @@
+**Logic Analysis for models.py — Model Architectures and Weight Loading**
+
+---
+
+### Purpose & Role:
+
+The `models.py` module is responsible for **defining the neural network architectures** for both teacher and student models, and for **loading pretrained weights** into the teacher model. It must support flexible architecture selection based on configuration, enable consistent model initialization, and manage pretrained weight loading. This setup is essential for reproducibility, ensuring that the teacher models can produce outputs aligned with the experimental setup, and for the student, which is trained from scratch or initialized as needed.
+
+---
+
+### Core Functionalities Required:
+
+1. **Model Architecture Definitions:**
+   - **Support multiple architectures:** ResNet50, ResNet18, WideResNet, MobileNetV2, ShuffleNet, optionally other models.
+   - **Use torchvision.models when possible** for straightforward models.
+   - **Implement or import custom implementations** if architectures are not available in `torchvision`.
+
+2. **Parameterization & Configuration:**
+   - Architectures and pretrained weight paths are provided via configuration (`config.yaml`).
+   - The code must accept architecture identifiers (e.g., 'ResNet50') and instantiate the correct model with default or ImageNet-pretrained weights.
+   - **Ensure architecture string identifiers match across the code and config.**
+
+3. **Pretrained Weights Loading:**
+   - For the **teacher model**, load pretrained weights from specified path or url.
+   - For **the student model**, initialize randomly unless specified otherwise.
+
+4. **Model Instantiation API:**
+   - Provide **functions/classes** that:
+     - Given an architecture string, return a model object.
+     - Optionally load weights if a path is provided.
+   - Example signature:
+     ```python
+     def get_model(architecture: str, pretrained: bool=False, weights_path: str=None):
+         ...
+     ```
+
+5. **Compatibility & Consistency:**
+   - Ensure output shapes/functions match those expected in the training script.
+   - Consistent model evaluation mode (`model.eval()`) handled outside but ensure models are ready for inference.
+
+6. **Device Support:**
+   - Accept a `device` argument or handle manually outside.
+   - Models should be moved to the correct device (`cpu` or `cuda`) after instantiation.
+
+---
+
+### Implementation Logic:
+
+#### Step 1: Define a model selection function based on architecture string
+
+- Use if-elif-else or dictionary mapping:
+  - Example:
+    ```python
+    model_dict = {
+        'ResNet50': torchvision.models.resnet50,
+        'ResNet18': torchvision.models.resnet18,
+        'WideResNet': custom_wideresnet,
+        'MobileNetV2': torchvision.models.mobilenet_v2,
+        'ShuffleNetV2': torchvision.models.shufflenet_v2_x1_0,
+        # add others as needed
+    }
+    ```
+- For architectures not directly in torchvision, plan to import or implement custom models within the same file or module.
+
+#### Step 2: Instantiate models
+
+- For models available in torchvision:
+  - Use corresponding constructor, e.g.,
+    ```python
+    model = torchvision.models.resnet50(pretrained=False)
+    ```
+- For custom architectures:
+  - Import or define the class, then instantiate, e.g.,
+    ```python
+    model = CustomWideResNet(depth=28, width=10)
+    ```
+
+#### Step 3: Load pretrained weights (for teacher exclusively)
+
+- **Check if pretrained weights path is provided in config:**
+  - If yes, load weights via `model.load_state_dict(torch.load(weights_path))`.
+  - Ensure weights are compatible; may require model-specific adjustments.
+  - If no path provided, assume randomly initialized.
+
+- For pretraining weights:
+  - Use `model.eval()` after loading to prevent accidental training.
+  - Properly handle models that are pretrained on ImageNet (standard for ResNet, MobileNetV2, etc.).
+
+#### Step 4: Return models
+
+- Return the instantiated model object.
+- The calling script (e.g., `train.py`) will handle moving the model to device, setting `train()` or `eval()` modes.
+
+---
+
+### Additional Considerations:
+
+- **ResNet Variants**:
+  - For ResNet, use `torchvision.models.resnet50`, `resnet18`.
+  - Ensure that `pretrained=False` when loading custom weights to avoid conflicts.
+  - For ImageNet training, load ImageNet-pretrained weights if desired.
+
+- **WideResNet**:
+  - May not be in `torchvision`. Require an in-project implementation.
+  - Assume such a class is available or provide placeholder for user to implement.
+
+- **MobileNetV2 / ShuffleNet**:
+  - Use torchvision: `mobilenet_v2`, `shufflenet_v2_x1_0`.
+  - For custom variants, extend similarly.
+
+- **Name consistency and expandability**:
+  - Make the architecture string mapping easy to extend for future models.
+
+---
+
+### Outline of function in `models.py`:
+
+```python
+def get_model(architecture: str, pretrained: bool = False, weights_path: str = None):
+    # Define a dict mapping architecture names to model constructors
+    model_map = {
+        'ResNet50': torchvision.models.resnet50,
+        'ResNet18': torchvision.models.resnet18,
+        'MobileNetV2': torchvision.models.mobilenet_v2,
+        'ShuffleNetV2': torchvision.models.shufflenet_v2_x1_0,
+        'WideResNet': custom_wideresnet,  # custom-defined class/function
+        # add more architectures as needed
+    }
+    # Instantiate model
+    if architecture not in model_map:
+        raise ValueError(f"Unsupported architecture: {architecture}")
+    model_fn = model_map[architecture]
+    model = model_fn(pretrained=pretrained) if 'pretrained' in model_fn.__code__.co_varnames else model_fn()
+
+    # Load custom weights if provided
+    if weights_path:
+        checkpoint = torch.load(weights_path)
+        model.load_state_dict(checkpoint)
+
+    return model
+```
+
+---
+
+### Summary:
+
+- The `models.py` module must:
+  - Provide a flexible factory function/class to instantiate desired models based on string identifiers.
+  - Load pretrained weights for the teacher if specified.
+  - Support custom architectures for wider applicability.
+- The design must facilitate consistent reproduction:
+  - Same model configurations for teacher and student.
+  - Reproducible weight initialization.
+  - Easy extension for new models.
+
+---
+
+**End of Logical Analysis for models.py.**

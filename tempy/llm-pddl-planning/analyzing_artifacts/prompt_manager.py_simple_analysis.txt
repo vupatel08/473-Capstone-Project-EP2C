@@ -1,0 +1,172 @@
+**Logic Analysis for `prompt_manager.py`**
+
+---
+
+### Purpose and Responsibilities:
+
+The `prompt_manager.py` module is tasked with generating structured, context-appropriate prompts to be sent to the large language model (GPT-4) during different stages of PDDL generation and refinement. It dynamically constructs prompts for three major scenarios:
+
+1. **Initial PDDL generation**: Creating domain and problem files from NL descriptions.
+2. **Refinement of PDDL**: Improving existing PDDL files based on environment feedback and exploration results.
+3. **Problem PDDL synthesis**: Generating problem files conditioned on environment objects and NL task descriptions.
+
+The module relies on prompt templates stored in the configuration, ensuring consistency and flexibility. It must allow variable interpolation based on current inputs such as NL descriptions, previous PDDL code, environment feedback, and other contextual data.
+
+---
+
+### Core Inputs and Data Sources:
+
+- **Templates**: Provided via `initial_prompt_template`, `refinement_prompt_template`, and `problem_prompt_template` (section of `config.yaml`).
+- **NL Descriptions**:
+  - For domain (`d NL`) and task (`p NL`).
+- **PDDL Code**:
+  - For initial generation: Possibly minimal placeholders or structured starters.
+  - For refinement: Previous version of PDDL files (`d`, `p`) in string form.
+- **Environmental Feedback** (`f(c)`): Text describing how the current PDDL models align or misalign with environment behaviors, including exploration walk results.
+- **Objects List and Goals**:
+  - For problem generation, the environment object list and NL task description.
+
+---
+
+### Outputs:
+
+- Fully formatted prompts to be sent to GPT-4:
+  - For initial PDDL creation.
+  - For iterative refinement.
+  - For generating problem PDDL files with environmental context.
+- These prompts should be well-structured, guiding GPT-4 to produce syntactically correct PDDL code aligned with the paper's requirements.
+
+---
+
+### Detailed Logic Breakdown:
+
+#### 1. **Prompt Construction Functions**
+
+**a. Initial PDDL Generation Prompt:**
+
+- Use `initial_prompt_template`.
+- Insert:
+  - NL domain description (`d NL`).
+  - NL task description (`p NL`).
+  - Example PDDL snippets (optional but recommended: list of example prompts or inline instructions).
+- Goal:
+  - Clear instruction to produce syntactically valid, well-structured PDDL domain and problem files.
+- Include explicit format instructions such as "Wrap in markdown", "Comment explanations", or specify the expected output format.
+
+**Sample skeleton structure:**
+
+```python
+def generate_initial_prompt(dNL: str, pNL: str) -> str:
+    prompt = self.initial_prompt_template.format(
+        domain_NL=dNL,
+        problem_NL=pNL,
+        # Any other placeholders like example sketches or instructions
+    )
+    return prompt
+```
+
+**b. Refinement Prompt:**
+
+- Use `refinement_prompt_template`.
+- Inputs:
+  - Previous version of PDDL files (`d`, `p`) as string.
+  - Environment feedback (`f(c)`), describing exploration walk results, errors, or inconsistencies.
+  - Additional guidance, if available, from environment interaction logs or plan validation failures.
+- Goal:
+  - Request GPT-4 to improve and correct `d` and `p`. 
+  - Emphasize fixing syntax issues, logical errors, and aligning models with environment behavior.
+  - Possibly include the current PDDL code before the prompt, to guide minimal changes.
+  
+**Prompt construction logic:**
+
+```python
+def generate_refinement_prompt(prev_d: str, prev_p: str, feedback: str, env_feedback: str) -> str:
+    prompt = self.refinement_prompt_template.format(
+        previous_domain=prev_d,
+        previous_problem=prev_p,
+        environment_feedback=env_feedback, 
+        model_feedback=feedback
+    )
+    return prompt
+```
+
+**c. Problem PDDL Generation:**
+
+- Use `problem_prompt_template`.
+- Inputs:
+  - PDDL template based on environment object list (`env_objects`).
+  - NL task description (`p NL`).
+- Goal:
+  - Instruct GPT-4 to generate a problem file including:
+    - Initial state from environment description.
+    - Goal conditions.
+    - Correct object instantiations.
+  - Ensure instructions to produce valid PDDL syntax and integrate environment info accurately.
+
+**Prompt logic:**
+
+```python
+def generate_problem_prompt(pddl_template: str, env_objects: list, nl_task: str) -> str:
+    # Convert env_objects list to string representation if needed
+    objects_str = "\n".join(env_objects)
+    prompt = self.problem_prompt_template.format(
+        pddl_template=pddl_template,
+        objects=objects_str,
+        task_description=nl_task
+    )
+    return prompt
+```
+
+---
+
+### 2. **Handling the Templates**
+
+- Templates are stored in the config structure with placeholders.
+- The module should load templates upon initialization, possibly via dependency injection.
+- When called, the prompt functions replace placeholders with current context data.
+
+---
+
+### 3. **Additional Considerations**
+
+- **Formatting:**
+  - Output should follow consistent markdown structure.
+  - Request code snippets to be wrapped with code blocks (e.g., triple backticks and `pddl` language hint).
+  - Specify in prompt that the output should only contain the PDDL code, no explanatory text unless explicitly requested.
+- **Instructions Clarity:**
+  - For initial generation: emphasize correctness, syntax, and completeness.
+  - For refinement: focus on incremental improvements based on feedback.
+  - For problem generation: include environment objects, initial state, goals, and NL instructions clearly.
+
+---
+
+### 4. **Error Handling & Robustness**
+
+- If GPT-4 responses are incomplete or invalid:
+  - Implement post-processing checks:
+    - Syntax validation (via `pddl_utils.py`).
+    - Extract predicates and verify structure.
+  - Log prompt and output for debugging.
+- Optionally, incorporate retries or incremental prompting if responses are invalid.
+
+---
+
+### 5. **Summary of Required Functions**
+
+| Function Name                            | Inputs                                              | Outputs                          | Purpose                                                        |
+|------------------------------------------|-----------------------------------------------------|----------------------------------|----------------------------------------------------------------|
+| `generate_initial_prompt()`              | NL domain description, NL task description          | Prompt string                     | Compose prompt for initial PDDL generation                     |
+| `generate_refinement_prompt()`           | Previous PDDL domain and problem codes, feedback    | Prompt string                     | Compose prompt for PDDL refinement                             |
+| `generate_problem_prompt()`              | PDDL template, environment objects, NL task         | Prompt string                     | Generate prompt for problem PDDL creation based on NL and objects |
+
+---
+
+### 6. **Final Notes**
+
+- The module should be flexible to accommodate different environments and prompt styles.
+- It must strictly follow the format and instruction style specified in the `config.yaml`.
+- The generated prompts serve as the critical interface for GPT-4 responses, impacting the success of the entire program.
+
+---
+
+This detailed logic analysis provides a comprehensive foundation for implementing the `prompt_manager.py` module to fulfill the role described in the reproducibility plan, fully aligned with the paper’s methodology and the provided configuration.

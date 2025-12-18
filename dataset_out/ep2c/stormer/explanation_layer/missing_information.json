@@ -1,0 +1,16 @@
+[
+  {
+    "type": "implementation",
+    "parameter": "placeholder",
+    "description": "Placeholder values found in evaluation.py",
+    "severity": "medium",
+    "suggestion": "Replace placeholders with actual values"
+  },
+  {
+    "type": "implementation",
+    "parameter": "placeholder",
+    "description": "Placeholder values found in model.py",
+    "severity": "medium",
+    "suggestion": "Replace placeholders with actual values"
+  }
+]

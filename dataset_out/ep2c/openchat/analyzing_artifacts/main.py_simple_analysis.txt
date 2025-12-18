@@ -1,0 +1,81 @@
+{
+  "main.py": {
+    "Purpose": "Coordinate the entire training and evaluation pipeline for the OpenChat C-RLFT fine-tuning process, ensuring datasets are loaded, the model is initialized with class-conditioned prompts, training is performed according to specified hyperparameters, outputs are saved, and model evaluation on performance benchmarks is conducted systematically.",
+    "Step-by-step Breakdown": [
+      {
+        "1. Import necessary modules": "Import classes and functions from dataset_loader.py (DatasetLoader), model.py (Model), trainer.py (Trainer), evaluation.py (Evaluation), and any utility libraries such as torch, os, and logging."
+      },
+      {
+        "2. Set configurations and hyperparameters": "Read the configuration parameters from config.yaml using a YAML parser (e.g., PyYAML). Assign values for dataset paths, training hyperparameters (learning rate, batch size, epochs, beta, alpha, etc.), and model saving paths.",
+        "Note": "Ensure the configuration aligns with the provided spec, including 'model', 'training', 'evaluation', 'dataset', and 'output_dir'."
+      },
+      {
+        "3. Set random seed for reproducibility": "Initialize the random seed (using seed=42) across libraries such as torch, numpy, and Python's random for experiment reproducibility."
+      },
+      {
+        "4. Initialize DatasetLoader": "Create an instance of DatasetLoader, passing dataset_path, train_sample_size, eval_sample_size, and any dataset-specific configurations. Call load_data() to load and process the dataset:",
+        "Details": "The dataset loader should parse the data file (e.g., JSON). Each sample is a tuple containing: prompt text with class-conditioning prefix, response text, class label (e.g., 'GPT-4' or 'GPT-3.5'), and reward weight (based on alpha).",
+        "Outcome": "Obtain structured datasets for training and evaluation."
+      },
+      {
+        "5. Initialize Model": "Create a Model instance with the pretrained_model_name and conditioning_token. This model should be capable of conditioning prompts with class tokens or templates as specified. Call any initialization routines required (e.g., load weights, prepare tokenization)."
+      },
+      {
+        "6. Initialize Trainer": "Create a Trainer instance with the model, training dataset, and hyperparameters:",
+        "Arguments": {
+          "model": "the Model instance",
+          "dataset": "training dataset with samples (prompt, response, class_label, reward_weight)",
+          "beta": "from config, e.g., 0.2",
+          "learning_rate": "from config, e.g., 3e-5",
+          "batch_size": "from config, e.g., 200",
+          "epochs": "from config, e.g., 3",
+          "max_grad_norm": "from config",
+          "warmup_steps": "from config",
+          "weight_decay": "from config"
+        },
+        "Operation": "The Trainer should be responsible for setting up the optimizer (AdamW), learning rate scheduler, and loss function. It should internally handle the class-conditioned prompt conditioning during training, applying the weighted supervised learning based on reward weights."
+      },
+      {
+        "7. Run Training": "Call trainer.train() method:",
+        "Details": "During training, the process iterates over epochs and batches, for each batch:",
+        "Workflow": [
+          "Sample a batch of data samples: (prompt, response, class_label, reward_weight).",
+          "Construct input models inputs with class conditioning prompts, e.g., prepend conditioning tokens or specialized prompt strings according to class.",
+          "Forward pass through the model to compute predicted responses.",
+          "Calculate cross-entropy loss weighted by the reward-based weights (exponential of reward divided by beta).",
+          "Backpropagate, clip gradients if necessary (max_grad_norm), and update parameters."
+        ],
+        "Result": "The model parameters are optimized with reward-weighted supervised regression, effectively implementing the C-RLFT method."
+      },
+      {
+        "8. Save trained model": "Post-training, invoke trainer.save_model(output_dir) to save the fine-tuned model weights, tokenizer, and configuration for inference and future reproducibility."
+      },
+      {
+        "9. Initialize Evaluation": "Create an instance of Evaluation with the trained model and evaluation dataset (either the same dataset for quick validation or distinct benchmark datasets), and specify metrics (win_rate, score).",
+        "Operation": "evaluation.py handles the generation of responses using the trained model, the application of benchmark-specific scoring functions (e.g., comparing to reference answers, scoring via GPT-4 evaluator), and metric computation."
+      },
+      {
+        "10. Run Evaluation on benchmarks": "For each benchmark listed in 'eval_benchmarks', invoke evaluation.evaluate(metrics) with parameters such as 'win_rate' and 'score'.",
+        "Details": "Loop over benchmarks; generate model outputs for benchmark questions, compare responses with reference or baseline responses, and log metrics. The evaluation should follow the methodology in the paper—pairwise comparisons and automated scoring via GPT models."
+      },
+      {
+        "11. Log and output results": "Print or log the evaluation metrics per benchmark, overall average, and specific observations about instruction-following performance, generalization, and robustness."
+      },
+      {
+        "12. Optional – Visualization and debugging": "In case needed, extract conversation embeddings for visualization (UMAP/t-SNE), or check the distribution of responses, monitor training loss curves, or generate sample conversations for qualitative assessment."
+      }
+    ],
+    "Additional Considerations": [
+      "Ensure consistent tokenization, particularly when incorporating class-conditioned prompts/templates.",
+      "Handle multi-turn conversation formatting appropriately during data loading, model input construction, and inference.",
+      "Make sure hyperparameters like beta, alpha, learning_rate, batch_size are consistent across modules.",
+      "Provide clear logging for each stage to support reproducibility and debugging.",
+      "Confirm that all paths (dataset_path, output_dir) are correctly set relative to the project structure."
+    ],
+    "Uncertainties": [
+      "Clarify the exact data file format (expected JSON schema).",
+      "Determine specific prompt templates for class conditioning (e.g., prefix tokens, special markers).",
+      "Decide on the length of context window and truncation strategy for long conversations at inference."
+    ]
+  }
+}

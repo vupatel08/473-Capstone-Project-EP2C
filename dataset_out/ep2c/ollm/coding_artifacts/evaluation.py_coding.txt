@@ -1,0 +1,224 @@
+```python
+## evaluation.py
+"""
+This module provides functions to evaluate the similarity between generated
+and ground-truth ontologies using advanced embedding-based metrics and motif
+distribution distance. It relies on pretrained sentence transformers for semantic
+representations, the Hungarian algorithm for optimal bipartite matching, and motif
+counts for structural comparison.
+
+Functions:
+- graph_f1_score: computes combined node and edge F1 score based on embedding similarities.
+- motif_distance: measures structural difference using 3-node motif distributions.
+- semantic_similarity: computes cosine similarity between concept labels using sentence-transformers.
+- node_embedding: computes and caches embeddings for concept labels.
+"""
+
+import numpy as np
+from scipy.optimize import linear_sum_assignment
+from scipy.spatial.distance import cosine
+from collections import Counter
+from itertools import combinations
+import networkx as nx
+from typing import Dict, Set, Tuple
+try:
+    from sentence_transformers import SentenceTransformer
+except ImportError:
+    # If sentence-transformers is not installed, embedder will be None.
+    SentenceTransformer = None
+
+# Load the sentence embedding model globally for efficiency.
+# Using the model specified in the config, e.g., "all-MiniLM-L6-v2"
+EMBEDDING_MODEL_NAME = "all-MiniLM-L6-v2"
+embedder = None
+
+def _load_embedder():
+    global embedder
+    if embedder is None:
+        if SentenceTransformer is None:
+            raise ImportError(
+                "sentence-transformers package is required for embedding-based metrics."
+            )
+        embedder = SentenceTransformer(EMBEDDING_MODEL_NAME)
+    return embedder
+
+def semantic_similarity(label1: str, label2: str) -> float:
+    """
+    Compute cosine similarity between two concept labels using sentence embeddings.
+    Returns similarity in [-1, 1], higher indicates closer meaning.
+    """
+    embed = _load_embedder()
+    emb1 = embed.encode(label1, convert_to_numpy=True, normalize_embeddings=True)
+    emb2 = embed.encode(label2, convert_to_numpy=True, normalize_embeddings=True)
+    sim = 1 - cosine(emb1, emb2)
+    # Ensure similarity in [-1,1]
+    return np.clip(sim, -1, 1)
+
+def node_embedding(concept_label: str, cache: Dict[str, np.ndarray]) -> np.ndarray:
+    """
+    Generate or retrieve cached embedding for a concept label.
+    """
+    if concept_label in cache:
+        return cache[concept_label]
+    embed = _load_embedder()
+    emb = embed.encode(concept_label, convert_to_numpy=True, normalize_embeddings=True)
+    cache[concept_label] = emb
+    return emb
+
+def graph_f1_score(
+    model_graph,
+    true_graph,
+    semantic_threshold: float = 0.436
+) -> float:
+    """
+    Compute the combined F1 score between generated and true graphs using embeddings.
+    The matchings for nodes and edges are determined based on maximum cosine similarity
+    with a threshold to consider as a valid match.
+    """
+    # Create embedding caches
+    node_cache_true: Dict[str, np.ndarray] = {}
+    node_cache_pred: Dict[str, np.ndarray] = {}
+
+    # Prepare node labels
+    true_nodes = list(true_graph.nodes)
+    pred_nodes = list(model_graph.nodes)
+
+    # Compute node similarity matrix
+    true_embs = np.array([node_embedding(lbl, node_cache_true) for lbl in true_nodes])
+    pred_embs = np.array([node_embedding(lbl, node_cache_pred) for lbl in pred_nodes])
+    sim_matrix_nodes = np.matmul(true_embs, pred_embs.T)  # shape: (true_n, pred_n)
+
+    # Convert similarity to cost for Hungarian (maximize similarity)
+    # Use -sim as cost
+    cost_matrix_nodes = -sim_matrix_nodes
+    true_idx, pred_idx = linear_sum_assignment(cost_matrix_nodes)
+
+    matched_node_pairs = []
+    total_node_sim = 0.0
+    for i, j in zip(true_idx, pred_idx):
+        sim = sim_matrix_nodes[i, j]
+        if sim >= semantic_threshold:
+            total_node_sim += sim
+            matched_node_pairs.append((true_nodes[i], pred_nodes[j], sim))
+    # Calculate node precision and recall
+    precision_nodes = len(matched_node_pairs) / max(len(pred_nodes), 1)
+    recall_nodes = len(matched_node_pairs) / max(len(true_nodes), 1)
+    # Harmonic mean
+    if precision_nodes + recall_nodes == 0:
+        node_f1 = 0.0
+    else:
+        node_f1 = 2 * precision_nodes * recall_nodes / (precision_nodes + recall_nodes)
+
+    # Now, match edges
+    # For each predicted edge, find the best matching true edge based on endpoint embeddings
+    true_edges = list(true_graph.edges)
+    pred_edges = list(model_graph.edges)
+    if len(pred_edges) == 0 or len(true_edges) == 0:
+        edge_f1 = 0.0
+    else:
+        # Create matrices of source and target embeddings for true and predicted edges
+        true_edge_embs = []
+        for u, v in true_edges:
+            u_emb = node_embedding(u, node_cache_true)
+            v_emb = node_embedding(v, node_cache_true)
+            true_edge_embs.append((u_emb, v_emb))
+        pred_edge_embs = []
+        for u, v in pred_edges:
+            u_emb = node_embedding(u, node_cache_pred)
+            v_emb = node_embedding(v, node_cache_pred)
+            pred_edge_embs.append((u_emb, v_emb))
+        # Form cost matrix for edges
+        cost_matrix_edges = np.zeros((len(true_edges), len(pred_edges)))
+        for i, (u_true_emb, v_true_emb) in enumerate(true_edge_embs):
+            for j, (u_pred_emb, v_pred_emb) in enumerate(pred_edge_embs):
+                # Similarity between edges via source and target embeddings
+                # For example: average of source similarity and target similarity
+                u_sim = 1 - cosine(u_true_emb, u_pred_emb)
+                v_sim = 1 - cosine(v_true_emb, v_pred_emb)
+                cost = -((u_sim + v_sim) / 2)  # maximize average similarity
+                cost_matrix_edges[i, j] = cost
+        # Hungarian matching
+        true_idx_e, pred_idx_e = linear_sum_assignment(cost_matrix_edges)
+        total_edge_sim = 0.0
+        for i, j in zip(true_idx_e, pred_idx_e):
+            sim = -cost_matrix_edges[i, j]
+            if sim >= semantic_threshold:
+                total_edge_sim += sim
+        # Compute precision and recall for edges
+        precision_edges = len(true_idx_e) / max(len(pred_edges), 1)
+        recall_edges = len(true_idx_e) / max(len(true_edges), 1)
+        if precision_edges + recall_edges == 0:
+            edge_f1 = 0.0
+        else:
+            edge_f1 = 2 * precision_edges * recall_edges / (precision_edges + recall_edges)
+
+    # Combine node and edge scores (simple harmonic mean)
+    if node_f1 + edge_f1 == 0:
+        combined_f1 = 0.0
+    else:
+        combined_f1 = 2 * node_f1 * edge_f1 / (node_f1 + edge_f1)
+
+    return combined_f1
+
+def motif_distance(
+    true_graph,
+    model_graph,
+    motif_k: int = 3
+) -> float:
+    """
+    Compute the total variation distance between motif distributions in the two graphs.
+    Counts all subgraphs of size motif_k and compares their distributions.
+    """
+    def count_3node_motifs(g: nx.DiGraph) -> Dict[str, int]:
+        """
+        Counts specific types of 3-node motifs in graph g, returns counts as a dict.
+        For simplicity, counts:
+        - chain (A->B->C)
+        - cycle (A->B->C->A)
+        - feedforward (A->B, A->C, B->C)
+        """
+        motif_counts = Counter()
+        nodes = list(g.nodes)
+        total_triplets = 0
+        for triplet in combinations(nodes, 3):
+            subg = g.subgraph(triplet)
+            total_triplets += 1
+            # Determine motif type
+            # For simplicity, consider only presence of edges
+            edges = list(subg.edges())
+            # Flags
+            has_ab = subg.has_edge(triplet[0], triplet[1])
+            has_bc = subg.has_edge(triplet[1], triplet[2])
+            has_ca = subg.has_edge(triplet[2], triplet[0])
+            has_ac = subg.has_edge(triplet[0], triplet[2])
+            # Count patterns
+            if has_ab and has_bc and not has_ca:
+                motif_counts['chain'] += 1
+            elif has_ab and has_bc and has_ca:
+                motif_counts['cycle'] += 1
+            elif has_ab and has_ac and (not has_bc):
+                # feedforward example
+                motif_counts['feedforward'] += 1
+            # Additional motifs can be added as needed.
+        # Normalize counts
+        total = total_triplets if total_triplets > 0 else 1
+        for key in motif_counts:
+            motif_counts[key] /= total
+        return dict(motif_counts)
+
+    true_counts = count_3node_motifs(true_graph)
+    pred_counts = count_3node_motifs(model_graph)
+
+    # Combine all motif types
+    all_motifs = set(true_counts.keys()).union(set(pred_counts.keys()))
+    total_var = 0.0
+    for motif in all_motifs:
+        ptrue = true_counts.get(motif, 0.0)
+        ppred = pred_counts.get(motif, 0.0)
+        total_var += abs(ptrue - ppred)
+    tv_distance = 0.5 * total_var
+    return tv_distance
+
+# Additional functions for detailed visualization, result reporting, etc.,
+# can be added as needed, but are outside the scope of this core implementation.
+```

@@ -1,0 +1,125 @@
+**Logic Analysis for `dataset_loader.py` — Class `DatasetLoader`**
+
+---
+
+### **Purpose & Responsibility:**
+
+The `DatasetLoader` class is tasked with:
+- Loading CIFAR-10 or CIFAR-100 datasets based on configuration.
+- Applying specified data augmentations consistent with the experimental setup.
+- Wrapping datasets into PyTorch `DataLoader` objects configured for training and evaluation.
+- Managing batching, shuffling, and data iteration during training.
+
+---
+
+### **Inputs & Parameters:**
+
+- `dataset_name` (str): `"CIFAR-10"` or `"CIFAR-100"` (from `dataset.name`).
+- `batch_size` (int): Number of samples per batch (`training.batch_size`).
+- `augmentations` (list): List of augmentation transforms to be applied, e.g.,
+  ```python
+  [
+      {'RandomCrop': [32, 32, 4]}, 
+      {'HorizontalFlip': True},
+      {'ColorJitter': [0.4, 0.4, 0.4, 0.1]},
+      {'GaussianBlur': 0.5}
+  ]
+  ```
+- `is_train` (bool): Flag indicating whether loading training or testing data (to determine augmentation and shuffling).
+
+---
+
+### **Outputs:**
+
+- PyTorch `DataLoader` object for training or testing, ready for iteration during training/evaluation.
+
+---
+
+### **Core Logic & Steps:**
+
+#### **1. Dataset Selection & Loading:**
+- Use `torchvision.datasets.CIFAR10` or `CIFAR100` based on `dataset_name`.
+- Confirm the dataset path and download if not already present.
+- Depending on the `is_train` flag:
+  - For training data:
+    - Load full training split (`train=True`).
+  - For evaluation:
+    - Load test split (`train=False`).
+
+#### **2. Data Augmentation & Preprocessing:**
+- Compose a series of transformations, always including:
+  - ToTensor: convert images to tensors.
+  - Normalize: standard CIFAR normalization (`mean` and `std` for CIFAR-10 or CIFAR-100).
+- Append additional transformations based on `augmentations` list:
+  - For `RandomCrop`: apply `transforms.RandomCrop(size=32, padding=4)`.
+  - For `HorizontalFlip`: apply `transforms.RandomHorizontalFlip()`.
+  - For `ColorJitter`: apply `transforms.ColorJitter()` with specified parameters.
+  - For `GaussianBlur`: implement a custom Gaussian blur transform or mock-up if not available.
+- Compose the transformations into a single `transforms.Compose()` pipeline.
+
+#### **3. Dataset Wrapping:**
+- Instantiate the dataset (`CIFAR10` or `CIFAR100`) with the composed transforms.
+- If data augmentation involves multiple views (e.g., for contrastive learning), ensure that the dataset returns either:
+  - Paired augmented images, OR
+  - A single image and the augmentation pipeline is applied twice during data loader batch collation.
+- For the current class, likely return a single image; augmentation will be applied during data loading.
+
+#### **4. Data Loader Configuration:**
+- Use `torch.utils.data.DataLoader`.
+- Set:
+  - `batch_size` to input parameter.
+  - `shuffle=True` during training; `False` during evaluation.
+  - `num_workers`: typically, 2-4 for CIFAR (or more depending on hardware).
+  - `drop_last`: True if consistent batch size is critical.
+  - `pin_memory=True`: recommended for CUDA training.
+
+#### **5. Return the DataLoader:**
+- Return the configured DataLoader object ready for training or validation loop.
+
+---
+
+### **Additional Considerations:**
+
+- Verify augmentation compatibility:
+  - Custom `GaussianBlur` may need a helper class.
+  - Data augmentations should match those in the experimental setup for reproducibility.
+- Consistency: ensure that the preprocessing (normalization means and stds) matches the paper settings, e.g., CIFAR normalization (`mean=[0.4914, 0.4822, 0.4465]`, `std=[0.2470, 0.2435, 0.2616]`).
+- Shuffling:
+  - Enabled for training to ensure randomness.
+  - Disabled for evaluation to keep consistency.
+
+### **Edge Cases & Robustness:**
+- Handle unrecognized augmentation names gracefully, possibly with warnings.
+- Confirm dataset download and caching behavior.
+- Validate augmentation parameters for validity/consistency (e.g., no negative crop size).
+- Modularize: allow for future extension if additional augmentations are added.
+
+---
+
+### **Summary of Key Logic Flow:**
+
+```
+- Input parameters: dataset_name, batch_size, augmentations, is_train
+- Determine dataset class (CIFAR10 or CIFAR100)
+- Compose transformation pipeline:
+    - Always include: ToTensor, Normalize
+    - Append augmentations based on configuration
+- Instantiate dataset with transformation
+- Create DataLoader with batch size, shuffle (True for train), num_workers, pin_memory
+- Return DataLoader
+```
+
+---
+
+### **Final Notes:**
+
+This class acts as a backbone for data feeding, so its design must be:
+- Clear & flexible for different augmentations.
+- Reproducible with consistent normalization.
+- Optimized with batch size and number of workers matching hardware constraints.
+
+It forms the foundation for the training loop to sample representations, which are then fed into the uniformity loss computation.
+
+---
+
+This completes the detailed logic analysis for implementing `dataset_loader.py`.

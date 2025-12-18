@@ -1,0 +1,388 @@
+{
+  "code_to_paper": {
+    "attention_steering.py:AttentionSteering": [
+      "Without the full list of paper sections",
+      "it's hard to provide an accurate answer. However",
+      "based on the code component description",
+      "the most relevant sections could be \"Methodology\"",
+      "\"Model Implementation\"",
+      "and \"Inference Process\"."
+    ],
+    "attention_steering.py:__init__": [
+      "Without the actual section names/titles",
+      "it's impossible to accurately identify the most relevant sections for the given code component. However",
+      "based on the code description",
+      "the most relevant sections might be something like \"Model Implementation\"",
+      "\"Attention Mechanism\"",
+      "or \"Methodology\"."
+    ],
+    "dataset_loader.py:DatasetSample": [
+      "Methodology",
+      "Data Preprocessing",
+      "Implementation Details"
+    ],
+    "dataset_loader.py:DatasetLoader": [
+      "Methodology",
+      "Dataset",
+      "Implementation Details"
+    ],
+    "dataset_loader.py:__init__": [
+      "Methodology",
+      "Data Collection and Preprocessing",
+      "Implementation Details"
+    ],
+    "evaluation.py:Evaluation": [
+      "Evaluation",
+      "Methodology",
+      "Results and Discussion"
+    ],
+    "evaluation.py:__init__": [
+      "Methodology",
+      "Results and Discussion",
+      "Conclusion"
+    ],
+    "main.py:main": [
+      "The provided information is insufficient to determine the most relevant paper sections for the code component. Please provide more details about the function in the file main.py."
+    ],
+    "model_wrapper.py:ModelWrapper": [
+      "Without specific section names",
+      "it's impossible to accurately identify the most relevant sections for the code component. However",
+      "based on the description of the code",
+      "sections like \"Methodology\"",
+      "\"Model Implementation\"",
+      "or \"Inference and Attention Mechanism\" could potentially be relevant."
+    ],
+    "model_wrapper.py:__init__": [
+      "Methodology",
+      "Implementation Details",
+      "Model Architecture"
+    ],
+    "profile.py:Profiler": [
+      "Without specific section names/titles",
+      "it's impossible to accurately identify the most relevant sections for the code component. However",
+      "based on the description of the code",
+      "sections that might be relevant could be titled something like \"Methodology\"",
+      "\"Implementation Details\"",
+      "\"Multi-Head Attention Profiling\"",
+      "or \"Experimental Results\"."
+    ],
+    "profile.py:profile_heads": [
+      "Methodology",
+      "Experiment and Results",
+      "Discussion"
+    ]
+  },
+  "paper_to_code": {
+    "Without the full list of paper sections": [
+      {
+        "component": "attention_steering.py:AttentionSteering",
+        "description": "Implements post-hoc attention reweighting to steer a language model's attention mechanism during inference.\n    Responsible for upweighting attended tokens in user-emphasized spans by manipulating attention scores\n    in specified attention heads across layers.",
+        "file": "attention_steering.py"
+      }
+    ],
+    "it's hard to provide an accurate answer. However": [
+      {
+        "component": "attention_steering.py:AttentionSteering",
+        "description": "Implements post-hoc attention reweighting to steer a language model's attention mechanism during inference.\n    Responsible for upweighting attended tokens in user-emphasized spans by manipulating attention scores\n    in specified attention heads across layers.",
+        "file": "attention_steering.py"
+      }
+    ],
+    "based on the code component description": [
+      {
+        "component": "attention_steering.py:AttentionSteering",
+        "description": "Implements post-hoc attention reweighting to steer a language model's attention mechanism during inference.\n    Responsible for upweighting attended tokens in user-emphasized spans by manipulating attention scores\n    in specified attention heads across layers.",
+        "file": "attention_steering.py"
+      }
+    ],
+    "the most relevant sections could be \"Methodology\"": [
+      {
+        "component": "attention_steering.py:AttentionSteering",
+        "description": "Implements post-hoc attention reweighting to steer a language model's attention mechanism during inference.\n    Responsible for upweighting attended tokens in user-emphasized spans by manipulating attention scores\n    in specified attention heads across layers.",
+        "file": "attention_steering.py"
+      }
+    ],
+    "\"Model Implementation\"": [
+      {
+        "component": "attention_steering.py:AttentionSteering",
+        "description": "Implements post-hoc attention reweighting to steer a language model's attention mechanism during inference.\n    Responsible for upweighting attended tokens in user-emphasized spans by manipulating attention scores\n    in specified attention heads across layers.",
+        "file": "attention_steering.py"
+      },
+      {
+        "component": "model_wrapper.py:ModelWrapper",
+        "description": "Wraps a pre-trained language model to enable inference with\n    attention score manipulation for attention steering.",
+        "file": "model_wrapper.py"
+      }
+    ],
+    "and \"Inference Process\".": [
+      {
+        "component": "attention_steering.py:AttentionSteering",
+        "description": "Implements post-hoc attention reweighting to steer a language model's attention mechanism during inference.\n    Responsible for upweighting attended tokens in user-emphasized spans by manipulating attention scores\n    in specified attention heads across layers.",
+        "file": "attention_steering.py"
+      }
+    ],
+    "Without the actual section names/titles": [
+      {
+        "component": "attention_steering.py:__init__",
+        "description": "Initialize the AttentionSteering object.\n\n        Args:\n            model: The model instance supporting attention hooks (e.g., HuggingFace model).\n            selected_heads: List of (layer_idx, head_idx) tuples indicating which attention heads to steer.\n            alpha: Scaling coefficient for non-emphasized token attention scores. Default: 0.01.",
+        "file": "attention_steering.py"
+      }
+    ],
+    "it's impossible to accurately identify the most relevant sections for the given code component. However": [
+      {
+        "component": "attention_steering.py:__init__",
+        "description": "Initialize the AttentionSteering object.\n\n        Args:\n            model: The model instance supporting attention hooks (e.g., HuggingFace model).\n            selected_heads: List of (layer_idx, head_idx) tuples indicating which attention heads to steer.\n            alpha: Scaling coefficient for non-emphasized token attention scores. Default: 0.01.",
+        "file": "attention_steering.py"
+      }
+    ],
+    "based on the code description": [
+      {
+        "component": "attention_steering.py:__init__",
+        "description": "Initialize the AttentionSteering object.\n\n        Args:\n            model: The model instance supporting attention hooks (e.g., HuggingFace model).\n            selected_heads: List of (layer_idx, head_idx) tuples indicating which attention heads to steer.\n            alpha: Scaling coefficient for non-emphasized token attention scores. Default: 0.01.",
+        "file": "attention_steering.py"
+      }
+    ],
+    "the most relevant sections might be something like \"Model Implementation\"": [
+      {
+        "component": "attention_steering.py:__init__",
+        "description": "Initialize the AttentionSteering object.\n\n        Args:\n            model: The model instance supporting attention hooks (e.g., HuggingFace model).\n            selected_heads: List of (layer_idx, head_idx) tuples indicating which attention heads to steer.\n            alpha: Scaling coefficient for non-emphasized token attention scores. Default: 0.01.",
+        "file": "attention_steering.py"
+      }
+    ],
+    "\"Attention Mechanism\"": [
+      {
+        "component": "attention_steering.py:__init__",
+        "description": "Initialize the AttentionSteering object.\n\n        Args:\n            model: The model instance supporting attention hooks (e.g., HuggingFace model).\n            selected_heads: List of (layer_idx, head_idx) tuples indicating which attention heads to steer.\n            alpha: Scaling coefficient for non-emphasized token attention scores. Default: 0.01.",
+        "file": "attention_steering.py"
+      }
+    ],
+    "or \"Methodology\".": [
+      {
+        "component": "attention_steering.py:__init__",
+        "description": "Initialize the AttentionSteering object.\n\n        Args:\n            model: The model instance supporting attention hooks (e.g., HuggingFace model).\n            selected_heads: List of (layer_idx, head_idx) tuples indicating which attention heads to steer.\n            alpha: Scaling coefficient for non-emphasized token attention scores. Default: 0.01.",
+        "file": "attention_steering.py"
+      }
+    ],
+    "Methodology": [
+      {
+        "component": "dataset_loader.py:DatasetSample",
+        "description": "Data class to store a single dataset sample with tokenized input,\n    emphasis spans, and raw text.",
+        "file": "dataset_loader.py"
+      },
+      {
+        "component": "dataset_loader.py:DatasetLoader",
+        "description": "Loads datasets from a specified directory,\n    supports sampling, tokenization, emphasis span extraction.",
+        "file": "dataset_loader.py"
+      },
+      {
+        "component": "dataset_loader.py:__init__",
+        "description": "Loads datasets from a specified directory,\n    supports sampling, tokenization, emphasis span extraction.",
+        "file": "dataset_loader.py"
+      },
+      {
+        "component": "evaluation.py:Evaluation",
+        "description": "Evaluates model generations on specified tasks with metrics:\n    - JSON format correctness\n    - Prediction accuracy\n    - Pronoun changing accuracy (including all-changed)\n    - BiasBios occupation classification accuracy\n    - CounterFact efficacy and paraphrase scores\n    - Fluency metrics (bigram/trigram entropy)",
+        "file": "evaluation.py"
+      },
+      {
+        "component": "evaluation.py:__init__",
+        "description": "Perform evaluation over dataset.",
+        "file": "evaluation.py"
+      },
+      {
+        "component": "model_wrapper.py:__init__",
+        "description": "Load the model and tokenizer based on model_name and register hooks.\n        :param model_name: e.g., \"LLaMA-7B\" or \"GPT-J\"\n        :param model_path: path to local model checkpoint or None for hub model",
+        "file": "model_wrapper.py"
+      },
+      {
+        "component": "profile.py:profile_heads",
+        "description": "Profiles all attention heads by evaluating their influence on performance\n        across dataset samples. Selects top heads depending on strategy.\n\n        Args:\n            task_labels: Optional list of task labels for multi-task profiling (not mandatory here,\n                         assume single task or all tasks combined).",
+        "file": "profile.py"
+      }
+    ],
+    "Data Preprocessing": [
+      {
+        "component": "dataset_loader.py:DatasetSample",
+        "description": "Data class to store a single dataset sample with tokenized input,\n    emphasis spans, and raw text.",
+        "file": "dataset_loader.py"
+      }
+    ],
+    "Implementation Details": [
+      {
+        "component": "dataset_loader.py:DatasetSample",
+        "description": "Data class to store a single dataset sample with tokenized input,\n    emphasis spans, and raw text.",
+        "file": "dataset_loader.py"
+      },
+      {
+        "component": "dataset_loader.py:DatasetLoader",
+        "description": "Loads datasets from a specified directory,\n    supports sampling, tokenization, emphasis span extraction.",
+        "file": "dataset_loader.py"
+      },
+      {
+        "component": "dataset_loader.py:__init__",
+        "description": "Loads datasets from a specified directory,\n    supports sampling, tokenization, emphasis span extraction.",
+        "file": "dataset_loader.py"
+      },
+      {
+        "component": "model_wrapper.py:__init__",
+        "description": "Load the model and tokenizer based on model_name and register hooks.\n        :param model_name: e.g., \"LLaMA-7B\" or \"GPT-J\"\n        :param model_path: path to local model checkpoint or None for hub model",
+        "file": "model_wrapper.py"
+      }
+    ],
+    "Dataset": [
+      {
+        "component": "dataset_loader.py:DatasetLoader",
+        "description": "Loads datasets from a specified directory,\n    supports sampling, tokenization, emphasis span extraction.",
+        "file": "dataset_loader.py"
+      }
+    ],
+    "Data Collection and Preprocessing": [
+      {
+        "component": "dataset_loader.py:__init__",
+        "description": "Loads datasets from a specified directory,\n    supports sampling, tokenization, emphasis span extraction.",
+        "file": "dataset_loader.py"
+      }
+    ],
+    "Evaluation": [
+      {
+        "component": "evaluation.py:Evaluation",
+        "description": "Evaluates model generations on specified tasks with metrics:\n    - JSON format correctness\n    - Prediction accuracy\n    - Pronoun changing accuracy (including all-changed)\n    - BiasBios occupation classification accuracy\n    - CounterFact efficacy and paraphrase scores\n    - Fluency metrics (bigram/trigram entropy)",
+        "file": "evaluation.py"
+      }
+    ],
+    "Results and Discussion": [
+      {
+        "component": "evaluation.py:Evaluation",
+        "description": "Evaluates model generations on specified tasks with metrics:\n    - JSON format correctness\n    - Prediction accuracy\n    - Pronoun changing accuracy (including all-changed)\n    - BiasBios occupation classification accuracy\n    - CounterFact efficacy and paraphrase scores\n    - Fluency metrics (bigram/trigram entropy)",
+        "file": "evaluation.py"
+      },
+      {
+        "component": "evaluation.py:__init__",
+        "description": "Perform evaluation over dataset.",
+        "file": "evaluation.py"
+      }
+    ],
+    "Conclusion": [
+      {
+        "component": "evaluation.py:__init__",
+        "description": "Perform evaluation over dataset.",
+        "file": "evaluation.py"
+      }
+    ],
+    "The provided information is insufficient to determine the most relevant paper sections for the code component. Please provide more details about the function in the file main.py.": [
+      {
+        "component": "main.py:main",
+        "description": "",
+        "file": "main.py"
+      }
+    ],
+    "Without specific section names": [
+      {
+        "component": "model_wrapper.py:ModelWrapper",
+        "description": "Wraps a pre-trained language model to enable inference with\n    attention score manipulation for attention steering.",
+        "file": "model_wrapper.py"
+      }
+    ],
+    "it's impossible to accurately identify the most relevant sections for the code component. However": [
+      {
+        "component": "model_wrapper.py:ModelWrapper",
+        "description": "Wraps a pre-trained language model to enable inference with\n    attention score manipulation for attention steering.",
+        "file": "model_wrapper.py"
+      },
+      {
+        "component": "profile.py:Profiler",
+        "description": "Implements multi-head attention profiling to identify most effective attention heads\n    for steering, based on their impact on task-specific performance over a subset of data.",
+        "file": "profile.py"
+      }
+    ],
+    "based on the description of the code": [
+      {
+        "component": "model_wrapper.py:ModelWrapper",
+        "description": "Wraps a pre-trained language model to enable inference with\n    attention score manipulation for attention steering.",
+        "file": "model_wrapper.py"
+      },
+      {
+        "component": "profile.py:Profiler",
+        "description": "Implements multi-head attention profiling to identify most effective attention heads\n    for steering, based on their impact on task-specific performance over a subset of data.",
+        "file": "profile.py"
+      }
+    ],
+    "sections like \"Methodology\"": [
+      {
+        "component": "model_wrapper.py:ModelWrapper",
+        "description": "Wraps a pre-trained language model to enable inference with\n    attention score manipulation for attention steering.",
+        "file": "model_wrapper.py"
+      }
+    ],
+    "or \"Inference and Attention Mechanism\" could potentially be relevant.": [
+      {
+        "component": "model_wrapper.py:ModelWrapper",
+        "description": "Wraps a pre-trained language model to enable inference with\n    attention score manipulation for attention steering.",
+        "file": "model_wrapper.py"
+      }
+    ],
+    "Model Architecture": [
+      {
+        "component": "model_wrapper.py:__init__",
+        "description": "Load the model and tokenizer based on model_name and register hooks.\n        :param model_name: e.g., \"LLaMA-7B\" or \"GPT-J\"\n        :param model_path: path to local model checkpoint or None for hub model",
+        "file": "model_wrapper.py"
+      }
+    ],
+    "Without specific section names/titles": [
+      {
+        "component": "profile.py:Profiler",
+        "description": "Implements multi-head attention profiling to identify most effective attention heads\n    for steering, based on their impact on task-specific performance over a subset of data.",
+        "file": "profile.py"
+      }
+    ],
+    "sections that might be relevant could be titled something like \"Methodology\"": [
+      {
+        "component": "profile.py:Profiler",
+        "description": "Implements multi-head attention profiling to identify most effective attention heads\n    for steering, based on their impact on task-specific performance over a subset of data.",
+        "file": "profile.py"
+      }
+    ],
+    "\"Implementation Details\"": [
+      {
+        "component": "profile.py:Profiler",
+        "description": "Implements multi-head attention profiling to identify most effective attention heads\n    for steering, based on their impact on task-specific performance over a subset of data.",
+        "file": "profile.py"
+      }
+    ],
+    "\"Multi-Head Attention Profiling\"": [
+      {
+        "component": "profile.py:Profiler",
+        "description": "Implements multi-head attention profiling to identify most effective attention heads\n    for steering, based on their impact on task-specific performance over a subset of data.",
+        "file": "profile.py"
+      }
+    ],
+    "or \"Experimental Results\".": [
+      {
+        "component": "profile.py:Profiler",
+        "description": "Implements multi-head attention profiling to identify most effective attention heads\n    for steering, based on their impact on task-specific performance over a subset of data.",
+        "file": "profile.py"
+      }
+    ],
+    "Experiment and Results": [
+      {
+        "component": "profile.py:profile_heads",
+        "description": "Profiles all attention heads by evaluating their influence on performance\n        across dataset samples. Selects top heads depending on strategy.\n\n        Args:\n            task_labels: Optional list of task labels for multi-task profiling (not mandatory here,\n                         assume single task or all tasks combined).",
+        "file": "profile.py"
+      }
+    ],
+    "Discussion": [
+      {
+        "component": "profile.py:profile_heads",
+        "description": "Profiles all attention heads by evaluating their influence on performance\n        across dataset samples. Selects top heads depending on strategy.\n\n        Args:\n            task_labels: Optional list of task labels for multi-task profiling (not mandatory here,\n                         assume single task or all tasks combined).",
+        "file": "profile.py"
+      }
+    ]
+  },
+  "paper_sections": [
+    {
+      "section": "Abstract",
+      "text": "Qingru Zhang\u2020\u2217, Chandan Singh\u22c4, Liyuan Liu\u22c4, Xiaodong $\\mathbf { L i u } ^ { \\diamond }$ , Bin $\\mathbf { V } \\mathbf { u } ^ { \\ddag }$ ,   \nJianfeng Gao\u22c4, Tuo Zhao\u2020   \n\u2020Georgia Institute of Technology \u2021University of California, Berkeley \u22c4Microsoft Research   \n{qingru.zhang,tourzhao}@gatech.edu   \nbinyu@berkeley.edu   \n{chansingh,lucliu,xiaodl,jfgao}@microsoft.com",
+      "ontology": "abstract"
+    }
+  ],
+  "coverage_score": 34.0
+}

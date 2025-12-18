@@ -1,0 +1,187 @@
+## fine_tuning.py
+import torch
+import torch.nn as nn
+from torch.optim import AdamW
+from datasets import Dataset
+from typing import Optional
+from model import ModelWrapper
+
+class LoRALayer(nn.Module):
+    """
+    Implements a LoRA module that can be injected into existing linear layers.
+    It contains low-rank matrices A and B.
+    """
+    def __init__(self, weight: torch.Tensor, rank: int = 8):
+        super().__init__()
+        self.original_weight = weight
+        out_features, in_features = weight.shape
+        self.rank = rank
+        # Initialize low-rank matrices A and B
+        self.A = nn.Parameter(torch.randn(out_features, rank) * 0.01)
+        self.B = nn.Parameter(torch.randn(rank, in_features) * 0.01)
+        # Freeze original weights
+        self.register_buffer('frozen_weight', weight)
+        self.frozen_weight.requires_grad = False
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        # Compute LoRA adjustment
+        delta = (self.A @ self.B)
+        # Add LoRA adjustment to original weight
+        return torch.nn.functional.linear(x, self.frozen_weight + delta)
+
+class FineTuner:
+    """
+    Performs lightweight LoRA fine-tuning on the given model to recover performance after slicing.
+    """
+    def __init__(
+        self,
+        model: ModelWrapper,
+        dataset: Dataset,
+        device: str = "cuda",
+        learning_rate: float = 1e-4,
+        batch_size: int = 128,
+        steps: int = 1000,
+        lora_rank: int = 16,
+        save_path: Optional[str] = None
+    ):
+        """
+        Initialize the FineTuner.
+        Args:
+            model (ModelWrapper): The wrapped model to fine-tune.
+            dataset (Dataset): Dataset for fine-tuning.
+            device (str): 'cuda' or 'cpu'.
+            learning_rate (float): LoRA learning rate.
+            batch_size (int): Batch size for fine-tuning.
+            steps (int): Number of optimization steps.
+            lora_rank (int): Rank of the LoRA low-rank matrices.
+            save_path (Optional[str]): Path to save fine-tuned LoRA weights.
+        """
+        self.device = device
+        self.model_wrapper = model
+        self.dataset = dataset
+        self.learning_rate = learning_rate
+        self.batch_size = batch_size
+        self.steps = steps
+        self.lora_rank = lora_rank
+        self.save_path = save_path
+
+        # Prepare model parameters: freeze all except LoRA modules
+        self._freeze_model()
+        # Inject LoRA modules into the model
+        self._inject_lora()
+
+        # Setup optimizer over LoRA parameters only
+        self.optimizer = AdamW(self._get_lora_params(), lr=self.learning_rate)
+
+    def _freeze_model(self):
+        """
+        Freeze all parameters in the underlying model.
+        """
+        for param in self.model_wrapper.get_model().parameters():
+            param.requires_grad = False
+
+    def _inject_lora(self):
+        """
+        For each linear layer relevant in the model, replace with LoRA-augmented module.
+        """
+        model = self.model_wrapper.get_model()
+        # Walk through all modules to substitute linear layers
+        for name, module in model.named_modules():
+            if isinstance(module, nn.Linear):
+                # Replace with LoRA module wrapping the same weight
+                setattr(
+                    model,
+                    name,
+                    LoRALinear(module, self.lora_rank)
+                )
+
+    def _get_lora_params(self):
+        """
+        Return list of LoRA parameters for optimizer.
+        """
+        params = []
+        model = self.model_wrapper.get_model()
+        for name, module in model.named_modules():
+            if isinstance(module, LoRALinear):
+                params += list(module.A.parameters()) + list(module.B.parameters())
+        return params
+
+    def train(self):
+        """
+        Run the fine-tuning loop over the dataset.
+        """
+        self.model_wrapper.get_model().train()
+        dataloader = torch.utils.data.DataLoader(
+            self.dataset,
+            batch_size=self.batch_size,
+            shuffle=True
+        )
+
+        for step in range(self.steps):
+            for batch in dataloader:
+                inputs = batch['input_ids'].to(self.device)  # shape: (batch, seq_len)
+                labels = inputs.clone()  # language modeling: target = input shifted
+                # Forward pass
+                outputs = self.model_wrapper.get_model()(inputs)[0]  # logits
+                # Compute loss
+                loss_fn = torch.nn.CrossEntropyLoss()
+                loss = loss_fn(
+                    outputs.view(-1, outputs.size(-1)),
+                    labels.view(-1)
+                )
+                # Backprop
+                self.optimizer.zero_grad()
+                loss.backward()
+                # Optional gradient clipping
+                torch.nn.utils.clip_grad_norm_(self._get_lora_params(), max_norm=1.0)
+                self.optimizer.step()
+
+            if (step + 1) % 100 == 0:
+                print(f"Step {step+1}/{self.steps}, Loss: {loss.item():.4f}")
+
+        # Save LoRA parameters if path provided
+        if self.save_path:
+            os.makedirs(os.path.dirname(self.save_path), exist_ok=True)
+            torch.save(self._gather_lora_params(), self.save_path)
+
+    def _gather_lora_params(self):
+        """
+        Collect all LoRA A and B matrices into a dict for saving.
+        """
+        params_dict = {}
+        model = self.model_wrapper.get_model()
+        idx = 0
+        for name, module in model.named_modules():
+            if isinstance(module, LoRALinear):
+                params_dict[f'{name}_A'] = module.A.detach().cpu()
+                params_dict[f'{name}_B'] = module.B.detach().cpu()
+                idx += 1
+        return params_dict
+
+    def save_checkpoint(self, path: str):
+        """
+        Save the LoRA parameters to disk.
+        """
+        params = self._gather_lora_params()
+        torch.save(params, path)
+
+class LoRALinear(nn.Module):
+    """
+    Wraps an nn.Linear and adds LoRA matrices A and B for low-rank adaptation.
+    """
+    def __init__(self, linear_module: nn.Linear, rank: int):
+        super().__init__()
+        self.in_features = linear_module.in_features
+        self.out_features = linear_module.out_features
+        self.original_weight = linear_module.weight.detach().clone()
+        self.bias = linear_module.bias.detach().clone() if linear_module.bias is not None else None
+        self.rank = rank
+
+        # Low rank matrices A and B
+        self.A = nn.Parameter(torch.randn(self.out_features, self.rank) * 0.01)
+        self.B = nn.Parameter(torch.randn(self.rank, self.in_features) * 0.01)
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        delta_weight = self.A @ self.B  # shape: out_features x in_features
+        weight = self.original_weight + delta_weight
+        return torch.nn.functional.linear(x, weight, self.bias)

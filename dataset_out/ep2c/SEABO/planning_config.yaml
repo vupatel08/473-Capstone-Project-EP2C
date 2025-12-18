@@ -1,0 +1,28 @@
+dataset:
+  expert_demo_path: "path/to/expert_demonstration.npy"  # Path to the expert demonstration data
+  unlabeled_data_path: "path/to/unlabeled_dataset.npy"  # Path to the unlabeled offline dataset
+  only_observations: false  # Set true if demonstration contains only observations
+reward_labeling:
+  alpha: 1.0          # Reward scale factor
+  beta: 0.5           # Exponential decay factor
+  neighbors: 1        # Number of nearest neighbors to consider
+model:
+  type: "iql"         # Offline RL algorithm type
+  params:
+    hidden_layers: [256, 256]  # Neural network architecture
+    learning_rate: 3e-4       # Learning rate for optimizer
+    batch_size: 256           # Batch size
+    total_timesteps: 1e6      # Total training steps
+training:
+  epochs: 50                # Number of training epochs
+  optimizer: "Adam"         # Optimizer type
+  learning_rate: 3e-4       # Learning rate (consistent with model params)
+  weight_decay: 0.0001      # Weight decay coefficient
+evaluation:
+  environment: "environment_name"  # Environment for evaluation
+  eval_episodes: 10                # Number of episodes per evaluation
+  eval_interval: 10000             # Steps between evaluation
+hyperparameters:
+  alpha: 1.0      # Reward scaling hyperparameter
+  beta: 0.5       # Reward decay hyperparameter
+  neighbor_count: 1  # Number of neighbors for KD-tree search

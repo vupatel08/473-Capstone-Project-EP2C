@@ -1,0 +1,160 @@
+# Logic Analysis for model.py
+
+## Purpose
+The `model.py` module defines the `ModelWrapper` class, which abstracts all interactions with pre-trained autoregressive language models, including loading, tokenizing, generating continuations, and computing sequence likelihoods. The class must support models with different modalities, primarily text-based models (e.g., GPT-2, LLaMA, Falcon) and multimodal models (e.g., LLaVA), with the current focus on textual sequences. It should be designed to facilitate the sampling and likelihood calculations needed for the distributional meaning representation approach described in the paper.
+
+---
+
+## 1. Class Responsibilities
+### a. Initialization (`__init__`)
+- Load the specified model and tokenizer based on `model_name`.
+- Set device to run inference (`cuda` or `cpu`) according to configuration.
+- Handle any model-specific considerations, such as:
+  - Support for special tokens like `[EOS]`.
+  - Text vs. multimodal tokenization:
+    - For text models: straightforward.
+    - For multimodal models: more complex (e.g., images as tokens).
+- Prepare model in evaluation mode for inference efficiency.
+- Possibly set generation parameters if required (like max length, temperature).
+
+### b. Tokenization (`tokenize`)
+- Convert input string (or possibly image paths in multimodal context) into token IDs.
+- Respect the model's tokenizer idiosyncrasies.
+- Ensure handling of special tokens like `[EOS]` or punctuation that signals sentence completion.
+- Maintain consistency with the model's expectations, particularly in full sentence or fragment tokenization.
+
+### c. Sequence Generation (`generate_continuations`)
+- Given a prompt string, generate `n` trajectories, each up to length `m`.
+- Use probabilistic sampling (multinomial distribution) with specified `temperature`.
+- For each trajectory:
+  - Start from the tokenized prompt.
+  - Iteratively:
+    - Compute next-token probability distribution.
+    - Sample next token.
+    - Append to sequence.
+    - Stop if `[EOS]` token is generated or length `m` reached.
+- Collect `n` sequences for the prompt, convert token IDs back to text.
+- Support batch processing of prompts for efficiency.
+
+### d. Likelihood Computation (`compute_log_prob`)
+- For any sequence (prompt + continuation), compute its log likelihood given the prompt.
+- This involves:
+  - Tokenizing both prompt and sequence.
+  - Computing the product (sum of log probabilities) for each token conditioned on previous tokens.
+- Use the model's output logits to obtain per-token probabilities.
+- Take care of numerical stability, e.g., temperature scaling, small probability handling.
+- Return a float representing the log probability of the entire sequence given the prompt.
+
+---
+
+## 2. Implementation details
+
+### a. Model loading
+- Use HuggingFace's `transformers` library:
+  - Load model: `AutoModelForCausalLM`
+  - Load tokenizer: `AutoTokenizer`
+- Compatibility:
+  - Confirm that for certain architectures (e.g., LLaMA), special handling may be needed for tokenization.
+  - For multimodal models like LLaVA, verify that the input pipeline supports images (possibly as tokens) or that the image tokens are pre-encoded.
+- Device setup:
+  - Move model to the specified device.
+  - Enable evaluation mode (`model.eval()`).
+- Precision and optimization:
+  - Use appropriate inference settings for performance (e.g., no gradient computation).
+
+### b. Tokenization
+- Implement a method that:
+  - Takes a string.
+  - Tokenizes it via the model's tokenizer.
+  - Adds special tokens if necessary:
+    - For sentence completion, ensure the prompt ends appropriately.
+    - Append `[EOS]` if needed but only if model and tokenizer support it.
+- For multimodal models, handle image inputs by replacing text tokenization with appropriate image feature extraction or token embedding if applicable (if the model uses image tokens).
+
+### c. Generating continuations
+- For each iteration:
+  1. Prepare input tensor (token IDs) for the prompt.
+  2. Pass through the model’s `generate()` (or manually run forward pass) with parameters:
+     - `max_new_tokens=m`
+     - `do_sample=True`
+     - `temperature=λ`
+     - `num_return_sequences=1`
+     - `pad_token_id` set appropriately or use `eos_token_id`.
+  3. Extract the generated sequence:
+     - From the generated tokens, convert back to string.
+     - Stop at `[EOS]` if generated earlier.
+  4. Repeat to produce `n` trajectories.
+- For efficiency, batch multiple prompts if needed.
+
+### d. Compute sequence log likelihood
+- Internal process:
+  - Tokenize prompt + continuation into input tokens.
+  - Pass tokens through model to obtain logits.
+  - For each token `a_i` (after the prompt), compute probability conditioned on previous tokens.
+  - Accumulate log probabilities:
+    \[
+    \log P(a_i | a_{<i}, s)
+    \]
+  - Sum over tokens:
+    \[
+    \sum_{i} \log P(a_i | a_{<i})
+    \]
+- Output the sum as the sequence's log likelihood.
+- Implementation considerations:
+  - Use `model(**inputs)` with attention_mask.
+  - Extract logits, apply softmax to get probabilities.
+  - For numerical stability, work in log space.
+  - For large sequences: process in batches if possible.
+
+---
+
+## 3. Specific considerations for multimodal models
+- Tokenization:
+  - Confirm if the model accepts images as tokens or features.
+  - For LLaVA:
+    - Tokenize text normally.
+    - For images, typically encode images into sequence tokens or features beforehand.
+- Generating continuations:
+  - The process is similar, but input may include image tokens.
+- Likelihood calculation:
+  - The likelihood over sequences that include image tokens may need special handling.
+  - Assume that images are represented via their tokens or features, and the likelihood is computed over the entire sequence.
+
+---
+
+## 4. Handling special tokens
+- Ensure tokenizer's pad_token, eos_token are set correctly.
+- Append full stop (`"."`) if needed, as per the instructions in the paper.
+- When generating sequences, recognize `[EOS]` tokens to truncate sequences.
+
+---
+
+## 5. Code robustness
+- Handle models without `[EOS]` token:
+  - Use max length as cutoff.
+- Support model-specific tokenization:
+  - Check for special tokens, set parameters accordingly.
+- Enable reproducibility:
+  - Set random seed if the model or sampling process requires it.
+
+---
+
+## 6. Summary of inputs/outputs
+| Method | Inputs | Outputs | Notes |
+|---------|---------|--------|---------|
+| `__init__` | `model_name`, `device` | None | Model and tokenizer loaded |
+| `tokenize(text)` | string `text` | list of token IDs | Consistent with model tokenizer |
+| `generate_continuations(prompt, n, m, temperature)` | prompt string, n, m, temperature | list of strings (trajectories) | Sample trajectories via multinomial sampling |
+| `compute_log_prob(sequence, prompt)` | sequence string (prompt + continuation) | float (log probability) | Sum log probs of tokens conditioned on prompt |
+
+---
+
+## 7. Final notes
+- Implementations should allow easy substitution of models.
+- Ensure sampling and likelihood calculation are compatible and accurate.
+- For reproducibility and debugging, log sampling randomness seeds and intermediate likelihoods.
+- Provide clear documentation for the interface.
+
+---
+
+This detailed logic analysis guides the implementation of `model.py`, ensuring alignment with the methodology, supporting flexible and accurate likelihood and sampling functions necessary for the distributional meaning representations in the paper.

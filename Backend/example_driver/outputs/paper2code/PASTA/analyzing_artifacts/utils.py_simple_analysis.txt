@@ -1,0 +1,104 @@
+**Logic Analysis for utils.py**
+
+---
+
+### Purpose:
+The `utils.py` module provides shared utility functions crucial for supporting the core modules in data processing, prompt span extraction, attention score manipulation, and normalization. These functions are invoked across the main orchestrator, profiling, inference, and evaluation phases to ensure consistency, robustness, and modularity.
+
+---
+
+### Core Utility Functions & Logic:
+
+#### 1. **Tokenization Helpers**
+- **Objective:** Convert raw text inputs into token IDs suitable for transformer models, ensuring proper handling of task-specific tokenization nuances.
+- **Key Methods:**
+  - `tokenize(text: str, tokenizer) -> List[int]`
+    - Uses the tokenizer (from `transformers`) to encode the string.
+    - Handles conversion to token IDs.
+    - Supports batching if needed.
+  - `detokenize(token_ids: List[int], tokenizer) -> str`
+    - Converts token IDs back into the human-readable string.
+- **Edge cases:**
+  - Handling special tokens (e.g., `[CLS]`, `[SEP]`) if relevant.
+  - Dealing with unknown tokens (fallbacks or replacements).
+  - Ensuring the tokenization preserves emphasis span boundaries nicely for span detection.
+
+---
+
+#### 2. **Span Extraction from Styled Prompts**
+- **Objective:** Parse input prompts with emphasis markers (e.g., markdown `*` or custom tags) to identify token spans for attention reweighting.
+- **Functions:**
+  - `extract_emphasis_spans(prompt: str, marker: str='*') -> Tuple[str, List[Tuple[int, int]]]`
+    - Scans the prompt for emphasis markers.
+    - Determines the start and end indices of emphasized segments in raw text.
+    - **Implementation steps:**
+      - Use regex to locate all marker pairs (e.g., `*...*`).
+      - Record the character positions of each emphasis.
+      - Map character positions to token indices via tokenization.
+    - **Output:**
+      - The cleaned prompt (if markers are to be removed for model input).
+      - List of token index spans `(start_idx, end_idx)` representing emphasized tokens.
+  - `get_token_indices_for_span(span_text: str, tokens: List[str]) -> Tuple[int, int]`
+    - Matches the span text against tokenized tokens to find start and end token indices.
+- **Edge cases:**
+  - Multiple emphasized spans.
+  - Overlapping or nested emphasis markers.
+  - Ambiguous spans (e.g., multi-word emphasis).
+
+---
+
+#### 3. **Normalization Functions**
+- **Objective:** Normalize attention scores for reweighting purposes to ensure they sum to 1 per query token (row-wise softmax compatibility).
+- **Method:**
+  - `normalize_attention_scores(scores: Tensor) -> Tensor`
+    - Implements row normalization by dividing each row by its sum.
+    - Ensures numerical stability (e.g., adding a small epsilon).
+  - `scale_attention_scores(scores: Tensor, alpha: float, mask: Tensor) -> Tensor`
+    - Applies reweighting:
+      - For tokens outside emphasized spans: multiply scores by `alpha`.
+      - For emphasized tokens: keep scores as-is or multiply by 1.
+    - Follow up with normalization.
+- **Edge cases:**
+  - Zero scores (avoid division by zero).
+  - Very small or large values; handle with clamping or epsilon adjustments.
+
+---
+
+#### 4. **Emphasis Span Mappings**
+- **Objective:** Map span character indices or token positions from prompt annotation to token IDs, ensuring precise targeting.
+- **Methods:**
+  - `map_char_span_to_token_indices(char_start: int, char_end: int, token_offsets: List[Tuple[int, int]]) -> Tuple[int, int]`
+    - `token_offsets` map tokens to character positions.
+    - Finds the token indices corresponding to character span.
+- **Implementation notes:**
+  - Precompute token offsets during tokenization.
+  - Ensure the span matches selected tokens exactly, or use heuristic overlap if approximate.
+
+---
+
+### Additional Considerations:
+- **Handling Variations in Emphasis Markers:**
+  - The utility functions should be flexible to adapt to various emphasis markup styles (e.g., `*`, `"``, custom tags).
+  - Standardize the marker to prevent errors.
+
+- **Use of Tokenizer API:**
+  - Must work with the tokenizer compatible with the model (e.g., HuggingFace tokenizer).
+  - Use encoding with `return_offsets_mapping=True` to facilitate span mapping.
+
+- **Efficiency and Robustness:**
+  - Minimize repeated tokenization by caching token offsets.
+  - Handle malformed inputs gracefully (missing markers, unmatched emphasis pairs).
+
+---
+
+### Summary:
+`utils.py` encapsulates:
+- Tokenization and detokenization helpers.
+- Span extraction and mapping based on style markers.
+- Functions to convert emphasis spans into token indices for precise attention manipulation.
+- Normalization routines to ensure attention scores are valid probability distributions.
+- These functions underpin the core logic of emphasis span detection and attention score reweighting, enabling the main modules to perform inference with user-guided attention steering reliably and efficiently.
+
+---
+
+This detailed analysis informs the implementation of robust, efficient, and flexible utility functions central to executing PASTA as described in the paper.

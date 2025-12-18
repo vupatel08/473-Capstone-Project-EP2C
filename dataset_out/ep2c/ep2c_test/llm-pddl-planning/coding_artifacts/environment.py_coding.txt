@@ -1,0 +1,273 @@
+```python
+## environment.py
+
+import re
+import copy
+import random
+from typing import List, Dict, Tuple, Union, Optional
+
+# For resource measurement, environment specifics, and simulation
+import logging
+
+# We assume a simplified environment interface.
+# In a real setting, replace or extend this with actual environment SDK/API.
+# Here, for illustration, we simulate a generic environment with minimal logic.
+
+class Environment:
+    def __init__(self, api_signatures: Dict[str, Dict], env_id: str = "default_env"):
+        """
+        Initialize environment with given API signatures and environment ID.
+        api_signatures: dict mapping action names to parameter info.
+        env_id: environment identifier, for logging or environment-specific logic.
+        """
+        self.api_signatures = api_signatures
+        self.env_id = env_id
+        # Internal state: a dictionary to hold environment-specific info
+        # For illustration, we initialize with default state
+        self.state = self._initialize_state()
+        # Store environment-specific info if needed
+        # For custom environments, override or extend as needed.
+        # For example, object positions, status flags, etc.
+        # For generality, use a dict.
+        # Deep copy for reset capabilities
+        self._initial_state = copy.deepcopy(self.state)
+        # Setup environment parameters for simulation
+        self.actions_list = list(self.api_signatures.keys())
+
+    def _initialize_state(self) -> Dict:
+        """
+        Initialize environment state.
+        For real environment, replace with actual initialization.
+        """
+        # For illustration, a generic environment with object locations
+        # e.g., object positions, robot positions, flags
+        # Here, we create a dummy state - extend as needed per environment
+        state = {
+            'objects': {},  # e.g., {'object1': location, ...}
+            'robot_positions': {},  # e.g., {'robot1': 'room2'}
+            'object_status': {},  # e.g., {'object1': 'carried'/'free', ...}
+            'flags': {}  # other environment-specific flags
+        }
+        # For demonstration, we leave it empty; in practice, load initial env state.
+        return state
+
+    def reset(self):
+        """
+        Reset environment to initial state.
+        """
+        self.state = copy.deepcopy(self._initial_state)
+
+    def get_state(self) -> Dict:
+        """
+        Return a dict describing the current environment state.
+        """
+        return copy.deepcopy(self.state)
+
+    def execute_plan(self, plan: str) -> bool:
+        """
+        Execute a sequence of actions in the environment.
+        plan: string with actions in PDDL syntax, e.g.,
+        (move robot1 room2 room3)
+        Returns True if plan executed successfully to goal.
+        """
+        try:
+            actions = self._parse_plan(plan)
+            for action_str in actions:
+                success = self._execute_action(action_str)
+                if not success:
+                    # Infeasible action, stop execution
+                    return False
+            # After executing all actions, could check goal if needed
+            # For now, assume success if no errors
+            return True
+        except Exception as e:
+            logging.error(f"Error executing plan in env {self.env_id}: {e}")
+            return False
+
+    def _parse_plan(self, plan_str: str) -> List[str]:
+        """
+        Parse plan string into list of action strings.
+        Assumes each action is on a separate line or separated by whitespace.
+        """
+        # Remove parentheses and split
+        actions = re.findall(r'\([^)]*\)', plan_str)
+        actions = [action.strip() for action in actions]
+        return actions
+
+    def _execute_action(self, action_str: str) -> bool:
+        """
+        Execute a single action in the environment.
+        Return True if feasible and successful; False otherwise.
+        """
+        # Parse action string, e.g., (move robot1 room2 room3)
+        parsed = self._parse_action_str(action_str)
+        if not parsed:
+            return False
+        action_name, params = parsed
+        # Verify if action is recognized
+        if action_name not in self.api_signatures:
+            logging.warning(f"Unrecognized action {action_name} in environment {self.env_id}")
+            return False
+        # Check preconditions based on current state
+        preconditions_ok = self._check_preconditions(action_name, params)
+        if not preconditions_ok:
+            return False
+        # Apply effects
+        self._apply_effects(action_name, params)
+        # Additional environment-specific checks can be added here
+        return True
+
+    def _parse_action_str(self, action_str: str) -> Optional[Tuple[str, List[str]]]:
+        """
+        Parse an action string of the form (action_name param1 param2 ...).
+        """
+        # Remove parentheses
+        if not action_str.startswith('(') or not action_str.endswith(')'):
+            return None
+        inside = action_str[1:-1].strip()
+        parts = inside.split()
+        if not parts:
+            return None
+        action_name = parts[0]
+        params = parts[1:]
+        return action_name, params
+
+    def _check_preconditions(self, action_name: str, params: List[str]) -> bool:
+        """
+        Check if preconditions for action are met in current state.
+        This is environment specific.
+        For illustration, implement dummy checks or extend with environment logic.
+        """
+        # Here, insert environment logic:
+        # For example, if action is 'move', verify robot position, neighbor relations, etc.
+        # For now, assume all preconditions are satisfied.
+        # Replace with real logic as needed.
+        return True
+
+    def _apply_effects(self, action_name: str, params: List[str]) -> None:
+        """
+        Update the environment state according to effect of action.
+        This is environment-specific.
+        """
+        # For illustration, implement dummy effect updates.
+        # Example: for 'move' action, update robot position
+        if action_name == 'move' and len(params)==3:
+            robot, from_loc, to_loc = params
+            self.state['robot_positions'][robot] = to_loc
+        elif action_name == 'pick' and len(params)==4:
+            robot, obj, room, g = params
+            # Mark object as carried
+            self.state['object_status'][obj] = 'carried'
+            self.state['objects'][obj] = 'carried_by_' + robot
+        elif action_name == 'drop' and len(params)==4:
+            robot, obj, room, g = params
+            # Mark object as at room
+            self.state['object_status'][obj] = 'free'
+            self.state['objects'][obj] = room
+        elif action_name == 'place' and len(params)==4:
+            robot, obj, room, g = params
+            self.state['object_status'][obj] = 'at_' + room
+            self.state['objects'][obj] = room
+        elif action_name == 'remove' and len(params)==4:
+            robot, obj, room, g = params
+            self.state['object_status'][obj] = 'removed'
+        elif action_name == 'create' and len(params)==2:
+            # Simplify, create new object
+            obj, loc = params
+            self.state['object_status'][obj] = 'at_' + loc
+            self.state['objects'][obj] = loc
+        elif action_name == 'destroy' and len(params)==2:
+            obj, loc = params
+            self.state['object_status'][obj] = 'destroyed'
+        # Extend with other actions as defined
+        else:
+            # Default: do nothing
+            pass
+
+    def check_feasibility(self, actions: List[str]) -> List[bool]:
+        """
+        Verify feasibility of each action in provided sequence.
+        Does not modify environment state.
+        Returns list of booleans indicating feasibility.
+        """
+        # Save current state
+        saved_state = copy.deepcopy(self.state)
+        feasibilities = []
+        for action_str in actions:
+            feasible = self._execute_action(action_str)
+            feasibilities.append(feasible)
+            if not feasible:
+                # Rollback environment state
+                self.state = copy.deepcopy(saved_state)
+                break
+        # Restore environment to original state after check
+        self.state = copy.deepcopy(saved_state)
+        return feasibilities
+
+    # Additional methods for sampling sequences
+    def sample_action_sequence(self, sequence_length: int) -> List[str]:
+        """
+        Sample a random executable sequence of actions of given length.
+        Uses uniform sampling over possible actions at each step.
+        """
+        seq = []
+        # Save initial state
+        temp_state = copy.deepcopy(self.state)
+        for _ in range(sequence_length):
+            # Determine feasible actions in current state
+            feasible_actions = self._get_feasible_actions()
+            if not feasible_actions:
+                # No feasible actions, stop sampling
+                break
+            # Select one at random
+            action_str = random.choice(feasible_actions)
+            # Simulate execution to update state
+            feasible = self._execute_action(action_str)
+            if feasible:
+                seq.append(action_str)
+            else:
+                # Should not happen as feasible_actions are filtered
+                # but check anyway
+                break
+        # Restore original state
+        self.state = copy.deepcopy(temp_state)
+        return seq
+
+    def _get_feasible_actions(self) -> List[str]:
+        """
+        Return a list of all feasible actions in current state.
+        For simplicity, generate all actions and filter.
+        In a real environment, this could be optimized.
+        """
+        feasible_actions = []
+        for action_name in self.actions_list:
+            # Generate all parameter combinations
+            param_combinations = self._generate_action_params(action_name)
+            for params in param_combinations:
+                action_str = self._build_action_str(action_name, params)
+                if self._check_preconditions(action_name, params):
+                    feasible_actions.append(action_str)
+        return feasible_actions
+
+    def _generate_action_params(self, action_name: str) -> List[List[str]]:
+        """
+        Generate all permissible parameters for an action based on environment.
+        In practice, this depends on environment's objects and predicates.
+        For illustration, generate sample parameters.
+        """
+        # Placeholder: in practice, create parameter combos based on object lists and signatures
+        # For demonstration, return an empty list to avoid invalid sampling
+        # Extend with environment-specific logic
+        return []
+
+    def _build_action_str(self, action_name: str, params: List[str]) -> str:
+        """
+        Build action string in PDDL syntax.
+        """
+        return '(' + ' '.join([action_name] + params) + ')'
+
+    # Additional helper: set environment state from outside (for reset or test)
+    def set_state(self, state: Dict):
+        self.state = copy.deepcopy(state)
+
+```

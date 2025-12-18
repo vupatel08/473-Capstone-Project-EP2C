@@ -1,0 +1,250 @@
+## model.py
+import torch
+import torch.nn as nn
+import torch.nn.functional as F
+from spikingjelly.activation_functions import SurrogateSpike
+from spikingjelly.clock_driven import neuron, layer
+
+
+class SurrogateTangent(torch.autograd.Function):
+    """Surrogate gradient using inverse tangent approximation."""
+    @staticmethod
+    def forward(ctx, input, alpha=1.0):
+        ctx.alpha = alpha
+        return (torch.atan(input * alpha) / torch.atan(torch.tensor(torch.pi / 2)))  # scaled to [0,1]
+
+    @staticmethod
+    def backward(ctx, grad_output):
+        alpha = ctx.alpha
+        # Derivative of atan: 1/(1 + (alpha * x)^2)
+        grad_input = grad_output.clone() * alpha / (1 + (alpha * ctx.saved_tensors[0]) ** 2)
+        return grad_input, None
+
+
+def surrogate_activation(x, alpha=1.0):
+    return SurrogateTangent.apply(x, alpha)
+
+
+class LIFNeuron(nn.Module):
+    """
+    Leaky Integrate-and-Fire neuron model with surrogate gradient.
+    """
+    def __init__(self, tau=2.0, threshold=1.0, reset_voltage=0.0, surrogate_alpha=1.0):
+        super().__init__()
+        self.tau = tau
+        self.threshold = threshold
+        self.reset_voltage = reset_voltage
+        self.surrogate_alpha = surrogate_alpha
+        self.register_buffer('V', None)
+
+    def forward(self, input: torch.Tensor):
+        # input: [batch, *, ...] shape
+        if self.V is None or self.V.shape != input.shape:
+            # Initialize membrane potential
+            self.V = torch.zeros_like(input)
+        else:
+            # Update membrane potential
+            delta_V = (input - (self.V - self.reset_voltage)) / self.tau
+            self.V = self.V + delta_V
+
+        # Generate spikes with surrogate gradient
+        spike = surrogate_activation(self.V - self.threshold, self.surrogate_alpha)
+        # Binarize spike: thresholding
+        spike_bin = (spike >= 0).float()
+
+        # Reset voltage where spikes occurred
+        self.V = self.V * (1 - spike_bin) + self.reset_voltage * spike_bin
+        return spike_bin
+
+    def reset(self):
+        self.V.zero_()
+
+
+class ResidualBlock(nn.Module):
+    """
+    Residual convolutional block with spiking neurons.
+    """
+    def __init__(self, in_channels, out_channels, kernel_size=3, stride=1, padding=1, 
+                 tau=2.0, threshold=1.0, reset_voltage=0.0, surrogate_alpha=1.0):
+        super().__init__()
+        self.conv = nn.Conv2d(in_channels, out_channels, kernel_size, stride, padding, bias=False)
+        self.bn = nn.BatchNorm2d(out_channels)
+        self.spike_neuron = LIFNeuron(tau=tau, threshold=threshold, reset_voltage=reset_voltage, surrogate_alpha=surrogate_alpha)
+        if in_channels != out_channels:
+            self.downsample = nn.Sequential(
+                nn.Conv2d(in_channels, out_channels, kernel_size=1, bias=False),
+                nn.BatchNorm2d(out_channels)
+            )
+        else:
+            self.downsample = None
+
+    def forward(self, x):
+        residual = x
+        out = self.conv(x)
+        out = self.bn(out)
+        # Apply spiking neuron element-wise in spatial dimension
+        out_spike = self.spike_neuron(out)
+        if self.downsample is not None:
+            residual = self.downsample(residual)
+        out = out_spike + residual
+        return out
+
+
+class FeedbackModule(nn.Module):
+    """
+    Feedback module: processes higher-region responses to generate feedback signals.
+    Supports recurrent feedback with optional delay.
+    """
+    def __init__(self, in_channels, out_channels, kernel_size=3, padding=1,
+                 feedback_strength=1.0, delay=2):
+        super().__init__()
+        self.feedback_strength = feedback_strength
+        self.delay = delay
+        # Use a simple convolutional layer for feedback projection
+        self.feedback_conv = nn.Conv2d(in_channels, out_channels, kernel_size, padding=padding)
+        # Initialize weights (could be learned or fixed)
+        nn.init.xavier_uniform_(self.feedback_conv.weight)
+
+        # Buffer to store delayed responses
+        self.register_buffer('feedback_buffer', None)
+
+    def forward(self, higher_response, current_step):
+        """
+        higher_response: Tensor of shape (batch, channels, H, W)
+        current_step: int (current time step)
+        """
+        if self.feedback_buffer is None:
+            # Initialize buffer with zeros
+            self.feedback_buffer = torch.zeros_like(higher_response)
+
+        # Apply delay: feedback comes from previous 'delay' steps
+        if current_step >= self.delay:
+            feedback_signal = self.feedback_buffer
+        else:
+            feedback_signal = torch.zeros_like(higher_response)
+
+        # Update buffer with current response (simulate delay)
+        self.feedback_buffer = higher_response.detach()
+
+        # Modulate feedback signal
+        feedback = self.feedback_conv(feedback_signal) * self.feedback_strength
+        return feedback
+
+
+class ResidualConvSpikingNet(nn.Module):
+    """
+    Main architecture: multiple regions with residual blocks, feedback modules, recurrent dynamics.
+    """
+    def __init__(self, config):
+        super().__init__()
+        self.config = config
+        cnn_channels = config.model.feature_channels  # base channels e.g., 64
+        self.num_regions = config.model.num_regions  # e.g., 6 cortical regions
+        self.layers_per_region = config.model.layers_per_region  # e.g., [2,2,2]
+        self.tau = config.system.membrane_tau
+        self.threshold = config.model.neuron_threshold
+        self.reset_voltage = config.system.reset_voltage
+        self.surrogate_alpha = 1.0  # As per config, can be parameterized
+        self.feedback_strength = config.system.feedback_strength
+        self.feedback_delay = config.system.feedback_delay
+
+        # Create residual blocks per region
+        self.regions = nn.ModuleDict()
+        for i in range(self.num_regions):
+            region_layers = nn.ModuleList()
+            in_c = 3 if i == 0 else cnn_channels
+            out_c = cnn_channels
+            for j in range(self.layers_per_region[i]):
+                region_layers.append(
+                    ResidualBlock(
+                        in_channels=in_c,
+                        out_channels=out_c,
+                        tau=self.tau,
+                        threshold=self.threshold,
+                        reset_voltage=self.reset_voltage,
+                        surrogate_alpha=self.surrogate_alpha
+                    )
+                )
+                in_c = out_c
+            self.regions[f'region_{i}'] = region_layers
+
+        # Create feedback modules connecting higher to lower regions
+        self.feedback_modules = nn.ModuleDict()
+        for i in range(1, self.num_regions):
+            # Feedback from region_{i} to region_{i-1}
+            self.feedback_modules[f'feedback_{i}_to_{i-1}'] = FeedbackModule(
+                in_channels=cnn_channels,
+                out_channels=cnn_channels,
+                feedback_strength=self.feedback_strength,
+                delay=self.feedback_delay
+            )
+
+        # Initialize membrane potentials
+        self.reset()
+
+    def reset(self):
+        # Reset all neuron states
+        for region_layers in self.regions.values():
+            for layer in region_layers:
+                if hasattr(layer, 'spike_neuron'):
+                    layer.spike_neuron.reset()
+
+    def forward(self, input_seq):
+        """
+        input_seq: Tensor [batch, T, C, H, W]
+        Returns:
+            responses_dict: dict of region responses over time
+        """
+        batch_size, T, C, H, W = input_seq.shape
+        # Initialize membrane potentials per layer
+        mem_list = {}
+        for key, region_layers in self.regions.items():
+            for idx, layer in enumerate(region_layers):
+                mem_list[f"{key}_layer_{idx}"] = torch.zeros(
+                    batch_size, layer.conv.out_channels, H, W, device=input_seq.device)
+
+        # Store responses for TSRSA: per region, list over time
+        responses_dict = {f'region_{i}': [] for i in range(self.num_regions)}
+
+        # For each time step
+        for t in range(T):
+            current_inp = input_seq[:, t, :, :, :]  # [batch, C, H, W]
+            # Start from lowest region (region_0)
+            higher_response = None
+            for region_idx in range(self.num_regions):
+                region_name = f'region_{region_idx}'
+                region_layers = self.regions[region_name]
+
+                x = current_inp if region_idx == 0 else None  # Input only for first region
+                # Pass through residual blocks
+                for layer_idx, layer_block in enumerate(region_layers):
+                    # Add feedback if applicable
+                    if region_idx > 0:
+                        feedback_signal = self.feedback_modules[f'feedback_{region_idx}_to_{region_idx -1}'](
+                            higher_response, current_step=t
+                        )
+                        # Inject feedback into the input; here we add to the feature map
+                        x = x + feedback_signal
+                    # Update membrane potential
+                    mem = mem_list[f"{region_name}_layer_{layer_idx}"]
+                    # Forward through residual block with membrane integration
+                    out = layer_block.conv(x)
+                    out = layer_block.bn(out)
+                    # Spiking neuron
+                    spike_out = layer_block.spike_neuron(out)
+                    # Residual connection
+                    x = spike_out + (x if t == 0 else x)  # skip connection
+                    # Save membrane voltages
+                    mem.copy_(layer_block.spike_neuron.V)
+                # Response of this region at time t
+                responses_dict[region_name].append(x.detach())
+
+                # For next higher region, use the response of this region
+                higher_response = x
+
+        # Convert responses to tensors: list over time -> [batch, time, channels, H, W]
+        for key in responses_dict:
+            responses_tensor = torch.stack(responses_dict[key], dim=1)
+            responses_dict[key] = responses_tensor
+
+        return responses_dict

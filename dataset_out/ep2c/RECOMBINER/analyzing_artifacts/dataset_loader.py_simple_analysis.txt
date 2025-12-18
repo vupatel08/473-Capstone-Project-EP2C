@@ -1,0 +1,166 @@
+# Logic Analysis for dataset_loader.py
+
+## Overview
+The purpose of `dataset_loader.py` is to implement the `DatasetLoader` class, which manages data loading, processing, and batching for various data modalities in the RECOMBINER framework. It should support images (CIFAR-10, Kodak), audio (LibriSpeech), video (UCF-101), and protein structures, providing the datasets in a format suitable for downstream training, inference, and evaluation of the model.
+
+The class must:
+- Read raw data from specified locations.
+- Apply necessary preprocessing steps.
+- Extract patches or segments as per experiment configuration.
+- Generate coordinate grids and labels aligned with the model's requirements.
+- Support batch creation, data shuffling, and possibly data augmentation.
+- Keep output in compatible tensor formats for model inputs.
+
+## Key Outputs & Methods
+- `load_data()` method returns a list or iterable of dataset samples, each being a dictionary with:
+  - `coordinates`: a tensor of coordinate points for each data point or patch.
+  - `values`: the corresponding signal values (RGB, grayscale, audio samples, etc.).
+  - `metadata`: optional info such as patch indices, image IDs.
+  
+- Patch extraction:
+  - For images (Kodak, CIFAR-10), patches are extracted via sliding windows or non-overlapping regions as per configuration.
+  - For high-resolution images, overlapped patches with specified patch size are used.
+  
+- Coordinate and label generation:
+  - Encode spatial coordinates normalized to [0, 1].
+  - Generate Fourier features if needed.
+  - For 3D data, generate spatial point coordinates within the voxel/grid.
+  - For audio, generate time indices similarly normalized.
+
+## Data Modalities & Specifics
+
+### 1. Image Datasets (CIFAR-10, Kodak)
+- Data Location: (`data_dir`).
+- CIFAR-10:
+  - Load entire dataset of 32x32 color images.
+  - Randomly select 15,000 images for training.
+  - For each test image, process as a whole or extract patches.
+  - For evaluation, patches are created (e.g., for Kodak, 64x64 patches).
+  - Coordinates: pixel grids in [0, 1], shape: (H×W, 2).
+  - Labels: pixel RGB values.
+  
+- Kodak:
+  - Load the 24 full images.
+  - Split into overlapping/non-overlapping patches of size 64×64.
+  - For each patch:
+    - Generate pixel coordinate grid (normalized).
+    - Extract pixel RGB values.
+  - For training, sample 83 images (or all 24 for testing).
+
+### 2. Audio Data (LibriSpeech)
+- Load raw audio files at 16kHz.
+- For each clip (first 3 seconds, 48,000 samples):
+  - Segment into patches of 800 samples (~0.05s each).
+  - Generate time indices normalized to [0, 1].
+  - Values: amplitude samples.
+- During batching, create multiple patches per audio clip, each with coordinates (normalized time) and samples.
+
+### 3. Video Data (UCF-101)
+- Load full video clips (~27 hours total).
+- Crop centrally to 240×240×24, resize to 128×128×24.
+- Partition into 16×16×24 patches:
+  - Each patch: 16×16×24 voxels.
+  - Coordinates: 3D spatial grid normalized in [0, 1].
+  - Values: pixel intensity or RGB values.
+- For each clip, extract patches and generate per-patch coordinates and signals.
+
+### 4. 3D Protein Structures
+- Load PDB files from AlphaFold DB.
+- For each protein:
+  - Extract first 96 residues' C-alpha atoms.
+  - Coordinates are normalized to [0, 1] based on their spatial bounding box.
+  - Values: 3D coordinates, possibly as point cloud or voxel grid.
+- For batching, sample multiple structures (size: 1000 test structures).
+
+---
+
+## Implementation Details & Considerations
+
+### Class Initialization
+- Constructor should accept configuration parameters:
+  - `data_dir`
+  - dataset-specific options.
+  - patch sizes, number of patches/groups, etc.
+- Store dataset path and parameters as member variables.
+
+### `load_data()` Method
+- Purpose:
+  - Load raw datasets (images, audio, video, proteins).
+  - Preprocess data according to modality.
+  - Extract patches or segments when needed.
+  - Generate coordinate grids and labels.
+  - Return a list/iterator of sample dictionaries.
+
+- Implementation outline:
+  1. Read datasets from `data_dir`.
+  2. For images:
+     - Load images with `PIL` or `cv2`.
+     - Normalize pixel values.
+     - For full images or patches:
+       - Generate pixel coordinate grid: shape `(H×W, 2)`.
+       - Normalize to [0, 1].
+       - For patches:
+         - Use sliding window or grid indexing.
+  3. For audio:
+     - Load waveform data (e.g., via `librosa`, `soundfile`).
+     - Trim or pad to 3 sec (48,000 samples).
+     - Segment into overlapping patches (800 samples).
+     - Generate time indices: `(0, 1)`.
+  4. For video:
+     - Use video reading libraries (`cv2`, `av`, or `decord`).
+     - Crop/resize frames.
+     - Partition into patches.
+     - Generate 3D coordinate grids normalized.
+  5. For protein:
+     - Parse PDB files (`BioPython PDB`).
+     - Extract C-alpha atom coordinates.
+     - Normalize spatial coordinates based on bounding box.
+  6. For each sample or patch:
+     - Store `coordinates`, `values`, and any metadata.
+  7. Optionally, implement batching and shuffling for training.
+
+### Patches & Data Augmentation
+- Use specified patch sizes (from config).
+- Overlapping vs non-overlapping patches based on experiment.
+- For hierarchical models, group patches accordingly.
+- Maintain consistent coordinate conventions across datasets.
+
+### Data Management
+- Load datasets once.
+- Use DataLoader if needed, or manual iteration.
+- Convert all data to `torch.Tensor`.
+- Implement helper functions for coordinate grid generation.
+
+### Efficiency & Consistency
+- Cache dataset loading results as necessary.
+- Apply normalization parameters for coordinates and signals.
+- Ensure data shapes align with model input expectations:
+  - `(num_points, coordinate_dim)`
+  - `(num_points, signal_dim)`
+
+### Error Handling & Validation
+- Verify data loading correctness:
+  - Coordinates in [0, 1].
+  - Correct signal values.
+- Confirm patch extraction aligns with configuration.
+- Handle missing files or inconsistent dataset formats gracefully.
+
+---
+
+## Summary
+The `DatasetLoader` class will:
+- Be initialized with dataset-specific parameters from the config.
+- Implement `load_data()` to load raw datasets, process, and patchify as needed.
+- Generate coordinate grids (including Fourier features if needed).
+- Output data samples as dictionaries with tensors:
+  ```
+  {
+     'coordinates': Tensor (N, coordinate_dim),
+     'values': Tensor (N, value_dim),
+     'metadata': dict (image/clip/patch info)
+  }
+  ```
+- Provide an iterable or list interface suitable for training scripts.
+- Support different data modalities with clear separation of methods or conditional handling.
+
+This detailed plan ensures consistency, flexibility, and extensibility for ingestion of all data types relevant to the RECOMBINER experiments.

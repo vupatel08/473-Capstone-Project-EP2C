@@ -1,0 +1,137 @@
+### Logic Analysis for `model.py`
+
+**Objective:**  
+Implement a `Model` class that encapsulates loading a pre-trained LLaMA-based language model, supports class-conditioning via prompt or token prompts, and provides methods for forward inference and response generation, consistent with the methodology in the paper.
+
+---
+
+### 1. Responsibilities of `Model` class:
+- Load the pre-trained backbone language model and tokenizer from Hugging Face.
+- Support prompt conditioning to facilitate class-conditioning, likely via special tokens or prompt templates.
+- Provide a method to execute forward passes for training (calculating token-level logits and loss).
+- Provide a generation method to produce responses given prompts, conditioning on class labels.
+
+---
+
+### 2. Key Components & Methods:
+#### a. Initialization (`__init__`)
+- Load the pre-trained model and tokenizer:
+  - Use `transformers.AutoModelForCausalLM` and `AutoTokenizer`.
+  - Specify the `pretrained_model_name` from config (`"huggingface/llama-13b"`).
+  - Load model in half-precision (FP16) if supported, for memory efficiency.
+- Initialize class conditioning:
+  - Store `conditioning_token` (e.g., `<|class|>`).
+  - Decide how to incorporate class info into prompts:
+    - As a prefix token (e.g., `<|class|> expert`).
+    - As a prompt prefix template with class label embedded.
+- Prepare any special tokens (adding to tokenizer if necessary):
+  - Check if `conditioning_token` exists in tokenizer; add if not.
+  - Save token IDs for easy insertion during prompt creation.
+- Set device (e.g., CUDA).
+
+#### b. Forward Pass (`forward`)
+- Inputs:
+  - `input_ids`: tensor of token IDs representing the input prompt + conversation history.
+  - `attention_mask`: corresponding mask.
+- Output:
+  - Logits for each position (from the model output).
+  - Needed for loss calculation during training.
+- Logic:
+  - Run model with `return_dict=True`.
+  - Extract `logits`.
+  - Return logits for loss or further processing.
+
+#### c. Response Generation (`generate`)
+- Inputs:
+  - `prompt`: string (including class conditioning prompt).
+  - optional: `max_new_tokens`, `temperature`.
+- Process:
+  - Prepare prompt by inserting conditioning prefix as per class.
+  - Encode prompt with tokenizer.
+  - Call `model.generate()` with parameters:
+    - `max_new_tokens`
+    - `temperature`
+    - Possibly `do_sample=True` for diversity.
+  - Decode generated tokens into string.
+- Output:
+  - Generated response string.
+  
+--- 
+
+### 3. Prompt Conditioning:
+- To implement prompt conditioning as per paper:
+  - Append the `conditioning_token` and associated class label (e.g., "Expert", "Suboptimal") at the start of each input prompt.
+  - Use a template like:
+    - `"<|class|> expert\nUser: {query}\nAssistant:"`
+    - `"<|class|> suboptimal\nUser: {query}\nAssistant:"`
+  - Alternatively, prepend special tokens:
+    - Add `<|class|>` as a special token, then include class label token during prompt creation.
+- For multi-turn conversations:
+  - For both training and generation:
+    - Include class-conditioning tokens at the start of each turn.
+    - Maintain conversation history with turns:
+      - e.g.,
+        ```
+        <|class|> expert
+        User: {instruction}
+        Assistant: {response}
+        ```
+  - During training, ensure the prompt sequence properly concatenates tokens and turns.
+
+---
+
+### 4. Tokenizer Handling
+- Ensure `conditioning_token` is in the tokenizer vocabulary:
+  - Use `tokenizer.add_special_tokens()` if needed.
+- The class label can be appended as a token or string that is tokenized and inserted.
+- Maintain `conditioning_token_id` and the class label token IDs for prompt construction.
+
+---
+
+### 5. Model Save/Load
+- Include a method for saving model weights if needed.
+- During inference, load the model from saved weights.
+
+---
+
+### 6. Additional Details
+- Use `torch.device()` for device management.
+- Consider gradient checkpointing if memory is limited.
+- Make sure to set model to evaluation mode (`model.eval()`) during inference.
+
+---
+
+### 7. Hyperparameters & Configs
+- Pretrained model name and conditioning token are passed during initialization.
+- Encoding prompts with class info should be consistent with training prompts used.
+
+---
+
+### **Summary of Implementation Plan for `model.py`:**
+
+- **`__init__(self, pretrained_model_name, conditioning_token)`**:
+  - Load pre-trained model and tokenizer.
+  - Check/add `conditioning_token` in tokenizer.
+  - Save token IDs for conditioning.
+  - Set to device.
+  
+- **`set_conditioning(self, class_label)`**:
+  - Store class label info.
+  - Prepare prompt prefix with `<|class|>` + class label string.
+
+- **`prepare_prompt(self, prompt:str, class_label:str)`**:
+  - Concatenate conditioning prefix with user prompt.
+  - Encode into input IDs.
+
+- **`forward(self, input_ids, attention_mask)`**:
+  - Run `model(input_ids, attention_mask)`.
+  - Return logits for loss.
+
+- **`generate(self, prompt:str, class_label:str=None, max_new_tokens=256, temperature=0.7)`**:
+  - Prepend class-conditioned prefix to prompt if needed.
+  - Encode prompt + class info.
+  - Generate response.
+  - Decode output tokens.
+  - Return response string.
+
+This logic ensures that the `model.py` supports the class-conditioning paradigm, inference, and training needs detailed in the paper, aligned with the experimental design and methodology.

@@ -1,0 +1,108 @@
+**Logic Analysis for dataset_loader.py**
+
+---
+
+### Purpose:
+Implement a `DatasetLoader` class that:
+- Loads the mixed-quality conversation dataset from a specified file.
+- Parses the dataset entries into structured data suitable for training.
+- Assigns class labels ('expert' or 'sub-optimal') based on source or content.
+- Calculates or assigns coarse reward weights (`r_c`) according to class labels, with `r_c=1.0` for expert data and `r_c=α` (e.g., 0.8) for sub-optimal data.
+- Prepares and returns datasets (training and evaluation splits) for subsequent training and evaluation workflows.
+
+---
+
+### Inputs:
+- The dataset path from `config.yaml` (`dataset_path`).
+- Sample size parameters (`train_sample_size` and `eval_sample_size`).
+- The data format, likely JSON (per dataset_path filename). For safety, assume dataset entries are JSON objects with fields such as:
+  - `prompt`: input instruction prompt.
+  - `response`: model-generated or reference response.
+  - `source`: optional, indicates dataset source (e.g., 'GPT-4', 'GPT-3.5').
+
+### Dataset Characteristics:
+- The dataset contains conversations labeled by source quality:
+  - GPT-4 or GPT-4-like data: high quality, class label `'expert'`.
+  - GPT-3.5 or other lower-quality data: class label `'sub-optimal'`.
+
+### Step-by-step Implementation Details:
+
+#### 1. Data Loading:
+- Use `json` or `datasets` library (`datasets.load_dataset`) if the dataset is in JSON format.
+- Read the dataset file (`sharegpt_mixed_quality.json`).
+- Load all entries into a list or a `Dataset` object (from the `datasets` library), each with:
+  - `prompt`: string containing user instruction.
+  - `response`: string containing model reply.
+  - Optional fields: source, quality indicator.
+
+#### 2. Data Parsing:
+- For each conversation:
+  - Create a structured data tuple:
+    - `input_prompt`: formatted string concatenating prompt and class-conditioning prefix as needed (for training) — e.g., "[<|class|>] GPT-4 User: ..." or "User: ..." + conversation history.
+    - `response`: the target response string.
+    - `class_label`: `'expert'` or `'sub_optimal'`.
+    - `reward_weight`: float, assigned as:
+      - `1.0` if class='expert' (GPT-4 source).
+      - `α` (default 0.8) if class='sub_optimal' (GPT-3.5 source).
+- If the dataset contains a `source` field, map source strings accordingly.
+- For datasets lacking source info, possibly infer from other indicators or assign defaults.
+
+#### 3. Sampling:
+- Randomly sample up to `train_sample_size` conversations for training, and `eval_sample_size` for evaluation.
+- Use `random.seed` for reproducibility (seed=42 as per config).
+
+#### 4. Dataset Splitting:
+- Divide loaded data into training and evaluation datasets according to sampling sizes.
+- Maintain separate lists or datasets for train/eval.
+
+#### 5. Data Structure:
+- Define each entry as a dictionary (or tuple) with keys:
+  - `'prompt'`: string
+  - `'response'`: string
+  - `'class_label'`: string (`'expert'` or `'sub_optimal'`)
+  - `'reward'`: float (`1.0` or `α`)
+- For compatibility, create a class or namedtuple for encapsulating data entries.
+
+#### 6. Handling Special Tokens / Prompt Conditioning:
+- Incorporate the `conditioning_token` (from config) or class label indicator into the prompt.
+- For example, prepend:
+  - `"<|class|> GPT4"` for expert data.
+  - `"<|class|> GPT3"` for sub-optimal data.
+- The exact template should match the training prompt template specified in the paper.
+
+#### 7. Output:
+- Provide methods:
+  - `load_data()`: loads and returns a list of all data entries (dictionaries).
+  - `get_train_dataset()`: returns a dataset (list or Dataset object) for training.
+  - `get_eval_dataset()`: returns a dataset for evaluation.
+- Optional: Implement batching or collating functions for DataLoader based on framework used downstream.
+
+---
+
+### Additional Considerations:
+- **Data Validation:**
+  - Ensure each data point is complete with prompt and response.
+  - Fail gracefully or warn if missing fields.
+- **Class Label Consistency:**
+  - Maintain consistent class labels to match reward assignment logic.
+- **Reproducibility:**
+  - Use a fixed seed for sampling.
+- **Performance:**
+  - For large datasets, consider memory efficiency, e.g., reading line-by-line or streaming.
+- **Extensibility:**
+  - Allow for customizable label-to-reward mappings, e.g., extend to more classes if needed.
+
+---
+
+### Summary:
+The `DatasetLoader` class will:
+- Read and parse JSON data entries.
+- Assign class labels based on source information.
+- Calculate reward weights (`r_c`) based on class labels.
+- Pre-process prompts with class-conditioning prefixes.
+- Sample fixed-size datasets for training and evaluation.
+- Expose methods to access prepared datasets for `trainer.py`.
+
+This logic ensures dataset consistency, proper reward assignment, and alignment with the described experimental setup in the paper, facilitating effective training via the reward-weighted supervised objective.
+
+---

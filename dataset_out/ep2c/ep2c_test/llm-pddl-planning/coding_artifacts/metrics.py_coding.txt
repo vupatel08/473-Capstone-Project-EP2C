@@ -1,0 +1,141 @@
+```python
+## metrics.py
+"""
+This module provides functions to evaluate the similarity between domain models using the Exploration Walk (EW) metrics,
+to validate plan success, and to quantify domain-model similarity for guiding the refinement process.
+It relies on environment interactions such as sampling action sequences, checking executability, and executing plans.
+"""
+
+import math
+import logging
+from typing import List, Tuple, Union
+from utils import calculate_ew_score, evaluate_plan_success, compute_similarity
+
+try:
+    from environment import Environment
+except ImportError:
+    # Environment import may depend on project structure.
+    # If unavailable, assign a dummy class or raise later.
+    Environment = None
+
+# Configuration parameters from config.yaml
+import yaml
+import os
+
+try:
+    with open('config.yaml', 'r') as f:
+        CONFIG = yaml.safe_load(f)
+except FileNotFoundError:
+    # Default parameters
+    CONFIG = {}
+
+# Extract max_sampling_length, num_samples
+MAX_SAMPLING_LENGTH: int = CONFIG.get('environment', {}).get('max_sampling_length', 10)
+NUM_SAMPLES: int = CONFIG.get('environment', {}).get('num_samples', 4)
+# Number of sequences to sample for EW calculation
+T_MAX: int = MAX_SAMPLING_LENGTH
+
+def calculate_ew_score(
+    domain1: str,
+    domain2: str,
+    environment: 'Environment',
+    max_length: int = T_MAX
+) -> float:
+    """
+    Computes the symmetric Exploration Walk (EW) score between two domain models.
+    The score reflects how well sequences sampled from domain1 are executable in domain2,
+    and vice versa, averaged harmonically.
+    """
+    try:
+        # Sample sequences from domain1
+        sequences1 = environment.sample_action_sequences(domain1, max_length, NUM_SAMPLES)
+        # Sample sequences from domain2
+        sequences2 = environment.sample_action_sequences(domain2, max_length, NUM_SAMPLES)
+    except Exception as e:
+        logging.error(f"Error sampling sequences for EW: {e}")
+        return 0.0
+
+    def measure_similarity(domain_a: str, domain_b: str, seqs_a: List[List[str]], seqs_b: List[List[str]]) -> float:
+        """
+        Measure the fraction of sequences from domain_a that are executable in domain_b.
+        """
+        valid_count = 0
+        total = len(seqs_a)
+        for seq in seqs_a:
+            try:
+                feasible_in_b = environment.check_feasibility(seq, domain_b)
+                if feasible_in_b:
+                    valid_count += 1
+            except Exception as e:
+                logging.warning(f"Error during feasibility check: {e}")
+                # Count as not feasible if exception occurs
+                pass
+        return valid_count / total if total > 0 else 0.0
+
+    score_d_dhat = measure_similarity(domain1, domain2, sequences1, sequences2)
+    score_dhat_d = measure_similarity(domain2, domain1, sequences2, sequences1)
+
+    # Harmonic mean for symmetry
+    if score_d_dhat + score_dhat_d == 0:
+        ew_score = 0.0
+    else:
+        ew_score = 2.0 * score_d_dhat * score_dhat_d / (score_d_dhat + score_dhat_d)
+
+    return ew_score
+
+def evaluate_plan_success(plan: str, environment: 'Environment') -> bool:
+    """
+    Checks whether the given plan successfully achieves the goal in the environment.
+    Returns True if the plan is executable and goal is achieved.
+    """
+    try:
+        success = environment.execute_plan(plan)
+        return success
+    except Exception as e:
+        logging.warning(f"Error during plan execution or validation: {e}")
+        return False
+
+def compute_similarity(
+    domain1: str,
+    domain2: str,
+    environment: 'Environment',
+    sample_sequences: List[List[str]] = None,
+    max_length: int = T_MAX
+) -> float:
+    """
+    Computes a similarity score between two domain models.
+    The method uses sequence sampling and feasibility checks to estimate similarity.
+    """
+    try:
+        if sample_sequences is None:
+            sample_sequences = environment.sample_action_sequences(domain1, max_length, NUM_SAMPLES)
+    except Exception as e:
+        logging.error(f"Error sampling sequences for similarity: {e}")
+        return 0.0
+
+    def sequence_overlap(domain_a: str, domain_b: str, sequences: List[List[str]]) -> float:
+        """
+        Estimate how many sequences are executable in the other domain.
+        """
+        count_executable = 0
+        total = len(sequences)
+        for seq in sequences:
+            try:
+                feasible = environment.check_feasibility(seq, domain_b)
+                if feasible:
+                    count_executable += 1
+            except Exception as e:
+                logging.warning(f"Error during similarity check: {e}")
+                continue
+        return count_executable / total if total > 0 else 0.0
+
+    similarity_a_b = sequence_overlap(domain1, domain2, sample_sequences)
+    similarity_b_a = sequence_overlap(domain2, domain1, sample_sequences)
+
+    # Use harmonic mean to combine similarities, ensure values in [0,1]
+    if similarity_a_b + similarity_b_a == 0:
+        return 0.0
+    similarity_score = 2 * similarity_a_b * similarity_b_a / (similarity_a_b + similarity_b_a)
+    return similarity_score
+
+```

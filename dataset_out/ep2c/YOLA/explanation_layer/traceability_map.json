@@ -1,0 +1,208 @@
+{
+  "code_to_paper": {
+    "dataset_loader.py:DatasetLoader": [
+      "Dataset Preparation",
+      "Experimental Setup",
+      "Data Augmentation"
+    ],
+    "dataset_loader.py:__init__": [
+      "Dataset Preparation",
+      "Methodology",
+      "Experiment Setup"
+    ],
+    "evaluation.py:Evaluation": [
+      "Without more specific section titles",
+      "it's hard to accurately determine the most relevant sections. However",
+      "based on the provided information",
+      "potential relevant sections could be: \"Model Evaluation\"",
+      "\"Dataset Description\"",
+      "\"Implementation Details\"."
+    ],
+    "evaluation.py:compute_iou": [
+      "The provided information does not include any paper sections related to the code component. Please provide relevant paper sections."
+    ],
+    "evaluation.py:non_max_suppression": [
+      "The provided information does not include any paper sections related to the code component. Please provide relevant paper sections."
+    ],
+    "evaluation.py:voc_ap": [
+      "The provided paper sections are not sufficient to link with the given code component. Please provide more relevant paper sections."
+    ],
+    "main.py:main": [
+      "The provided information is insufficient to determine the most relevant paper sections for the code component. Please provide more details about the function in the main.py file and the sections in the paper."
+    ],
+    "main.py:collate_fn": [
+      "The provided information is insufficient to determine the most relevant paper sections for the code component. Please provide more details about the function in the main.py file and its purpose."
+    ],
+    "main.py:compute_detection_loss": [
+      "The provided information is insufficient to determine the most relevant paper sections for the code component. Please provide more details about the function in the main.py file and its purpose."
+    ],
+    "model.py:DetectionModel": [
+      "The provided information does not include any paper sections. Please provide the relevant paper sections to proceed."
+    ],
+    "model.py:__init__": [
+      "The provided paper sections are not sufficient to link with the given code component. Please provide more relevant paper sections."
+    ],
+    "trainer.py:Trainer": [
+      "The provided information is insufficient to determine the most relevant paper sections for the code component. Please provide more details about the code component and the paper sections."
+    ],
+    "trainer.py:__init__": [
+      "The provided information is insufficient to determine the most relevant paper sections for the code component. Please provide more details about the function in the trainer.py file and the sections of the paper."
+    ]
+  },
+  "paper_to_code": {
+    "Dataset Preparation": [
+      {
+        "component": "dataset_loader.py:DatasetLoader",
+        "description": "Initialize DatasetLoader.\n        Args:\n            dataset_path (str): Path to dataset directory.\n            dataset_name (str): Name of dataset ('ExDark', 'DarkFace', 'LIS').\n            input_size (int): Size to resize images (e.g., 608).\n            train_split_ratio (float): Split ratio for train.\n            val_split_ratio (float): Split ratio for validation.\n            synthetic_illumination (bool): Whether to generate paired images for II Loss.\n            augmentation (dict): Augmentation parameters.\n            mode (str): 'train', 'val', or 'test'.",
+        "file": "dataset_loader.py"
+      },
+      {
+        "component": "dataset_loader.py:__init__",
+        "description": "Initialize DatasetLoader.\n        Args:\n            dataset_path (str): Path to dataset directory.\n            dataset_name (str): Name of dataset ('ExDark', 'DarkFace', 'LIS').\n            input_size (int): Size to resize images (e.g., 608).\n            train_split_ratio (float): Split ratio for train.\n            val_split_ratio (float): Split ratio for validation.\n            synthetic_illumination (bool): Whether to generate paired images for II Loss.\n            augmentation (dict): Augmentation parameters.\n            mode (str): 'train', 'val', or 'test'.",
+        "file": "dataset_loader.py"
+      }
+    ],
+    "Experimental Setup": [
+      {
+        "component": "dataset_loader.py:DatasetLoader",
+        "description": "Initialize DatasetLoader.\n        Args:\n            dataset_path (str): Path to dataset directory.\n            dataset_name (str): Name of dataset ('ExDark', 'DarkFace', 'LIS').\n            input_size (int): Size to resize images (e.g., 608).\n            train_split_ratio (float): Split ratio for train.\n            val_split_ratio (float): Split ratio for validation.\n            synthetic_illumination (bool): Whether to generate paired images for II Loss.\n            augmentation (dict): Augmentation parameters.\n            mode (str): 'train', 'val', or 'test'.",
+        "file": "dataset_loader.py"
+      }
+    ],
+    "Data Augmentation": [
+      {
+        "component": "dataset_loader.py:DatasetLoader",
+        "description": "Initialize DatasetLoader.\n        Args:\n            dataset_path (str): Path to dataset directory.\n            dataset_name (str): Name of dataset ('ExDark', 'DarkFace', 'LIS').\n            input_size (int): Size to resize images (e.g., 608).\n            train_split_ratio (float): Split ratio for train.\n            val_split_ratio (float): Split ratio for validation.\n            synthetic_illumination (bool): Whether to generate paired images for II Loss.\n            augmentation (dict): Augmentation parameters.\n            mode (str): 'train', 'val', or 'test'.",
+        "file": "dataset_loader.py"
+      }
+    ],
+    "Methodology": [
+      {
+        "component": "dataset_loader.py:__init__",
+        "description": "Initialize DatasetLoader.\n        Args:\n            dataset_path (str): Path to dataset directory.\n            dataset_name (str): Name of dataset ('ExDark', 'DarkFace', 'LIS').\n            input_size (int): Size to resize images (e.g., 608).\n            train_split_ratio (float): Split ratio for train.\n            val_split_ratio (float): Split ratio for validation.\n            synthetic_illumination (bool): Whether to generate paired images for II Loss.\n            augmentation (dict): Augmentation parameters.\n            mode (str): 'train', 'val', or 'test'.",
+        "file": "dataset_loader.py"
+      }
+    ],
+    "Experiment Setup": [
+      {
+        "component": "dataset_loader.py:__init__",
+        "description": "Initialize DatasetLoader.\n        Args:\n            dataset_path (str): Path to dataset directory.\n            dataset_name (str): Name of dataset ('ExDark', 'DarkFace', 'LIS').\n            input_size (int): Size to resize images (e.g., 608).\n            train_split_ratio (float): Split ratio for train.\n            val_split_ratio (float): Split ratio for validation.\n            synthetic_illumination (bool): Whether to generate paired images for II Loss.\n            augmentation (dict): Augmentation parameters.\n            mode (str): 'train', 'val', or 'test'.",
+        "file": "dataset_loader.py"
+      }
+    ],
+    "Without more specific section titles": [
+      {
+        "component": "evaluation.py:Evaluation",
+        "description": "Args:\n            model: trained detection model with .eval() and inference method\n            dataset: dataset object, provides __getitem__ returning dict with 'image', 'targets', etc.\n            config: dict with evaluation parameters",
+        "file": "evaluation.py"
+      }
+    ],
+    "it's hard to accurately determine the most relevant sections. However": [
+      {
+        "component": "evaluation.py:Evaluation",
+        "description": "Args:\n            model: trained detection model with .eval() and inference method\n            dataset: dataset object, provides __getitem__ returning dict with 'image', 'targets', etc.\n            config: dict with evaluation parameters",
+        "file": "evaluation.py"
+      }
+    ],
+    "based on the provided information": [
+      {
+        "component": "evaluation.py:Evaluation",
+        "description": "Args:\n            model: trained detection model with .eval() and inference method\n            dataset: dataset object, provides __getitem__ returning dict with 'image', 'targets', etc.\n            config: dict with evaluation parameters",
+        "file": "evaluation.py"
+      }
+    ],
+    "potential relevant sections could be: \"Model Evaluation\"": [
+      {
+        "component": "evaluation.py:Evaluation",
+        "description": "Args:\n            model: trained detection model with .eval() and inference method\n            dataset: dataset object, provides __getitem__ returning dict with 'image', 'targets', etc.\n            config: dict with evaluation parameters",
+        "file": "evaluation.py"
+      }
+    ],
+    "\"Dataset Description\"": [
+      {
+        "component": "evaluation.py:Evaluation",
+        "description": "Args:\n            model: trained detection model with .eval() and inference method\n            dataset: dataset object, provides __getitem__ returning dict with 'image', 'targets', etc.\n            config: dict with evaluation parameters",
+        "file": "evaluation.py"
+      }
+    ],
+    "\"Implementation Details\".": [
+      {
+        "component": "evaluation.py:Evaluation",
+        "description": "Args:\n            model: trained detection model with .eval() and inference method\n            dataset: dataset object, provides __getitem__ returning dict with 'image', 'targets', etc.\n            config: dict with evaluation parameters",
+        "file": "evaluation.py"
+      }
+    ],
+    "The provided information does not include any paper sections related to the code component. Please provide relevant paper sections.": [
+      {
+        "component": "evaluation.py:compute_iou",
+        "description": "Compute IoU between two boxes, each of shape (4,)\n    format: [xmin, ymin, xmax, ymax]",
+        "file": "evaluation.py"
+      },
+      {
+        "component": "evaluation.py:non_max_suppression",
+        "description": "detections: list of dict with keys: boxes, scores, labels\n    Return filtered detections after NMS",
+        "file": "evaluation.py"
+      }
+    ],
+    "The provided paper sections are not sufficient to link with the given code component. Please provide more relevant paper sections.": [
+      {
+        "component": "evaluation.py:voc_ap",
+        "description": "Compute VOC AP given recall and precision arrays.",
+        "file": "evaluation.py"
+      },
+      {
+        "component": "model.py:__init__",
+        "description": "Args:\n            x: Input image tensor, shape (B, 3, H, W)\n        Returns:\n            detections: detection outputs (boxes, scores, labels)\n            features: intermediate features for visualization if needed",
+        "file": "model.py"
+      }
+    ],
+    "The provided information is insufficient to determine the most relevant paper sections for the code component. Please provide more details about the function in the main.py file and the sections in the paper.": [
+      {
+        "component": "main.py:main",
+        "description": "",
+        "file": "main.py"
+      }
+    ],
+    "The provided information is insufficient to determine the most relevant paper sections for the code component. Please provide more details about the function in the main.py file and its purpose.": [
+      {
+        "component": "main.py:collate_fn",
+        "description": "",
+        "file": "main.py"
+      },
+      {
+        "component": "main.py:compute_detection_loss",
+        "description": "",
+        "file": "main.py"
+      }
+    ],
+    "The provided information does not include any paper sections. Please provide the relevant paper sections to proceed.": [
+      {
+        "component": "model.py:DetectionModel",
+        "description": "Args:\n            x: Input image tensor, shape (B, 3, H, W)\n        Returns:\n            detections: detection outputs (boxes, scores, labels)\n            features: intermediate features for visualization if needed",
+        "file": "model.py"
+      }
+    ],
+    "The provided information is insufficient to determine the most relevant paper sections for the code component. Please provide more details about the code component and the paper sections.": [
+      {
+        "component": "trainer.py:Trainer",
+        "description": "",
+        "file": "trainer.py"
+      }
+    ],
+    "The provided information is insufficient to determine the most relevant paper sections for the code component. Please provide more details about the function in the trainer.py file and the sections of the paper.": [
+      {
+        "component": "trainer.py:__init__",
+        "description": "",
+        "file": "trainer.py"
+      }
+    ]
+  },
+  "paper_sections": [
+    {
+      "section": "Abstract",
+      "text": "Mingbo Hong\u2217 Megvii Technology, Beijing, China mingbohong97@gmail.com",
+      "ontology": "abstract"
+    }
+  ],
+  "coverage_score": 18.0
+}

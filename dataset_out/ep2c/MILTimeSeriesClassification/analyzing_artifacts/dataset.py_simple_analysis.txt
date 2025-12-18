@@ -1,0 +1,133 @@
+**Logic Analysis for `dataset.py`**
+
+---
+
+### 1. Purpose and Responsibilities
+- Implement a `Dataset` class capable of:
+  - Loading univariate or multivariate time series datasets.
+  - Handling training and testing splits.
+  - Preprocessing steps including normalization.
+  - Managing data batching for training and evaluation.
+  - Supporting synthetic dataset generation if specified.
+- Interface with other modules (model training, evaluation, interpretability scripts).
+
+### 2. Input Parameters and Initialization
+- Constructor input:
+  - `dataset_name`: string identifier for dataset to load, or special indicator for synthetic datasets (`'WebTraffic'`).
+  - `split`: `'train'` or `'test'`.
+  - `dataset_dir`: root directory where datasets are stored.
+  - Optional configuration (e.g., normalization method).
+
+- Internal steps:
+  - Based on `dataset_name`:
+    - Load dataset files (e.g., CSV/TSV files, or numpy files).
+    - For UCR datasets:
+      - Use standardized folder/file naming or a predefined list.
+      - Load train/test splits according to original splits.
+    - For synthetic `WebTraffic`:
+      - Generate data programmatically following detailed procedures (see paper or Supplemental Info below).
+
+### 3. Data Loading Logic
+- **For real datasets (UCR):**
+  - Read dataset files:
+    - Extract time series data, shape `(samples, T)` (for univariate) or `(samples, T, c)` if multivariate.
+  - Load labels:
+    - Shape `(samples,)`.
+    - Map string labels or integer labels as needed.
+  - Store data internally:
+    - `self.X`: numpy array of shape `(samples, T)` or `(samples, T, 1)`.
+    - `self.y`: numpy array of shape `(samples,)`.
+
+- **For synthetic `WebTraffic`:**
+  - Generate `n_samples`:
+    - Sample parameters from specified distributions.
+    - Construct time series with seasonality, signatures, and noise.
+    - Assign corresponding class labels (0-9).
+  - Store generated data in numpy arrays with shape `(n_samples, T)`, labels `(n_samples,)`.
+
+### 4. Data Normalization
+- Method:
+  - Check if normalization is specified (via config).
+  - Applied to each time series:
+    - **z-score normalization:** subtract mean, divide by std dev.
+    - Or min-max scaling to [0,1].
+  - For synthetic datasets, components like signatures may require specific normalization procedures or normalization applied after injection.
+
+### 5. Data Preprocessing
+- If datasets are variable length:
+  - Pad or truncate to `T` (fixed length) as per dataset.
+- For the `WebTraffic` synthetic data:
+  - Already generated with fixed length (`t=1008`).
+- Add positional encodings integration:
+  - Not directly in dataset, but prepared as part of the data pipeline post loading.
+- Support for batching:
+  - Internal attributes:
+    - `self.batched_data`: a DataLoader or custom batch generator.
+  - Methods:
+    - `__getitem__`: return a batch (or individual sample).
+    - Possibly implement explicit batching method returning batches as `(batch_X, batch_y)`.
+
+### 6. Support for Data Augmentation or Synthetic Generation
+- For synthetic datasets:
+  - Generate on-the-fly during class instantiation.
+  - Follow the generation process detailed in Appendix C1:
+    - Sample parameters for each signature.
+    - Inject into base seasonality signals.
+    - Assign class labels.
+  - Store as numpy arrays.
+
+### 7. Reproducibility
+- Use a fixed seed (`seed=123` by default in config) for stochastic processes:
+  - Random sampling of parameters.
+  - Signature injection locations.
+- Ensure reproducibility by setting numpy’s random seed before dataset creation (`np.random.seed(...)`).
+
+### 8. Dataset Class API
+- **Attributes:**
+  - `X`: numpy array `(number_of_samples, T, c)` or `(number_of_samples, T)` for univariate.
+  - `y`: numpy array `(number_of_samples,)`.
+  - `dataset_name`
+  - `split` (`'train'` or `'test'`)
+- **Methods:**
+  - `load()`: loads raw data.
+  - `preprocess()`: normalization, optional rescaling.
+  - `get_batch(batch_size)`: yields mini-batches of `(X_batch, y_batch)`.
+  - `get_dataset()`: returns full data for evaluation.
+  - For synthetic data: additional methods for regeneration and signature injection.
+
+### 9. Error Handling
+- Check if dataset files exist; raise descriptive errors if not.
+- Validate dataset shapes and label formats.
+- Validate dataset parameters (e.g., consistent length within a dataset).
+- Handle edge cases:
+  - Empty datasets.
+  - Mixed or inconsistent data formats.
+  - Mismatched labels/null labels.
+
+### 10. Integration and Extensibility
+- Modular design to allow adding new datasets with minimal code change.
+- For synthetic data:
+  - Parameterize the generation function.
+  - Save generated datasets if needed for reproducibility.
+
+---
+
+### Summary of Core Logic Flow:
+```plaintext
+- Initialize Dataset with name, split, dir, config
+- If dataset is real:
+    - Load data files.
+    - Map labels.
+    - Validate shapes.
+- Else if synthetic:
+    - Generate data with specified signatures and parameters.
+- Normalize data as per config.
+- Store data internally (X, y).
+- Provide methods for train/test splits, batching, data retrieval.
+- Implement fixed seed setting for reproducibility.
+- Handle potential data anomalies and validation.
+```
+
+---
+
+This thorough analysis provides a detailed blueprint to implement `dataset.py`, ensuring support for both real-world and synthetic datasets, proper data handling, normalization, reproducibility, and ready integration with the rest of the experimental system.

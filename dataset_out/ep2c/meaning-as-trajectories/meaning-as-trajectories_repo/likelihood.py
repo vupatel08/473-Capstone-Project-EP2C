@@ -1,0 +1,178 @@
+## likelihood.py
+import math
+import torch
+import numpy as np
+from typing import List, Tuple, Union
+from .model import ModelWrapper
+
+# Small epsilon for numerical stability
+_EPSILON = 1e-12
+
+def compute_log_likelihood(sequence: List[str], prompt: str, model: ModelWrapper) -> float:
+    """
+    Compute the total log-likelihood of a token sequence conditioned on a prompt using the model.
+
+    Args:
+        sequence (List[str]): Sequence of tokens (strings).
+        prompt (str): The prompt string.
+        model (ModelWrapper): The model wrapper providing logits and probabilities.
+
+    Returns:
+        float: Log-likelihood score of the sequence given the prompt.
+    """
+    # Concatenate prompt and sequence into full text
+    full_text = prompt + ''.join(sequence)
+    # Tokenize full text
+    input_ids = model.tokenizer.encode(full_text, return_tensors="pt").to(model.device)
+    # Tokenize prompt separately for length
+    prompt_ids = model.tokenizer.encode(prompt, return_tensors="pt")
+    prompt_len = len(prompt_ids[0])
+    # Tokenize sequence only
+    seq_ids = model.tokenizer.encode(''.join(sequence), add_special_tokens=False)
+
+    with torch.no_grad():
+        outputs = model.model(input_ids)
+        logits = outputs.logits  # [1, total_seq_len, vocab_size]
+        seq_len = len(seq_ids)
+
+        total_log_prob = 0.0
+        for i in range(seq_len):
+            position = prompt_len + i
+            logits_i = logits[0, position, :]
+            probs = torch.softmax(logits_i, dim=-1)
+            target_id = seq_ids[i]
+            prob = probs[target_id].item()
+            # Numerical stability
+            if prob <= 0:
+                prob = _EPSILON
+            total_log_prob += math.log(prob)
+    return total_log_prob
+
+def likelihood(sequence: List[str], prompt: str, model: ModelWrapper) -> float:
+    """
+    Compute the likelihood of a sequence conditioned on prompt as exp of log-likelihood.
+
+    Args:
+        sequence (List[str]): Sequence of tokens.
+        prompt (str): The prompt string.
+        model (ModelWrapper): The model wrapper.
+
+    Returns:
+        float: Likelihood score.
+    """
+    log_likelihood = compute_log_likelihood(sequence, prompt, model)
+    return math.exp(log_likelihood)
+
+def normalize_likelihoods(likelihoods: List[float], tau: float) -> np.ndarray:
+    """
+    Normalize likelihood scores using parameter tau: (score^tau) / sum_over_all.
+
+    Args:
+        likelihoods (List[float]): Raw likelihood scores.
+        tau (float): Normalization exponent hyperparameter.
+
+    Returns:
+        np.ndarray: Normalized likelihoods summing to 1.
+    """
+    # Convert list to numpy array for vectorized ops
+    scores = np.array(likelihoods)
+    # Raise to power tau
+    scores_tau = np.power(scores, tau)
+    total = np.sum(scores_tau)
+    if total == 0:
+        # prevent division by zero, fallback uniform
+        return np.ones_like(scores) / len(scores)
+    normalized = scores_tau / total
+    return normalized
+
+def compute_divergence(
+    dist1: np.ndarray,
+    dist2: np.ndarray,
+    dist_type: str = "log_l1"
+) -> float:
+    """
+    Compute divergence (distance) between two normalized likelihood distributions.
+
+    Args:
+        dist1 (np.ndarray): First distribution (after normalization).
+        dist2 (np.ndarray): Second distribution.
+        dist_type (str): Type of divergence ('log_l1', 'kl', 'log_l2').
+
+    Returns:
+        float: Divergence score.
+    """
+    # To compute divergences on logs, take logs of distributions safely
+    # Here, we're assuming dist1 and dist2 are already normalized and >0
+    # Add epsilon to avoid log(0)
+    p = dist1 + _EPSILON
+    q = dist2 + _EPSILON
+    log_p = np.log(p)
+    log_q = np.log(q)
+
+    if dist_type == "log_l1":
+        # Sum of absolute differences of log-likelihoods
+        return np.sum(np.abs(log_p - log_q))
+    elif dist_type == "log_l2":
+        return np.sqrt(np.sum((log_p - log_q) ** 2))
+    elif dist_type == "kl":
+        # KL divergence D_KL(p||q)
+        return np.sum(p * (log_p - log_q))
+    else:
+        raise ValueError(f"Unsupported divergence type: {dist_type}")
+
+def approximate_divergence(
+    trajectories_u: List[Tuple[List[str], float]],
+    trajectories_v: List[Tuple[List[str], float]],
+    model_u: ModelWrapper,
+    model_v: ModelWrapper,
+    tau: float = 0.5,
+    dist_type: str = "log_l1"
+) -> float:
+    """
+    Approximate divergence between distributions represented by sampled trajectories.
+
+    Args:
+        trajectories_u (List of (sequence, log_ll)): Trajectories from prompt u.
+        trajectories_v (List of (sequence, log_ll)): Trajectories from prompt v.
+        model_u (ModelWrapper): Model wrapper for prompt u.
+        model_v (ModelWrapper): Model wrapper for prompt v.
+        tau (float): normalization parameter.
+        dist_type (str): divergence measure type.
+
+    Returns:
+        float: Estimated divergence score.
+    """
+    # Extract likelihood scores using log_ll
+    scores_u = [math.exp(log_ll) for (_, log_ll) in trajectories_u]
+    scores_v = [math.exp(log_ll) for (_, log_ll) in trajectories_v]
+    # Normalize likelihoods
+    norm_u = normalize_likelihoods(scores_u, tau)
+    norm_v = normalize_likelihoods(scores_v, tau)
+    # For divergence approximation, create joint set of trajectories
+    all_sequences = [traj[0] for traj in trajectories_u + trajectories_v]
+    # To estimate divergence, compute at each t: logs of normalized likelihoods
+    # Recompute normalized likelihoods in log domain if needed
+    log_scores_u = np.log(norm_u + _EPSILON)
+    log_scores_v = np.log(norm_v + _EPSILON)
+    # For approximation, compute the average absolute difference
+    # over all trajectories sampled
+    divergence = 0.0
+    n = len(all_sequences)
+    for i in range(n):
+        # For each sequence, estimate likelihoods
+        seq_tokens = all_sequences[i]
+        # Assume sequence belongs to one of the trajectories, find corresponding likelihoods
+        # But for simplicity, since likelihoods are from the sampled trajectories,
+        # we approximate divergence by the average of absolute differences in logs
+        # over the combined set
+        # Here, as an approximation, simply take the absolute difference between log likelihoods
+        # of u and v if available, or approximate accordingly
+        # To be accurate, more complex calculation is possible, but for now:
+        # sum over all sequences, or consider only the set
+        pass
+    # For simplicity and performance, here we approximate divergence as the mean of pairwise differences
+    # between the two distributions
+    # Let's compute the average over samples
+    divergence = np.mean(np.abs(log_scores_u - log_scores_v))
+    # Return the divergence score
+    return divergence

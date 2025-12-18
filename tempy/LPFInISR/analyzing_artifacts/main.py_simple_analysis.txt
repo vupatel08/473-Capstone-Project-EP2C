@@ -1,0 +1,144 @@
+# Main.py Logic Analysis for Reproducing the LPFInISR Experiments
+
+This main.py serves as the central orchestrator, sequencing all key steps to validate the phenomena and methodologies as described in the paper. The overall flow reflects the experimental pipeline, from data preparation through spectral analysis, model inference, and evaluation.
+
+---
+
+## 1. Set Up and Initialization
+- **Configure environment:**
+  - Set fixed random seed for reproducibility (`utils.set_seed(config.utilities.random_seed)`).
+  - Create output directories for storing results and plots if not existing (`utils.create_output_dir()`).
+
+- **Load configuration:**
+  - Parse the supplied `config.yaml`. Extract parameters for dataset, model, spectral analysis, evaluation, and utilities.
+
+## 2. Dataset Loading
+- **Instantiate the dataset loader (`DatasetLoader`):**
+  - Use parameters from `config.dataset`.
+  - Load the validation dataset (`div2k validation set images`).
+  - For spectral analysis, prepare a small synthetic impulse image (e.g., an 11x11 image with a single pixel at the center set to maximum intensity, others zero). This should be generated via `utils.generate_impulse_image(size=11)`.
+
+- **Create DataLoader:**
+  - Wrap dataset in a DataLoader for batching if needed, else use single item for direct analysis.
+
+## 3. Model Loading and Initialization
+- **Instantiate the model (`Model` class):**
+  - Based on `config.model.architecture`.
+  - Load trained weights if `pretrained` is true; otherwise, initialize weights randomly.
+  - Validation: confirm model->load_weights() completes successfully.
+
+## 4. Impulse Response Extraction and Validation
+- **Generate impulse images:**
+  - Generate synthetic impulse images for impulse response analysis:
+    - `impulse_img_center` (single pixel at the center).
+    - Possibly multiple impulses at different positions for space invariance tests.
+
+- **Obtain full network responses (`N(I)`):**
+  - Feed impulse images into the network:
+    - `N(I) = model.forward(impulse_img)`.
+  
+- **Extract the linear impulse response `H(δ)`:**
+  - Feed a single impulse image into the model.
+  - Save the output (`response`) as the impulse response approximation.
+  - Optionally, verify that the response resembles a "sinc" shape both in amplitude and phase domains by performing FFT.
+
+- **Compute the linear response `H(I)`:**
+  - Convolve the impulse response with the impulse image to simulate purely linear low-pass behavior:
+    - Use `scipy.signal.convolve2d()`.
+
+- **Decompose the network's response into linear G(I) and nonlinear G(I):**
+  - `G(I) = N(I) - H(I)`.
+  - Store or visualize this decomposition for analysis.
+  - Validate that `G(I)` contains high-frequency components and exhibits sharper edges.
+
+## 5. Spectral Analysis of Responses
+- **Fourier analysis:**
+  - Calculate FFT (`np.fft.fft2`) of:
+    - `H(δ)`: impulse response of the linear system, expected sinc-like.
+    - `G(I)`: nonlinear component, observe high frequencies.
+    - Full `N(I)`.
+  
+- **Spectral comparison:**
+  - Plot amplitude and phase spectra.
+  - Verify the sinc-like pattern for `H(δ)`.
+  - Confirm high-frequency injection by `G(I)`.
+  - Validate the cancellation of distortions (phase responses).
+
+## 6. Low-pass Filter Spectrum and Performance Analysis
+- **Simulate low-pass filters with varying cutoff `ω`:**
+  - For each cutoff frequency in the experimental range (e.g., 40-50), create a 2D ideal low-pass filter kernel:
+    - `utils.create_2d_lowpass_filter(cutoff_freq=ω, fft_size=config.spectral_analysis.fft_size, window_function= config.spectral_analysis.window_function)`.
+  - Upsample the LR image via convolution with this filter:
+    - Use different interpolation kernels (e.g., sinc, cubic, nearest) to mimic traditional super-resolution.
+
+- **Reconstruction and metric evaluation:**
+  - Reconstruct SR images from former step.
+  - Compute PSNR, SSIM, and FSDS metrics between reconstructed SR and ground-truth HR:
+    - `evaluation.compute_psnr(hr_img, sr_img)`
+    - `evaluation.compute_ssim(hr_img, sr_img)`
+    - `evaluation.compute_fsds(hr_spectrum, sr_spectrum)`
+
+- **Plot performance curves:**
+  - Plot PSNR and SSIM vs. passband width (cutoff frequency).
+  - Identify the optimal cutoff values matching the maximal PSNR/SSIM as shown in the paper.
+
+## 7. Full Model Spectral and Impulse Response Validation
+- **Across models:**
+  - Feed impulse images into each model.
+  - Extract and compare their impulse responses with sinc functions.
+  - Quantify similarity metrics (e.g., correlation, MSE) to verify the 'sinc phenomenon' hypothesis.
+
+## 8. Non-Linear High-frequency Injection Quantification
+- **Compute Spectral Spectra of G(I):**
+  - FFT of G(I).
+  - Observe the spectrum's concentration in high-frequency regions.
+  - Visualize and compare to the spectra of the full N(I).
+
+- **Verify for different models and training regimes:**
+  - Distinguish models trained with adversarial loss vs. L1/L2 loss and note differences (see section 5.4).
+
+## 9. FSDS Metric Verification
+- **Compute `FSDS` between HR and SR:**
+  - Use normalized spectra of images:
+    - Fourier of image pixel arrays.
+  - Calculate D(HR), D(SR), and their difference.
+  - Logarithmic sum calculation for FSDS as per the formula.
+  - Do this for multiple models and scales for comparison.
+
+- **Toy examples:**
+  - Embedding spectrum steganography or JPEG compression (as in figures), verify FSDS sensitivity.
+  - Confirm FSDS's advantage over PSNR, SSIM, LPIPS visually and via numerical values.
+
+## 10. Visualization and Plot Generation
+- **Generate key figures:**
+  - Impulse response plots.
+  - Spectral amplitude and phase plots.
+  - Response heatmaps.
+  - Passband vs performance plots.
+  - Spectral similarity maps.
+
+- **Figures should match the paper's figures:**
+  - Sinc-shaped impulse responses.
+  - Spectral distributions and differences.
+  - Frequency response curves.
+
+## 11. Reproducibility & Documentation
+- Log all hyperparameters, dataset versions, and random seeds.
+- Save intermediate results (impulse responses, spectra, FSDS scores).
+- Include visualizations and metrics in a structured report.
+
+---
+
+## Summary:
+- The main.py script operationalizes the entire analysis pipeline:
+  - Loading data and models.
+  - Generating impulse responses.
+  - Performing spectral decomposition.
+  - Matching responses to sinc functions.
+  - Simulating low-pass filters with various cutoff frequencies.
+  - Evaluating performance via multiple metrics.
+  - Validating the 'sinc phenomenon' across different backbones.
+  - Computing and comparing FSDS against traditional metrics.
+  - Visualizing results aligning with paper figures.
+  
+This detailed logic ensures rigorous, faithful reproduction of the experimental procedures and key scientific insights reported in the paper.

@@ -1,0 +1,187 @@
+# Logic Analysis for model.py
+
+This module is responsible for providing an abstraction layer over the pre-trained autoregressive language models (including multimodal models), enabling sampling of trajectories, likelihood computation, and access to token probabilities. It should be designed with flexibility, modularity, and efficiency in mind to support the experimental procedures outlined in the paper.
+
+Below is a comprehensive, step-by-step analysis of the key components, logic flow, required methods, and interactions necessary for implementing 'model.py' and defining the 'ModelWrapper' class.
+
+---
+
+## 1. Objectives of 'model.py'
+
+- **Initialization:**  
+  Load and wrap the specified pre-trained model, given parameters from configuration.  
+  Handle both standard (e.g., GPT-2, LLaMA) and multimodal models, possibly needing different tokenizers and processing pipelines.
+
+- **Trajectory Sampling:**  
+  Generate multiple continuation sequences ('trajectories') conditioned on a prompt, using specified sampling hyperparameters (number of trajectories, maxTokens, temperature, seed).
+
+- **Likelihood Computation:**  
+  Calculate the likelihood or log-likelihood of a given sequence (trajectory) conditioned on a prompt (or unconditioned). This includes handling of normalization, especially with the 'likelihood_normalization_tau' parameter.
+
+- **Token Probabilities Retrieval:**  
+  Return per-token probabilities for a sequence continuation, which may be useful for divergence calculations or further analysis.
+
+---
+
+## 2. Key Components and Methods
+
+### A. Initialization and Loading Models
+
+- Based on the `'model.name'` and `'model.type'`, load the appropriate pre-trained model architecture and tokenizer:
+  - For 'transformers'-based models, use `AutoModelForCausalLM` and `AutoTokenizer` from HuggingFace.
+  - Support different models such as GPT-2, LLaMA, Falcon, multimodal (LLaVA) as per configuration.
+  
+- **Device setup:**  
+  Load the model onto the specified `'model_device'`, typically `'cuda'` for GPU or `'cpu'`.
+
+- **Tokenizer handling:**  
+  Use the model-specific tokenizer, ensuring that the special tokens (e.g., EOS, BOS) are correctly handled or added if absent.
+
+- **Model configuration:**  
+  - Set model to evaluation mode (`model.eval()`) for inference-only use.
+  - Enable `torch.no_grad()` during inference to improve efficiency.
+
+- **Multimodal support:**  
+  If supported, handle multimodal inputs (images, captions), possibly by special prompt formatting or additional embedding strategies.
+
+### B. Sampling Trajectories: `sample_trajectories()`
+
+- **Input:**  
+  - `prompt`: string prompt to condition generation
+  - `n`: number of trajectories to sample (from config)
+  - `max_length`: maximum number of tokens in each trajectory (from config)
+  - `temperature`: sampling diversity (from config)
+  - `seed`: for reproducibility
+
+- **Process:**  
+  1. Tokenize prompt; prepare input tensor.
+  2. Set random seed for reproducibility.
+  3. For each trajectory:
+     - Generate tokens iteratively until `max_length` or EOS token is produced.
+     - Use top-k or nucleus sampling if preferred, but typically just temperature sampling.
+     - For each step:
+       - Run model to get logits.
+       - Apply temperature scaling.
+       - Sample next token according to the adjusted probability distribution.
+     - Store the resulting token sequence and compute its log-likelihood via `compute_log_likelihood()` or incremental log probability calculation.
+  4. Collect all `Trajectory` objects containing sequences and likelihood scores.
+
+- **Output:**  
+  - List of `Trajectory` objects: each with sequence (list of tokens/strings) and score (float).
+
+- **Performance note:**  
+  - Use batching when sampling multiple trajectories to optimize GPU utilization.
+  - Control randomness with seed; may reset the generator/ RNG seed before sampling.
+
+### C. Likelihood Computation: `compute_log_likelihood()`
+
+- **Input:**  
+  - sequence: list of tokens or string
+  - prompt: string prompt conditioned upon
+
+- **Process:**  
+  1. Tokenize sequence; prepare input tensors including prompt tokens.
+  2. Run model to get logits for each token position.
+  3. Calculate token probabilities \( p(a_i | s, a_{<i}) \).
+  4. Logarithmically accumulate likelihoods for the entire sequence.
+  5. Return average likelihood (or unnormalized total, depending on use case).
+
+- **Note:**  
+  - This should be optimized to handle batch computation if multiple sequences are processed simultaneously.
+  - Maintain numerical stability; use log probabilities.
+
+### D. Token Probabilities: `get_token_probabilities()`
+
+- **Input:**  
+  - sequence: list of tokens
+  - prompt: conditioning prompt
+
+- **Output:**  
+  - List of probabilities (or log probs) for each token, conditioned on prompt and previous tokens.
+
+- **Use case:**  
+  - For divergence/similarity computations where per-token likelihood is needed.
+
+---
+
+## 3. Hyperparameters & Configuration Usage
+
+- **`sampling.num_trajectories` (`n`)**  
+  Controls the number of trajectories generated per prompt, influencing estimate accuracy.
+
+- **`sampling.max_length` (`m`)**  
+  Limits the length of each sampled continuation, balancing fidelity and computational cost.
+
+- **`sampling.temperature` (`λ`)**  
+  Controls diversity of generated tokens:  
+  - Low values (e.g., 0.5) favor more deterministic sampling.  
+  - Higher values (e.g., 1.0) promote diversity.
+
+- **Seed for randomness:**  
+  Important for reproducibility; be sure to set `torch.manual_seed` and, if using Python's `random`, set seed accordingly.
+
+- **Likelihood normalization tau (`τ`)** in divergence calculations:  
+  - Use as a power/exponent to likelihoods during normalization, as specified in the paper (eq. 3).  
+  - For example, normalize likelihoods as \( \tilde{M}(t) \propto M(t)^\tau \).
+
+- **Batching and parallelization:**  
+  To improve efficiency, sample multiple trajectories in batches, process their likelihoods together using model batch inference.
+
+---
+
+## 4. Implementation details and considerations
+
+- **Model wrappers:**  
+  - Encapsulate all model-specific calls within the wrapper.
+  - Provide uniform interface for sampling, likelihood, token probability extraction, abstracting away model specifics.
+
+- **Data handling:**  
+  - For multimodal inputs, integrate modality-specific prompts into the prompt string.
+  
+- **Memory management:**  
+  - Keep models in evaluation mode; free GPU memory when done.
+  - Use `with torch.no_grad()` during inference to optimize.
+
+- **Error handling:**  
+  - Handle missing EOS tokens gracefully.
+  - Validate input sequences; re-tokenize if necessary.
+
+- **Reproducibility:**  
+  - Fix random seed at the start of each sampling run.
+  - Record seed in logs for replication.
+
+---
+
+## 5. Summary of Main Methods & Their Signature
+
+```python
+class ModelWrapper:
+    def __init__(self, model_name: str, model_type: str, device: str):
+        # Load model, tokenizer, set device, prepare for inference
+        pass
+    
+    def sample_trajectories(self, prompt: str, n: int, max_length: int, temperature: float, seed: int) -> List[Trajectory]:
+        # Generate n trajectories conditioned on prompt
+        pass
+
+    def compute_log_likelihood(self, sequence: List[str], prompt: str) -> float:
+        # Compute total log-likelihood of sequence conditioned on prompt
+        pass
+    
+    def get_token_probabilities(self, sequence: List[str], prompt: str) -> List[float]:
+        # Return per-token probabilities conditioned on prompt
+        pass
+```
+
+---
+
+## Conclusion
+
+This logic analysis outlines the necessary components, flow, and considerations for implementing 'model.py'. Focus should be placed on:
+
+- Efficient and modular loading of models and tokenizers.
+- Robust sampling routines respecting hyperparameters.
+- Precise likelihood calculations, including normalization.
+- Clear abstraction for downstream computations like divergence, similarity, and relation inference.
+
+Adhering to these principles will ensure the implementation aligns closely with the scientific methodology presented in the paper and facilitates reproducibility and comparability of results.

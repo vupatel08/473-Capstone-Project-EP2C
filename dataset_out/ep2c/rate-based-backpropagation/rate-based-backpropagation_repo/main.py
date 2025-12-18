@@ -1,0 +1,162 @@
+## main.py
+import argparse
+import os
+import time
+import datetime
+import torch
+import numpy as np
+import yaml
+
+from utils import load_config, initialize_logger, set_random_seed, save_config
+from dataset_loader import DatasetLoader
+from model import ResNet, VGG, SEW_ResNet
+from trainer import RateBasedTrainer
+from evaluation import RateBasedEvaluation
+
+def main():
+    # ------------------------------
+    # 1. Load and override configs 
+    # ------------------------------
+    args = argparse.ArgumentParser().parse_args()
+    # Load default config
+    config = load_config('config.yaml')
+    # Override with command-line args
+    args_overrides = vars(args)
+    config = override_config_with_args(config, args_overrides)
+    
+    # Set seed for reproducibility
+    seed = config['training'].get('seed', 42)
+    set_random_seed(seed)
+    
+    # Device setup
+    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+    print(f"Using device: {device}")
+
+    # Setup logging
+    log_dir = config.get('logging', {}).get('log_dir', 'logs')
+    os.makedirs(log_dir, exist_ok=True)
+    logger = initialize_logger(log_dir)
+    # Save final config for reproducibility
+    save_config(config, os.path.join(log_dir, 'final_config.yaml'))
+
+    # ------------------------------
+    # 2. Load datasets
+    # ------------------------------
+    batch_size = config['training']['batch_size']
+    T = config['training_mode'].get('sequence_length', config['training'].get('T', 4))
+    dataset_loader = DatasetLoader(
+        dataset_name=config['dataset']['name'],
+        batch_size=batch_size,
+        T=T,
+        input_encoding=config['dataset'].get('input_encoding', 'direct'),
+        augmentation=config['dataset'].get('augmentation', None),
+        normalization_mean=config['dataset'].get('normalization_mean', None),
+        normalization_std=config['dataset'].get('normalization_std', None),
+        train_split_ratio=0.8,
+        dataset_path=None,  # add path if needed
+        num_workers=4,
+        mode='static' if config['dataset']['name'].lower() != 'cifar10-dvs' else 'dynamic'
+    )
+    train_loader, test_loader = dataset_loader.load_data()
+
+    # ------------------------------
+    # 3. Instantiate model
+    # ------------------------------
+    architecture = config['model']['architecture']
+    neuron_type = config['model'].get('neuron_type', 'LIF')  # Not used explicitly here
+    if architecture.lower() == 'resnet18':
+        model = ResNet('resnet18', config=config, training_mode=config['training_mode']['mode'])
+    elif architecture.lower() == 'vgg11':
+        model = VGG('VGG11', num_classes=10)
+    elif architecture.lower() == 'sew-resnet34':
+        model = SEW_ResNet('sew-resnet34', config=config, training_mode=config['training_mode']['mode'])
+    else:
+        raise ValueError(f"Unsupported architecture: {architecture}")
+    model.to(device)
+
+    # ------------------------------
+    # 4. Setup optimizer and scheduler
+    # ------------------------------
+    lr = config['training']['learning_rate']
+    opt_type = config['training'].get('optimizer', 'Adam')
+    weight_decay = config['training'].get('weight_decay', 5e-4)
+    if opt_type == 'Adam':
+        optimizer = torch.optim.Adam(model.parameters(), lr=lr, weight_decay=weight_decay)
+    elif opt_type == 'SGD':
+        momentum = config['training'].get('momentum', 0.9)
+        optimizer = torch.optim.SGD(model.parameters(), lr=lr, momentum=momentum, weight_decay=weight_decay)
+    else:
+        raise ValueError(f"Unsupported optimizer: {opt_type}")
+    # Learning rate decay schedule
+    decay_rate = config['training'].get('decay_rate', 0.95)
+
+    # ------------------------------
+    # 5. Initialize trainer
+    # ------------------------------
+    trainer = RateBasedTrainer(config, device)
+    trainer.model = model
+    trainer.optimizer = optimizer
+
+    # ------------------------------
+    # 6. Run training
+    # ------------------------------
+    total_epochs = config['training']['epochs']
+    save_dir = os.path.join(log_dir, 'checkpoints')
+    os.makedirs(save_dir, exist_ok=True)
+
+    start_time = time.time()
+    for epoch in range(1, total_epochs + 1):
+        epoch_start_time = time.time()
+        trainer._reset_traces()  # prepare traces
+        trainer.model.train()
+        total_loss = 0.0
+        total_correct = 0
+        total_samples = 0
+        for batch_idx, (inputs, targets) in enumerate(train_loader):
+            stage_time = time.time()
+            inputs, targets = inputs.to(device), targets.to(device)
+            # Forward pass with eligibility trace update
+            outputs, rate_outputs, neuron_states = trainer._forward_pass(inputs, batch_size=inputs.shape[0])
+            loss = trainer.criterion(outputs, targets)
+            trainer._lr_schedule(epoch)  # update LR if needed
+            optimizer.zero_grad()
+            # Compute gradient approximation via rate backprop
+            d_L_d_rate = trainer._compute_output_gradient(rate_outputs, targets)
+            # Backward pass
+            trainer._backward(rate_outputs, neuron_states, d_L_d_rate)
+            # Update weights
+            optimizer.step()
+            # Metrics
+            preds = outputs.argmax(dim=1)
+            correct = (preds == targets).sum().item()
+            total_loss += loss.item() * inputs.shape[0]
+            total_correct += correct
+            total_samples += inputs.shape[0]
+
+            if (batch_idx + 1) % 50 == 0:
+                logger.info(f"Epoch [{epoch}/{total_epochs}] Batch [{batch_idx+1}/{len(train_loader)}] "
+                            f"Loss: {loss.item():.4f} Acc: {correct/inputs.shape[0]:.4f} "
+                            f"Time: {time.time() - stage_time:.2f}s")
+        # Epoch summary
+        epoch_time = time.time() - epoch_start_time
+        avg_loss = total_loss / total_samples
+        train_acc = total_correct / total_samples
+        logger.info(f"Epoch [{epoch}/{total_epochs}] completed in {epoch_time:.2f}s, "
+                    f"Avg Loss: {avg_loss:.4f}, Train Acc: {train_acc:.4f}")
+
+        # Save checkpoint
+        checkpoint_path = os.path.join(save_dir, f'epoch_{epoch}.pt')
+        torch.save({'model_state_dict': trainer.model.state_dict(),
+                    'optimizer_state_dict': optimizer.state_dict()},
+                    checkpoint_path)
+
+        # Validate
+        trainer._validate(test_loader)
+        # Decay LR
+        trainer._lr_schedule(epoch)
+
+    total_training_time = time.time() - start_time
+    logger.info(f"Training complete in {total_training_time/60:.2f} minutes.")
+
+if __name__ == '__main__':
+    main()

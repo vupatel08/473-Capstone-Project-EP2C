@@ -1,0 +1,796 @@
+# SAMformer: Unlocking the Potential of Transformers in Time Series Forecasting with Sharpness-Aware Minimization and Channel-Wise Attention
+
+Romain Ilbert \* 1 2 Ambroise Odonnat \* 1 Vasilii Feofanov 1 Aladin Virmaux 1 Giuseppe Paolo 1 Themis Palpanas 2 Ievgen Redko 1
+
+# Abstract
+
+Transformer-based architectures achieved breakthrough performance in natural language processing and computer vision, yet they remain inferior to simpler linear baselines in multivariate long-term forecasting. To better understand this phenomenon, we start by studying a toy linear forecasting problem for which we show that transformers are incapable of converging to their true solution despite their high expressive power. We further identify the attention of transformers as being responsible for this low generalization capacity. Building upon this insight, we propose a shallow lightweight transformer model that successfully escapes bad local minima when optimized with sharpness-aware optimization. We empirically demonstrate that this result extends to all commonly used realworld multivariate time series datasets. In particular, SAMformer surpasses current state-ofthe-art methods and is on par with the biggest foundation model MOIRAI while having significantly fewer parameters. The code is available at https://github.com/romilbert/samformer.
+
+![](images/be68a854de223ea439e9bb8b86742e591d454de97b7a37978a9d22d92b8874f1.jpg)  
+Figure 1: Illustration of our approach on synthetic data. Oracle is the optimal solution, Transformer is a base transformer, $\sigma$ Reparam is a Transformer with weight rescaling (Zhai et al., 2023) and Transformer $^ +$ SAM is Transformer trained with sharpness-aware minimization. Transformer overfits, $\sigma$ Reparam improves slightly but fails to reach Oracle while Transformer $+ \mathrm { S A M }$ generalizes perfectly. This motivates SAMformer, a shallow transformer combining SAM and best practices in time series forecasting.
+
+# 1. Introduction
+
+Multivariate time series forecasting is a classical learning problem that consists of analyzing time series to predict future trends based on historical information. In particular, long-term forecasting is notoriously challenging due to feature correlations and long-term temporal dependencies in time series. This learning problem is prevalent in those real-world applications where observations are gathered sequentially, such as medical data (Cepulionis ˇ & Lukosevi ˇ ciˇ ut¯ e˙, 2016), electricity consumption (UCI, 2015), temperatures (Max Planck Institute, 2021), or stock prices (Sonkavde et al., 2023). A plethora of methods have been developed for this task, from classical mathematical tools (Sorjamaa et al., 2007; Chen & Tao, 2021) and statistical approaches like ARIMA (Box & Jenkins, 1990; Box et al., 1974) to more recent deep learning ones (Casolaro et al., 2023), including recurrent and convolutional neural networks (Rangapuram et al., 2018; Salinas et al., 2020; Fan et al., 2019; Lai et al., 2018a; Sen et al., 2019).
+
+Recently, the transformer architecture (Vaswani et al., 2017) became ubiquitous in natural language processing (NLP) (Devlin et al., 2018; Radford et al., 2018; Touvron et al., 2023; OpenAI, 2023) and computer vision (Dosovitskiy et al., 2021; Caron et al., 2021; Touvron et al., 2021), achieving breakthrough performance in both domains. Transformers are known to be particularly efficient in dealing with sequential data, a property that naturally calls for their application on time series. Unsurprisingly, many works attempted to propose time seriesspecific transformer architectures to benefit from their capacity to capture temporal interactions (Zhou et al., 2021; Wu et al., 2021; Zhou et al., 2022; Nie et al., 2023). However, the current state-of-the-art in multivariate time series forecasting is achieved with a simpler MLP-based model (Chen et al., 2023), which significantly outperforms transformer-based methods. Moreover, Zeng et al. (2023) have recently found that linear networks can be on par or better than transformers for the forecasting task, questioning their practical utility. This curious finding serves as a starting point for our work.
+
+Limitation of current approaches. Recent works applying transformers to time series data have mainly focused on either (i) efficient implementations reducing the quadratic cost of attention (Li et al., 2019; Liu et al., 2022; Cirstea et al., 2022; Kitaev et al., 2020; Zhou et al., 2021; Wu et al., 2021) or (ii) decomposing time series to better capture the underlying patterns in them (Wu et al., 2021; Zhou et al., 2022). Surprisingly, none of these works have specifically addressed a well-known issue of transformers related to their training instability, particularly present in the absence of large-scale data (Liu et al., 2020; Dosovitskiy et al., 2021).
+
+Trainability of transformers. In computer vision and NLP, it has been found that attention matrices can suffer from entropy or rank collapse (Dong et al., 2021). Then, several approaches have been proposed to overcome these issues (Chen et al., 2022; Zhai et al., 2023). However, in the case of time series forecasting, open questions remain about how transformer architectures can be trained effectively without a tendency to overfit. We aim to show that by eliminating training instability, transformers can excel in multivariate long-term forecasting, contrary to previous beliefs of their limitations.
+
+Summary of our contributions. Our proposal puts forward the following contributions:
+
+1. We show that even when the transformer architecture is tailored to solve a simple toy linear forecasting problem, it still generalizes poorly and converges to sharp local minima. We further identify that attention is mainly responsible for this phenomenon;
+
+2. We propose a shallow transformer model, termed SAMformer, that incorporates the best practices proposed in the research community including reversible instance normalization (RevIN, Kim et al. 2021b) and channel-wise attention (Zhang et al., 2022; Zamir et al., 2022) recently introduced in computer vision community. We show that optimizing such a simple transformer with sharpness-aware minimization (SAM) allows convergence to local minima with better generalization;
+
+3. We empirically demonstrate the superiority of our approach on common multivariate long-term forecasting datasets. SAMformer surpasses current state-of-theart methods and is on par with the biggest foundation model MOIRAI while having significantly fewer parameters.
+
+# 2. Proposed Approach
+
+Notations. We represent scalar values with regular letters (e.g., parameter $\lambda$ ), vectors with bold lowercase letters (e.g., vector $\mathbf { x }$ ), and matrices with bold capital letters (e.g., matrix M). We denote by $\mathbf { M } ^ { \top }$ the transpose of $\mathbf { M }$ and likewise for vectors. The rank of a matrix $\mathbf { M }$ is denoted by $\mathrm { r a n k } ( \mathbf { M } )$ , and its Frobenius norm by $\lVert \mathbf { M } \rVert _ { \mathrm { F } }$ . We let $\tilde { n } = \operatorname* { m i n } \{ n , m \}$ , and denote by $\begin{array} { r } { \| \mathbf { M } \| _ { * } = \sum _ { i = 1 } ^ { \tilde { n } } \sigma _ { i } ( \mathbf { M } ) } \end{array}$ the nuclear norm of $\mathbf { M }$ with $\sigma _ { i } ( { \bf M } )$ being its singular values, and by $\| \mathbf { M } \| _ { 2 } = \sigma _ { \operatorname* { m a x } } ( \mathbf { M } )$ its spectral norm. The identity matrix of size $n \times n$ is denoted by ${ \mathbf I } _ { n }$ . The notation $\mathbf M \succcurlyeq \mathbf 0$ indicates that M is positive semi-definite.
+
+# 2.1. Problem Setup
+
+We consider the multivariate long-term forecasting framework: given a $D$ -dimensional time series of length $L$ (lookback window), arranged in a matrix $\mathbf { X } \in \mathbb { R } ^ { D \times L }$ to facilitate channel-wise attention, our objective is to predict its next $H$ values (prediction horizon), denoted by $\mathbf { Y } \in \mathbb { R } ^ { D \times H }$ . We assume that we have access to a training set that consists of $N$ observations $( \boldsymbol { \mathcal { X } } , \boldsymbol { \mathcal { Y } } ) = ( \{ \mathbf { X } ^ { ( i ) } \} _ { i = 0 } ^ { N }$ , $\{ \mathbf { Y } ^ { ( i ) } \} _ { i = 0 } ^ { N } )$ and denote by X(i)d $\mathbf { X } _ { d } ^ { ( i ) } \in \mathbb { R } ^ { 1 \times L }$ (respectively $\mathbf { Y } _ { d } ^ { ( i ) } \in \mathbb { R } ^ { 1 \times H } )$ the $d$ -th feature of the $i$ -th input (respectively target) time series. We aim to train a predictor $f _ { \omega } : \mathbb { R } ^ { D \times L }  \mathbb { R } ^ { D \times H }$ parameterized by $\omega$ that minimizes the mean squared error (MSE) on the training set:
+
+$$
+\mathcal { L } _ { \mathrm { t r a i n } } ( \omega ) = \frac { 1 } { N D } \sum _ { i = 0 } ^ { N } \Vert \mathbf { Y } ^ { ( i ) } - f _ { \omega } ( \mathbf { X } ^ { ( i ) } ) \Vert _ { \mathrm { F } } ^ { 2 } .
+$$
+
+# 2.2. Motivational Example
+
+Recently, Zeng et al. (2023) showed that transformers perform on par with, or are worse than, simple linear neural networks trained to directly project the input to the output. We use this observation as a starting point by considering the following generative model for our toy regression problem mimicking a time series forecasting setup considered
+
+later:
+
+$$
+\begin{array} { r } { \mathbf { Y } = \mathbf { X } \mathbf { W } _ { \mathrm { t o y } } + \varepsilon . } \end{array}
+$$
+
+We let $L = 5 1 2 , H = 9 6 , D = 7$ and $\mathbf { W } _ { \mathrm { t o y } } \in \mathbb { R } ^ { L \times H } , \epsilon \in$ $\mathbb { R } ^ { D \times H }$ having random normal entries and generate 15000 input-target pairs $( \mathbf { X } , \mathbf { Y } )$ (10000 for train and 5000 for validation), with $\mathbf { X } \in \mathbb { R } ^ { D \times L }$ having random normal entries.
+
+Given this generative model, we would like to develop a transformer architecture that can efficiently solve the problem in Eq. (2) without unnecessary complexity. To achieve this, we propose to simplify the usual transformer encoder by applying attention to $\mathbf { X }$ and incorporating a residual connection that adds $\mathbf { X }$ to the attention’s output. Instead of adding a feedforward block on top of this residual connection, we directly employ a linear layer for output prediction. Formally, our model is defined as follows:
+
+$$
+f ( \mathbf { X } ) = [ \mathbf { X } + \mathbf { A } ( \mathbf { X } ) \mathbf { X } \mathbf { W } _ { V } \mathbf { W } _ { O } ] \mathbf { W } ,
+$$
+
+with $\mathbf { W } \in \mathbb { R } ^ { L \times H } , \mathbf { W } _ { V } \in \mathbb { R } ^ { L \times d _ { \mathrm { m } } } , \mathbf { W } _ { O } \in \mathbb { R } ^ { d _ { \mathrm { m } } \times L }$ and $\mathbf { A } ( \mathbf { X } )$ being the attention matrix of an input sequence $\mathbf { X \in }$ $\mathbb { R } ^ { D \times L }$ defined as
+
+$$
+\mathbf { A } ( \mathbf { X } ) = \mathrm { s o f t m a x } \bigg ( \frac { \mathbf { X } \mathbf { W } _ { Q } \mathbf { W } _ { K } ^ { \top } \mathbf { X } ^ { \top } } { \sqrt { d _ { \mathrm { m } } } } \bigg ) \in \mathbb { R } ^ { D \times D }
+$$
+
+where the softmax is row-wise, $\mathbf { W } _ { Q } \in \mathbb { R } ^ { L \times d _ { \mathrm { m } } } , \mathbf { W } _ { K } \in$ $\mathbb { R } ^ { L \times d _ { \mathrm { m } } }$ , and $d _ { \mathrm { m } }$ is the dimension of the model. The softmax makes $\mathbf { A } ( \mathbf { X } )$ right stochastic, with each row describing a probability distribution. To ease the notations, in contexts where it is unambiguous, we refer to the attention matrix simply as A, omitting $\mathbf { X }$ .
+
+We term this architecture Transformer and briefly comment on it. First, the attention matrix is applied channelwise, which simplifies the problem and reduces the risk of overparametrization, as the matrix W has the same shape as in Eq. (2) and the attention matrix becomes much smaller due to $L > D$ . In addition, channel-wise attention is more relevant than temporal attention in this scenario, as data generation follows an i.i.d. process according to Eq. (2). We formally establish the identifiability of $\mathbf { W } _ { \mathrm { t o y } }$ by our model below. The proof is deferred to Appendix E.2.
+
+Proposition 2.1 (Existence of optimal solutions). Assume $\mathbf { W } _ { Q } , \mathbf { W } _ { K } , \mathbf { W } _ { V }$ and $\mathbf { W } _ { O }$ are fixed and let $\mathbf { P } =$ $\mathbf { X } + \mathbf { A ( X ) } \mathbf { X } \mathbf { W } _ { V } \mathbf { W } _ { O } \ \in \ \mathbb { R } ^ { D \times L }$ . Then, there exists a matrix $\mathbf { W } \in \mathbb { R } ^ { L \times H }$ such that $\mathbf { P W } = \mathbf { X } \mathbf { W } _ { t o y } \ i \mathbf { \Lambda } _ { \mathbf { \mu } }$ f, and only $i f ,$ $\mathrm { r a n k } ( \mathbf { [ P \quad X W _ { t o y } ] } ) = \mathrm { r a n k } ( \mathbf { P } )$ where [P $\mathbf { X } \mathbf { W _ { \mathrm { t o y } } } \big ] \in \mathbb { R } ^ { D \times ( L + H ) }$ is a block matrix.
+
+The assumption made above is verified if $P$ is full rank and $D \ < \ H$ , which is the case in this toy experiment.
+
+Consequently, the optimization problem of fitting a transformer on data generated with Eq. (2) theoretically admits infinitely many optimal classifiers W.
+
+We would now like to identify the role of attention in solving the problem from Eq. (3). To this end, we consider a model, termed Random Transformer, where only W is optimized, while self-attention weights ${ \bf W } _ { Q } , { \bf W } _ { K } , { \bf W } _ { V } , { \bf W } _ { O }$ are fixed during training and initialized following Glorot & Bengio (2010). This effectively makes the considered transformer act like a linear model. Finally, we compare the local minima obtained by these two models after their optimization using Adam with the Oracle model that corresponds to the least squares solution of Eq. (2).
+
+![](images/b437d427dfdda1bd7989ac5650fb3c7f55079060d93b33e0d5dbf5ab8bca0f13.jpg)  
+Figure 2: Poor generalization. Despite its simplicity, Transformer suffers from severe overfitting. Fixing the attention weights in Random Transformer improves the generalization, hinting at the role of attention in preventing convergence to optimal local minima.
+
+We present the validation loss for both models in Figure 2. A first surprising finding is that both transformers fail to recover $\mathbf { W } _ { \mathrm { t o y } }$ , highlighting that optimizing even such a simple architecture with a favorable design exhibits a strong lack of generalization. When fixing the self-attention matrices, the problem is alleviated to some extent, although Random Transformer remains suboptimal. This observation remains consistent across various optimizers (see Figure 15 in Appendix C) and values of learning rate, suggesting that this phenomenon is not attributable to suboptimal optimizer hyperparameters or the specific choice of the optimizer. As there is only a $2 \%$ increase in the number of parameters between the Random Transformer and the Transformer, it is not due to overfitting either. Hence, we deduce from Figure 1 that the poor generalization capabilities of Transformer are mostly due to the trainability issues of the attention module.
+
+# 2.3. Transformer’s Loss Landscape
+
+Intuition. In the previous section, we concluded that the attention was at fault for the poor generalization of Transformer observed above. To develop our intuition behind this phenomenon, we plot in Figure 3a the attention matrices at different epochs of training. We can see that the attention matrix is close to the identity matrix right after the very first epoch and barely changes afterward, especially with the softmax amplifying the differences in the matrix values. It shows the emergence of attention’s entropy collapse with a full-rank attention matrix, which was identified in Zhai et al. (2023) as one of the reasons behind the hardness of training transformers. This work also establishes a relationship between entropy collapse and the sharpness of the transformers’ loss landscape which we confirm in Figure 3b (a similar behavior is obtained on real data in Figure 5a. The Transformer converges to a sharper minimum than the Random Transformer while having a significantly lower entropy (the attention being fixed at initialization for the latter, its entropy remains constant along training). These pathological patterns suggest that the Transformer fails because of the entropy collapse and the sharpness of its training loss. In the next paragraph, we investigate the existing solutions in the literature to alleviate those issues.
+
+Existing solutions. Recent studies have demonstrated that the loss landscape of transformers is sharper compared to other residual architectures (Chen et al., 2022; Zhai et al., 2023). This may explain training instability and subpar performance of transformers, especially when trained on small-scale datasets. The sharpness of transformers was observed and quantified differently: while Chen et al. (2022) computes $\lambda _ { \mathrm { m a x } }$ , the largest eigenvalue of the loss function’s Hessian, Zhai et al. (2023) gauges the entropy of the attention matrix to demonstrate its collapse with high sharpness. Both these metrics are evaluated, and their results are illustrated in Figure 3b. This visualization confirms our hypothesis, revealing both detrimental phenomena at once. On the one hand, the sharpness of the transformer with fixed attention is orders of magnitude lower than the sharpness of the transformer that converges to the identity attention matrix. On the other hand, the entropy of the transformer’s attention matrix is dropping sharply along the epochs when compared to the initialization.
+
+To identify an appropriate solution allowing a better generalization performance and training stability, we explore both remedies proposed by Chen et al. (2022) and Zhai et al. (2023). The first approach involves utilizing the recently proposed sharpness-aware minimization framework (Foret et al., 2021) which replaces the training objective $\mathcal { L } _ { \mathrm { t r a i n } }$ of Eq. (1) by
+
+$$
+\mathcal { L } _ { \mathrm { t r a i n } } ^ { \mathrm { S A M } } ( \omega ) = \operatorname* { m a x } _ { \| \epsilon \| < \rho } \mathcal { L } _ { \mathrm { t r a i n } } ( \omega + \epsilon ) ,
+$$
+
+where $\rho > 0$ is an hyper-parameter (see Remark D.1 of Appendix D), and $\omega$ are the parameters of the model. More details on SAM can be found in Appendix D.2. The second approach involves reparameterizing all weight matrices with spectral normalization and an additional learned scalar, a technique termed $\sigma$ Reparam by Zhai et al. (2023). More formally, we replace each weight matrix W as follows
+
+$$
+\widehat { \mathbf { W } } = \frac { \gamma } { \Vert \mathbf { W } \Vert _ { 2 } } \mathbf { W } ,
+$$
+
+where $\gamma \in \mathbb R$ is a learnable parameter initialized at 1.
+
+The results depicted in Figure 1 highlight our transformer’s successful convergence to the desired solution. Surprisingly, this is only achieved with SAM, as $\sigma$ Reparam doesn’t manage to approach the optimal performance despite maximizing the entropy of the attention matrix. In addition, one can observe in Figure 3b that the sharpness with SAM is several orders of magnitude lower than the Transformer while the entropy of the attention obtained with SAM remains close to that of a base Transformer with a slight increase in the later stages of the training. It suggests that entropy collapse as introduced in Zhai et al. (2023) is benign in this scenario.
+
+To better understand the failure of $\sigma$ Reparam, it can be useful to recall how Eq. (5) was derived. Zhai et al. (2023) departed from a tight lower bound on the attention entropy and showed that it increases exponentially fast when $\| \bar { \mathbf { W } _ { Q } } \mathbf { W } _ { K } ^ { \top } \| _ { 2 }$ is minimized (Zhai et al., 2023, see Theorem 3.1). Eq. (5) was proposed as a simple way to minimize this quantity. In the case of channel-wise attention, however, it can be shown that this has a detrimental effect on the rank of the attention matrix, which would consequently exclude certain features from being considered by the attention mechanism. We formalize this intuition in the following Proposition 2.2, where we consider the nuclear norm, a sum of the singular values, as a smooth proxy of the algebraic rank, which is a common practice (Daneshmand et al., 2020; Dong et al., 2021). The proof is deferred to Appendix E.3.
+
+Proposition 2.2 (Upper bound on the nuclear norm). Let $\textbf { X } \in \ \mathbb { R } ^ { D \times L }$ be an input sequence. Assuming $\mathbf { W } _ { Q } \mathbf { W } _ { K } ^ { \top } = \mathbf { W } _ { K } \mathbf { W } _ { Q } ^ { \top } \succcurlyeq \mathbf { 0 }$ , we have
+
+$$
+\begin{array} { r } { \| { \mathbf { X } } { \mathbf { W } } _ { Q } { \mathbf { W } } _ { K } ^ { \top } { \mathbf { X } } ^ { \top } \| _ { * } \leq \| { \mathbf { W } } _ { Q } { \mathbf { W } } _ { K } ^ { \top } \| _ { 2 } \| { \mathbf { X } } \| _ { \mathrm { F } } ^ { 2 } . } \end{array}
+$$
+
+Note that the assumption made above holds when ${ \bf W } _ { Q } = { \bf W } _ { K }$ and has been previously studied by Kim et al. (2021a). The theorem confirms that employing $\sigma$ Reparam to decrease $\| \mathbf { W } _ { Q } \mathbf { W } _ { K } ^ { \top } \| _ { 2 }$ reduces the nuclear norm of the numerator of attention matrix defined by Eq. (4). While the direct link between matrix rank and this nuclear norm does not always hold, nuclear norm regularization is commonly used to encourage a low-rank structure in compressed sensing (Recht et al., 2010; Recht, 2011; Candes & Recht \` , 2012).
+
+![](images/ab58693e06dda72907c4eb5de17893694d5ad9e26548ad28708647856ebefdf8.jpg)  
+(a) Attention matrices of Transformer along the training.
+
+![](images/7d9392167c32041c08677dcdf0ffa6e6c4542758de676c7e00cfb2a37633c6fb.jpg)  
+(b) Sharpness at the end of the training, Entropy collapse.   
+Figure 3: Transformer’s loss landscape analysis for linear regression. (a) The attention matrices of Transformer get stuck to identity from the first epoch. (b, left) Transformer converges to sharper minimum than Transformer $+ \mathrm { S A M }$ with much larger $\lambda _ { \mathrm { m a x } }$ $\qquad ( \sim \textrm { ~ \times ~ } 1 0 ^ { 4 } )$ , while Random Transformer has a smooth loss landscape. (b, right) Transformer suffers from entropy collapse during training confirming the high sharpness of its loss landscape.
+
+Although Proposition 2.2 cannot be directly applied to the attention matrix $\mathbf { A } ( \mathbf { X } )$ , we point out that in the extreme case when $\sigma$ Reparam leads to the attention scores $\mathbf { X } \mathbf { W } _ { Q } \mathbf { W } _ { K } ^ { \top } \mathbf { X } ^ { \top }$ to be rank-1 with identical rows as studied in (Anagnostidis et al., 2022), that the attention matrix stays rank-1 after application of the row-wise softmax. Thus, $\sigma$ Reparam may induce a collapse of the attention rank that we empirically observe in terms of nuclear norm in Figure 7. With these findings, we present a new simple transformer model with high performance and training stability for multivariate time series forecasting.
+
+# 2.4. SAMformer: Putting It All Together
+
+The proposed SAMformer is based on Eq. (3) with two important modifications. First, we equip it with Reversible Instance Normalization (RevIN, Kim et al. (2021b)) applied to $\mathbf { X }$ as this technique was shown to be efficient in handling the shift between the training and testing data in time series. Second, as suggested by our explorations above, we optimize the model with SAM to make it converge to flatter local minima. Overall, this gives the shallow transformer model with one encoder in Figure 4.
+
+We highlight that SAMformer keeps the channel-wise attention represented by a matrix $D \times D$ as in Eq. (3), contrary to spatial (or temporal) attention given by $L \times L$ matrix used in other models. This brings two important benefits: (i) it ensures feature permutation invariance, eliminating the need for positional encoding, commonly preceding the attention layer; (ii) it leads to a reduced time and memory complexity as $D \leq L$ in most of the real-world datasets. Our channel-wise attention examines the average impact of each feature on the others throughout all timesteps. An ablation study, detailed
+
+![](images/3aac0bedc8f5dd024a71b4ec752fb37f11fc7f80a9a719ce0fc2b9a31dd08af6.jpg)  
+Figure 4: SAM - former
+
+in Appendix C.4, validates the effectiveness of this implementation. We are now ready to evaluate SAMformer on common multivariate time series forecasting benchmarks, demonstrating its superior performance.
+
+# 3. Experiments
+
+In this section, we empirically demonstrate the quantitative and qualitative superiority of SAMformer in multivariate long-term time series forecasting on common benchmarks. We show that SAMformer surpasses the current multivariate state-of-the-art TSMixer (Chen et al., 2023) by $1 4 . 3 3 \%$ while having $\sim 4$ times fewer parameters. All the implementation details are provided in Appendix A.1.
+
+Datasets. We conduct our experiments on 8 publicly available datasets of real-world multivariate time series, commonly used for long-term forecasting (Wu et al., 2021; Chen et al., 2023; Nie et al., 2023; Zeng et al., 2023): the four Electricity Transformer Temperature datasets ETTh1, ETTh2, ETTm1 and ETTm2 (Zhou et al., 2021), Electricity (UCI, 2015), Exchange (Lai et al., 2018b), Traffic (California Department of Transportation, 2021), and Weather (Max Planck Institute, 2021) datasets. All time series are segmented with input length $L = 5 1 2$ , prediction horizons $H \in \{ 9 6 , 1 9 2 , 3 3 6 , 7 2 0 \}$ , and a stride of 1, meaning that each subsequent window is shifted by one step. A more detailed description of the datasets and time series preparation can be found in Appendix A.2.
+
+Baselines. We compare SAMformer with Transformer presented earlier and TSMixer (Chen et al., 2023), a state-of-the-art multivariate baseline entirely built on MLPs. It should be noted that Chen et al. (2023) displayed the performance of TSMixer for a fixed seed while in Table 1, we report the performance over several runs with different seeds, resulting in a more reliable evaluation. For a fair comparison, we also include the performance of TSMixer trained with
+
+![](images/5f73d0ac679179112fcc40406bdd772128119caa629d66da70abbd161b64e3c9.jpg)  
+Figure 5: (a) SAMformer has a smoother loss landscape than Transformer. (b) SAMformer consistently generalize well for every initialization while Transformer is unstable and heavily depends on the seed.
+
+SAM, along with results reported by Liu et al. (2024) and Chen et al. (2023) for other recent SOTA multivariate transformer-based models: iTransformer (Liu et al., 2024), PatchTST (Nie et al., 2023), FEDformer (Zhou et al., 2022), Informer (Zhou et al., 2021), and Autoformer (Wu et al., 2021). All the reported results are obtained using RevIN (Kim et al., 2021b) for a more equitable comparison between SAMformer and its competitors. More detailed information on these baselines can be found in Appendix A.3.
+
+Evaluation. All models are trained to minimize the MSE loss defined in Eq. (1). The average MSE on the test set, together with the standard deviation over 5 runs with different seeds is reported. Additional details and results, including the Mean Absolute Error (MAE), can be found in Table 6 of Appendix B.1. Except specified otherwise, all our results are also obtained over 5 runs with different seeds.
+
+# 3.1. Main Takeaways
+
+SAMformer improves over state-of-the-art. The experimental results are detailed in Table 1, with a Student’s t-test analysis available in Appendix Table 7. SAMformer outperforms its competitors on 7 out of 8 datasets by a large margin. In particular, it improves over its best competitor TSMixer+SAM by ${ \bf 5 . 2 5 \% }$ , surpasses the standalone TSMixer by $\mathbf { 1 4 . 3 3 \% }$ and the best multivariate transformer-based model FEDformer by $\mathbf { 1 2 . 3 6 \% }$ . In addition, it improves over Transformer by ${ \bf 1 6 . 9 6 \% }$ . SAMformer also outperforms the very recent iTransformer, a transformer-based approach that uses both temporal and spatial attention, and PatchTST which was tailored for univariate time series forecasting. We notice that iTransformer has mixed global performance and gets beaten by SAMformer on all datasets, except Exchange on which it significantly outperforms all competitors. This explains that SAMformer improves it only by $\mathbf { 3 . 9 4 \% }$ overall but up to ${ \mathbf { 8 . 3 8 \% } }$ without it. Finally,
+
+![](images/28c048b0adf58d66358cfd080015b44c8a301def358a42b96f8a6f60f3a6451e.jpg)  
+Figure 6: Attention matrices on Weather dataset. SAMformer preserves self-correlation among features while $\sigma$ Reparam degrades the rank, hindering the propagation of information.
+
+![](images/de4ecfd40ae6957e186bd95332a895ec7df8da481d0674f986d5083ef0d00699.jpg)  
+Figure 7: Nuclear norm of the attention matrix for different models: $\sigma$ Reparam induces lower nuclear norm in accordance with Proposition 2.2, while SAMformer keeps the expressiveness of the attention over Transformer.
+
+SAMformer outperforms PatchTST by $\mathbf { 1 1 . 1 3 \% }$ . For every horizon and dataset (except Exchange), SAMformer is ranked either first or second. Notably, SAM’s integration improves the generalization capacity of TSMixer, resulting in an average enhancement of $9 . 5 8 \%$ . A similar study with the MAE in Table 6 leads to the same conclusions. As TSMixer trained with SAM is the second-best baseline almost always ranked second, it serves as a primary benchmark for further discussion in this section. It should be noted that SAMformer has 4 times fewer parameters than TSMixer, and several orders of magnitude fewer than the transformer-based methods.
+
+Table 1: Performance comparison between our model (SAMformer) and baselines for multivariate long-term forecasting with different horizons $H$ . Results marked with “†” are obtained from Liu et al. (2024) and those marked with “∗” are obtained from Chen et al. (2023), along with the publication year of the respective methods. Transformer-based models are abbreviated by removing the “former” part of their name. We display the average test MSE with standard deviation obtained on 5 runs with different seeds. Best results are in bold, second best are underlined.   
+
+<table><tr><td rowspan="3">Dataset</td><td rowspan="3">H</td><td colspan="2">with SAM</td><td colspan="7">without SAM</td></tr><tr><td>SAMformer</td><td>TSMixer -</td><td>Transformer -</td><td>TSMixer 2023</td><td>2024</td><td>PatchTsTt 2023</td><td>In* 2021</td><td>Auto* 2021</td><td>FED* 2022</td></tr><tr><td></td><td>96</td><td>0.381±0.003</td><td>0.388±0.001</td><td>0.509±0.031</td><td>0.398±0.001</td><td>0.386</td><td>0.414</td><td>0.941</td><td>0.435</td><td>0.376</td></tr><tr><td></td><td>192</td><td>0.409±0.002</td><td>0.421±0.002</td><td>0.535±0.043</td><td>0.426±0.003</td><td>0.441</td><td>0.460</td><td>1.007</td><td>0.456</td><td>0.423</td></tr><tr><td>ELLLI</td><td>336</td><td>0.423±0.001</td><td>0.430±0.002</td><td>0.570±0.016</td><td>0.435±0.003</td><td>0.487</td><td>0.501</td><td>1.038</td><td>0.486</td><td>0.444</td></tr><tr><td></td><td>720</td><td>0.427±0.002</td><td>0.440±0.005</td><td>0.601±0.036</td><td>0.498±0.076</td><td>0.503</td><td>0.500</td><td>1.144</td><td>0.515</td><td>0.469</td></tr><tr><td></td><td>96</td><td>0.295±0.002</td><td>0.305±0.007</td><td>0.396±0.017</td><td>0.308±0.003</td><td>0.297</td><td>0.302</td><td>1.549</td><td>0.332</td><td>0.332</td></tr><tr><td>ELLLE</td><td>192</td><td>0.340±0.002</td><td>0.350±0.002</td><td>0.413±0.010</td><td>0.352±0.004</td><td>0.380</td><td>0.388</td><td>3.792</td><td>0.426</td><td>0.407</td></tr><tr><td></td><td>336</td><td>0.350±0.000</td><td>0.360±0.002</td><td>0.414±0.002</td><td>0.360±0.002</td><td>0.428</td><td>0.426</td><td>4.215</td><td>0.477</td><td>0.400</td></tr><tr><td></td><td>720</td><td>0.391±0.001</td><td>0.402±0.002</td><td>0.424±0.009</td><td>0.409±0.006</td><td>0.427</td><td>0.431</td><td>3.656</td><td>0.453</td><td>0.412</td></tr><tr><td></td><td>96</td><td>0.329±0.001</td><td>0.327±0.002</td><td>0.384±0.022</td><td>0.336±0.004</td><td>0.334</td><td>0.329</td><td>0.626</td><td>0.510</td><td>0.326</td></tr><tr><td>EILI</td><td>192</td><td>0.353±0.006</td><td>0.356±0.004</td><td>0.400±0.026</td><td>0.362±0.006</td><td>0.377</td><td>0.367</td><td>0.725</td><td>0.514</td><td>0.365</td></tr><tr><td></td><td>336</td><td>0.382±0.001</td><td>0.387±0.004</td><td>0.461±0.017</td><td>0.391±0.003</td><td>0.426</td><td>0.399</td><td>1.005</td><td>0.510</td><td>0.392</td></tr><tr><td></td><td>720</td><td>0.429±0.000</td><td>0.441±0.002</td><td>0.463±0.046</td><td>0.450±0.006</td><td>0.491</td><td>0.454</td><td>1.133</td><td>0.527</td><td>0.446</td></tr><tr><td></td><td>96</td><td>0.181±0.005</td><td>0.190±0.003</td><td>0.200±0.036</td><td>0.211±0.014</td><td>0.180</td><td>0.175</td><td>0.355</td><td>0.205</td><td>0.180</td></tr><tr><td>ELLmE</td><td>192</td><td>0.233±0.002</td><td>0.250±0.002</td><td>0.273±0.013</td><td>0.252±0.005</td><td>0.250</td><td>0.241</td><td>0.595</td><td>0.278</td><td>0.252</td></tr><tr><td></td><td>336</td><td>0.285±0.001</td><td>0.301±0.003</td><td>0.310±0.022</td><td>0.303±0.004</td><td>0.311</td><td>0.305</td><td>1.270</td><td>0.343</td><td>0.324</td></tr><tr><td></td><td>720</td><td>0.375±0.001</td><td>0.389±0.002</td><td>0.426±0.025</td><td>0.390±0.003</td><td>0.412</td><td>0.402</td><td>3.001</td><td>0.414</td><td>0.410</td></tr><tr><td></td><td></td><td></td><td></td><td>0.182±0.006</td><td>0.173±0.004</td><td></td><td></td><td>0.304</td><td>0.196</td><td>0.186</td></tr><tr><td></td><td>96</td><td>0.155±0.002</td><td>0.171±0.001</td><td>0.202±0.041</td><td></td><td>-</td><td>-</td><td>0.327</td><td>0.211</td><td>0.197</td></tr><tr><td>Fre</td><td>192</td><td>0.168±0.001</td><td>0.191±0.010</td><td>0.212±0.017</td><td>0.204±0.027</td><td>-</td><td></td><td>0.333</td><td>0.214</td><td>0.213</td></tr><tr><td></td><td>336 720</td><td>0.183±0.000 0.219±0.000</td><td>0.198±0.006 0.230±0.005</td><td>0.238±0.016</td><td>0.217±0.018 0.242±0.015</td><td>- -</td><td>-</td><td>0.351</td><td>0.236</td><td>0.233</td></tr><tr><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr><tr><td>Euehn</td><td>96</td><td>0.161±0.007</td><td>0.233±0.016</td><td>0.292±0.045</td><td>0.343±0.082</td><td>0.086</td><td>0.088</td><td>0.847</td><td>0.197</td><td>0.139</td></tr><tr><td></td><td>192</td><td>0.246±0.009</td><td>0.342±0.031</td><td>0.372±0.035</td><td>0.342±0.031</td><td>0.177</td><td>0.176</td><td>1.204</td><td>0.300</td><td>0.256</td></tr><tr><td></td><td>336 720</td><td>0.368±0.006</td><td>0.474±0.014 1.078±0.179</td><td>0.494±0.033 1.323±0.192</td><td>0.484±0.062</td><td>0.331 0.847</td><td>0.301 0.901</td><td>1.672 2.478</td><td>0.509 1.447</td><td>0.426 1.090</td></tr><tr><td></td><td></td><td>1.003±0.018</td><td></td><td></td><td>1.204±0.028</td><td></td><td></td><td></td><td></td><td></td></tr><tr><td></td><td>96</td><td>0.407±0.001</td><td>0.409±0.016</td><td>0.420±0.041</td><td>0.409±0.016</td><td>0.395</td><td>0.462</td><td>0.733</td><td>0.597</td><td>0.576</td></tr><tr><td>LreL</td><td>192</td><td>0.415±0.005</td><td>0.433±0.009</td><td>0.441±0.039</td><td>0.637±0.444</td><td>0.417</td><td>0.466</td><td>0.777</td><td>0.607</td><td>0.610</td></tr><tr><td></td><td>336</td><td>0.421±0.001</td><td>0.424±0.000</td><td>0.501±0.154</td><td>0.747±0.277</td><td>0.433</td><td>0.482</td><td>0.776</td><td>0.623</td><td>0.608</td></tr><tr><td></td><td>720</td><td>0.456±0.003</td><td>0.488±0.028</td><td>0.468±0.021</td><td>0.688±0.287</td><td>0.467</td><td>0.514</td><td>0.827</td><td>0.639</td><td>0.621</td></tr><tr><td>Weer</td><td>96</td><td>0.197±0.001</td><td>0.189±0.003</td><td>0.227±0.012</td><td>0.214±0.004</td><td>0.174</td><td>0.177</td><td>0.354</td><td>0.249</td><td>0.238</td></tr><tr><td></td><td>192</td><td>0.235±0.000</td><td>0.228±0.004</td><td>0.256±0.018</td><td>0.231±0.003</td><td>0.221</td><td>0.225</td><td>0.419</td><td>0.325</td><td>0.275</td></tr><tr><td></td><td>336</td><td>0.276±0.001</td><td>0.271±0.001</td><td>0.278±0.001</td><td>0.279±0.007</td><td>0.278</td><td>0.278</td><td>0.583</td><td>0.351</td><td>0.339</td></tr><tr><td>Overall MSE improvement</td><td>720</td><td>0.334±0.000</td><td>0.331±0.001 5.25%</td><td>0.353±0.002 16.96%</td><td>0.343±0.024 14.33%</td><td>0.358 3.94%</td><td>0.354 11.13%</td><td>0.916 72.20% 22.65% 12.36%</td><td>0.415</td><td>0.389</td></tr></table>
+
+Smoother loss landscape. The introduction of SAM in the training of SAMformer makes its loss smoother than that of Transformer. We illustrate this in Figure 5a by comparing the values of $\lambda _ { \mathrm { m a x } }$ for Transformer and SAMformer after training on ETTh1 and Exchange. Our observations reveal that Transformer exhibits considerably higher sharpness, while SAMformer has a desired behavior with a loss landscape sharpness that is an order of magnitude smaller.
+
+Improved robustness. SAMformer demonstrates robustness against random initialization. Figure 5b illustrates the test MSE distribution of SAMformer and Transformer across 5 different seeds on ETTh1 and Exchange with a prediction horizon of $H = 9 6$ . SAMformer consistently maintains performance stability across different seed choices, while Transformer exhibits significant variance and, thus, a high dependency on weight initialization. This observation holds across all datasets and prediction horizons as shown in Appendix B.4.
+
+# 3.2. Qualitative Benefits of Our Approach
+
+Computational efficiency. SAMformer is computationally more efficient than TSMixer and usual transformer-based approaches, benefiting from a shallow lightweight implementation, i.e., a single layer with one attention head. The number of parameters of SAMformer and TSMixer is detailed in Appendix Table 8. We observe that, on average, SAMformer has $\sim 4$ times fewer parameters than TSMixer, which makes this approach even more remarkable. Importantly, TSMixer itself is recognized as a computationally efficient architecture compared to the transformer-based baselines (Chen et al., 2023, Table 6).
+
+Fewer hyperparameters and versatility. SAMformer requires minimal hyperparameters tuning, contrary to other baselines, including TSMixer and FEDformer. In particular, SAMformer’s architecture remains the same for all our experiments (see Appendix A.1 for details), while TSMixer varies in terms of the number of residual blocks and feature embedding dimensions, depending on the dataset. This versatility also comes with better robustness to the prediction horizon $H$ . In Appendix C.1 Figure 13, we display the evolution forecasting accuracy on all datasets for $H \in \{ 9 6 , 1 9 2 , 3 3 6 , 7 2 0 \}$ for SAMformer and TSMixer (trained with SAM). We observe that SAMformer consistently outperforms its best competitor TSMixer (trained with SAM) for all horizons.
+
+Better attention. We display the attention matrices after training on Weather with the prediction horizon $H = 9 6$ for Transformer, SAMformer and Transformer $^ +$ $\sigma$ Reparam in Figure 6. We note that Transformer excludes self-correlation between features, having low values on the diagonal, while SAMformer strongly promotes them. This pattern is reminiscent of He et al. (2023) and Trockman & Kolter (2023): both works demonstrated the importance of diagonal patterns in attention matrices for signal propagation in transformers used in NLP and computer vision. Our experiments reveal that these insights also apply to time-series forecasting. Note that freezing the attention to $\mathbf { A } ( \mathbf { X } ) = \mathbf { I } _ { D }$ is largely outperformed by SAMformer as shown in Table 10, Appendix C.4, which confirms the importance of learnable attention. The attention matrix given by $\sigma$ Reparam at Figure 6 has almost equal rows, leading to rank collapse. In Figure 7, we display the distributions of nuclear norms of attention matrices after training Transformer, SAMformer and $\sigma$ Reparam. We observe that $\sigma$ Reparam heavily penalizes the nuclear norms of the attention matrix, which is coherent with Proposition 2.2. In contrast, SAMformer maintains it above Transformer, thus improving the expressiveness of attention.
+
+Table 2: Comparison performance of SAMformer and MOIRAI (Woo et al., 2024) for multivariate long-term forecasting. We display the test MSE averaged over horizons $\{ 9 6 , 1 9 2 , 3 3 6 , 7 2 0 \}$ . Best results are in bold, second best are underlined.
+
+<table><tr><td rowspan="2">Dataset</td><td>Full-shot</td><td colspan="3">Zero-shot (Woo et al., 2024).</td></tr><tr><td>SAMformer</td><td>MOIRAISmall</td><td>MOIRAIBase</td><td>MOIRAILarge</td></tr><tr><td>ETTh1</td><td>0.410</td><td>0.400</td><td>0.434</td><td>0.510</td></tr><tr><td>ETTh2</td><td>0.344</td><td>0.341</td><td>0.345</td><td>0.354</td></tr><tr><td>ETTm1</td><td>0.373</td><td>0.448</td><td>0.381</td><td>0.390</td></tr><tr><td>ETTm2</td><td>0.269</td><td>0.300</td><td>0.272</td><td>0.276</td></tr><tr><td>Electricity</td><td>0.181</td><td>0.233</td><td>0.188</td><td>0.188</td></tr><tr><td>Weather</td><td>0.260</td><td>0.242</td><td>0.238</td><td>0.259</td></tr><tr><td>Overall MSE improvement</td><td></td><td>6.9%</td><td>1.1%</td><td>7.6%</td></tr></table>
+
+# 3.3. SAMformer vs MOIRAI
+
+In this section, we show that despite its simplicity, SAMformer is a strong baseline competing not only with the dedicated time series methods (Table 1), such as TSMixer but also with the biggest existing time series forecasting foundation model MORAI (Woo et al., 2024) that was trained on the largest pretraining corpus LOTSA with nearly 27 billion of samples. MOIRAI was provided in three sizes: small (14 million parameters), base (91 million) and large (314 million). In Table 2, we see that SAMformer is on-par with MOIRAI on most datasets, superior on 3 on them, and overall improves MOIRAI by at least ${ \bf 1 . 1 \% }$ and up to ${ \bf 7 . 6 \% }$ . This comparison highlights again the fact that SAMformer shows impressive performance, globally superior to its competitors while having much less trainable parameters.
+
+# 3.4. Ablation Study and Sensitivity Analysis
+
+Choices of implementation. We empirically compared our architecture, which is channel-wise attention (Eq. (3)), with temporal-wise attention. Table 9 of Appendix C.4 shows the superiority of our approach in the considered setting. We conducted our experiments with Adam (Kingma & Ba, 2015), the de-facto optimizers for transformers (Ahn et al., 2023; Pan & Li, 2022; Zhou et al., 2022; 2021; Chen et al., 2022). We provide an in-depth ablation study in Appendix C.3 that motivates this choice. As expected (Ahn et al., 2023; Liu et al., 2020; Pan & Li, 2022; Zhang et al., 2020), SGD (Nesterov, 1983) fails to converge and AdamW (Loshchilov & Hutter, 2019) leads to similar performance but is very sensitive to the choice of the weight decay strength.
+
+Sensitivity to the neighborhood size $\rho$ . The test MSE of SAMformer and TSMixer is depicted in Figure 14 of
+
+![](images/9569855a166c07572e4cadadf3f1156e01314241bb2765feb56ec1432b701c74.jpg)  
+(a) Comparison of Transformer, $\sigma$ Reparam and SAMformer. (b) Comparison of SAMformer and SAMformer $^ +$ σReparam.   
+Figure 8: Suboptimality of $\sigma$ Reparam. (a) $\sigma$ Reparam alone does not bring improvement on Transformer and is clearly outperformed by SAMformer. Combining $\sigma$ Reparam with SAMformer does not bring significant improvement but heavily increases the training time (see Figure 11).
+
+Appendix C.2 as a function of the neighborhood size $\rho$ . It appears that TSMixer, with its quasi-linear architecture, exhibits less sensitivity to $\rho$ compared to SAMformer. This behavior is consistent with the understanding that, in linear models, the sharpness does not change with respect to $\rho$ , given the constant nature of the loss function’s Hessian. Consequently, TSMixer benefits less from changes in $\rho$ than SAMformer. Our observations consistently show that a sufficiently large $\rho$ , generally above 0.7 enables SAMformer to achieve lower MSE than TSMixer.
+
+SAM vs $\sigma$ Reparam. We mentioned previously that $\sigma$ Reparam doesn’t improve the performance of a transformer on a simple toy example, although it makes it comparable to the performance of a transformer with fixed random attention. To further show that $\sigma$ Reparam doesn’t provide an improvement on real-world datasets, we show in Figure 8a that on ETTh1 and Exchange, $\sigma$ Reparam alone fails to match SAMformer’s improvements, even underperforming Transformer in some cases. A potential improvement may come from combining SAM and $\sigma$ Reparam to smooth a rather sparse matrix obtained with SAM. However, as Figure 8b illustrates, this combination does not surpass the performance of using SAM alone. Furthermore, combining SAM and $\sigma$ Reparam significantly increases training time and memory usage, especially for larger datasets and longer horizons (see Appendix Figure 11), indicating its inefficiency as a method.
+
+# 4. Discussion and Future Work
+
+In this work, we demonstrated how simple transformers can reclaim their place as state-of-the-art models in long-term multivariate series forecasting from their MLP-based competitors. Rather than concentrating on new architectures and attention mechanisms, we analyzed the current pitfalls of transformers in this task and addressed them by carefully designing an appropriate training strategy. Our findings suggest that even a simple shallow transformer has a very sharp loss landscape which makes it converge to poor local minima. We analyzed popular solutions proposed in the literature to address this issue and showed which of them work or fail. Our proposed SAMformer, optimized with sharpness-aware minimization, leads to a substantial performance gain compared to the existing forecasting baselines, including the current largest foundation model MOIRAI, and benefits from a high versatility and robustness across datasets and prediction horizons. Finally, we also showed that channel-wise attention in time series forecasting can be more efficient – both computationally and performance-wise – than temporal attention commonly used previously. We believe that this surprising finding may spur many further works building on top of our simple architecture to improve it even further.
+
+# Acknowledgements
+
+The authors would like to thank the machine learning community for providing open-source baselines and datasets. The authors thank the anonymous reviewers and metareviewers for their time and constructive feedback. This work was enabled thanks to open-source software such as Python (Van Rossum & Drake Jr, 1995), PyTorch (Paszke et al., 2019), TensorFlow (Abadi et al., 2015), Scikitlearn (Pedregosa et al., 2011) and Matplotlib (Hunter, 2007).
+
+# Impact Statement
+
+This paper presents work whose goal is to advance the field of Machine Learning. There are many potential societal consequences of our work, none of which we feel must be specifically highlighted here.
+
+# References
+
+Abadi, M., Agarwal, A., Barham, P., Brevdo, E., Chen, Z., Citro, C., Corrado, G. S., Davis, A., Dean, J., Devin, M., Ghemawat, S., Goodfellow, I., Harp, A., Irving, G., Isard, M., Jia, Y., Jozefowicz, R., Kaiser, L., Kudlur, M., Levenberg, J., Mane, D., Monga, R., Moore, S., Mur- ´ ray, D., Olah, C., Schuster, M., Shlens, J., Steiner, B., Sutskever, I., Talwar, K., Tucker, P., Vanhoucke, V., Vasudevan, V., Viegas, F., Vinyals, O., Warden, P., Watten- ´ berg, M., Wicke, M., Yu, Y., and Zheng, X. TensorFlow: Large-scale machine learning on heterogeneous systems, 2015. URL http://tensorflow.org/. Software available from tensorflow.org.
+
+Ahn, K., Cheng, X., Song, M., Yun, C., Jadbabaie, A., and Sra, S. Linear attention is (maybe) all you need (to understand transformer optimization), 2023.
+
+Anagnostidis, S., Biggio, L., Noci, L., Orvieto, A., Singh, S. P., and Lucchi, A. Signal propagation in transformers: Theoretical perspectives and the role of rank collapse. In Oh, A. H., Agarwal, A., Belgrave, D., and Cho, K. (eds.), Advances in Neural Information Processing Systems, 2022. URL https://openreview.net/ forum?id=FxVH7iToXS.
+
+Box, G. E. P. and Jenkins, G. Time Series Analysis, Forecasting and Control. Holden-Day, Inc., USA, 1990. ISBN 0816211043.
+
+Box, G. E. P., Jenkins, G. M., and MacGregor, J. F. Some Recent Advances in Forecasting and Control. Journal of the Royal Statistical Society Series C, 23(2):158–179, June 1974. doi: 10.2307/ 2346997. URL https://ideas.repec.org/a/ bla/jorssc/v23y1974i2p158-179.html.
+
+California Department of Transportation. Traffic dataset, 2021. URL https://pems.dot.ca.gov/.
+
+Candes, E. and Recht, B. Exact matrix completion via \` convex optimization. Commun. ACM, 55(6):111–119, jun 2012. ISSN 0001-0782. doi: 10.1145/2184319. 2184343. URL https://doi.org/10.1145/ 2184319.2184343.
+
+Caron, M., Touvron, H., Misra, I., Jegou, H., Mairal, J., Bo- ´ janowski, P., and Joulin, A. Emerging properties in selfsupervised vision transformers. In Proceedings of the International Conference on Computer Vision (ICCV), 2021.
+
+Casolaro, A., Capone, V., Iannuzzo, G., and Camastra, F. Deep learning for time series forecasting: Advances and open problems. Information, 14(11), 2023. ISSN 2078- 2489. doi: 10.3390/info14110598. URL https:// www.mdpi.com/2078-2489/14/11/598.
+
+Cepulionis, P. and Luko ˇ sevi ˇ ciˇ ut¯ e, K. Electrocardiogram ˙ time series forecasting and optimization using ant colony optimization algorithm. Mathematical Models in Engineering, 2(1):69–77, Jun 2016. ISSN 2351-5279. URL https://www.extrica.com/article/17229.
+
+Chaudhari, P., Choromanska, A., Soatto, S., LeCun, Y., Baldassi, C., Borgs, C., Chayes, J., Sagun, L., and Zecchina, R. Entropy-SGD: Biasing gradient descent into wide valleys. In International Conference on Learning Representations, 2017. URL https:// openreview.net/forum?id=B1YfAfcgl.
+
+Chen, R. and Tao, M. Data-driven prediction of general hamiltonian dynamics via learning exactly-symplectic maps. In Meila, M. and Zhang, T. (eds.), Proceedings of the 38th International Conference on Machine Learning, volume 139 of Proceedings of Machine Learning Research, pp. 1717–1727. PMLR, 18– 24 Jul 2021. URL https://proceedings.mlr. press/v139/chen21r.html.
+
+Chen, S.-A., Li, C.-L., Arik, S. O., Yoder, N. C., and Pfister, T. TSMixer: An all-MLP architecture for time series forecasting. Transactions on Machine Learning Research, 2023. ISSN 2835-8856. URL https: //openreview.net/forum?id $=$ wbpxTuXgm0.
+
+Chen, X., Hsieh, C.-J., and Gong, B. When vision transformers outperform resnets without pre-training or strong data augmentations. In International Conference on Learning Representations, 2022. URL https: //openreview.net/forum?id $=$ LtKcMgGOeLt.
+
+Cirstea, R.-G., Guo, C., Yang, B., Kieu, T., Dong, X., and Pan, S. Triformer: Triangular, variable-specific attentions for long sequence multivariate time series forecasting. In Raedt, L. D. (ed.), Proceedings of the ThirtyFirst International Joint Conference on Artificial Intelligence, IJCAI-22, pp. 1994–2001. International Joint Conferences on Artificial Intelligence Organization, 7 2022. doi: 10.24963/ijcai.2022/277. URL https: //doi.org/10.24963/ijcai.2022/277. Main Track.
+
+Daneshmand, H., Kohler, J., Bach, F., Hofmann, T., and Lucchi, A. Batch normalization provably avoids rank collapse for randomly initialised deep networks. In Proceedings of the 34th International Conference on Neural Information Processing Systems, NIPS’20, Red Hook, NY, USA, 2020. Curran Associates Inc. ISBN 9781713829546.
+
+Devlin, J., Chang, M.-W., Lee, K., and Toutanova, K. Bert: Pre-training of deep bidirectional transformers for language understanding, 2018. URL http://arxiv. org/abs/1810.04805.
+
+Dong, Y., Cordonnier, J.-B., and Loukas, A. Attention is not all you need: pure attention loses rank doubly exponentially with depth. In Meila, M. and Zhang, T. (eds.), Proceedings of the 38th International Conference on Machine Learning, volume 139 of Proceedings of Machine Learning Research, pp. 2793–2803. PMLR, 18– 24 Jul 2021. URL https://proceedings.mlr. press/v139/dong21a.html.
+
+Dosovitskiy, A., Beyer, L., Kolesnikov, A., Weissenborn, D., Zhai, X., Unterthiner, T., Dehghani, M., Minderer, M., Heigold, G., Gelly, S., Uszkoreit, J., and Houlsby, N. An image is worth 16x16 words: Transformers for image recognition at scale. In International Conference on Learning Representations, 2021. URL https:// openreview.net/forum?id=YicbFdNTTy.
+
+Dziugaite, G. K. and Roy, D. M. Computing nonvacuous generalization bounds for deep (stochastic) neural networks with many more parameters than training data. In Proceedings of the 33rd Annual Conference on Uncertainty in Artificial Intelligence (UAI), 2017.
+
+Fan, C., Zhang, Y., Pan, Y., Li, X., Zhang, C., Yuan, R., Wu, D., Wang, W., Pei, J., and Huang, H. Multihorizon time series forecasting with temporal attention learning. In Proceedings of the 25th ACM SIGKDD International Conference on Knowledge Discovery & Data Mining, KDD ’19, pp. 2527–2535, New York, NY, USA, 2019. Association for Computing Machinery. ISBN 9781450362016. doi: 10.1145/3292500. 3330662. URL https://doi.org/10.1145/ 3292500.3330662.
+
+Foret, P., Kleiner, A., Mobahi, H., and Neyshabur, B. Sharpness-aware minimization for efficiently improving generalization. In International Conference on Learning Representations, 2021. URL https:// openreview.net/forum?id ${ \bf \Phi } = { \bf \Phi }$ 6Tm1mposlrM.
+
+Glorot, X. and Bengio, Y. Understanding the difficulty of training deep feedforward neural networks. In Teh, Y. W. and Titterington, M. (eds.), Proceedings of the Thirteenth International Conference on Artificial Intelligence and Statistics, volume 9 of Proceedings of Machine Learning Research, pp. 249– 256, Chia Laguna Resort, Sardinia, Italy, 13–15 May 2010. PMLR. URL https://proceedings.mlr. press/v9/glorot10a.html.
+
+He, B., Martens, J., Zhang, G., Botev, A., Brock, A., Smith, S. L., and Teh, Y. W. Deep transformers without shortcuts: Modifying self-attention for faithful signal propagation. In The Eleventh International Conference on Learning Representations, 2023. URL https: //openreview.net/forum?id $=$ NPrsUQgMjKK.
+
+Horn, R. A. and Johnson, C. R. Topics in Matrix Analysis. Cambridge University Press, 1991.
+
+Hunter, J. D. Matplotlib: A 2d graphics environment. Computing in Science & Engineering, 9(3):90–95, 2007. doi: 10.1109/MCSE.2007.55.
+
+Keskar, N. S., Mudigere, D., Nocedal, J., Smelyanskiy, M., and Tang, P. T. P. On large-batch training for deep learning: Generalization gap and sharp minima. In International Conference on Learning Representations, 2017. URL https://openreview.net/forum? id $=$ H1oyRlYgg.
+
+Kim, H., Papamakarios, G., and Mnih, A. The lipschitz constant of self-attention. In Meila, M. and Zhang, T. (eds.), Proceedings of the 38th International Conference on Machine Learning, volume 139 of Proceedings of Machine Learning Research, pp. 5562–5571. PMLR, 18–24 Jul 2021a. URL https://proceedings. mlr.press/v139/kim21i.html.
+
+Kim, T., Kim, J., Tae, Y., Park, C., Choi, J.-H., and Choo, J. Reversible instance normalization for accurate time-series forecasting against distribution shift. In International Conference on Learning Representations, 2021b. URL https://openreview.net/ forum?id $=$ cGDAkQo1C0p.
+
+Kingma, D. and Ba, J. Adam: A method for stochastic optimization. In International Conference on Learning Representations (ICLR), San Diega, CA, USA, 2015.
+
+Kitaev, N., Kaiser, L., and Levskaya, A. Reformer: The efficient transformer. In International Conference on Learning Representations, 2020. URL https:// openreview.net/forum?id ${ \bf \Phi } = { \bf \Phi }$ rkgNKkHtvB.
+
+Lai, G., Chang, W.-C., Yang, Y., and Liu, H. Modeling long- and short-term temporal patterns with deep neural networks. In The 41st International ACM SIGIR Conference on Research & Development in Information Retrieval, SIGIR ’18, pp. 95–104, New York, NY, USA, 2018a. Association for Computing Machinery. ISBN 9781450356572. doi: 10.1145/ 3209978.3210006. URL https://doi.org/10. 1145/3209978.3210006.
+
+Lai, G., Chang, W.-C., Yang, Y., and Liu, H. Modeling long- and short-term temporal patterns with deep neural networks. In Association for Computing Machinery, SIGIR ’18, pp. 95–104, New York, NY, USA, 2018b. ISBN 9781450356572. doi: 10.1145/ 3209978.3210006. URL https://doi.org/10. 1145/3209978.3210006.
+
+Li, S., Jin, X., Xuan, Y., Zhou, X., Chen, W., Wang, Y.-X., and Yan, X. Enhancing the locality and breaking the memory bottleneck of transformer on time series forecasting. In Wallach, H., Larochelle, H., Beygelzimer, A., d'Alche-Buc, F., Fox, E., and ´ Garnett, R. (eds.), Advances in Neural Information Processing Systems, volume 32. Curran Associates, Inc., 2019. URL https://proceedings.neurips. cc/paper_files/paper/2019/file/ 6775a0635c302542da2c32aa19d86be0-Paper pdf.
+
+Liu, L., Liu, X., Gao, J., Chen, W., and Han, J. Understanding the difficulty of training transformers. In Proceedings of the 2020 Conference on Empirical Methods in Natural Language Processing (EMNLP 2020), 2020.
+
+Liu, S., Yu, H., Liao, C., Li, J., Lin, W., Liu, A. X., and Dustdar, S. Pyraformer: Low-complexity pyramidal attention for long-range time series modeling and forecasting. In International Conference on Learning Representations, 2022. URL https://openreview.net/ forum?id=0EXmFzUn5I.
+
+Liu, Y., Hu, T., Zhang, H., Wu, H., Wang, S., Ma, L., and Long, M. itransformer: Inverted transformers are effective for time series forecasting. In The Twelfth International Conference on Learning Representations, 2024. URL https://openreview.net/forum? id $=$ JePfAI8fah.
+
+Loshchilov, I. and Hutter, F. SGDR: Stochastic gradient descent with warm restarts. In International Conference on Learning Representations, 2017. URL https:// openreview.net/forum?id ${ \bf \Phi } = { \bf \Phi }$ Skq89Scxx.
+
+Loshchilov, I. and Hutter, F. Decoupled weight decay regularization. In International Conference on Learning Representations, 2019. URL https://openreview. net/forum?id $=$ Bkg6RiCqY7.
+
+Max Planck Institute. Weather dataset, 2021. URL https://www.bgc-jena.mpg.de/wetter/.
+
+Nesterov, Y. A method for solving the convex programming problem with convergence rate $o ( 1 / k ^ { 2 } )$ . Proceedings of the USSR Academy of Sciences, 269:543–547, 1983. URL https://api.semanticscholar. org/CorpusID:145918791.
+
+Nie, Y., Nguyen, N. H., Sinthong, P., and Kalagnanam, J. A time series is worth 64 words: Long-term forecasting with transformers. In The Eleventh International Conference on Learning Representations, 2023. URL https: //openreview.net/forum?id $=$ Jbdc0vTOcol.
+
+OpenAI. Gpt-4 technical report, 2023.
+
+Pan, Y. and Li, Y. Toward understanding why adam converges faster than SGD for transformers. In OPT 2022: Optimization for Machine Learning (NeurIPS 2022 Workshop), 2022. URL https://openreview. net/forum?id $=$ Sf1NlV2r6PO.
+
+Paszke, A., Gross, S., Massa, F., Lerer, A., Bradbury, J., Chanan, G., Killeen, T., Lin, Z., Gimelshein, N., Antiga, L., Desmaison, A., Kopf, A., Yang, E., DeVito, Z., Raison, M., Tejani, A., Chilamkurthy, S., Steiner, B., Fang, L., Bai, J., and Chintala, S. Pytorch: An imperative style, high-performance deep learning library. In Advances in Neural Information Processing Systems 32, pp. 8024– 8035. Curran Associates, Inc., 2019.
+
+Pedregosa, F., Varoquaux, G., Gramfort, A., Michel, V., Thirion, B., Grisel, O., Blondel, M., Prettenhofer, P., Weiss, R., Dubourg, V., Vanderplas, J., Passos, A., Cournapeau, D., Brucher, M., Perrot, M., and Duchesnay, E. Scikit-learn: Machine learning in Python. Journal of Machine Learning Research, 12:2825–2830, 2011.
+
+Radford, A., Narasimhan, K., Salimans, T., and Sutskever, I. Improving language understanding by generative pretraining. 2018 OpenAI Tech Report, 2018.
+
+Rangapuram, S. S., Seeger, M. W., Gasthaus, J., Stella, L., Wang, Y., and Januschowski, T. Deep state space models for time series forecasting. In Bengio, S., Wallach, H., Larochelle, H., Grauman, K., Cesa-Bianchi, N., and Garnett, R. (eds.), Advances in Neural Information Processing Systems, volume 31. Curran Associates, Inc., 2018. URL https://proceedings.neurips. cc/paper_files/paper/2018/file/ 5cf68969fb67aa6082363a6d4e6468e2-Paper. pdf.
+
+Recht, B. A simpler approach to matrix completion. J. Mach. Learn. Res., 12(null):3413–3430, dec 2011. ISSN 1532-4435.
+
+Recht, B., Fazel, M., and Parrilo, P. A. Guaranteed minimum-rank solutions of linear matrix equations via nuclear norm minimization. SIAM Review, 52(3):471– 501, 2010. doi: 10.1137/070697835. URL https: //doi.org/10.1137/070697835.
+
+Salinas, D., Flunkert, V., Gasthaus, J., and Januschowski, T. Deepar: Probabilistic forecasting with autoregressive recurrent networks. International Journal of Forecasting, 36(3):1181–1191, 2020. ISSN 0169- 2070. doi: https://doi.org/10.1016/j.ijforecast.2019.07. 001. URL https://www.sciencedirect.com/ science/article/pii/S0169207019301888.
+
+Sen, R., Yu, H.-F., and Dhillon, I. Think globally, act locally: a deep neural network approach to highdimensional time series forecasting. In Proceedings of the 33rd International Conference on Neural Information Processing Systems, Red Hook, NY, USA, 2019. Curran Associates Inc.
+
+Sonkavde, G., Dharrao, D. S., Bongale, A. M., Deokate, S. T., Doreswamy, D., and Bhat, S. K. Forecasting stock market prices using machine learning and deep learning models: A systematic review, performance analysis and discussion of implications. International Journal of Financial Studies, 11(3), 2023. ISSN 2227-7072. doi: 10.3390/ijfs11030094. URL https://www.mdpi. com/2227-7072/11/3/94.
+
+Sorjamaa, A., Hao, J., Reyhani, N., Ji, Y., and Lendasse, A. Methodology for long-term prediction of time series. Neurocomputing, 70 (16):2861–2869, 2007. ISSN 0925-2312. doi: https://doi.org/10.1016/j.neucom.2006.06.015. URL https://www.sciencedirect.com/ science/article/pii/S0925231207001610. Neural Network Applications in Electrical Engineering Selected papers from the 3rd International WorkConference on Artificial Neural Networks (IWANN 2005).
+
+Touvron, H., Cord, M., Douze, M., Massa, F., Sablayrolles, A., and Jegou, H. Training data-efficient image transformers and distillation through attention. In Meila, M. and Zhang, T. (eds.), Proceedings of the 38th International Conference on Machine Learning, volume 139 of Proceedings of Machine Learning Research, pp. 10347–10357. PMLR, 18– 24 Jul 2021. URL https://proceedings.mlr. press/v139/touvron21a.html.
+
+Touvron, H., Lavril, T., Izacard, G., Martinet, X., Lachaux, M.-A., Lacroix, T., Roziere, B., Goyal, N., Hambro, \` E., Azhar, F., Rodriguez, A., Joulin, A., Grave, E., and Lample, G. Llama: Open and efficient foundation language models, 2023. URL http://arxiv.org/ abs/2302.13971. cite arxiv:2302.13971.
+
+Trockman, A. and Kolter, J. Z. Mimetic initialization of self-attention layers. In Proceedings of the 40th International Conference on Machine Learning, ICML’23. JMLR.org, 2023.
+
+UCI. Electricity dataset, 2015. URL https: //archive.ics.uci.edu/dataset/321/ electricityloaddiagrams20112014.
+
+Van Rossum, G. and Drake Jr, F. L. Python reference manual. Centrum voor Wiskunde en Informatica Amsterdam, 1995.
+
+Vaswani, A., Shazeer, N., Parmar, N., Uszkoreit, J., Jones, L., Gomez, A. N., Kaiser, L. u., and Polosukhin, I.
+
+Attention is all you need. In Guyon, I., Luxburg, U. V., Bengio, S., Wallach, H., Fergus, R., Vishwanathan, S., and Garnett, R. (eds.), Advances in Neural Information Processing Systems, volume 30. Curran Associates, Inc., 2017. URL https://proceedings.neurips. cc/paper_files/paper/2017/file/ 3f5ee243547dee91fbd053c1c4a845aa-Paper. pdf.
+
+Woo, G., Liu, C., Kumar, A., Xiong, C., Savarese, S., and Sahoo, D. Unified training of universal time series forecasting transformers, 2024.
+
+Wu, H., Xu, J., Wang, J., and Long, M. Autoformer: Decomposition transformers with Auto-Correlation for long-term series forecasting. In Advances in Neural Information Processing Systems, 2021.
+
+Zamir, S. W., Arora, A., Khan, S., Hayat, M., Khan, F. S., and Yang, M.-H. Restormer: Efficient transformer for high-resolution image restoration. In CVPR, 2022.
+
+Zeng, A., Chen, M., Zhang, L., and Xu, Q. Are transformers effective for time series forecasting? In Proceedings of the AAAI Conference on Artificial Intelligence, 2023.
+
+Zhai, S., Likhomanenko, T., Littwin, E., Busbridge, D., Ramapuram, J., Zhang, Y., Gu, J., and Susskind, J. M. Stabilizing transformer training by preventing attention entropy collapse. In Krause, A., Brunskill, E., Cho, K., Engelhardt, B., Sabato, S., and Scarlett, J. (eds.), Proceedings of the 40th International Conference on Machine Learning, volume 202 of Proceedings of Machine Learning Research, pp. 40770–40803. PMLR, 23– 29 Jul 2023. URL https://proceedings.mlr. press/v202/zhai23a.html.
+
+Zhang, H., Wu, C., Zhang, Z., Zhu, Y., Lin, H., Zhang, Z., Sun, Y., He, T., Mueller, J., Manmatha, R., Li, M., and Smola, A. Resnest: Split-attention networks. In Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition (CVPR) Workshops, pp. 2736–2746, June 2022.
+
+Zhang, J., Karimireddy, S. P., Veit, A., Kim, S., Reddi, S., Kumar, S., and Sra, S. Why are adaptive methods good for attention models? In Larochelle, H., Ranzato, M., Hadsell, R., Balcan, M., and Lin, H. (eds.), Advances in Neural Information Processing Systems, volume 33, pp. 15383–15393. Curran Associates, Inc., 2020. URL https://proceedings.neurips. cc/paper_files/paper/2020/file/ b05b57f6add810d3b7490866d74c0053-Paper. pdf.
+
+Zhou, H., Zhang, S., Peng, J., Zhang, S., Li, J., Xiong, H., and Zhang, W. Informer: Beyond efficient transformer for long sequence time-series forecasting. In The ThirtyFifth AAAI Conference on Artificial Intelligence, AAAI 2021, Virtual Conference, volume 35, pp. 11106–11115. AAAI Press, 2021.
+
+Zhou, T., Ma, Z., Wen, Q., Wang, X., Sun, L., and Jin, R. FEDformer: Frequency enhanced decomposed transformer for long-term series forecasting. In Proc. 39th International Conference on Machine Learning (ICML 2022), 2022.
+
+# Appendix
+
+Roadmap. In this appendix, we provide the detailed experimental setup in Section A, additional experiments in Section B, and a thorough ablation study and sensitivity analysis in Section C. Additional background knowledge is available in Section D and proofs of the main theoretical results are provided in Section E. We display the corresponding table of contents below.
+
+# Table of Contents
+
+# A Experimental Setup 16
+
+A.1 Architecture and Training Parameters 16   
+A.2 16   
+A.3 More Details on the Baselines 17
+
+# B Additional Experiments 17
+
+B.1 MAE Results 18   
+B.2 Significance Test for SAMformer and TSMixer with SAM . 18   
+B.3 Computational Efficiency of SAMformer 19   
+B.4 Strong Generalization Regardless of the Initialization 19   
+B.5 Faithful Signal Propagation . 19
+
+# C Ablation Study and Sensitivity Analysis 22
+
+C.1 Sensitivity to the Prediction Horizon $H$ .   
+C.2 Sensitivity to the Neighborhood Size $\rho$ .   
+C.3 Sensitivity to the Change of the Optimizer.   
+C.4 Ablation on the Implementation.
+
+# D Additional Background 24
+
+D.1 Reversible Instance Normalization: RevIN 24   
+D.2 Sharpness-aware minimization (SAM) 26
+
+# E Proofs
+
+# 27
+
+E.1 Notations 2727 E.2 Proof of Proposition 2.1 .   
+E.3 Proof of Proposition 2.2 . 28 E.4 Proof of Proposition D.1 3131 E.5 Matrix formulation of $\hat { \mathbf Y }$ in Eq. (11)
+
+# A. Experimental Setup
+
+# A.1. Architecture and Training Parameters
+
+Architecture. We follow Chen et al. (2023); Nie et al. (2023), and to ensure a fair comparison of baselines, we apply the reversible instance normalization (RevIN) of Kim et al. (2021b) (see Appendix D.1 for more details). The network used in SAMformer and Transformer is a simplified one-layer transformer with one head of attention and without feed-forward. Its neural network function follows Eq. (3), while RevIN normalization and denormalization are applied respectively before and after the neural network function, see Figure 4. We display the inference step of SAMformer in great detail in Algorithm 1. For the sake of clarity, we describe the application of the neural network function sequentially on each element of the batches but in practice, the operations are parallelized and performed batch per batch. For SAMformer and Transformer, the dimension of the model is $d _ { \mathrm { m } } = 1 6$ and remains the same in all our experiments. For TSMixer, we used the official implementation that can be found at here.
+
+<table><tr><td>Algorithm 1: Architecture of the network used in SAMformer and Trans former</td></tr><tr><td>Parameters: Batch size bs, input length L, prediction horizon H, dimension of the model dm. Network trainable parameters: WQ  RL×dm, WK  RL×dm, WV  RL×dm, WO  Rdm×L, W  RL×H.</td></tr><tr><td>RevIN trainable parameters: β, γ.</td></tr><tr><td>Input: Batch of bs input sequences X  RD×L arranged in a tensor Bin of dimension bs × L × D.</td></tr><tr><td>RevIN normalization: X ← X following Eq. (7). The output is a tensor Bin of dimension bs × L × D.</td></tr><tr><td>Transposition of the batch: Bin is reshaped in dimension bs × D × L.</td></tr><tr><td>Applying the neural network of Eq. (3):</td></tr><tr><td>for each X  Bin do 1. Attention layer</td></tr><tr><td>Rescale the input with the attention matrix (Eq. (4)).</td></tr><tr><td>The output A(X)XWv Wo is of dimension D × L 2. Skip connection</td></tr></table>
+
+Training parameters. For all of our experiments, we train our base with SAM, TSMixer without SAM) with the Adam optimizer a cosine annealing scheduler (Loshchilov & Hutter, 2017) and For SAMformer and TSMixer trained with SAM, the values of neighborhood size $\rho ^ { * }$ used are reported in Table 4. The training/validation/test split is $1 2 / 4 / 4$ months on the ETT datasets and $7 0 \% / 2 0 \% / 1 0 \%$ on the other datasets. We use a look-back window $L = 5 1 2$ and use a sliding window with stride 1 to create the sequences. The training loss is the MSE on the multivariate time series (Eq. (1)). Training is performed lines (SAMformer, Transformer, TSMixer (Kingma & Ba, 2015), a batch size of 32, the learning rates summarized in Table 3.
+
+Table 3: Learning rates used in our experiments. ETT designs ETTh1/ETTh2/ETTm1/ETTm2.   
+
+<table><tr><td>Dataset</td><td></td><td>ETT Electricity Exchange Traffic Weather</td><td></td><td></td><td></td></tr><tr><td>Learning rate 0.001 0.0001</td><td></td><td></td><td>0.001 0.0001 0.0001</td><td></td><td></td></tr></table>
+
+during 300 epochs and we use early stopping with a patience of 5 epochs. For each dataset, baselines, and prediction horizon $H \in \{ 9 6 , 1 9 2 , 3 3 6 , 7 2 0 \}$ , each experiment is run 5 times with different seeds, and we display the average and the standard deviation of the test MSE and MAE over the 5 trials.
+
+# A.2. Datasets
+
+We conduct our experiments on 8 publicly available datasets of real-world time series, widely used for multivariate longterm forecasting (Wu et al., 2021; Chen et al., 2023; Nie et al., 2023). The 4 Electricity Transformer Temperature datasets
+
+Table 4: Neighborhood size $\rho ^ { * }$ at which SAMformer and TSMixer achieve their best performance on the benchmarks.   
+
+<table><tr><td>H</td><td>Model</td><td>ETTh1</td><td>ETTh2</td><td>ETTm1</td><td>ETTm2</td><td>Electricity</td><td>Exchange</td><td>Traffic</td><td>Weather</td></tr><tr><td rowspan="2">96</td><td>SAMformer</td><td>0.5</td><td>0.5</td><td>0.6</td><td>0.2</td><td>0.5</td><td>0.7</td><td>0.8</td><td>0.4</td></tr><tr><td>TSMixer</td><td>1.0</td><td>0.9</td><td>1.0</td><td>1.0</td><td>0.9</td><td>1.0</td><td>0.0</td><td>0.5</td></tr><tr><td rowspan="2">192</td><td>SAMformer</td><td>0.6</td><td>0.8</td><td>0.9</td><td>0.9</td><td>0.6</td><td>0.8</td><td>0.1</td><td>0.4</td></tr><tr><td>TSMixer</td><td>0.7</td><td>0.1</td><td>0.6</td><td>1.0</td><td>1.0</td><td>0.0</td><td>0.9</td><td>0.4</td></tr><tr><td rowspan="2">336</td><td>SAMformer</td><td>0.9</td><td>0.6</td><td>0.9</td><td>0.8</td><td>0.5</td><td>0.5</td><td>0.5</td><td>0.6</td></tr><tr><td>TSMixer</td><td>0.7</td><td>0.0</td><td>0.7</td><td>1.0</td><td>0.4</td><td>1.0</td><td>0.6</td><td>0.6</td></tr><tr><td rowspan="2">720</td><td>SAMformer</td><td>0.9</td><td>0.8</td><td>0.9</td><td>0.9</td><td>1.0</td><td>0.9</td><td>0.7</td><td>0.5</td></tr><tr><td>TSMixer</td><td>0.3</td><td>0.4</td><td>0.5</td><td>1.0</td><td>0.9</td><td>0.1</td><td>0.9</td><td>0.3</td></tr></table>
+
+ETTm1, ETTm2, ETTh1, and ETTh2 (Zhou et al., 2021) contain the time series collected by electricity transformers from July 2016 to July 2018. Whenever possible, we refer to this set of 4 datasets as ETT. Electricity (UCI, 2015) contains the time series of electricity consumption from 321 clients from 2012 to 2014. Exchange (Lai et al., 2018b) contains the time series of daily exchange rates between 8 countries from 1990 to 2016. Traffic (California Department of Transportation, 2021) contains the time series of road occupancy rates captured by 862 sensors from January 2015 to December 2016. Last but not least, Weather (Max Planck Institute, 2021) contains the time series of meteorological information recorded by 21 weather indicators in 2020. It should be noted that Electricity, Traffic, and Weather are large-scale datasets. The ETT datasets can be downloaded here while the 4 other datasets can be downloaded here. Table 5 sums up the characteristics of the datasets used in our experiments.
+
+Table 5: Characteristics of the multivariate time series datasets used in our experiments with various sizes and dimensions.   
+
+<table><tr><td>Dataset</td><td>ETTh1/ETTh2 ETTm1/ETTm2 Electricity Exchange</td><td></td><td></td><td></td><td>Traffic</td><td>Weather</td></tr><tr><td># features</td><td>7</td><td>7</td><td>321</td><td>8</td><td>862</td><td>21</td></tr><tr><td># time steps</td><td>17420</td><td>69680</td><td>26304</td><td>7588</td><td>17544</td><td>52696</td></tr><tr><td>Granularity</td><td>1 hour</td><td>15 minutes</td><td>1 hour</td><td>1 day</td><td>1 hour</td><td>10 minutes</td></tr></table>
+
+# A.3. More Details on the Baselines
+
+As stated above, we conducted all our experiments with a look-back window $L \ = \ 5 1 2$ and prediction horizons $H \in \{ 9 6 , 1 9 2 , 3 3 6 , 7 2 0 \}$ . Results reported in Table 1 from SAMformer, TSMixer, and Transformer come from our own experiments, conducted over 5 runs with 5 different seeds. The reader might notice that the results of TSMixer without SAM slightly differ from the ones reported in the original paper (Chen et al., 2023). It comes from the fact that the authors reported results from a single seed, while we report average performance with standard deviation on multiple runs for a better comparison of methods. We perform a Student’s t-test in Table 7 for a more thorough comparison of SAMformer and TSMixer with SAM. It should be noted that, unlike our competitors including TSMixer, the architecture of SAMformer remains the same for all the datasets. This highlights the robustness of our method and its advantage as no heavy hyperparameter tuning is required. For a fair comparison of models, we also report results from other baselines in the literature that we did not run ourselves. For Informer (Zhou et al., 2021), Autoformer (Wu et al., 2021), and Fedformer (Zhou et al., 2022), the results on all datasets, except Exchange, are reported from Chen et al. (2023). Results on the Exchange dataset for those 5 baselines come from the original corresponding papers and hence refer to the models without RevIN. For iTransformer (Liu et al., 2024) and PacthTST (Nie et al., 2023), results are reported from Liu et al. (2024). Those baselines also make use of RevIn (Kim et al., 2021b). It should be noted that iTransformer (Liu et al., 2024) uses both temporal and channel-wise attention. Our large-scale experimental evaluation ensures a comprehensive and comparative analysis across various established models in multivariate long-term time series forecasting.
+
+# B. Additional Experiments
+
+In this section, we provide additional experiments to showcase, quantitatively and qualitatively, the superiority of our approach.
+
+# B.1. MAE Results
+
+In this section, we provide the performance comparison of the different baselines with the Mean Absolute Error (MAE). We display the results in Table 6. The conclusion is similar to the one made in the main paper in Table 1 and confirms the superiority of SAMformer compared to its competitors, including very recent baselines like TSMixer (Chen et al., 2023), iTransformer (Liu et al., 2024) and PatchTST (Nie et al., 2023).
+
+Table 6: Performance comparison between our model (SAMformer) and baselines for multivariate long-term forecasting with different horizons $H$ . Results marked with “†” are obtained from Liu et al. (2024) and those marked with “∗” are obtained from Chen et al. (2023), along with the publication year of the respective methods. Transformer-based models are abbreviated by removing the “former” part of their name. We display the average test MAE with standard deviation obtained on 5 runs with different seeds. Best results are in bold, second best are underlined.   
+
+<table><tr><td rowspan="2">Dataset</td><td rowspan="2">H</td><td colspan="2">with SAM</td><td colspan="7">without SAM</td></tr><tr><td>SAMformer</td><td>TSMixer -</td><td>Transformer</td><td>TSMixer 2023</td><td>iTrans 2024</td><td>PatchTsTt 2023</td><td>In* 2021</td><td>Auto* 2021</td><td>FED* 2022</td></tr><tr><td rowspan="4">ELLLI</td><td>96</td><td>0.402±0.001</td><td>0.408±0.001</td><td>0.619±0.203</td><td>0.414±0.004</td><td>0.405</td><td>0.419</td><td>0.769</td><td>0.446</td><td>0.415</td></tr><tr><td>192</td><td>0.418±0.001</td><td>0.426±0.002</td><td>0.513±0.024</td><td>0.428±0.001</td><td>0.436</td><td>0.445</td><td>0.786</td><td>0.457</td><td>0.446</td></tr><tr><td>336</td><td>0.425±0.000</td><td>0.434±0.001</td><td>0.529±0.008</td><td>0.434±0.001</td><td>0.458</td><td>0.466</td><td>0.784</td><td>0.487</td><td>0.462</td></tr><tr><td>720</td><td>0.449±0.002</td><td>0.459±0.004</td><td>0.553±0.021</td><td>0.506±0.064</td><td>0.491</td><td>0.488</td><td>0.857</td><td>0.517</td><td>0.492</td></tr><tr><td rowspan="4">ZLLLE</td><td>96</td><td>0.358±0.002</td><td>0.367±0.002</td><td>0.416±0.025</td><td>0.367±0.003</td><td>0.349</td><td>0.348</td><td>0.952</td><td>0.368</td><td>0.374</td></tr><tr><td>192</td><td>0.386±0.003</td><td>0.393±0.001</td><td>0.435±0.019</td><td>0.395±0.003</td><td>0.400</td><td>0.400</td><td>1.542</td><td>0.434</td><td>0.446</td></tr><tr><td>336</td><td>0.395±0.002</td><td>0.404±0.004</td><td>0.434±0.014</td><td>0.404±0.002</td><td>0.432</td><td>0.433</td><td>1.642</td><td>0.479</td><td>0.447</td></tr><tr><td>720</td><td>0.428±0.001</td><td>0.435±0.002</td><td>0.448±0.006</td><td>0.441±0.005</td><td>0.445</td><td>0.446</td><td>1.619</td><td>0.490</td><td>0.469</td></tr><tr><td rowspan="4">EILI</td><td>96</td><td></td><td>0.363±0.001</td><td>0.395±0.024</td><td>0.371±0.002</td><td>0.368</td><td>0.367</td><td>0.560</td><td>0.492</td><td>0.390</td></tr><tr><td>192</td><td>0.363±0.001 0.378±0.003</td><td>0.381±0.002</td><td>0.414±0.027</td><td>0.384±0.003</td><td>0.391</td><td>0.385</td><td>0.619</td><td>0.495</td><td>0.415</td></tr><tr><td>336</td><td>0.394±0.001</td><td>0.397±0.002</td><td>0.445±0.009</td><td>0.399±0.003</td><td>0.420</td><td>0.410</td><td>0.741</td><td>0.492</td><td>0.425</td></tr><tr><td>720</td><td>0.418±0.000</td><td>0.425±0.001</td><td>0.456±0.035</td><td>0.429±0.002</td><td>0.459</td><td>0.439</td><td>0.845</td><td>0.493</td><td>0.458</td></tr><tr><td rowspan="4">EL</td><td>96</td><td>0.274±0.010</td><td>0.284±0.004</td><td>0.290±0.026</td><td>0.302±0.013</td><td>0.264</td><td>0.259</td><td>0.462</td><td>0.293</td><td>0.271</td></tr><tr><td>192</td><td>0.306±0.001</td><td>0.320±0.001</td><td>0.347±0.025</td><td>0.323±0.005</td><td>0.309</td><td>0.302</td><td>0.586</td><td>0.336</td><td>0.318</td></tr><tr><td>336</td><td>0.338±0.001</td><td>0.350±0.001</td><td>0.360±0.017</td><td>0.352±0.003</td><td>0.348</td><td>0.343</td><td>0.871</td><td>0.379</td><td>0.364</td></tr><tr><td>720</td><td>0.390±0.001</td><td>0.402±0.002</td><td>0.424±0.014</td><td>0.402±0.003</td><td>0.407</td><td>0.400</td><td>1.267</td><td>0.419</td><td>0.420</td></tr><tr><td rowspan="4">Rrce</td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td>0.393</td><td>0.313</td><td>0.302</td></tr><tr><td>96 192</td><td>0.252±0.002</td><td>0.273±0.001</td><td>0.288±0.013</td><td>0.277±0.003</td><td>-</td><td>-</td><td></td><td></td><td></td></tr><tr><td>336</td><td>0.263±0.001</td><td>0.292±0.011</td><td>0.304±0.033</td><td>0.304±0.027</td><td></td><td></td><td>0.417 0.422</td><td>0.324</td><td>0.311</td></tr><tr><td>720</td><td>0.277±0.000 0.306±0.000</td><td>0.297±0.007 0.321</td><td>0.315±0.018 0.330±0.014</td><td>0.317±0.018 0.333±0.015</td><td></td><td></td><td>0.427</td><td>0.327 0.342</td><td>0.328 0.344</td></tr><tr><td rowspan="4">Eruhnn</td><td></td><td></td><td>±0.006</td><td></td><td></td><td>-</td><td>-</td><td></td><td></td><td></td></tr><tr><td>96</td><td>0.306±0.006</td><td>0.363±0.013</td><td>0.369±0.049</td><td>0.436±0.054</td><td>0.206</td><td>0.205</td><td>0.752</td><td>0.323</td><td>0.276</td></tr><tr><td>192</td><td>0.371±0.008</td><td>0.437±0.021</td><td>0.416±0.041</td><td>0.437±0.021</td><td>0.299</td><td>0.299</td><td>0.895</td><td>0.369</td><td>0.369</td></tr><tr><td>336 720</td><td>0.453±0.004 0.750±0.006</td><td>0.515±0.006</td><td>0.491±0.036 0.823±0.040</td><td>0.523±0.029 0.818±0.007</td><td>0.417</td><td>0.397 0.714</td><td>1.036</td><td>0.524</td><td>0.464</td></tr><tr><td rowspan="4">Lr</td><td></td><td></td><td>0.777±0.064</td><td></td><td></td><td>0.691</td><td></td><td>1.310</td><td>0.941</td><td>0.800</td></tr><tr><td>96</td><td>0.292±0.001</td><td>0.300±0.020</td><td>0.306±0.033</td><td>0.300±0.020</td><td>0.268</td><td>0.295</td><td>0.410</td><td>0.371</td><td>0.359</td></tr><tr><td>192 336</td><td>0.294±0.005</td><td>0.317±0.012</td><td>0.321±0.034</td><td>0.419±0.218</td><td>0.276</td><td>0.296</td><td>0.435</td><td>0.382</td><td>0.380</td></tr><tr><td>720</td><td>0.292±0.000 0.311±0.003</td><td>0.299±0.000 0.344±0.026</td><td>0.348±0.093 0.325±0.023</td><td>0.501±0.163 0.458±0.159</td><td>0.283 0.302</td><td>0.304 0.322</td><td>0.434</td><td>0.387</td><td>0.375</td></tr><tr><td rowspan="4">Meeer</td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td>0.466</td><td>0.395</td><td>0.375</td></tr><tr><td>96</td><td>0.249±0.001</td><td>0.242±0.002</td><td>0.281±0.018</td><td>0.271±0.009</td><td>0.214</td><td>0.218</td><td>0.405</td><td>0.329</td><td>0.314</td></tr><tr><td>192</td><td>0.277±0.000</td><td>0.272±0.003</td><td>0.302±0.020</td><td>0.275±0.003</td><td>0.254</td><td>0.259</td><td>0.434</td><td>0.370</td><td>0.329</td></tr><tr><td>336 720</td><td>0.304±0.001 0.342±0.000</td><td>0.299±0.001 0.341±0.002</td><td>0.310±0.012 0.363±0.002</td><td>0.307±0.009 0.351±0.021</td><td>0.296 0.347</td><td>0.297 0.348</td><td>0.543 0.705</td><td>0.391 0.426</td><td>0.377 0.409</td></tr><tr><td colspan="2">Overall MAE improvement</td><td></td><td>3.99%</td><td>11.63%</td><td>9.60%</td><td>2.05%</td><td>2.75%</td><td>53.00% 15.67%</td><td></td><td>9.93%</td></tr></table>
+
+# B.2. Significance Test for SAMformer and TSMixer with SAM
+
+In this section, we perform a Student t-test between SAMformer and TSMixer trained with SAM. It should be noted that TSMixer with SAM significantly outperforms vanilla TSMixer. We report the results in Table 7. We observe that the SAMformer significantly improves upon TSMixer trained with SAM on 7 out of 8 datasets.
+
+Table 7: Significance test with Student’s t-test and performance comparison between SAMformer and TSMixer trained with SAM across various datasets and prediction horizons. We display the average and standard deviation of the test MSE obtained on 5 runs $( \mathrm { m e a n \pm s t d } )$ . The performance of the best model is in bold when the improvement is statistically significant at the level 0.05 $\mathbf { \bar { p } }$ -value $< 0 . 0 5$ ).   
+
+<table><tr><td>H</td><td>Model</td><td>ETTh1</td><td>ETTh2</td><td>ETTm1</td><td>ETTm2</td><td>Electricity</td><td>Exchange</td><td>Traffic</td><td>Weather</td></tr><tr><td rowspan="2">96</td><td>SAMformer</td><td>0.381±0.003</td><td>0.295±0.002</td><td>0.329±0.001</td><td>0.181±0.005</td><td>0.155±0.002</td><td>0.161±0.007</td><td>0.407±0.001</td><td>0.197±0.001</td></tr><tr><td>TSMixer</td><td>0.388±0.001</td><td>0.305±0.007</td><td>0.327±0.002</td><td>0.190±0.003</td><td>0.171±0.001</td><td>0.233±0.016</td><td>0.409±0.016</td><td>0.189±0.003</td></tr><tr><td rowspan="2">192</td><td>SAMformer</td><td>0.409±0.002</td><td>0.340±0.002</td><td>0.353±0.006</td><td>0.233±0.002</td><td>0.168±0.001</td><td>0.246±0.009</td><td>0.415±0.005</td><td>0.235±0.000</td></tr><tr><td>TSMixer</td><td>0.421±0.002</td><td>0.350±0.002</td><td>0.356±0.004</td><td>0.250±0.002</td><td>0.191±0.010</td><td>0.342±0.031</td><td>0.433±0.009</td><td>0.228±0.004</td></tr><tr><td rowspan="2">336</td><td>SAMformer</td><td>0.423±0.001</td><td>0.350±0.000</td><td>0.382±0.001</td><td>0.285±0.001</td><td>0.183±0.000</td><td>0.368±0.006</td><td>0.421±0.001</td><td>0.276±0.001</td></tr><tr><td>TSMixer</td><td>0.430±0.002</td><td>0.360±0.002</td><td>0.387±0.004</td><td>0.301±0.003</td><td>0.198±0.006</td><td>0.474±0.014</td><td>0.424±0.000</td><td>0.271±0.001</td></tr><tr><td rowspan="2">720</td><td>SAMformer</td><td>0.427±0.002</td><td>0.391±0.001</td><td>0.429±0.000</td><td>0.375±0.001</td><td>0.219±0.000</td><td>1.003±0.018</td><td>0.456±0.003</td><td>0.334±0.000</td></tr><tr><td>TSMixer</td><td>0.440±0.005</td><td>0.402±0.002</td><td>0.441±0.002</td><td>0.389±0.002</td><td>0.230±0.005</td><td>1.078±0.179</td><td>0.488±0.028</td><td>0.331±0.001</td></tr></table>
+
+Table 8: Comparison of the number of parameters between SAMformer and TSMixer on the datasets described in Table 5 for prediction horizons $H \in \{ 9 6 , 1 9 2 , 3 3 6 , 7 2 0 \}$ . We also compute the ratio between the number of parameters of TSMixer and the number of parameters of SAMformer. A ratio of 10 means that TSMixer has 10 times more parameters than SAMformer. For each dataset, we display in the last cell of the corresponding row the ratio averaged over all the horizons $H$ . The overall ratio over all datasets and horizons is displayed in bold in the bottom right-hand cell.   
+
+<table><tr><td rowspan="2">Dataset</td><td colspan="2">H = 96</td><td colspan="2">H = 192</td><td colspan="2">H = 336</td><td colspan="2">H = 720</td><td rowspan="2">Total</td></tr><tr><td></td><td></td><td>SAMformer TSMixer SAMformer TSMixer</td><td></td><td>SAMformer</td><td></td><td>TSMixer SAMformer TSMixer</td><td></td></tr><tr><td>ETT</td><td>50272</td><td>124142</td><td>99520</td><td>173390</td><td>173392</td><td>247262</td><td>369904</td><td>444254</td><td></td></tr><tr><td>Exchange</td><td>50272</td><td>349344</td><td>99520</td><td>398592</td><td>173392</td><td>472464</td><td>369904</td><td>669456</td><td></td></tr><tr><td>Weather</td><td>50272</td><td>121908</td><td>99520</td><td>171156</td><td>173392</td><td>245028</td><td>369904</td><td>442020</td><td></td></tr><tr><td>Electricity</td><td>50272</td><td>280676</td><td>99520</td><td>329924</td><td>173392</td><td>403796</td><td>369904</td><td>600788</td><td></td></tr><tr><td>Traffic</td><td>50272</td><td>793424</td><td>99520</td><td>842672</td><td>173392</td><td>916544</td><td>369904</td><td>1113536</td><td>-</td></tr><tr><td>Avg. Ratio</td><td colspan="2">6.64</td><td colspan="2">3.85</td><td colspan="2">2.64</td><td colspan="2">1.77</td><td>3.73</td></tr></table>
+
+# B.3. Computational Efficiency of SAMformer
+
+In this section, we showcase the computational efficiency of our approach. We compare in Table 8 the number of parameters of SAMformer and TSMixer on the several benchmarks used in our experiments. We also display the ratio between the number of parameters of TSMixer and the number of parameters of SAMformer. Overall, SAMformer has $\sim 4$ times fewer parameters than TSMixer while outperforming it by $1 4 . 3 3 \%$ on average.
+
+# B.4. Strong Generalization Regardless of the Initialization
+
+In this section, we demonstrate that SAMformer has a strong generalization capacity. In particular, Transformer heavily depends on the initialization, which might be due to bad local minima as its loss landscape is sharper than the one of SAMformer. We display in Figure 9 and Figure 10 the distribution of the test MSE on 5 runs on the datasets used in our experiments (Table 5) and various prediction horizons $H \in \{ 9 6 , 1 9 2 , 3 3 6 , 7 2 0 \}$ . We can see that SAMformer has strong and stable performance across the datasets and horizons, regardless of the seed. On the contrary, the performance Transformer is unstable with a large generalization gap depending on the seed.
+
+# B.5. Faithful Signal Propagation
+
+In this section, we consider Transformer, SAMformer, σReparam, which corresponds to Transformer with the rescaling proposed by Zhai et al. (2023) and SAMformer $+ \sigma$ Reparam which is SAMformer with the rescaling proposed by Zhai et al. (2023). We plot a batch of attention matrices after training with prediction horizon $H = 9 6$ (our primary study does not identify significant changes with the value of horizon) on Weather in Figure 12. While Transformer tends to ignore the importance of a feature on itself by having low values on the diagonal, we can see in the bottom left of Figure 12 that SAMformer strongly encourages these feature-to-feature correlations. A very distinctive pattern is observable: a near-identity attention reminiscent of He et al. (2023) and Trockman & Kolter (2023). The former showed that pretrained vision models present similar patterns and both identified the benefits of such attention matrices for the propagation of information along the layers of deep transformers in NLP and computer vision. While in our setting, we have a single-layer transformer, this figure indicates that at the end of the training, self-information from features to themselves is not lost. In contrast, we see that $\sigma$ Reparam leads to almost rank-1 matrices with identical columns. This confirms the theoretical insights from Theorem 2.2 that showed how rescaling the trainable weights with $\sigma$ Reparam to limit the magnitude of $\| \mathbf { W } _ { Q } \mathbf { W } _ { K } ^ { \top } \| _ { 2 }$ could hamper the rank of $\mathbf { X } \mathbf { W } _ { Q } \mathbf { W } _ { K } ^ { \top } \mathbf { X } ^ { \top }$ and of the attention matrix. Finally, we observe that naively combining SAMformer with $\sigma$ Reparam does not solve the issues: while some diagonal patterns remain, most of the information has been lost. Moreover, combining both $\sigma$ Reparam and SAMformer heavily increases the training time, as shown in Figure 11.
+
+![](images/572280c3fe27ca93112bfe8c8b390f1b0125b31bf8d26dd2d5027f09e89bddb2.jpg)  
+Figure 9: Test Mean Squared error on all datasets for a prediction horizon $H \in \{ 9 6 , 1 9 2 \}$ across five different seed values for Transformer and SAMformer. This plot reveals a significant variance for the Transformer, as opposed to the minimal variance of SAMformer, showing the high impact of weight initialization on Transformer and the high resilience of SAMformer.
+
+![](images/ba8cb89d9dabcf2e2ccbed2b8f8295745e3bda3e4238c208dd09191ec27114d0.jpg)  
+Figure 10: Test Mean Squared error on all datasets for a prediction horizon $H \in \{ 3 3 6 , 7 2 0 \}$ across five different seed values for Transformer and SAMformer. This plot reveals a significant variance for the Transformer, as opposed to the minimal variance of SAMformer, showing the high impact of weight initialization on Transformer and the high resilience of SAMformer.
+
+![](images/5c4fbc9c43f1fec9e5cba3791ded4d624f49e7f2dcef990ec5481938ebac7457.jpg)  
+Figure 11: Using σReparam on top of SAMformer heavily increases the training time.
+
+![](images/0780abdaecb81972520d61231e40e815e2551a8ec6c2cfa4d14b8ad2cf603a13.jpg)  
+Figure 12: Batch of 32 attention matrices on Weather with horizon $H ~ = ~ 9 6$ after training different models. (a) Transformer. (b) $\sigma$ Reparam (c) SAMformer. (d) SAMformer $+ \sigma$ Reparam.
+
+# C. Ablation Study and Sensitivity Analysis
+
+# C.1. Sensitivity to the Prediction Horizon $H$ .
+
+In Figure 13, we show that SAMformer outperforms its best competitor, TSMixer trained with SAM, on 7 out of 8 datasets for all values of prediction horizon $H$ . This demonstrates the robustness of SAMformer.
+
+# C.2. Sensitivity to the Neighborhood Size $\rho$
+
+In Figure 14, we display the evolution of test MSE of SAMformer and TSMixer with the values of neighborhood size $\rho$ for SAM. Overall, SAMformer has a smooth behavior with $\rho$ , with a decreasing MSE and less variance. On the contrary, TSMixer is less stable and fluctuates more. On most of the datasets, the range of neighborhood seizes $\rho$ such that SAMformer is below TSMixer is large. The first value $\rho = 0$ amounts to the usual minimization with Adam, which confirms that SAM always improves the performance of SAMformer. In addition, and despite its lightweight (Table 8), SAMformer achieves the lowest MSE on 7 out of 8 datasets, as shown in Table 1 and Table 7. It should be noted that compared to similar studies in computer vision (Chen et al., 2022), values of $\rho$ must be higher to effectively improve the generalization and flatten the loss landscapes. This follows from the high sharpness $\lambda _ { m a x }$ observed in time series forecasting (Figure 5a) compared to computer vision models (Chen et al., 2022).
+
+![](images/6b6a7ad7329f9b28074052224c6b8ab0d5ba12afe4d1c462329039a64615473b.jpg)  
+Figure 13: Evolution of the test MSE on all datasets for a prediction horizon $H \in \{ 9 6 , 1 9 2 , 3 3 6 , 7 2 0 \}$ . We display the average test MSE with a $9 5 \%$ confidence interval. We see that SAMformer consistently performs well with a low variance. Despite its lightweight (Table 8), SAMformer surpasses TSMixer (trained with SAM) on 7 out of 8 datasets as shown in Table 1 and Table 7.
+
+![](images/274dbf3a80b735d47bc9faf81defe8652a9f449bcc11f561e9cc6496feacdde7.jpg)  
+Figure 14: Evolution of the test MSE with the neighborhood size $\rho$ of SAM (Remark D.1). We display the average test MSE with a $9 5 \%$ confidence interval. Overall, SAMformer has a smooth behavior with $\rho$ , with a decreasing MSE and less variance. On the contrary, TSMixer is less stable and fluctuates more. On most of the datasets, the range of neighborhood seizes $\rho$ such that SAMformer is below TSMixer is large. The first value $\rho = 0$ amounts to the usual minimization with Adam, which confirms that SAM always improves the performance of SAMformer. In addition, and despite its lightweight (Table 8), SAMformer achieves the lowest MSE on 7 out of 8 datasets, as shown in Table 1 and Table 7. It should be noted that compared to similar studies in computer vision (Chen et al., 2022), values of $\rho$ must be higher to effectively improve the generalization and flatten the loss landscapes.
+
+# C.3. Sensitivity to the Change of the Optimizer.
+
+In our work, we considered the Adam optimizer (Kingma & Ba, 2015) as it is the de-facto optimizer for transformer-based models (Ahn et al., 2023; Pan & Li, 2022; Zhou et al., 2022; 2021; Chen et al., 2022). The superiority of Adam to optimize networks with attention has been empirically and theoretically studied, where recent works show that the SGD (Nesterov,
+
+1983) was not suitable for attention-based models (Ahn et al., 2023; Liu et al., 2020; Pan & Li, 2022; Zhang et al., 2020). To ensure the thoroughness of our investigation, we conducted experiments on the synthetic dataset introduced in Eq. (2) and reported the results in Figure 15a. As expected, we see that using SGD leads to high-magnitude losses and divergence. We also conducted the same experiments with the AdamW (Loshchilov & Hutter, 2019) that incorporates the weight decay scheme in the adaptive optimizer Adam (Kingma & Ba, 2015). We display the results obtained with weight decay factors $\mathrm { w d } = 1 \mathrm { e } { - 3 }$ in Figure 15a and with wd $\in \{ 1 \mathrm { e } { - } 5 , 1 \mathrm { e } { - } 4 \}$ in Figure 15b. When $\mathrm { w d } = 1 \mathrm { e } { - 3 }$ , we observe that it does not converge. However, with wd $\in \{ 1 \mathrm { e } { - } 5 , 1 \mathrm { e } { - } 4 \}$ , we observe a similar behavior for Transformer than when it is trained with Adam (Figure 2). Hence, using AdamW does not lead to the significant benefits brought by SAM (Figure 1. As the optimization is very sensitive to the value of weight decay wd, it motivates us to conduct our experiments with Adam.
+
+![](images/0ed83a1656e5532c1aae1419ec3f71543714ffd15a4788f6e60cc6a8991d7d7a.jpg)  
+Figure 15: Illustration of different optimizers on synthetic data generated with Eq. (2) where Oracle is the least-square solution. We saw in Figure 1 that with Adam, Transformer overfits and has poor performance while SAMformer smoothly reaches the oracle. (a) We can see that using SGD and Adam with weight decay $\mathrm { w d } = 1 \mathrm { e } { - 5 }$ leads to huge loss magnitudes and fails to converge. (b) With well-chosen weight decays (wd $\in \{ 1 \mathrm { e } { - } 3 , 1 \mathrm { e } { - } 4 \} )$ , training Transformer with AdamW leads to similar performance than Adam. The overfitting is noticeable and the training is unstable. AdamW does not bring more stabilization and is very sensitive to the hyperparameters. Hence, this toy example motivates us to conduct our thorough experiments with the optimizer Adam.
+
+# C.4. Ablation on the Implementation.
+
+This ablation study contrasts two variants of our model to showcase the effectiveness of Sharpness-Aware Minimization (SAM) and our attention approach. Identity Attention represents SAMformer with an attention weight matrix constrained to identity, illustrating that SAM does not simply reduce the attention weight matrix to identity, as performance surpasses this configuration. Temporal Attention is compared to our Transformer without SAM, highlighting our focus on treating feature correlations in the attention mechanism rather than temporal correlations.
+
+Table 9: The Temporal Attention model is benchmarked against our Transformer model, which employs feature-based attention rather than time-step-based attention. We report in the last column the Overall improvement in MSE and MAE of Transformer over the Temporal Attention. This comparison reveals that channel-wise attention, i.e., focusing on features pairwise correlations, significantly boosts the performance, with a $1 2 . 9 7 \%$ improvement in MSE and $1 8 . 0 9 \%$ in MAE across all considered datasets.
+
+<table><tr><td>Model</td><td>Metrics</td><td>H</td><td>ETTh1</td><td>ETTh2</td><td>ETTm1</td><td>ETTm2</td><td>Electricity</td><td>Exchange</td><td>Traffic</td><td>Weather</td><td>Overall Improvement</td></tr><tr><td rowspan="9">Raa Aaod</td><td rowspan="9">MSE</td><td>96 192</td><td>0.496±0.009 0.510±0.014</td><td>0.401±0.011 0.414±0.020</td><td>0.542±0.063 0.615±0.056</td><td>0.330±0.034 0.394±0.033</td><td>0.291±0.025 0.294±0.024</td><td>0.684±0.218</td><td>0.933±0.188</td><td>0.225±0.005</td><td></td></tr><tr><td></td><td></td><td></td><td></td><td></td><td></td><td>0.434±0.063</td><td>0.647±0.131</td><td>0.254±0.001</td><td>12.97%</td></tr><tr><td>336</td><td>0.549±0.017</td><td>0.396±0.014</td><td>0.620±0.046</td><td>0.436±0.081</td><td>0.290±0.016</td><td>0.473±0.014</td><td>0.656±0.113</td><td>0.292±0.000</td><td></td></tr><tr><td>720</td><td>0.604±0.017</td><td>0.396±0.010</td><td>0.694±0.055</td><td>0.469±0.005</td><td>0.307±0.014</td><td>1.097±0.084</td><td></td><td>0.346±0.000</td><td></td></tr><tr><td>96</td><td>0.488±0.007</td><td>0.434±0.006</td><td>0.525±0.040</td><td>0.393±0.020</td><td>0.386±0.014</td><td>0.589±0.096</td><td>0.598±0.072</td><td>0.277±0.004</td><td></td></tr><tr><td>192 MAE</td><td>0.492±0.010</td><td>0.443±0.015</td><td>0.566±0.032</td><td>0.421±0.019</td><td>0.385±0.014</td><td>0.498±0.033</td><td>0.467±0.072</td><td>0.294±0.001</td><td>18.09%</td></tr><tr><td>336</td><td>0.517±0.012</td><td>0.440±0.012</td><td>0.550±0.024</td><td>0.443±0.039</td><td>0.383±0.009</td><td>0.517±0.008</td><td>0.469±0.070</td><td>0.320±0.000</td><td></td></tr><tr><td>720</td><td>0.556±0.009</td><td>0.442±0.006</td><td>0.584±0.027</td><td>0.459±0.004</td><td>0.396±0.012</td><td>0.782±0.041</td><td>-</td><td>0.356±0.000</td><td></td></tr><tr><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr></table>
+
+# D. Additional Background
+
+# D.1. Reversible Instance Normalization: RevIN
+
+Overview. Kim et al. (2021b) recently proposed RevIN, a reversible instance normalization to reduce the discrepancy between the distributions of training and test data. Indeed, statistical properties of real-world time series, e.g. mean and variance, can change over time, leading to non-stationary sequences. This causes a distribution shift between training
+
+Table 10: Identity Attention represents our SAMformer with the attention weight matrix constrained to an identity matrix. We report in the last column the Overall improvement in MSE and MAE of SAMformer over the Identity Attention. This setup demonstrates that naively fixing the attention matrix to the identity does not enable to match the performance of SAM, despite the near-identity attention matrices SAM showcases (see Appendix B.5 for more details). In particular, we observe an overall improvement of $1 1 . 9 3 \%$ in MSE and $4 . 1 8 \%$ in MAE across all the datasets.
+
+<table><tr><td>Model</td><td>Metrics</td><td>H</td><td>ETTh1</td><td>ETTh2</td><td>ETTm1</td><td>ETTm2</td><td>Electricity</td><td>Exchange</td><td>Traffic</td><td>Weather</td><td>Overall Improvement</td></tr><tr><td rowspan="7">Atu</td><td></td><td>96</td><td>0.477±0.059</td><td>0.346±0.055</td><td>0.345±0.027</td><td>0.201±0.035</td><td>0.175±0.015</td><td>0.179±0.031</td><td>0.416±0.037</td><td>0.206±0.019</td><td></td></tr><tr><td>MSE</td><td>192</td><td>0.467±0.074</td><td>0.374±0.031</td><td>0.384±0.042</td><td>0.248±0.016</td><td>0.189±0.022</td><td>0.320±0.070</td><td>0.437±0.041</td><td>0.236±0.002</td><td>11.93%</td></tr><tr><td></td><td>336</td><td>0.512±0.070</td><td>0.372±0.024</td><td>0.408±0.032</td><td>0.303±0.022</td><td>0.211±0.019</td><td>0.443±0.071</td><td>0.500±0.155</td><td>0.277±0.003</td><td></td></tr><tr><td></td><td>720</td><td>0.505±0.107</td><td>0.405±0.012</td><td>0.466±0.043</td><td>0.397±0.029</td><td>0.233±0.019</td><td>1.123±0.076</td><td>0.468±0.021</td><td>0.338±0.009</td><td></td></tr><tr><td></td><td>96</td><td>0.473±0.041</td><td>0.395±0.033</td><td>0.376±0.019</td><td>0.294±0.027</td><td>0.283±0.023</td><td>0.320±0.023</td><td>0.301±0.039</td><td>0.259±0.021</td><td></td></tr><tr><td>MAE</td><td>192</td><td>0.463±0.055</td><td>0.413±0.022</td><td>0.399±0.030</td><td>0.321±0.012</td><td>0.291±0.029</td><td>0.418±0.043</td><td>0.314±0.042</td><td>0.278±0.002</td><td>4.18%</td></tr><tr><td></td><td>336</td><td>0.490±0.049</td><td>0.413±0.015</td><td>0.411±0.019</td><td>0.354±0.018</td><td>0.309±0.021</td><td>0.498±0.041</td><td>0.350±0.106</td><td>0.305±0.003</td><td></td></tr><tr><td>Meay</td><td>720</td><td>0.496±0.066</td><td>0.438±0.008</td><td>0.444±0.030</td><td>0.406±0.017</td><td>0.322±0.021</td><td></td><td>0.788±0.021</td><td>0.325±0.023</td><td>0.347±0.009</td></tr></table>
+
+and test sets for the forecasting task. The RevIN normalization scheme is now widespread in deep learning approaches for time series forecasting (Chen et al., 2023; Nie et al., 2023). The RevIN normalization involves trainable parameters $( \beta , \gamma ) \in { \mathbb R } ^ { K } \times { \mathbb R } ^ { K }$ and consists of two parts: a normalization step and a symmetric denormalization step. Before presenting them, we introduce for a given input time series $\mathbf { X } ^ { ( i ) } \in \mathcal { X }$ the empirical mean $\hat { \mu } [ \mathbf { X } _ { k } ^ { ( i ) } ]$ and empirical standard deviation $\hat { \sigma } ^ { 2 } [ \mathbf { X } _ { k } ^ { ( i ) } ]$ of its $k$ -th feature $\mathbf { X } _ { k } ^ { \left( i \right) } \in \mathbb { R } ^ { 1 \times L }$ as follows:
+
+$$
+\begin{array} { r } { \left\{ \begin{array} { l l } & { \hat { \boldsymbol { \mu } } \Big [ \mathbf { X } _ { k } ^ { ( i ) } \Big ] = \frac { 1 } { L } \sum _ { t = 1 } ^ { L } \mathbf { X } _ { k j } ^ { ( i ) } } \\ & { \hat { \boldsymbol { \sigma } } ^ { 2 } \Big [ \mathbf { X } _ { k } ^ { ( i ) } \Big ] = \frac { 1 } { L } \sum _ { t = 1 } ^ { L } ( \mathbf { X } _ { k j } ^ { ( i ) } - \hat { \boldsymbol { \mu } } [ \mathbf { X } _ { k } ^ { ( i ) } ] ) ^ { 2 } . } \end{array} \right. } \end{array}
+$$
+
+The first one acts on the input sequence $\mathbf { X } ^ { ( i ) }$ and outputs the corresponding normalized sequence $\tilde { \mathbf { X } } ^ { ( i ) } \in \mathbb { R } ^ { K \times L }$ such that for all $k , t$ ,
+
+$$
+\tilde { \mathbf { X } } _ { k t } ^ { ( i ) } = \gamma _ { k } \left( \frac { \mathbf { X } _ { k t } ^ { ( i ) } - \hat { \mu } \Big [ \mathbf { X } _ { k } ^ { ( i ) } \Big ] } { \sqrt { \hat { \sigma } ^ { 2 } \Big [ \mathbf { X } _ { k } ^ { ( i ) } \Big ] + \varepsilon } } \right) + \beta _ { k } ,
+$$
+
+where $\varepsilon > 0$ is a small constant to avoid dividing by 0. The neural network’s input is then $\tilde { \mathbf { X } } ^ { ( i ) }$ , instead of $\mathbf { X } ^ { ( i ) }$ . The second step is applied to the output of the neural network $\widetilde { \mathbf { Y } } ^ { ( i ) }$ , such that the final output considered for the forecasting is the denormalized sequence $\hat { \mathbf { Y } } ^ { ( i ) } \in \mathbb { R } ^ { K \times H }$ such that for all $k , t$ ,
+
+$$
+\hat { \mathbf { Y } } _ { k t } ^ { ( i ) } = \sqrt { \hat { \sigma } ^ { 2 } \Big [ \mathbf { X } _ { k } ^ { ( i ) } \Big ] + \varepsilon } \cdot \left( \frac { \tilde { \mathbf { Y } } _ { k t } ^ { ( i ) } - \beta _ { k } } { \gamma _ { k } } \right) + \hat { \mu } \Big [ \mathbf { X } _ { k } ^ { ( i ) } \Big ] .
+$$
+
+As stated in Kim et al. (2021b), ${ \hat { \mu } } , { \hat { \sigma } } ^ { 2 } , \beta$ and $\gamma$ contain the non-stationary information of the input sequences $\mathbf { X } ^ { ( i ) }$ .
+
+End-to-end closed form with linear model and RevIN. We consider a simple linear neural network. Formally, for any input sequence $\mathbf { X } \in \mathbb { R } ^ { D \times L }$ , the prediction of $f _ { \mathrm { l i n } } \colon \mathbb { R } ^ { D \times L } \to \mathbb { R } ^ { D \times H }$ simply writes
+
+$$
+f _ { \mathrm { l i n } } ( \mathbf { X } ) = \mathbf { X } \mathbf { W } .
+$$
+
+When combined with RevIN, the neural network $f _ { \mathrm { l i n } }$ is not directly applied to the input sequence but after the first normalization step of RevIN (Eq. (7)). An interesting benefit of the simplicity of $f _ { \mathrm { l i n } }$ is that it enables us to write its prediction in closed form, even when with RevIN. The proof is deferred to Appendix E.4.
+
+Proposition D.1 (Closed-form formulation). For any input sequence $\mathbf { X } \in \mathbb { R } ^ { K \times L }$ , the output of the linear model
+
+$\hat { \mathbf { Y } } = f _ { \mathrm { l i n } } ( \mathbf { X } ) \in \mathbb { R } ^ { K \times H }$ has entries
+
+$$
+\hat { \mathbf { Y } } _ { k t } = \hat { \mu } [ \mathbf { X } _ { k } ] + \sum _ { j = 1 } ^ { L } ( \mathbf { X } _ { k j } - \hat { \mu } [ \mathbf { X } _ { k } ] ) \mathbf { W } _ { j t } - \frac { \beta _ { k } } { \gamma _ { k } } \sqrt { \hat { \sigma } ^ { 2 } [ \mathbf { X } _ { k } ] + \varepsilon } \left( 1 - \sum _ { j = 1 } ^ { L } \mathbf { W } _ { j t } \right) ,
+$$
+
+Proposition D.1 highlights the fact that the $k$ -th variable of the outputs $\hat { \mathbf Y }$ only depends on $k$ -th variable of the input sequence $\mathbf { X }$ . It leads to channel-independent forecasting, although we did not explicitly enforce it. (10) can be seen as a linear interpolation around the mean $\hat { \mu }$ with a regularization term on the network parameters $\mathbf { W }$ involving the nonstationary information $\hat { \sigma } ^ { 2 } , \beta , \gamma$ . Moreover, the output sequence $\hat { \mathbf Y }$ can be written in a more compact and convenient matrix formulation as follows
+
+$$
+\begin{array} { r } { \hat { \mathbf { Y } } = \mathbf { X } \mathbf { W } + \boldsymbol { \xi } ^ { ( \mathbf { X } , \mathbf { W } , \boldsymbol { \beta } , \gamma ) } , } \end{array}
+$$
+
+where $\pmb { \xi } ^ { ( \mathbf { X } , \mathbf { W } , \beta , \gamma ) } \in \mathbb { R } ^ { K \times H }$ with entry $\begin{array} { r } { \left( \hat { \mu } [ \mathbf { X } _ { k } ] - \frac { \beta _ { k } } { \gamma _ { k } } \sqrt { \hat { \sigma } ^ { 2 } [ \mathbf { X } _ { k } ] + \varepsilon } \right) \left( 1 - \sum _ { j = 1 } ^ { L } \mathbf { W } _ { j t } \right) } \end{array}$ in the $k$ -th row and $t$ -th column. The proof is deferred to Appendix E.5. With this formulation, the predicted sequence can be seen as a sum of a linear term XW and a residual term $\bar { \xi ^ { ( \mathbf { X } , \mathbf { W } , \beta , \gamma ) } }$ that takes into account the first and second moments of each variable ${ \bf X } _ { k }$ , which is reminiscent of the linear regression model.
+
+# D.2. Sharpness-aware minimization (SAM)
+
+Regularizing with the sharpness. Standard approaches consider a parametric family of models $f _ { \omega }$ and aim to find parameters $\omega$ that minimize a training objective $\mathcal { L } _ { \mathrm { t r a i n } } ( \omega )$ , used as a tractable proxy to the true generalization error $\mathcal { L } _ { \mathrm { t e s t } } ( \omega )$ . Most deep learning pipelines rely on first-order optimizers, e.g. SGD (Nesterov, 1983) or Adam (Kingma & Ba, 2015), that disregard higher-order information such as the curvature, despite its connection to generalization (Dziugaite & Roy, 2017; Chaudhari et al., 2017; Keskar et al., 2017). As $\mathcal { L } _ { \mathrm { t r a i n } }$ is usually non-convex in $\omega$ , with multiple local or global minima, solving $\operatorname* { m i n } _ { \omega }$ $\mathcal { L } _ { \mathrm { t r a i n } } ( \omega )$ may still lead to high generalization error $\mathcal { L } _ { \mathrm { t e s t } } ( \omega )$ . To alleviate this issue, Foret et al. (2021) propose to regularize the training objective with the sharpness, defined as follows
+
+Definition D.2 (Sharpness, Foret et al. (2021)). For a given $\rho \ge 0$ , the sharpness of $\mathcal { L } _ { \mathrm { t r a i n } }$ at $\omega$ writes
+
+$$
+s ( \omega , \rho ) : = \operatorname* { m a x } _ { \| \epsilon \| _ { 2 } \leq \rho } \mathcal { L } _ { \mathrm { t r a i n } } ( \omega + \epsilon ) - \mathcal { L } _ { \mathrm { t r a i n } } ( \omega ) .
+$$
+
+Remark D.1 (Interpretation of $\rho \mathrm { \hbar }$ ). Instead of simply minimizing the training objective $\mathcal { L } _ { \mathrm { t r a i n } }$ , SAM searches for parameters $\omega$ achieving both low training loss and low curvature in a ball $B ( \omega , \rho )$ . The hyperparameter $\rho \geq 0$ corresponds to the size of the neighborhood on which the parameters search is done. In particular, taking $\rho = 0$ is equivalent to the usual minimization of Ltrain.
+
+In particular, SAM incorporates sharpness in the learning objective, resulting in the problem of minimizing w.r.t $\omega$
+
+$$
+\mathcal { L } _ { \mathrm { t r a i n } } ^ { \mathrm { S A M } } ( \omega ) : = \underbrace { \operatorname* { m a x } _ { \| \epsilon \| _ { 2 } \leq \rho } \mathcal { L } _ { \mathrm { t r a i n } } ( \omega + \epsilon ) } _ { = \mathcal { L } _ { \mathrm { t r a i n } } ( \omega ) + s ( \omega , \rho ) } .
+$$
+
+Gradient updates. As the exact solution to the inner maximization in Eq. (13) is hard to compute, the authors of (Foret et al., 2021) approximate it with the following first-order Taylor expansion
+
+$$
+\begin{array} { r l } & { \epsilon ^ { * } ( \omega ) : = \underset { | | \epsilon | | _ { 2 } \leq \rho } { \arg \operatorname* { m a x } } \mathcal { L } _ { \mathrm { t r a i n } } ( \omega + \epsilon ) } \\ & { ~ \approx \underset { | | \epsilon | | _ { 2 } \leq \rho } { \arg \operatorname* { m a x } } \mathcal { L } _ { \mathrm { t r a i n } } ( \omega ) + \epsilon ^ { \top } \nabla \mathcal { L } _ { \mathrm { t r a i n } } ( \omega ) } \\ & { ~ = \underset { | | \epsilon | | _ { 2 } \leq \rho } { \arg \operatorname* { m a x } } \epsilon ^ { \top } \nabla \mathcal { L } _ { \mathrm { t r a i n } } ( \omega ) , } \end{array}
+$$
+
+where the solution of (14) writes ϵˆ(ω) = ρ train 2 ∇Ltrain(ω)∥∇L (ω)∥ . It leads to the following gradient update
+
+$$
+\omega _ { t + 1 } = \omega _ { t } - \eta \nabla \mathcal { L } _ { \mathrm { t r a i n } } \left( \omega _ { t } + \rho \frac { \nabla \mathcal { L } _ { \mathrm { t r a i n } } ( \omega ) } { \| \nabla \mathcal { L } _ { \mathrm { t r a i n } } ( \omega ) \| _ { 2 } } \right) ,
+$$
+
+where $\eta$ is the learning rate.
+
+# E. Proofs
+
+# E.1. Notations
+
+To ease the readability of the proofs, we recall the following notations. We denote scalar values by regular letters (e.g., parameter $\lambda$ ), vectors by bold lowercase letters (e.g., vector x), and matrices by bold capital letters (e.g., matrix $\mathbf { M }$ ). For a matrix $\mathbf { M } \in \mathbb { R } ^ { n \times m }$ , we denote by $\mathbf { M } _ { i }$ its $i$ -th row, by $\mathbf { M } _ { \cdot , j }$ its $j$ -th column, by $m _ { i j }$ its entries and by $\mathbf { M } ^ { \top }$ its transpose. We denote the trace of a matrix $\mathbf { M }$ by $\mathrm { T r } ( \mathbf { M } )$ , its rank by $\mathrm { r a n k } ( \mathbf { M } )$ and its Frobenius norm by $\lVert \mathbf { M } \rVert _ { \mathrm { F } }$ . We denote $\pmb { \sigma } ( \mathbf { M } ) : = ( \sigma _ { 1 } ( \mathbf { M } ) , \dots , \sigma _ { \tilde { n } } ( \mathbf { M } ) )$ the vector of singular values of $\mathbf { M }$ in non-decreasing order, with $\tilde { n } = \operatorname* { m i n } \{ n , m \}$ and the specific notation $\sigma _ { \mathrm { m i n } } ( \mathbf { M } )$ , $\sigma _ { \mathrm { m a x } } ( \mathbf { M } )$ for the minimum and maximum singular values, respectively. We denote by $\begin{array} { r } { \| \mathbf { M } \| _ { * } = \sum _ { i = 1 } ^ { \tilde { n } } \sigma _ { i } ( \mathbf { M } ) } \end{array}$ its nuclear norm and by $\| \mathbf { M } \| _ { 2 } = \sigma _ { \operatorname* { m a x } } ( \mathbf { M } )$ its spectral norm. When $\mathbf { M }$ is square with $n = m$ we denote $\lambda ( \mathbf { M } ) : = ( \lambda _ { 1 } ( \mathbf { M } ) , \ldots , \lambda _ { n } ( \mathbf { M } ) )$ the vector of singular values of $\mathbf { M }$ in non-decreasing order and the specific notation $\lambda _ { \operatorname* { m i n } } ( \mathbf { M } ) , \lambda _ { \operatorname* { m a x } } ( \mathbf { M } )$ for the minimum and maximum singular values, respectively. For a vector $\mathbf { x }$ , its transpose writes $\mathbf { x } ^ { \top }$ and its usual Euclidean norm writes $\| \mathbf { x } \|$ . The identity matrix of size $n \times n$ is denoted by ${ \mathbf I } _ { n }$ . The vector of size $n$ with each entry equal to 1 is denoted by $\mathbb { 1 } _ { n }$ . The notation $\mathbf M \succcurlyeq \mathbf 0$ indicates that M is positive semi-definite.
+
+# E.2. Proof of Proposition 2.1
+
+We first recall the following technical lemmas.
+
+Lemma E.1. Let $\mathbf { S } \in \mathbb { R } ^ { n \times m }$ and $\mathbf { B } \in \mathbb { R } ^ { m \times m }$ . If B has full rank, then
+
+$$
+\operatorname { r a n k } ( \mathbf { S } \mathbf { B } ) = \operatorname { r a n k } ( \mathbf { B } \mathbf { S } ) = \operatorname { r a n k } ( \mathbf { S } ) .
+$$
+
+Proof. Let ${ \bf F } _ { 1 } : = \{ { \bf S u } | { \bf u } \in \mathbb { R } ^ { m } \} \subset \mathbb { R } ^ { n }$ and ${ \bf F } _ { 2 } : = \{ ( { \bf S } { \bf B } ) { \bf u } | { \bf u } \in \mathbb { R } ^ { m } \} \subset \mathbb { R } ^ { n }$ be the vector spaces generated by the columns of S and SB respectively. By definition, the rank of a matrix is the dimension of the vector space generated by its columns (equivalently by its rows). We will show that $\mathbf { F } _ { 1 }$ and $\mathbf { F } _ { 2 }$ coincides. Let $\mathbf { v } \in \mathbf { F } _ { 1 }$ , i.e., there exists $\mathbf { u } \in \mathbb { R } ^ { m }$ such that $\mathbf { v } = \mathbf { S } \mathbf { u }$ . As $\mathbf { B }$ is full rank, the operator $\mathbf { x } \to \mathbf { B x }$ is bijective. It follows that there always exists some $\mathbf { z } \in \mathbb { R } ^ { m }$ such that $\mathbf { u } = \mathbf { B } \mathbf { z }$ . Then, we have
+
+$$
+\mathbf { v } = \mathbf { S } \mathbf { u } = \mathbf { S } ( \mathbf { B } \mathbf { z } ) = ( \mathbf { S } \mathbf { B } ) \mathbf { z } ,
+$$
+
+which means that $\mathbf { v } \in \mathbf { F } _ { 2 }$ . As $\mathbf { v }$ was taken arbitrarily in $\mathbf { F } _ { 1 }$ , we have proved that $\mathbf { F } _ { 1 } \subset \mathbf { F } _ { 2 }$ . Conversely, consider $\mathbf { y } \in \mathbf { F } _ { 2 }$ , i.e., we can write $\mathbf { y } = ( \mathbf { S } \mathbf { B } ) \mathbf { z }$ for some $\mathbf { z } \in \mathbb { R } ^ { m }$ . It can then be seen that
+
+$$
+\mathbf { y } = ( \mathbf { S } \mathbf { B } ) \mathbf { z } = \mathbf { S } ( \mathbf { B } \mathbf { z } ) ,
+$$
+
+which means that $\mathbf { y } \in \mathbf { F } _ { 1 }$ . Again, as $\mathbf { y }$ was taken arbitrarily, we have proved that $\mathbf { F } _ { 1 } \subset \mathbf { F } _ { 2 }$ . In the end, we demonstrated that $\mathbf { F } _ { 1 }$ and $\mathbf { F } _ { 2 }$ coincide, hence they have the same dimension. By definition of the rank, S and SB have the same rank. Similar arguments can be used to show that S and BS have the same rank, which concludes the proof.
+
+The next lemma is a well-known result in matrix analysis and can be found in Horn & Johnson (1991, Theorem 4.4.5). For he sake of self-consistency, we recall it below along with a sketch of the original proof.
+
+Lemma E.2. (see Horn & Johnson, 1991, Theorem 4.4.5, $p$ . 281). Let $\mathbf { S } \in \mathbb { R } ^ { n \times m } , \mathbf { B } = \mathbb { R } ^ { p \times q }$ and $\mathbf { C } \in \mathbb { R } ^ { n \times q }$ . There exists matrices $\mathbf { Y } \in \mathbb { R } ^ { m \times q }$ and $\mathbf { Z } \in \mathbb { R } ^ { n \times p }$ such that $\mathbf { S } \mathbf { Y } - \mathbf { Z } \mathbf { B } = \mathbf { C } i$ f, and only $i f ,$
+
+$$
+\operatorname { r a n k } \left( { \left[ \begin{array} { l l } { \mathbf { S } } & { \mathbf { C } } \\ { \mathbf { 0 } } & { \mathbf { B } } \end{array} \right] } \right) = \operatorname { r a n k } \left( { \left[ \begin{array} { l l } { \mathbf { S } } & { \mathbf { 0 } } \\ { \mathbf { 0 } } & { \mathbf { B } } \end{array} \right] } \right) .
+$$
+
+Proof. Assume that there exists $\mathbf { Y } \in \mathbb { R } ^ { m \times q }$ and $\mathbf { Z } \in \mathbb { R } ^ { n \times p }$ such that $\mathbf { S } \mathbf { Y } - \mathbf { Z } \mathbf { B } = \mathbf { C }$ . Recall that the following equality
+
+$$
+\left[ \begin{array} { c c } { \mathbf { S } } & { \mathbf { S Y - Z B } } \\ { \mathbf { 0 } } & { \mathbf { B } } \end{array} \right] = \left[ \begin{array} { c c } { \mathbf { I } _ { m } } & { \mathbf { - Y } } \\ { \mathbf { 0 } } & { \mathbf { I } _ { q } } \end{array} \right] \left[ \begin{array} { c c } { \mathbf { S } } & { \mathbf { 0 } } \\ { \mathbf { 0 } } & { \mathbf { B } } \end{array} \right] \left[ \begin{array} { c c } { \mathbf { I } _ { n } } & { \mathbf { Z } } \\ { \mathbf { 0 } } & { \mathbf { I } _ { p } } \end{array} \right] .
+$$
+
+Using Lemma E.1 on the right-hand-side of Eq. (15), we obtain
+
+$$
+\operatorname { r a n k } \left( { \left[ \begin{array} { l l } { \mathbf { S } } & { \mathbf { S Y } - \mathbf { Z B } } \\ { \mathbf { 0 } } & { \mathbf { B } } \end{array} \right] } \right) = \operatorname { r a n k } \left( { \left[ \begin{array} { l l } { \mathbf { S } } & { \mathbf { 0 } } \\ { \mathbf { 0 } } & { \mathbf { B } } \end{array} \right] } \right) .
+$$
+
+Using $\mathbf { S Y } - \mathbf { Z B } = \mathbf { C }$ concludes the proof for the first implication of the equivalence. To prove the opposite direction, the authors of Horn & Johnson (1991) assume that
+
+$$
+\operatorname { r a n k } \left( { \left[ \begin{array} { l l } { \mathbf { S } } & { \mathbf { C } } \\ { \mathbf { 0 } } & { \mathbf { B } } \end{array} \right] } \right) = \operatorname { r a n k } \left( { \left[ \begin{array} { l l } { \mathbf { S } } & { \mathbf { 0 } } \\ { \mathbf { 0 } } & { \mathbf { B } } \end{array} \right] } \right) .
+$$
+
+Since two matrices have the same rank if, and only if, they are equivalent, we know that there exists ${ \textbf { Q } } \in$ $\mathbb { R } ^ { ( n + p ) \times ( n + p ) }$ , $\mathbf { U } \in \mathbb { R } ^ { ( m + q ) \times ( m + q ) }$ non-singular such that
+
+$$
+{ \left[ \begin{array} { l l } { \mathbf { S } } & { \mathbf { C } } \\ { \mathbf { 0 } } & { \mathbf { B } } \end{array} \right] } = \mathbf { Q } \left[ { \begin{array} { l l } { \mathbf { S } } & { \mathbf { 0 } } \\ { \mathbf { 0 } } & { \mathbf { B } } \end{array} } \right] \mathbf { U } .
+$$
+
+The rest of the proof in Horn & Johnson (1991) is constructive and relies on Eq. (16) to exhibit $\mathbf { Y } \in \mathbb { R } ^ { m \times q }$ and $\mathbf { Z } \in \mathbb { R } ^ { n \times p }$ such that $\mathbf { S Y } - \mathbf { Z B } = \mathbf { C }$ . This concludes the proof of the equivalence. □
+
+We now proceed to the proof of Proposition 2.1.
+
+Proof. Applying Lemma E.2 with $\textbf { S } = \textbf { P }$ , $\textbf { B } = \textbf { 0 }$ , $\mathbf { C } \ = \mathbf { X } \mathbf { W } _ { \mathrm { t o y } }$ and $\mathbf { W }$ in the role of $\mathbf { Y }$ ensures that there exists $\mathbf { W } \in \mathbb { R } ^ { L \times H }$ such that $\mathbf { P W } = \mathbf { X } \mathbf { W } _ { \mathrm { t o y } }$ if and only if $\mathrm { r a n k } ( \mathbf { [ P \quad X W _ { \mathrm { t o y } } ] } ) = \mathrm { r a n k } ( \mathbf { P } )$ , which concludes the proof.
+
+# E.3. Proof of Proposition 2.2
+
+We first prove the following technical lemmas. While these lemmas are commonly used and, for most of them, straightforward to prove, they are very useful to demonstrate Proposition 2.2.
+
+Lemma E.3 (Trace of a product of matrix). Let $\mathbf { S } , \mathbf { B } \in \mathbb { R } ^ { n \times n }$ be symmetric matrices with $\mathbf { B }$ positive semi-definite. We have
+
+$$
+\lambda _ { \operatorname* { m i n } } ( \mathbf { S } ) \operatorname { T r } ( \mathbf { B } ) \leq \operatorname { T r } ( \mathbf { S } \mathbf { B } ) \leq \lambda _ { \operatorname* { m a x } } ( \mathbf { S } ) \operatorname { T r } ( \mathbf { B } ) .
+$$
+
+Proof. The spectral theorem ensures the existence of $\mathbf { P } \in \mathbb { R } ^ { n \times n }$ orthogonal, i.e., $\mathbf { P } ^ { \top } \mathbf { P } = \mathbf { P } \mathbf { P } ^ { \top } = \mathbf { I } _ { n }$ , and $\ b { \ b { \ b { \Lambda } } } \in \mathbb { R } ^ { n \times n }$ diagonal with the eigenvalues of $\mathbf { S }$ as entries such that $\mathbf { S } = \mathbf { P } \pmb { \Lambda } \mathbf { P } ^ { \top }$ . Benefiting from the properties of the trace operator, we have
+
+$$
+{ \begin{array} { r l } & { \operatorname { T r } ( \mathbf { S } \mathbf { B } ) = \operatorname { T r } ( \mathbf { I } _ { n } \mathbf { S } \mathbf { B } ) } \\ & { \qquad = \operatorname { T r } \left( { \frac { \operatorname { P r } ^ { \top } \mathbf { S } \mathbf { B } } { - 1 } } \right) } \\ & { \qquad = \operatorname { T r } \left( \mathbf { P } ^ { \top } \mathbf { S } \mathbf { B } \mathbf { P } \right) } \\ & { \qquad = \operatorname { T r } \left( \mathbf { P } ^ { \top } \mathbf { S } \mathbf { B } \mathbf { P } \right) } \\ & { \qquad = \operatorname { T r } \left( \mathbf { P } ^ { \top } \mathbf { P } \mathbf { A } \mathbf { P } ^ { \top } \mathbf { B } \mathbf { P } \right) } \\ & { \qquad = \operatorname { T r } \left( { \frac { \operatorname { P r } } { - 1 } } \mathbf { P } \mathbf { \tilde { \Sigma } } \mathbf { A } \mathbf { P } ^ { \top } \mathbf { B } \mathbf { P } \right) } \\ & { \qquad = \operatorname { T r } \left( \mathbf { A } \mathbf { P } ^ { \top } \mathbf { B } \mathbf { P } \right) . } \end{array} }
+$$
+
+(cyclic property of trace)
+
+We introduce $\tilde { \mathbf { B } } = \mathbf { P } ^ { \top } \mathbf { B } \mathbf { P } = [ \tilde { b } _ { i j } ] _ { i j }$ . It follows from the definition of $\pmb { \Lambda }$ that
+
+$$
+\mathrm { T r } ( \mathbf { S } \mathbf { B } ) = \mathrm { T r } \big ( \mathbf { A } \mathbf { P } ^ { \top } \mathbf { B } \mathbf { P } \big ) = \mathrm { T r } \Big ( \mathbf { A } \tilde { \mathbf { B } } \Big ) = \sum _ { i } \lambda _ { i } ( \mathbf { S } ) \tilde { b } _ { i i } .
+$$
+
+We would like to write the $\tilde { b } _ { i j }$ with respect to the $p _ { i j } , b _ { i j }$ the elements of $\mathbf { P } , \mathbf { B }$ , respectively. As $\mathbf { P }$ is orthogonal, we know that its columns $( \mathbf { e } _ { i } ) _ { i = 0 } ^ { n }$ form an orthonormal basis of $\mathbb { R } ^ { n }$ . Hence, the entry $( i , j )$ of $\mathbf { \Delta } \mathbf { \Lambda } \mathbf { \Lambda } \mathbf { \Lambda } \mathbf { \Lambda } \mathbf { \Lambda } \mathbf { \Lambda } \mathbf { \Lambda } \mathbf { \Lambda } \mathbf { \Lambda } \mathbf { \Lambda } \mathbf { \Lambda } \mathbf { \Lambda } \mathbf { \Lambda } \mathbf { \Lambda } \mathbf { \Lambda } \mathbf { \Lambda } \mathbf { \Lambda } \mathbf { \Lambda } \mathbf { \Lambda } \Delta \mathbf { P } \mathbf { \Lambda }$ , writes as follows:
+
+$$
+\begin{array} { l } { \displaystyle \dot { b } _ { i j } = \sum _ { k l } p _ { k i } b _ { i j } p _ { j k } } \\ { = \sum _ { k } p _ { k i } \underbrace { \left( \sum _ { l } b _ { i j } p _ { j k } \right) } _ { \left. { \bf B } e _ { j } \right. _ { k } } } \\ { = \sum _ { k } p _ { k i } \left. { \bf B } \Theta _ { j } \right. _ { k } } \\ { = e _ { i } ^ { \top } { \bf B } e _ { j } \geq 0 . } \end{array}
+$$
+
+Hence, as $\mathbf { B }$ is positive semi-definite, the $\tilde { b } _ { i j }$ are nonnegative. It follows that
+
+$$
+\lambda _ { \operatorname* { m i n } } ( \mathbf { S } ) \sum _ { i } \tilde { b } _ { i i } \leq \sum _ { i } \lambda _ { i } ( \mathbf { S } ) \underbrace { \tilde { b } _ { i i } } _ { \geq 0 } \leq \lambda _ { \operatorname* { m a x } } ( \mathbf { S } ) \sum _ { i } \tilde { b } _ { i i } .
+$$
+
+Moreover, using the definition of $\tilde { \mathbf { B } }$ , the orthogonality of $\mathbf { P }$ and the cyclic property of the trace operation, we have
+
+$$
+\sum _ { i } { \tilde { b } } _ { i i } = \operatorname { T r } \left( { \tilde { \mathbf { B } } } \right) = \operatorname { T r } \left( \mathbf { P } ^ { \top } \mathbf { B } \mathbf { P } \right) = \operatorname { T r } \left( \underbrace { \mathbf { P } \mathbf { P } ^ { \top } } _ { = \mathbf { I } _ { n } } \mathbf { B } \right) = \operatorname { T r } ( \mathbf { B } ) .
+$$
+
+Combining this last equality with Eq. (17) and Eq. (18) concludes the proof, i.e.,
+
+$$
+\lambda _ { \operatorname* { m i n } } ( \mathbf { S } ) \operatorname { T r } ( \mathbf { B } ) \leq \operatorname { T r } ( \mathbf { S } \mathbf { B } ) \leq \lambda _ { \operatorname* { m a x } } ( \mathbf { S } ) \operatorname { T r } ( \mathbf { B } ) .
+$$
+
+Lemma E.4 (Power of symmetric matrices). Let $\mathbf { S } \in \mathbb { R } ^ { n \times n }$ be symmetric. The spectral theorem ensures the existence of $\mathbf { P } \in \mathbb { R } ^ { n \times n }$ orthogonal, i.e., $\mathbf { P } ^ { \top } \mathbf { P } = \mathbf { P } \mathbf { P } ^ { \top } = \mathbf { I } _ { n }$ , and $\ b { \ b { \ b { \Lambda } } } \in \mathbb { R } ^ { n \times n }$ diagonal with the eigenvalues of S as entries such that $\mathbf { S } = \mathbf { P } \pmb { \Lambda } \mathbf { P } ^ { \top }$ . For any integer $n \geq 1$ , we have
+
+$$
+\mathbf { S } ^ { n } = \mathbf { P } \pmb { \Lambda } ^ { n } \mathbf { P } ^ { \top } .
+$$
+
+In particular, the eigenvalues of $\mathbf { S } ^ { n }$ are equal to the eigenvalues of S to the power of $n$
+
+Proof. Let $n \geq 1$ be an integer. We have
+
+$$
+{ \begin{array} { r l } & { \mathbf { S } ^ { n } = \left( \mathbf { P } \mathbf { A } \mathbf { P } ^ { \mathsf { T } } \right) ^ { n } } \\ & { \quad = \underbrace { \mathbf { P } \mathbf { A } \mathbf { P } ^ { \mathsf { T } } \times \mathbf { P } \mathbf { A } \mathbf { P } ^ { \mathsf { T } } \times \cdots \times \mathbf { P } \mathbf { A } \mathbf { P } ^ { \mathsf { T } } \times \mathbf { P } \mathbf { A } \mathbf { P } ^ { \mathsf { T } } } _ { \times n } } \\ & { \quad = \underbrace { \mathbf { P } \mathbf { A } \times \mathbf { A } \mathbf { P } ^ { \mathsf { T } } \ldots \mathbf { P } \mathbf { A } \times \mathbf { A } \mathbf { P } ^ { \mathsf { T } } } _ { \times n } } \\ & { \quad = \mathbf { P } \underbrace { \mathbf { A } \times \mathbf { A } \times \cdots \times \mathbf { A } \times \mathbf { A } } _ { \times n } \mathbf { P } ^ { \mathsf { T } } } \\ & { \quad = \mathbf { P } \mathbf { A } ^ { n } \mathbf { P } ^ { \mathsf { T } } . } \end{array} }
+$$
+
+(orthogonality of $\mathbf { P }$ )
+
+The diagonality of $\pmb { \Lambda }$ suffices to deduct the remark on the eigenvalues of $\mathbf { S } ^ { n }$ .
+
+Lemma E.5 (Case of equality between eigenvalues and singular values). Let $\mathbf { S } \in \mathbb { R } ^ { n \times n }$ be symmetric and positive semi-definite. Then the i-th eigenvalue and the i-th singular value of S are equal, i.e., for all $i \in [ [ 1 , n ] ]$ , we have
+
+$$
+\lambda _ { i } ( \mathbf { S } ) = \sigma _ { i } ( \mathbf { S } ) .
+$$
+
+Proof. Let $i \in [ [ 1 , n ] ]$ . By definition of singular value, we have
+
+$$
+\begin{array} { r l } & { \boldsymbol { \sigma } _ { i } ( \mathbf { S } ) : = \sqrt { \lambda _ { i } ( \mathbf { S } ^ { \top } \mathbf { S } ) } } \\ & { \quad \quad = \sqrt { \lambda _ { i } ( \mathbf { S } ^ { 2 } ) } } \\ & { \quad \quad = \sqrt { \lambda _ { i } ( \mathbf { S } ) ^ { 2 } } } \\ & { \quad \quad = \left| \lambda _ { i } ( \mathbf { S } ) \right| } \\ & { \quad \quad = \lambda _ { i } ( \mathbf { S } ) . } \end{array}
+$$
+
+Lemma E.6. Let $\mathbf { X } \in \mathbb { R } ^ { D \times L }$ be an input sequence and $\mathbf { S } \in \mathbb { R } ^ { L \times L }$ be a positive semi-definite matrix. Then, XSX⊤ is positive semi-definite.
+
+Proof. It is clear that $\mathbf { X } \mathbf { S } \mathbf { X } ^ { \top } \in \mathbb { R } ^ { L \times L }$ is symmetric. Let $\mathbf { u } \in \mathbb { R } ^ { L }$ . We have:
+
+$$
+\mathbf { u } ^ { \top } \mathbf { X } \mathbf { S } \mathbf { X } ^ { \top } \mathbf { u } = \left( \mathbf { X } ^ { \top } \mathbf { u } \right) ^ { \top } \mathbf { S } \left( \mathbf { X } ^ { \top } \mathbf { u } \right) \geq 0 .
+$$
+
+As u was arbitrarily chosen, we have proved that $\mathbf { X } \mathbf { S } \mathbf { X } ^ { \top }$ is positive semi-definite.
+
+We now proceed to the proof of Theorem 2.2.
+
+Proof. We recall that $\mathbf { W } _ { Q } \mathbf { W } _ { K } ^ { \top }$ is symmetric and positive semi-definite, we have
+
+$$
+\begin{array} { r l r } { \| \mathbf { X } \mathbf { W } _ { Q } \mathbf { W } _ { K } ^ { \top } \mathbf { X } ^ { \top } \| _ { * } = \mathrm { T r } \bigg ( \sqrt { \big ( \mathbf { X } \mathbf { W } _ { Q } \mathbf { W } _ { K } ^ { \top } \mathbf { X } ^ { \top } \big ) ^ { \top } \mathbf { X } \mathbf { W } _ { Q } \mathbf { W } _ { K } ^ { \top } \mathbf { X } ^ { \top } } \bigg ) } \\ & { = \mathrm { T r } \Big ( \sqrt { \mathbf { X } \mathbf { W } _ { K } \mathbf { W } _ { Q } ^ { \top } \mathbf { X } ^ { \top } \mathbf { X } \mathbf { W } _ { Q } \mathbf { W } _ { K } ^ { \top } \mathbf { X } ^ { \top } } \Big ) } \\ & { = \mathrm { T r } \bigg ( \sqrt { \mathbf { X } \mathbf { W } _ { Q } \mathbf { W } _ { K } ^ { \top } \mathbf { X } ^ { \top } \mathbf { X } \mathbf { W } _ { Q } \mathbf { W } _ { K } ^ { \top } \mathbf { X } ^ { \top } } \bigg ) } \\ & { = \mathrm { T r } \bigg ( \sqrt { \big ( \mathbf { X } \mathbf { W } _ { Q } \mathbf { W } _ { K } ^ { \top } \mathbf { X } ^ { \top } \big ) ^ { 2 } } \bigg ) } \\ & { = \mathrm { T r } \bigg ( \mathbf { X } \mathbf { W } _ { Q } \mathbf { W } _ { K } ^ { \top } \mathbf { X } ^ { \top } \big ) } & { \mathrm { ( f ~ o ~ r ~  ~ { \frac { \pi } { K } \mathbf { W } _ { K } ^ { \top } \mathbf { X } ^ { \top } } ~ ) } } \\ & { = \mathrm { T r } \big ( \mathbf { X } \mathbf { W } _ { K } \mathbf { W } _ { K } ^ { \top } \mathbf { X } ^ { \top } \big ) } \\ & { = \mathrm { T r } \big ( \mathbf { X } ^ { \top } \mathbf { X } \mathbf { W } _ { Q } \mathbf { W } _ { K } ^ { \top } \big ) . } \end{array}
+$$
+
+Lemma E.6 with $\mathbf { S } = \mathbf { W } _ { Q } \mathbf { W } _ { K } ^ { \top } )$
+
+(cyclic property of the trace)
+
+Using the fact that $\mathbf { X } ^ { \top } \mathbf { X }$ is positive semi-definite (Lemma E.6 with $\mathbf { S } = \mathbf { I } _ { L } $ ), and that $\mathbf { W } _ { Q } \mathbf { W } _ { K } ^ { \top }$ is symmetric, Lemma E.3 can be applied with $\mathbf { M } = \mathbf { W } _ { Q } \mathbf { W } _ { K } ^ { \top }$ and $\mathbf { B } = \mathbf { X } ^ { \top } \mathbf { X }$ . It leads to:
+
+$$
+\begin{array} { r } { \| { \mathbf { X } } { \mathbf { W } } _ { Q } { \mathbf { W } } _ { K } ^ { \top } { \mathbf { X } } ^ { \top } \| _ { * } = \operatorname { T r } \left( { \mathbf { X } } ^ { \top } { \mathbf { X } } { \mathbf { W } } _ { Q } { \mathbf { W } } _ { K } ^ { \top } \right) \leq \lambda _ { \operatorname* { m a x } } \big ( { \mathbf { W } } _ { Q } { \mathbf { W } } _ { K } ^ { \top } \big ) \operatorname { T r } \left( { \mathbf { X } } ^ { \top } { \mathbf { X } } \right) . } \end{array}
+$$
+
+As $\mathbf { W } _ { Q } \mathbf { W } _ { K } ^ { \top }$ is positive semi-definite, Lemma E.5 ensure
+
+$$
+\lambda _ { \operatorname* { m a x } } \bigl ( \mathbf { W } _ { Q } \mathbf { W } _ { K } ^ { \top } \bigr ) = \sigma _ { \operatorname* { m a x } } \bigl ( \mathbf { W } _ { Q } \mathbf { W } _ { K } ^ { \top } \bigr ) = \| \mathbf { W } _ { Q } \mathbf { W } _ { K } ^ { \top } \| _ { 2 }
+$$
+
+by definition of the spectral norm $\lVert \cdot \rVert _ { 2 }$ . Recalling that by definition, $\operatorname { T r } ( \mathbf { X } ^ { \top } \mathbf { X } ) = \| \mathbf { X } \| _ { \mathrm { F } } ^ { 2 }$ concludes the proof, i.e.,
+
+$$
+\begin{array} { r } { \| { \mathbf { X } } { \mathbf { W } } _ { Q } { \mathbf { W } } _ { K } ^ { \top } { \mathbf { X } } ^ { \top } \| _ { * } \leq \| { \mathbf { W } } _ { Q } { \mathbf { W } } _ { K } ^ { \top } \| _ { 2 } \| { \mathbf { X } } \| _ { \mathrm { F } } ^ { 2 } . } \end{array}
+$$
+
+# E.4. Proof of Proposition D.1
+
+Proof. Let $k \in [ [ 1 , K ] ]$ and $t \in [ [ 1 , H ] ]$ . We have
+
+$$
+\begin{array} { r l } & { \hat { \mathbf { Y } } _ { \mathcal { H } } = \sqrt { \hat { \mathbf { z } } ^ { \prime \prime } [ \mathbf { X } _ { k } ] } + \epsilon \cdot ( \frac { \hat { \mathbf { y } } ( \mathbf { z } _ { k } - \boldsymbol { \beta } \boldsymbol { \hat { x } } _ { k } ) } { \sqrt { \epsilon } } ) + \hat { \mathbf { z } }  \mathbf { X } _ { k }  , } \\ & { \quad = \sqrt { \hat { \mathbf { z } } ^ { \prime \prime } [ \mathbf { x } _ { k } ] } + \epsilon \cdot ( \frac { \sum _ { j = 1 } ^ { \infty } \hat { \mathbf { X } } _ { k } } { \sqrt { \epsilon } } \frac { \partial _ { j = 1 } } { \sqrt { \epsilon } } - \frac { \boldsymbol { \beta } _ { k } } { \sqrt { \epsilon } } ) + \hat { \mathbf { z } }  \mathbf { X } _ { k }  , } \\ & { \quad \quad - \frac { \sqrt { \epsilon } ^ { \prime \prime } 2 } { \sqrt { \epsilon } } \mathbf { X } _ { k } + \xi \cdot \sum _ { j = 1 } ^ { \infty } \hat { \mathbf { x } } _ { k , k } \mathbf { w } _ { j } - \frac { \boldsymbol { \beta } _ { k } } { \sqrt { \epsilon } } \sqrt { \hat { \mathbf { z } } ^ { \prime \prime } [ \mathbf { X } _ { k } ] } + \epsilon + \hat { \mathbf { z } }  \mathbf { X } _ { k }  , } \\ &  \quad \quad = \frac { \sqrt { \epsilon } ^ { \prime \prime } 2 } { \sqrt { \epsilon } } \frac { \mathbf { X } _ { k } } { \sqrt { \epsilon } } \cdot \sum _ { j = 1 } ^ { \infty } ( \sqrt { \epsilon } \frac { \mathbf { x } _ { k } - \boldsymbol { \beta } _ { j } - \boldsymbol { \hat { z } }  \mathbf { x } _ { k }  } { \sqrt { \epsilon } ^ { 2 } \sqrt { \epsilon } \mathbf { X } _ { k } + \epsilon } ) + \beta _ { k } ) \mathbf { w } _ { j } - \frac { \beta _ { k } } { \sqrt { \epsilon } } \sqrt  \ \end{array}
+$$
+
+# E.5. Matrix formulation of $\hat { \mathbf Y }$ in Eq. (11)
+
+Proof. Let $k \in [ [ 1 , K ] ]$ and $t \in [ [ 1 , H ] ]$ . From Proposition D.1, we have
+
+$$
+\begin{array} { l } { { \displaystyle \hat { \mathbf { Y } } _ { k t } = \hat { \mu } [ \mathbf { X } _ { k } ] + \sum _ { j = 1 } ^ { L } ( \mathbf { X } _ { k j } - \hat { \mu } [ \mathbf { X } _ { k } ] ) \mathbf { W } _ { j t } - \frac { \beta _ { k } } { \gamma _ { k } } \sqrt { \hat { \sigma } ^ { 2 } [ \mathbf { X } _ { k } ] + \varepsilon } \left( 1 - \sum _ { j = 1 } ^ { L } \mathbf { W } _ { j t } \right) } } \\ { ~ } \\ { { \displaystyle = \sum _ { j = 1 } ^ { L } \mathbf { X } _ { k j } \mathbf { W } _ { j t } + \left( \hat { \mu } [ \mathbf { X } _ { k } ] - \frac { \beta _ { k } } { \gamma _ { k } } \sqrt { \hat { \sigma } ^ { 2 } [ \mathbf { X } _ { k } ] + \varepsilon } \right) \cdot \left( 1 - \sum _ { j = 1 } ^ { L } \mathbf { W } _ { j t } \right) } . }  \end{array}
+$$
+
+Gathering in matrix formulation concludes the proof.

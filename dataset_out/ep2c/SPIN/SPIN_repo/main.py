@@ -1,0 +1,139 @@
+## main.py
+import os
+import yaml
+import torch
+import numpy as np
+import random
+from tqdm import tqdm
+from utils import load_config, setup_logging
+from dataset_loader import DatasetLoader
+from model import Model
+from discriminator import Discriminator
+from generator import ResponseGenerator
+from reweighting import compute_weights
+from evaluation import Evaluation
+
+def main():
+    # Load configuration
+    config_path = "config.yaml"
+    config = load_config(config_path)
+    
+    # Set seed for reproducibility
+    seed = config.get('seed', 42)
+    random.seed(seed)
+    np.random.seed(seed)
+    torch.manual_seed(seed)
+    if torch.cuda.is_available():
+        torch.cuda.manual_seed_all(seed)
+    # Setup device
+    use_gpu = config.get('use_gpu', True)
+    device = torch.device('cuda' if torch.cuda.is_available() and use_gpu else 'cpu')
+
+    # Setup output directory
+    save_dir = config.get('save_dir', 'outputs/spin')
+    os.makedirs(save_dir, exist_ok=True)
+
+    # Setup logging
+    logger = setup_logging(save_dir, log_interval=config.get('log_interval', 100))
+    logger.info("Starting SPIN self-play training pipeline.")
+    
+    # Load dataset
+    dataset_path = config['dataset'].get('dataset_path', '')
+    sample_size = config['dataset'].get('sample_size', 50000)
+    dataset_loader = DatasetLoader(dataset_path, sample_size, seed=seed)
+    dataset_loader.load()
+    prompts = dataset_loader.sample()  # Sample prompts for generation
+
+    # Initialize model
+    model_cfg = config['model']
+    model = Model(model_cfg)
+    # Optionally, load starting checkpoint if provided
+    # e.g., model.load_checkpoint('path/to/checkpoint')
+    model.to(device)
+
+    # Initialize discriminator
+    disc_cfg = {**model_cfg, **config.get('discriminator', {})}
+    discriminator = Discriminator(disc_cfg)
+    # Optionally, load discriminator checkpoint
+    # discriminator.load('path/to/discriminator/checkpoint')
+
+    # Initialize response generator
+    generator = ResponseGenerator(model, config)
+
+    # Set optimizer for model fine-tuning
+    optimizer = torch.optim.AdamW(model.model.parameters(), lr=config['training'].get('learning_rate',3e-5))
+    # Store iteration count
+    T = config.get('iterations', 4)
+    lambda_value = config.get('lambda_value', 0.2)
+
+    # Initialize evaluation
+    evaluator = Evaluation(model, config_path)
+
+    # -------- Iterative Self-Play Loop --------
+    for t in range(T):
+        logger.info(f"\n--- Iteration {t+1}/{T} ---")
+        # a) Generate responses
+        responses = generator.generate_responses(prompts,
+                                                 max_length=config['generation'].get('max_length', 100),
+                                                 temperature=config['generation'].get('temperature', 0.7))
+        # b) Prepare data for discriminator
+        disc_data = []
+        for ptx, resp in zip(prompts, responses):
+            # Mark responses as 'model' generated (or 'synthetic')
+            disc_data.append({'prompt': ptx, 'response': resp, 'label': 'model'})
+        # Optional: Add human data as positive responses, if available.
+        # But as per paper, response is synthetic from model; high-quality human data can be used too.
+
+        # c) Train discriminator
+        logger.info("Training discriminator...")
+        discriminator.train(disc_data,
+                            epochs=config['training'].get('discriminator_epochs',3),
+                            batch_size=config['training'].get('discriminator_batch_size',32),
+                            learning_rate=1e-4)
+
+        # d) Score responses
+        discriminator.model.eval()
+        scores = discriminator.score(prompts, responses)
+        logger.info(f"Discriminator scores computed for responses.")
+
+        # e) Compute response weights
+        weights = compute_weights(scores, lambda_value=lambda_value)
+        logger.info(f"Response weights computed: first 5 weights: {weights[:5]} ...")
+
+        # f) Fine-tune the main model using weighted responses
+        logger.info("Fine-tuning the model based on weighted responses...")
+        # Pass prompts, responses, weights to training routine
+        model.train(
+            train_dataset=[{'prompt': p, 'response': r} for p, r in zip(prompts, responses)],
+            epochs=config['training'].get('epochs', 2),
+            learning_rate=config['training'].get('learning_rate', 3e-5),
+            batch_size=config['training'].get('batch_size', 8)
+        )
+
+        # Save checkpoint for this iteration
+        iter_ckpt = os.path.join(save_dir, f"model_iter_{t}")
+        model.save_checkpoint(iter_ckpt)
+        logger.info(f"Model checkpoint saved at {iter_ckpt}")
+
+        # Optionally, update the model object or load from checkpoint
+        # model.load_checkpoint(iter_ckpt)
+
+        # Evaluate periodically
+        if (t+1) % max(1, config.get('evaluation_interval', 1000)//len(prompts)) == 0 or t==T-1:
+            logger.info("Running evaluation on benchmark datasets...")
+            eval_metrics = evaluator.evaluate()
+            for name, score in eval_metrics.items():
+                logger.info(f"{name}: {score:.4f}")
+            # Optionally, save best model based on eval metrics
+            # e.g., track max score and save accordingly
+
+        # Next iteration: the current model is used as the opponent for the next
+        # response generation and training. No special code needed; just loop.
+
+    # -------- Final Save --------
+    final_ckpt = os.path.join(save_dir, "final_model")
+    model.save_checkpoint(final_ckpt)
+    logger.info(f"Training completed. Final model saved at {final_ckpt}.")
+
+if __name__ == "__main__":
+    main()

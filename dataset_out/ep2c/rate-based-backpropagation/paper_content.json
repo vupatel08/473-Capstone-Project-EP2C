@@ -1,0 +1,158 @@
+{
+  "title": "Advancing Training Efficiency of Deep Spiking Neural Networks through Rate-based Backpropagation",
+  "abstract": "Chengting $\\mathbf { Y } \\mathbf { u } ^ { 1 , 2 }$ , Lei $\\mathbf { L i u ^ { 2 } }$ , Gaoang Wang2, Erping $\\mathbf { L i } ^ { 1 , 2 }$ , Aili Wang1,2∗ 1 College of Information Science and Electronic Engineering, Zhejiang University 2 ZJU-UIUC Institute, Zhejiang University chengting.21@intl.zju.edu.cn, ailiwang@intl.zju.edu.cn",
+  "authors": [],
+  "body_text": [
+    {
+      "text": "# Advancing Training Efficiency of Deep Spiking Neural Networks through Rate-based Backpropagation"
+    },
+    {
+      "text": "Chengting $\\mathbf { Y } \\mathbf { u } ^ { 1 , 2 }$ , Lei $\\mathbf { L i u ^ { 2 } }$ , Gaoang Wang2, Erping $\\mathbf { L i } ^ { 1 , 2 }$ , Aili Wang1,2∗ 1 College of Information Science and Electronic Engineering, Zhejiang University 2 ZJU-UIUC Institute, Zhejiang University chengting.21@intl.zju.edu.cn, ailiwang@intl.zju.edu.cn"
+    },
+    {
+      "text": "# Abstract"
+    },
+    {
+      "text": "Recent insights have revealed that rate-coding is a primary form of information representation captured by surrogate-gradient-based Backpropagation Through Time (BPTT) in training deep Spiking Neural Networks (SNNs). Motivated by these findings, we propose rate-based backpropagation, a training strategy specifically designed to exploit rate-based representations to reduce the complexity of BPTT. Our method minimizes reliance on detailed temporal derivatives by focusing on averaged dynamics, streamlining the computational graph to reduce memory and computational demands of SNNs training. We substantiate the rationality of the gradient approximation between BPTT and the proposed method through both theoretical analysis and empirical observations. Comprehensive experiments on CIFAR-10, CIFAR-100, ImageNet, and CIFAR10-DVS validate that our method achieves comparable performance to BPTT counterparts, and surpasses state-of-the-art efficient training techniques. By leveraging the inherent benefits of rate-coding, this work sets the stage for more scalable and efficient SNNs training within resource-constrained environments. Our code is available at https://github.com/Tab-ct/rate-based-backpropagation."
+    },
+    {
+      "text": "# 1 Introduction"
+    },
+    {
+      "text": "Spiking Neural Networks (SNNs) are conceptualized as biologically inspired neural systems, incorporating spiking neurons that closely mimic biological neural dynamics [46, 56]. Unlike Artificial Neural Networks (ANNs) based on continuous data representations, SNNs adopt spike-coding strategies to facilitate data transmission through discrete binary spike trains [52]. The intrinsic binary mechanism eliminates the need for the extensive multiply-accumulate operations typically required for synaptic connectivity [56], thereby enhancing energy efficiency and inference speed when deployed on neuromorphic hardware systems [1, 10, 54]."
+    },
+    {
+      "text": "The mainstream training methods for SNNs primarily utilize Backpropagation Through Time (BPTT) with surrogate gradients to overcome non-differentiable spike events, allowing SNNs to achieve comparable results with ANNs counterparts [51, 62, 74]. However, the direct training method necessitates the storage of all temporal activations for backward propagation across the network’s depth and duration, leading to high training costs in terms of both computational time and memory demands [43, 86, 35, 77, 76, 47, 13]. To alleviate memory burdens, online training techniques have been developed that partially decouple the time dependencies of backward computations in BPTT [2, 4, 76, 48, 89]. However, online methods still require iterative computations based on the time dimension, increasing training time complexity as the number of timesteps grows."
+    },
+    {
+      "text": "Observed across most biological sensory systems, rate coding is a phenomenon where information is encoded through the rate of neuronal spikes, regardless of precise spike timing [52, 64, 23]. Recent explorations into spike representation have demonstrated the significant role of rate coding in enhancing the robustness of SNNs, further confirming its dominant position as the encoding representation in networks [38, 60, 18]. A significant observation has shown that BPTT-trained SNNs on static benchmark exhibit spike representation primarily following the rate-coding manner by highlighting strong similarities in representation between SNNs and their ANN counterparts [44]. A similar conclusion resonated with findings in fields of adversarial attacks, where recent methods significantly benefit from rate-based representations to enhance attack effectiveness [6, 29, 50]."
+    },
+    {
+      "text": "Motivated by rate coding’s status as the most effective and predominant form of representation in SNNs, we posit that targeted training based on rate-based information could offer a high costeffectiveness ratio. We propose to decouple BPTT based on rate-coding approximation and simplify rate-based derivative computations to a single spatial backpropagation. We further provide theoretical analysis and empirical evidence to reveal the rationality of the gradient approximation between BPTT and the proposed method. Experimental results demonstrate that the proposed method achieves performance comparable to BPTT counterparts while significantly reducing memory and computational demands. Comparison results also indicate that the proposed method outperforms state-of-the-art efficient training methods on benchmarks. We expect our work to facilitate more efficient and scalable training for SNNs in resource-constrained environments. Our main contributions are as follows:"
+    },
+    {
+      "text": "• We propose rate-based backpropagation that leverages rate-coded information for efficient training of deep SNNs. This method simplifies the computational graph by decoupling and compressing temporal dependencies, reducing training time and memory requirements. • Alongside the proposed method, we conduct theoretical analysis and empirical validation to demonstrate its effectiveness in approximating the gradient computations performed by BPTT-based SNNs training. • We conduct experiments on CIFAR-10, CIFAR-100, CIFAR10-DVS, and ImageNet, demonstrating that our proposed method matches the comparable performance of the BPTT counterpart and achieves state-of-the-art results among efficient SNN training methods."
+    },
+    {
+      "text": "# 2 Related Work"
+    },
+    {
+      "text": "Training Methods for Deep SNNs. Deep SNNs are trained primarily through two principal strategies: (1) conversion methods that establish links between SNNs and ANNs through equivalent closed-form mappings, and (2) direct training from scratch utilizing Backpropagation Through Time (BPTT). Conversion methods develop closed-form formulations for spike representations [39, 67, 72, 88, 73, 47], enabling seamless transitions of pre-trained ANNs into SNNs and facilitating comparable performance on large-scale datasets [8, 15, 27, 59, 57, 12, 42, 16]. However, the precision of these mappings under ultra-low latency conditions is not consistently reliable, often necessitating extensive time steps to accumulate spikes, which may compromise performance [7, 40, 31, 28, 34]. Direct training methods permit SNNs’ performance with extremely low time steps by employing BPTT along with surrogate gradients to compute derivatives of discrete spiking events [51, 62, 74, 22, 81, 87, 85, 43, 66, 69, 13]. The strategy fosters innovation in SNN-specific modules, including optimized neurons, synapses, and network architectures, thereby enhancing performance [25, 21, 20, 17, 79, 83, 24, 80, 61]. Despite the advantages of low latency, direct training imposes substantial memory and time burdens to maintain the backward computational graph [43, 86, 35, 77, 76, 47, 13]. To mitigate training costs associated with direct methods, light training strategies have attracted considerable attention [49, 35, 86, 55, 70]. Several studies have explored the concept of decoupling the forward and backward passes in SNNs, which generally assumes that neuronal dynamics follow deterministic processes and aims to establish closed-form fixed-point equivalences between spike representations and corresponding rate-based activations [72, 73, 77, 47, 68]. Drawing on online training techniques from recurrent neural networks, several studies have adapted the principles of Real-time Recurrent Learning (RTRL) [71] to streamline the online training process for SNNs, aiming to decrease memory demands while preserving biologically plausible online properties of the networks [84, 2, 4, 82, 55, 76, 47, 89]. The online methodologies have proven effective in large-scale tasks [76, 47, 89]. Nevertheless, the significant time costs associated with training methods continue to challenge SNNs’ broader application."
+    },
+    {
+      "text": "![](images/d7660a3ad26e07e932862b08911fbec9d4a249c9c34c1b66f646aef4e68c310f.jpg)"
+    },
+    {
+      "text": "Spike Coding in SNNs. SNNs transmit information through spike trains [52], with encoding mechanisms classified into temporal and rate coding. Temporal coding is defined on firing times, employed by several direct trainings [49, 75, 88] and ANN-to-SNN conversions [26, 65], is noted for its low energy consumption due to sparse spiking. However, temporal coding schemes often require specialized neuron configurations and are generally effective only on simpler datasets [26, 65, 88]. Conversely, rate coding is widely adopted across both conversion [12, 15, 16, 27, 36, 57, 59, 78] and direct training approaches [73, 77, 47], consistently achieving superior performance and facilitating low-latency operations [77, 47]. Moreover, rate coding has demonstrated significant potential in enhancing the robustness of SNNs against adversarial attacks [38, 60, 18], with attack methods specifically designed to exploit rate-based representations showing promise in surpassing benchmarks for SNNs defense against attacks [6, 30, 50]. By employing representation similarity analysis to compare BPTT-trained SNNs with their ANN counterparts, Li et al. [44] has indicated that rate coding serves as the primary mode of information representation [44]. Inspired by previous findings, we consider that rate-coded information represents the most effective and predominant form of signal expression in SNNs, and the targeted training based on rate-based spike representations may offer a high cost-effectiveness ratio. Therefore, we propose to decouple BPTT towards rate-based backpropagation with the purpose of enhancing the efficiency of SNNs training."
+    },
+    {
+      "text": "# 3 Preliminaries"
+    },
+    {
+      "text": "# 3.1 Spiking Neural Networks"
+    },
+    {
+      "text": "Inspired by the brain’s ability to transmit information through discrete spikes, the Leaky Integrateand-Fire (LIF) model serves as the basic building block of SNNs due to its simplicity. For practical implementation of SNNs based on connected spiking neurons, the dynamics of the LIF model are typically rendered in a discrete iterative format:"
+    },
+    {
+      "text": "$$\n\\begin{array} { r } { \\boldsymbol { u } _ { t } ^ { l } = \\lambda ( \\boldsymbol { u } _ { t - 1 } ^ { l } - V _ { \\mathrm { t h } } \\boldsymbol { s } _ { t - 1 } ^ { l } ) + \\boldsymbol { W } ^ { l } \\boldsymbol { s } _ { t } ^ { l - 1 } , \\quad \\boldsymbol { s } _ { t } ^ { l } = H ( \\boldsymbol { u } _ { t } ^ { l } - V _ { \\mathrm { t h } } ) } \\end{array}\n$$"
+    },
+    {
+      "text": "where ${ \\mathbf { } } u _ { t } ^ { l }$ and $\\mathbf { \\Delta } _ { s _ { t } ^ { l } }$ represent the membrane potential and output spike of neurons in layer $l$ at time $t$ respectively. $W ^ { l }$ denotes the linear synaptic connections between layers $l - 1$ and $l$ , and $\\lambda$ acts as the decay term for the membrane potential. The Heaviside step function, $H ( \\cdot )$ , determines spike generation, ensuring $\\mathbf { \\Delta } _ { s _ { t } ^ { l } }$ in binary forms. Noting that $H ( \\cdot )$ is not differentiable, SNNs’ direct training employs surrogate gradients to achieve error propagation by creating various pseudo-derivatives [51, 74, 19], following the basic idea of Straight-Through Estimator (STE) [3]."
+    },
+    {
+      "text": "# 3.2 Training SNNs with BPTT"
+    },
+    {
+      "text": "The network outputs at each timestep $t$ are given by $\\begin{array} { r } { \\mathbf { \\sigma } _ { o _ { t } } = \\mathbf { W } ^ { L } s _ { t } ^ { L } } \\end{array}$ , where $W ^ { L }$ denotes the classifier’s weights. Classification is based on the average of these outputs across all timesteps, computed as $\\begin{array} { r } { { \\pmb y } _ { \\mathrm { p r e d } } = \\frac { 1 } { T } \\sum _ { t = 1 } ^ { T } { \\pmb o } _ { t } } \\end{array}$ . The loss function $\\mathcal { L }$ is defined over averaged outputs and is typically formulated as $\\begin{array} { r } { \\mathcal { L } = \\ell \\left( \\frac { 1 } { T } \\sum _ { t = 1 } ^ { T } \\pmb { o } _ { t } , \\pmb { y } \\right) , } \\end{array}$ , where $\\textbf {  { y } }$ represents the true labels and $\\ell$ could be the cross-entropy function, as noted in various studies [87, 48, 19, 69]. BPTT unfolds the iterations described in Eq. (1), and propagates gradients back along the computational graphs across both temporal and spatial dimensions, as illustrated in Fig. 1a. The gradients of the membrane potential $\\textbf { \\em u }$ incorporate elements from both (spatial) spike generation and (temporal) potential accumulation, expressed as:"
+    },
+    {
+      "text": "![](images/9554b54013ba60673036dbfe4bfa2bca99fe146202cab9cd08aaa13be3cbc419.jpg)  \nFigure 2: The implementation of rate-based backpropagation across layers. A rate-coding approximation is utilized for the forward procedure to connect average inputs with rate outputs, enabling fast rate-based error backpropagation throughout the training process."
+    },
+    {
+      "text": "$$\n\\begin{array} { r l } & { \\frac { \\partial \\mathcal { L } } { \\partial \\boldsymbol { u } _ { t } ^ { l } } = \\frac { \\partial \\mathcal { L } } { \\partial s _ { t } ^ { l } } \\frac { \\partial s _ { t } ^ { l } } { \\partial \\boldsymbol { u } _ { t } ^ { l } } + \\frac { \\partial \\mathcal { L } } { \\partial \\boldsymbol { u } _ { t + 1 } ^ { l } } \\left( \\frac { \\partial \\boldsymbol { u } _ { t + 1 } ^ { l } } { \\partial \\boldsymbol { u } _ { t } ^ { l } } + \\frac { \\partial \\boldsymbol { u } _ { t + 1 } ^ { l } } { \\partial s _ { t } ^ { l } } \\frac { \\partial s _ { t } ^ { l } } { \\partial \\boldsymbol { u } _ { t } ^ { l } } \\right) } \\\\ & { \\qquad = \\frac { \\partial \\mathcal { L } } { \\partial s _ { t } ^ { l } } \\frac { \\partial s _ { t } ^ { l } } { \\partial \\boldsymbol { u } _ { t } ^ { l } } + \\sum _ { \\tau > t } \\frac { \\partial \\mathcal { L } } { \\partial s _ { \\tau } ^ { l } } \\frac { \\partial s _ { \\tau } ^ { l } } { \\partial \\boldsymbol { u } _ { \\tau } ^ { l } } \\displaystyle \\prod _ { i = \\tau - 1 } ^ { t } \\left( \\frac { \\partial \\boldsymbol { u } _ { i + 1 } ^ { l } } { \\partial \\boldsymbol { u } _ { i } ^ { l } } + \\frac { \\partial \\boldsymbol { u } _ { i + 1 } ^ { l } } { \\partial s _ { i } ^ { l } } \\frac { \\partial s _ { i } ^ { l } } { \\partial \\boldsymbol { u } _ { i } ^ { l } } \\right) } \\end{array}\n$$"
+    },
+    {
+      "text": "Subsequently, the weight update for layer $l$ is determined among all timesteps $T$ , i.e. $\\nabla _ { W ^ { l } } { \\mathcal { L } } =$ $\\begin{array} { r } { \\sum _ { t = 1 } ^ { T } \\dot { \\frac { \\partial \\mathcal { L } } { \\partial \\mathbf { u } _ { t } ^ { l } } } \\frac { \\partial \\dot { \\mathbf { u } } _ { t } ^ { l } } { \\partial W ^ { l } } = \\sum _ { t = 1 } ^ { T } \\frac { \\partial \\bar { \\mathcal { L } } } { \\partial \\mathbf { u } _ { t } ^ { l } } s _ { t } ^ { l - 1 } { } ^ { \\top } } \\end{array}$ , and the gradient is further propagated to previous layers through the linear part by $\\begin{array} { r } { \\frac { \\partial \\mathcal { L } } { \\partial \\pmb { s } _ { t } ^ { l - 1 } } = \\frac { \\partial \\mathcal { L } } { \\partial \\pmb { u } _ { t } ^ { l } } \\pmb { W } ^ { l } } \\end{array}$"
+    },
+    {
+      "text": "# 4 Rate-based Backpropagation for SNNs Training"
+    },
+    {
+      "text": "# 4.1 Derivation of Rate-based Backpropagation"
+    },
+    {
+      "text": "Incorporating rate-based representation. Under the rate coding assumption, essential information is effectively encapsulated within the spike frequency averages. We start by defining the rate-based representation as an approximation for the forward procedure in SNNs, as shown in Figure 2. The average firing rate at each layer $l$ , denoted as $r ^ { l }$ , is calculated as the expected value of the spike outputs $\\mathbf { \\Delta } _ { \\mathbf { \\boldsymbol { s } } _ { t } ^ { l } }$ over the temporal dimension $\\begin{array} { r } { \\pmb { r } ^ { l } = \\mathbb { E } [ \\pmb { s } _ { t } ^ { l } ] = \\frac { 1 } { T } \\sum _ { t \\leq T } \\pmb { s } _ { t } ^ { l } } \\end{array}$ ."
+    },
+    {
+      "text": "Considering the forward propagation through linear operators with weights $W ^ { l }$ that compute the inputs as $\\pmb { I } _ { t } ^ { l } = \\pmb { W } ^ { l } \\pmb { s } _ { t } ^ { l - 1 }$ , instead of transmitting distinct spikes over multiple timesteps, we transform the average rates into average inputs $c ^ { l }$ in the approximate representation:"
+    },
+    {
+      "text": "$$\n\\begin{array} { r } { \\pmb { c } ^ { l } = \\mathbb { E } [ \\pmb { I } _ { t } ^ { l } ] = \\mathbb { E } [ \\pmb { W } ^ { l } \\pmb { s } _ { t } ^ { l - 1 } ] = \\pmb { W } ^ { l } \\mathbb { E } [ \\pmb { s } _ { t } ^ { l - 1 } ] = \\pmb { W } ^ { l } \\pmb { r } ^ { l - 1 } . } \\end{array}\n$$"
+    },
+    {
+      "text": "Supposing input representations are well captured within $c ^ { l }$ , we approximate the exact inputs with the average inputs for all timesteps, $\\pmb { I } _ { t } ^ { l } \\approx \\pmb { c } ^ { l }$ , and follow the neuronal dynamics in Eq. (1) to derive the output rates $r ^ { l } = \\mathbb { E } [ s _ { t } ^ { l } ]$ . With the rate-coding approximation in place, we can derive the gradients with respect to the weights in the linear part based on the error propagated through the average inputs:"
+    },
+    {
+      "text": "$$\n\\left( \\nabla _ { W ^ { l } } \\mathcal { L } \\right) _ { \\mathrm { r a t e } } \\equiv \\frac { \\partial \\mathcal { L } } { \\partial c ^ { l } } \\frac { \\partial c ^ { l } } { \\partial W ^ { l } } = \\frac { \\partial \\mathcal { L } } { \\partial c ^ { l } } r ^ { l - 1 } { } ^ { \\top }\n$$"
+    },
+    {
+      "text": "Handling temporal dependency during backward. For back-propagating the error, the linear parts operate smoothly as $\\begin{array} { r } { \\frac { \\bar { \\partial \\mathbf { c } } ^ { l } } { \\partial \\pmb { r } ^ { l - 1 } } = \\bar { \\mathbf { W } } ^ { l ^ { \\top } } } \\end{array}$ . The next step is to define the correlation between the averages of inputs and output spike rates, $\\frac { \\partial r ^ { l } } { \\partial c ^ { l } }$ , within the neurons of layer $l$ . Since there is no deterministic relationship between $r ^ { l }$ and $c ^ { l }$ , we first look into the influence of separated inputs following the exact"
+    },
+    {
+      "text": "gradients in Eq. (2):"
+    },
+    {
+      "text": "$$\n\\frac { \\partial s _ { \\tau } ^ { l } } { \\partial I _ { t } ^ { l } } = \\frac { \\partial s _ { \\tau } ^ { l } } { \\partial u _ { t } ^ { l } } = \\left\\{ \\begin{array} { l l } { \\frac { \\partial s _ { \\tau } ^ { l } } { \\partial u _ { \\tau } ^ { l } } \\prod _ { i = \\tau - 1 } ^ { t } \\left( \\frac { \\partial u _ { i + 1 } ^ { l } } { \\partial u _ { i } ^ { l } } + \\frac { \\partial u _ { i + 1 } ^ { l } } { \\partial s _ { i } ^ { l } } \\frac { \\partial s _ { i } ^ { l } } { \\partial u _ { i } ^ { l } } \\right) } & { \\mathrm { i f } \\tau \\geq t } \\\\ { \\frac { \\partial s _ { t } ^ { l } } { \\partial u _ { t } ^ { l } } } & { \\mathrm { i f } \\tau = t } \\\\ { 0 } & { \\mathrm { i f } \\tau < t } \\end{array} \\right.\n$$"
+    },
+    {
+      "text": "By accumulating the intricate dynamics over time, we can derive the gradients of the overall spikes with respect to the inputs at time $t$ :"
+    },
+    {
+      "text": "$$\n\\varkappa _ { t } ^ { l } = \\sum _ { \\tau } \\frac { \\partial s _ { \\tau } ^ { l } } { \\partial I _ { t } ^ { l } } = \\left( \\frac { \\partial s _ { t } ^ { l } } { \\partial u _ { t } ^ { l } } + \\sum _ { \\tau > t } \\frac { \\partial s _ { \\tau } ^ { l } } { \\partial u _ { \\tau } ^ { l } } \\prod _ { i = \\tau - 1 } ^ { t } \\left( \\frac { \\partial u _ { i + 1 } ^ { l } } { \\partial u _ { i } ^ { l } } + \\frac { \\partial u _ { i + 1 } ^ { l } } { \\partial s _ { i } ^ { l } } \\frac { \\partial s _ { i } ^ { l } } { \\partial u _ { i } ^ { l } } \\right) \\right)\n$$"
+    },
+    {
+      "text": "Here, with rate-coding approximating $\\pmb { I } _ { t } ^ { l } \\approx \\pmb { c } ^ { l }$ , we follow the idea of Straight-Through Estimator [3] and define the backward gradients a s ∂Ilt∂cl = Id, with Id representing the identity matrix. Then, we can derive the surrogate gradients of neural dynamics through the mean estimator:"
+    },
+    {
+      "text": "$$\n( \\frac { \\partial r ^ { l } } { \\partial c ^ { l } } ) _ { \\mathrm { r a t e } } \\equiv \\sum _ { \\tau } \\left( \\frac { \\partial ( \\mathbb { E } \\left[ s _ { t } ^ { l } \\right] ) } { \\partial I _ { \\tau } ^ { l } } \\frac { \\partial I _ { \\tau } ^ { l } } { \\partial c ^ { l } } \\right) = \\frac { 1 } { T } \\sum _ { t } \\sum _ { \\tau } \\left( \\frac { \\partial s _ { t } ^ { l } } { \\partial I _ { \\tau } ^ { l } } \\right) = \\mathbb { E } \\left[ \\pmb { \\varkappa } _ { t } ^ { l } \\right]\n$$"
+    },
+    {
+      "text": "With the compressed gradients of neuron parts, the error backpropagation of the rate-based representation is then determined, dependent only on the spatial domain:"
+    },
+    {
+      "text": "$$\n( \\frac { \\partial \\mathcal { L } } { \\partial c ^ { l } } ) _ { \\mathrm { r a t e } } = \\left( \\frac { \\partial \\mathcal { L } } { \\partial c ^ { L } } \\prod _ { i = L - 1 } ^ { l } \\left( \\frac { \\partial c ^ { i + 1 } } { \\partial r ^ { i } } ( \\frac { \\partial r ^ { i } } { \\partial c ^ { i } } ) _ { \\mathrm { r a t e } } \\right) \\right) = \\left( \\frac { \\partial \\mathcal { L } } { \\partial c ^ { L } } \\prod _ { i = L - 1 } ^ { l } \\left( W ^ { i ^ { \\top } } \\mathbb { E } \\left[ \\varkappa _ { i } ^ { l } \\right] \\right) \\right)\n$$"
+    },
+    {
+      "text": "where we define the objective $\\begin{array} { r } { \\mathcal { L } = \\frac { 1 } { T } \\ell ( \\mathbb { E } [ \\pmb { o } _ { t } ] , y ) = \\frac { 1 } { T } \\ell ( \\pmb { c } ^ { L } , \\pmb { y } ) } \\end{array}$ . Note that the rate-based representation, while instrumental in constructing the backward computational graph for learning, does not necessitate actual implementation during the forward pass."
+    },
+    {
+      "text": "# 4.2 Rate-based Gradient Computation for Memory and Time Efficiency"
+    },
+    {
+      "text": "As previously discussed, rate-based backpropagation can be executed on spatial-dimension computation by decoupling BPTT. We now show how rate-based backpropagation can be efficiently implemented within the overall learning framework. As depicted in Figure 2b, online schemes apply eligibility traces $e _ { t } ^ { l }$ locally within neurons to store historical information, effectively blocking backward access to past gradients. The gradient computation is optimized by compressing all past temporal dependencies into $e _ { t } ^ { l }$ . Similarly, we utilize iterative variables $\\{ \\pmb { g } _ { t } ^ { l } \\} _ { l \\le L }$ and $\\{ e _ { t } ^ { l } \\} _ { l \\le L }$ as the accumulated post- and pre-synaptic dependencies, synchronously recorded during the neural dynamics computations. The iteration of $\\{ e _ { t } ^ { l } \\} _ { l \\le L }$ dynamically records the firing rates, where $\\begin{array} { r } { \\pmb { e } _ { t } ^ { l } = \\frac { 1 } { t } ( ( t - 1 ) \\pmb { e } _ { t - 1 } ^ { l } + \\pmb { s } _ { t } ^ { l } ) } \\end{array}$ , and it is straightforward to derive ${ \\pmb r } ^ { l } = e _ { T } ^ { l }$ . Considering the surrogate gradients of neural dynamics, $\\frac { \\partial r ^ { l } } { \\partial c ^ { l } }$ , to estimate future-dependent terms outlined in Eq. 5, we first construct equivalent eligibility trace forms, $\\{ \\rho _ { t } ^ { l } \\} _ { t \\le T }$ , with iterative expressions starting at $\\rho _ { 1 } ^ { l } = 1$ :"
+    },
+    {
+      "text": "$$\n\\rho _ { t } ^ { l } = 1 + \\rho _ { t - 1 } ^ { l } \\left( \\frac { \\partial u _ { t } ^ { l } } { \\partial u _ { t - 1 } ^ { l } } + \\frac { \\partial u _ { t } ^ { l } } { \\partial s _ { t - 1 } ^ { l } } \\frac { \\partial s _ { t - 1 } ^ { l } } { \\partial u _ { t - 1 } ^ { l } } \\right) = 1 + \\sum _ { \\tau < t } \\prod _ { i = t - 1 } ^ { \\tau } \\left( \\frac { \\partial u _ { i + 1 } ^ { l } } { \\partial u _ { i } ^ { l } } + \\frac { \\partial u _ { i + 1 } ^ { l } } { \\partial s _ { i } ^ { l } } \\frac { \\partial s _ { i } ^ { l } } { \\partial u _ { i } ^ { l } } \\right)\n$$"
+    },
+    {
+      "text": "with the equivalence that:"
+    },
+    {
+      "text": "$$\n\\begin{array} { r l } & { \\displaystyle \\sum _ { t } { \\varkappa _ { t } ^ { l } } = \\sum _ { t } \\left( \\frac { \\partial s _ { t } ^ { l } } { \\partial u _ { t } ^ { l } } + \\sum _ { \\tau > t } \\left( \\frac { \\partial s _ { \\tau } ^ { l } } { \\partial u _ { \\tau } ^ { l } } \\prod _ { i = \\tau - 1 } ^ { t } \\left( \\frac { \\partial u _ { i + 1 } ^ { l } } { \\partial u _ { i } ^ { l } } + \\frac { \\partial u _ { i + 1 } ^ { l } } { \\partial s _ { i } ^ { l } } \\frac { \\partial s _ { i } ^ { l } } { \\partial u _ { i } ^ { l } } \\right) \\right) \\right) } \\\\ & { \\quad \\quad \\quad = \\sum _ { t } \\left( \\frac { \\partial s _ { t } ^ { l } } { \\partial u _ { t } ^ { l } } \\left( 1 + \\sum _ { \\tau < t } \\prod _ { i = t - 1 } ^ { \\tau } \\left( \\frac { \\partial u _ { i + 1 } ^ { l } } { \\partial u _ { i } ^ { l } } + \\frac { \\partial u _ { i + 1 } ^ { l } } { \\partial s _ { i } ^ { l } } \\frac { \\partial s _ { i } ^ { l } } { \\partial u _ { i } ^ { l } } \\right) \\right) \\right) = \\sum _ { t } \\left( \\frac { \\partial s _ { t } ^ { l } } { \\partial u _ { t } ^ { l } } \\rho _ { t } ^ { l } \\right) } \\end{array}\n$$"
+    },
+    {
+      "text": "By iteratively accumulating $\\begin{array} { r } { \\pmb { g } _ { t } ^ { l } = \\frac { 1 } { t } ( ( t - 1 ) \\pmb { g } _ { t - 1 } ^ { l } + \\frac { \\partial \\pmb { s } _ { t } ^ { l } } { \\partial \\pmb { u } _ { t } ^ { l } } \\pmb { \\rho } _ { t } ) } \\end{array}$ , we obtain $\\begin{array} { r } { \\pmb { g } _ { T } ^ { l } = \\mathbb { E } [ \\frac { \\partial \\pmb { s } _ { t } ^ { l } } { \\partial \\pmb { u } _ { t } ^ { l } } \\pmb { \\rho } _ { t } ^ { l } ] = \\mathbb { E } [ \\pmb { \\varkappa } _ { t } ^ { l } ] } \\end{array}$ . Now, we have collapsed the required computation graph through the iterative calculation to complexity $\\mathcal { O } ( L )$ . The rate-based propagation is then conducted in one go, relying only on the intermediate variables $e _ { T } ^ { l } , g _ { T } ^ { l }$ , and $W ^ { l }$ , within one-time spatial-dimension backpropagation."
+    },
+    {
+      "text": "# 4.3 Connecting Error Backward of Rate-based Backpropagation to BPTT"
+    },
+    {
+      "text": "Having derived the fundamental form of rate-based backpropagation through the rate-encoding approximation, we now explore potential divergences with BPTT during error propagation. Although rate-based backpropagation is derived from the approximated forward pass, it still provides valid gradients for the original network parameters."
+    },
+    {
+      "text": "The primary divergence between rate-back and BPTT in backward computation primarily arises from the assumptions regarding the approximation of rate-based representation through mean estimators, as outlined in Eq.(3) and Eq.(6). The rate-coding motivations establish equivalence with BPTT by assuming temporal components are independent, which is formalized in Theorem 1."
+    }
+  ],
+  "url": ""
+}

@@ -1,0 +1,159 @@
+### Logic Analysis for `main.py`
+
+**Purpose:**  
+`main.py` serves as the central orchestrator orchestrating all steps: configuration loading, model initialization, dataset loading, trajectory sampling, divergence calculation, evaluation, and reporting of results. It coordinates the entire pipeline to reproduce the experiments outlined in the paper aligned with the provided design, datasets, and hyperparameters.
+
+---
+
+### 1. Initialization and Setup
+
+**a. Load configuration**  
+- Parse `config.yaml` using `PyYAML` to extract all settings:
+  - Model details (`model.name`, `model.type`)
+  - Sampling hyperparameters (`sampling.num_trajectories`, `sampling.max_length`, `sampling.temperature`, `sampling.seed`)
+  - Divergence measure (`divergence.type`, `divergence.likelihood_normalization_tau`)
+  - Evaluation settings (`evaluation.batch_size`, `evaluation.metrics`)
+  - Dataset paths (`dataset.prompt_pairs_path`, `dataset.wordnet_relations_path`, `dataset.multimodal_data_path`)
+  - Misc options: device selection, verbosity
+
+**b. Set random seed**  
+Use torch, numpy, and python `random` to ensure reproducibility via `sampling.seed`.
+
+---
+
+### 2. Model Initialization
+
+**a. Instantiate ModelWrapper**  
+- Use `model.name` and `model.type` to initialize the specific model (`transformers` or other frameworks).  
+- Load pre-trained weights via HuggingFace or custom interface.  
+- Set device (from `misc.model_device`), move model to GPU/CPU accordingly.
+
+**b. Verify tokenizer**  
+- Ensure proper tokenization consistent across scripts, wrapping tokenizer for batch processing if needed.
+
+---
+
+### 3. Dataset Loading
+
+**a. Load datasets via DatasetLoader**  
+- *Prompt pairs*: for semantic similarity experiments (e.g., sentence pairs from STS datasets).  
+- *WordNet relations*: for hyponym/hypernym relation tests.  
+- *Multimodal inputs*: images or image descriptions for multimodal relation experiments.
+
+**b. Data format handling**  
+- Read JSON, CSV, or other formats specified in paths.  
+- Pre-process data into suitable prompt formats.  
+- For multimodal data, prepare sample prompts combining text and modality-specific instructions.
+
+---
+
+### 4. Sampling Trajectories from the Model
+
+**a. For each prompt pair or individual prompt:**  
+- Call `ModelWrapper.sample_trajectories()` with parameters:  
+  - `prompt`: string prompt (from dataset)  
+  - `n`: number of trajectories (`sampling.num_trajectories`)  
+  - `m`: max tokens length (`sampling.max_length`)  
+  - `λ`: temperature (`sampling.temperature`)  
+  - `seed`: for reproducibility.
+
+**b. Parallelization**  
+- Use batching or multiprocessing if available to expedite sampling, respecting hardware (GPU memory, batch size constraints).
+
+**c. Store trajectories**  
+- Keep list of sequences with their associated log-likelihoods or likelihood scores (`Trajectory` objects).  
+- If needed, cache samples for repeated computations, particularly in relation tasks.
+
+---
+
+### 5. Likelihood and Divergence Calculation
+
+**a. Compute likelihood scores**  
+- For each trajectory, compute  
+  \[
+  \log P(t | s) = \sum_{i=1}^m \log p(a_i | s, a_{<i})
+  \]  
+  via `Likelihood.compute_log_likelihood(sequence, prompt)`.
+
+**b. Likelihood normalization** (if used):  
+- Normalize likelihoods using the \( \tau \) parameter (e.g., via `likelihood_normalization_tau`) for stable divergence calculation per the paper.  
+- Possible normalization: \( M_{\text{norm}}(t) = \frac{M(t)^\tau}{\sum_{t'} M(t')^\tau} \).
+
+**c. Divergence approximation**  
+- For each pair, pass the samples and likelihood scores to `DivergenceCalculator.compute_divergence()` with the specified divergence type (`log_l1`, `kl`, etc.).  
+- Implement expectation approximation as per the paper's Monte Carlo method, aggregating across pairs of sampled trajectories.
+
+---
+
+### 6. Semantic Similarity and Relation Tests
+
+**a. Similarity computation:**  
+- For each input pair (text or multimodal),  
+  - sample trajectories for \( u \) and \( v \).  
+  - compute divergence between their distributions (`distance.py`).  
+  - Store the divergence score.
+
+**b. Entailment and hypernym/hyponym inference:**  
+- For pairs \( (u,v) \), compute the divergence in both directions: \( d(M_u, M_v) \) and \( d(M_v, M_u) \).  
+- Use empirical criteria or thresholds (e.g., as in the paper) to classify entailment or hyponym relations.
+
+---
+
+### 7. Evaluation and Metrics
+
+**a. Semantic textual similarity (STS):**  
+- Collect divergence scores for all test pairs.  
+- Convert divergence to similarity score (for SS, lower divergence = higher similarity).  
+- Compute Spearman and Pearson correlations with ground truth annotations using `evaluation.py`.  
+- Report metrics.
+
+**b. Entailment accuracy:**  
+- Use the divergence scores to predict entailment directions.  
+- Calculate classification metrics (accuracy, F1) for entailment/directionality.
+
+**c. WordNet hyponym/hypernym relations:**  
+- Apply the same divergence-based containment check to word pairs.  
+- Measure accuracy against ground-truth WordNet relations.
+
+**d. Multimodal similarity:**  
+- Similar process: sample trajectories for images, captions, or combined inputs.  
+- Compute distances and compare with dataset labels or human annotations.
+
+---
+
+### 8. Reporting & Logging
+
+- Log all hyperparameters, runtime diagnostics, intermediate divergence scores, and evaluation metrics.  
+- Optionally visualize hierarchies (WordNet) or embedding spaces if desired, using `matplotlib` or similar libraries.
+
+**a. Verbose option:**  
+- When `verbose` is True, print progress updates, intermediate scores, and logs.
+
+**b. Final report:**  
+- Summary statistics: average similarity with human scores, ensemble over datasets.  
+- Model performance scaling with size, datasets, and task type.
+
+---
+
+### 9. Cleanup & Saving Results
+
+- Save models (if fine-tuning occurs, e.g., future extensions).  
+- Save sampled trajectories, divergence matrices, and evaluation metrics in structured files (`csv`, `json`).  
+- Handle exception cases gracefully: missing data, API issues, sampling failures.
+
+---
+
+### 10. Additional Considerations & Clarifications
+
+- Ensure all components follow the interface definitions: ModelWrapper, DatasetLoader, etc.  
+- Confirm modularity to facilitate testing of components independently.  
+- Make the code flexible for different models, datasets, and evaluation metrics based on config.yaml.
+
+---
+
+**Summary:**  
+`main.py` acts as the central orchestrator, performing: configuration loading → model setup → dataset loading → trajectory sampling → likelihood evaluation → divergence computation → metrics evaluation → result reporting. All steps are integral to faithfully reproducing the experiments and analyses described in the paper, with strict adherence to model and data interfaces, hyperparameters, and evaluation protocols.
+
+---
+
+**End of Logic Analysis**

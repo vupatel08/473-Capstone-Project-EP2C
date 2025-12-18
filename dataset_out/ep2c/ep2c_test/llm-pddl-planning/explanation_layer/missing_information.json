@@ -1,0 +1,37 @@
+[
+  {
+    "type": "implementation",
+    "parameter": "placeholder",
+    "description": "Placeholder values found in app.py",
+    "severity": "medium",
+    "suggestion": "Replace placeholders with actual values"
+  },
+  {
+    "type": "implementation",
+    "parameter": "placeholder",
+    "description": "Placeholder values found in environment.py",
+    "severity": "medium",
+    "suggestion": "Replace placeholders with actual values"
+  },
+  {
+    "type": "implementation",
+    "parameter": "placeholder",
+    "description": "Placeholder values found in pddl_generator.py",
+    "severity": "medium",
+    "suggestion": "Replace placeholders with actual values"
+  },
+  {
+    "type": "implementation",
+    "parameter": "placeholder",
+    "description": "Placeholder values found in refinement.py",
+    "severity": "medium",
+    "suggestion": "Replace placeholders with actual values"
+  },
+  {
+    "type": "implementation",
+    "parameter": "placeholder",
+    "description": "Placeholder values found in utils.py",
+    "severity": "medium",
+    "suggestion": "Replace placeholders with actual values"
+  }
+]

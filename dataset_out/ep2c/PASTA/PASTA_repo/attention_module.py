@@ -1,0 +1,227 @@
+# attention_module.py
+
+import torch
+from torch import Tensor
+from transformers import PreTrainedModel
+from typing import List, Dict, Tuple, Optional
+
+class AttentionModule:
+    """
+    This class provides methods to:
+    1. Register hooks to capture attention scores at inference time.
+    2. Extract attention scores after the forward pass.
+    3. Reweight attention scores based on user-highlighted tokens and a coefficient alpha.
+    
+    It supports models from Hugging Face transformers with accessible attention outputs, such as
+    LLAMA, GPT-J, and Vicuna variants, assuming they are loaded with output_attentions=True.
+    """
+    
+    def __init__(
+        self,
+        model: PreTrainedModel,
+        device: str = "cuda",
+        alpha: float = 0.01,
+        top_k_heads: int = 400,
+        profile_heads: Optional[List[Tuple[int, int]]] = None
+    ):
+        """
+        Initialize the AttentionModule.
+        Args:
+            model: The Hugging Face transformer model instance.
+            device: 'cuda' or 'cpu'.
+            alpha: Reweighting coefficient, default 0.01.
+            top_k_heads: Number of heads to select for steering (if profiling not used).
+            profile_heads: List of (layer_idx, head_idx). If None, should set after profiling.
+        """
+        self.model = model
+        self.device = device
+        self.alpha = alpha
+        self.top_k_heads = top_k_heads
+        self.profile_heads = profile_heads or []
+        self.attention_scores: List[Dict[Tuple[int, int], Tensor]] = []
+        self._hooks = []
+        self._register_attention_hooks()
+        # Keep track of latest attentions per layer-head
+        self._attention_cache: Dict[Tuple[int, int], Tensor] = {}
+        # For managing layer names
+        self._layer_modules = self._identify_attention_modules()
+    
+    def _identify_attention_modules(self):
+        """
+        Identify attention modules within the model's architecture,
+        to register hooks. Handles common transformer structures.
+        Returns:
+            List of modules corresponding to transformer layers.
+        """
+        modules = []
+        top_module = getattr(self.model, 'model', self.model)
+        # For LLAMA or similar models
+        if hasattr(top_module, 'layers'):
+            modules = list(top_module.layers)
+        elif hasattr(top_module, 'h'):
+            modules = list(top_module.h)
+        elif hasattr(top_module, 'block'):
+            modules = list(top_module.block)
+        else:
+            raise RuntimeError("Unable to find attention modules in the model.")
+        return modules
+    
+    def _register_attention_hooks(self):
+        """
+        Register hooks into each attention layer/module
+        to capture the attention scores during forward pass.
+        """
+        def get_attention_hook(layer_idx: int):
+            def hook(module, input, output):
+                """
+                Hook function to capture attention scores per layer.
+                Assumes output is either a tuple with attention tensors or an object
+                with 'attentions' attribute.
+                """
+                attn_tensor = None
+                if isinstance(output, tuple):
+                    # Many models return attentions as second item
+                    if len(output) >= 2:
+                        attn_tensor = output[1]
+                elif hasattr(output, 'attentions'):
+                    # Some models store attentions in attribute
+                    attn_tensor = output.attentions
+                if attn_tensor is None:
+                    return
+                # attn_tensor: shape (batch_size, num_heads, seq_len, seq_len)
+                # For indexation, store per layer-head
+                # If multiple tensors, take the last one
+                self._attention_cache[(layer_idx, None)] = attn_tensor.detach()
+            return hook
+
+        # Attach hooks to all relevant attention modules
+        for layer_idx, layer_module in enumerate(self._layer_modules):
+            # Different models have different attribute names
+            # Standard pattern:
+            #   - self_attn or attn or attention
+            handled = False
+            if hasattr(layer_module, 'self_attn'):
+                handle = layer_module.self_attn.register_forward_hook(get_attention_hook(layer_idx))
+                self._hooks.append(handle)
+                handled = True
+            if hasattr(layer_module, 'attn') and not handled:
+                handle = layer_module.attn.register_forward_hook(get_attention_hook(layer_idx))
+                self._hooks.append(handle)
+                handled = True
+            if hasattr(layer_module, 'attention') and not handled:
+                handle = layer_module.attention.register_forward_hook(get_attention_hook(layer_idx))
+                self._hooks.append(handle)
+                handled = True
+            # If none matched, skip
+        # Note: For models like LLAMA, attention is typically in 'self_attn' attribute.
+
+    def clear_hooks(self):
+        """
+        Remove all registered hooks to clean up.
+        """
+        for handle in self._hooks:
+            handle.remove()
+        self._hooks.clear()
+
+    def get_attention_scores(
+        self,
+        input_kwargs: Dict
+    ) -> List[Dict[Tuple[int, int], Tensor]]:
+        """
+        Forward through the model with hooks enabled, then collect attention scores.
+        Args:
+            input_kwargs: dict with input_ids, attention_mask etc.
+        Returns:
+            List of dicts per layer, where each dict keys are (layer_idx, head_idx)
+            and values are attention tensors of shape (batch_size, seq_len, seq_len).
+        """
+        self._attention_cache.clear()
+        # Run inference with hooks capturing attention
+        with torch.no_grad():
+            output = self.model(**input_kwargs)
+        # From the cache, organize attention per layer and head
+        attention_per_layer: Dict[int, Tensor] = {}
+        for (layer_idx, _), attn_tensor in self._attention_cache.items():
+            # Store only one attention tensor per layer (average over heads if multiple tensors)
+            # But hooks collect attention per layer as a tensor of shape (batch_size, num_heads, seq_len, seq_len)
+            # To handle multiple heads, keys are (layer_idx, head_idx)
+            # So, we must process attention per head later
+            if layer_idx not in attention_per_layer:
+                attention_per_layer[layer_idx] = attn_tensor
+            else:
+                # If multiple tensors per layer (unlikely), merge or overwrite
+                attention_per_layer[layer_idx] = attn_tensor
+        # Convert organized data into expected structure:
+        # For each layer, we have a tensor with shape (batch_size, num_heads, seq_len, seq_len)
+        attention_list = []
+        for layer_idx, attn_tensor in sorted(attention_per_layer.items()):
+            # For each head, store individual attention
+            num_heads = attn_tensor.shape[1]
+            for head_idx in range(num_heads):
+                # Store attention tensor for each head
+                # Keyed by (layer_idx, head_idx)
+                if (layer_idx, head_idx) not in self._attention_cache:
+                    # Save in cache for reweighting
+                    self._attention_cache[(layer_idx, head_idx)] = attn_tensor[:, head_idx, :, :]
+                else:
+                    self._attention_cache[(layer_idx, head_idx)] = attn_tensor[:, head_idx, :, :]
+        # Build output list
+        attentions = []
+        for (layer_idx, head_idx), attn_tensor in self._attention_cache.items():
+            attentions.append({'layer_idx': layer_idx, 'head_idx': head_idx, 'attention': attn_tensor})
+        return attentions
+
+    def reweight_attention(
+        self,
+        attention_tensors: List[Dict[Tuple[int, int], Tensor]],
+        highlighted_tokens: List[int]
+    ) -> None:
+        """
+        Reweight stored attention matrices in-place based on highlighted tokens and alpha.
+        This modifies the attention scores so that subsequent attention computation uses these.
+        Args:
+            attention_tensors: List of attention dicts as produced by get_attention_scores.
+            highlighted_tokens: List of token indices (int) to emphasize.
+        """
+        # Precompute set for efficient lookup
+        highlight_set = set(highlighted_tokens)
+        for attn_dict in attention_tensors:
+            layer_idx = attn_dict['layer_idx']
+            head_idx = attn_dict['head_idx']
+            attn_score: Tensor = attn_dict['attention']  # shape: (batch_size, seq_len, seq_len)
+            # For each batch, rowwise process
+            batch_size, seq_len, _ = attn_score.shape
+            # Create mask for j: 1 if in highlighted_tokens else alpha
+            mask_j = torch.ones(seq_len, device=attn_score.device)
+            for j in range(seq_len):
+                if j not in highlight_set:
+                    mask_j[j] = self.alpha
+            # Expand mask_j to (seq_len,) for broadcasting
+            # For each row i, multiply each attention weight A_{i,j}: produce scaled scores
+            for b in range(batch_size):
+                # Scale attention scores: multiply each row by the mask of j
+                scores: Tensor = attn_score[b]  # shape: (seq_len, seq_len)
+                # Scale columns (attention weights for each token j)
+                scores = scores * mask_j.unsqueeze(0)  # shape: (seq_len, seq_len)
+                # Row-wise normalization
+                C_i = scores.sum(dim=1, keepdim=True)  # shape: (seq_len, 1)
+                C_i = torch.where(C_i == 0, torch.ones_like(C_i), C_i)
+                scores = scores / C_i
+                attn_score[b] = scores
+            # Save back the reweighted attention
+            attn_dict['attention'] = attn_score
+
+    def set_profile_heads(self, heads: List[Tuple[int, int]]):
+        """
+        Update the heads for steering.
+        Args:
+            heads: list of (layer_idx, head_idx)
+        """
+        self.profile_heads = heads
+
+    def get_profile_heads(self):
+        """
+        Return current profile heads.
+        """
+        return self.profile_heads
+

@@ -1,0 +1,122 @@
+{
+  "modules.py": [
+    {
+      "component": "PositionalEncoding",
+      "description": "Implement a class for fixed sinusoidal positional encodings as described by Vaswani et al. (2017).",
+      "details": [
+        "Input parameters: maximum sequence length (max_length), embedding dimension (d_model).",
+        "Method generate(): produces a tensor of shape (max_length, d_model) with positional encodings using sine and cosine functions.",
+        "Implementation: For position p in [1, max_length], compute PE using formulas:",
+        "  PE(p, 2i) = sin(p / 10000^(2i / d_model)),",
+        "  PE(p, 2i+1) = cos(p / 10000^(2i / d_model)).",
+        "Add the positional encodings to the embeddings after feature extraction."
+      ],
+      "considerations": [
+        "Handle variable sequence lengths at runtime: positions for in-batch sequences should be sliced accordingly, or generate fixed PE tensor and slice as needed.",
+        "Ensure tensor shape compatibility: shape (t, d_model).",
+        "Add encoding in the forward method or as a utility function."
+      ]
+    },
+    {
+      "component": "GAPPooling",
+      "description": "Implement a class for global average pooling (mean of embeddings over time).",
+      "details": [
+        "Input: embeddings tensor of shape (batch_size, 1, t, d), where t is sequence length.",
+        "Operation: take mean over sequence dimension (dim=2).",
+        "Output: pooled tensor of shape (batch_size, 1, 1, d).",
+        "Followed by a classifier (fully connected layer) for label prediction."
+      ],
+      "considerations": [
+        "Ensure support for different batch sizes.",
+        "The output shape matches the expected input to classifier modules."
+      ]
+    },
+    {
+      "component": "AttentionPooling",
+      "description": "Implement the attention MIL pooling method: computes attention scores for each time point, scales embeddings accordingly, then pools by weighted sum.",
+      "details": [
+        "Input: embeddings tensor (batch, 1, t, d).",
+        "Attention head: a two-layer neural network with tanh + sigmoid activations:",
+        "  - Attention linear layer: input d, output a small hidden size (e.g., 8).",
+        "  - Apply tanh activation.",
+        "  - Attention linear layer: from hidden size to 1 (attention score per time point).",
+        "  - Apply sigmoid to produce attention weights a_i_j in [0,1].",
+        "Scale embeddings by attention scores: for each time point j, embed -> a_i_j * embed.",
+        "Perform pooling: weighted sum over time points to produce a single embedding.",
+        "Output: the pooled embedding fed into classifier for class prediction."
+      ],
+      "considerations": [
+        "Ensure attention scores are properly normalized if softmax is needed; here, sigmoid is used per description.",
+        "Support multi-head or single-head attention based on attention_heads parameter.",
+        "Maintain differentiability for end-to-end training."
+      ]
+    },
+    {
+      "component": "InstancePooling",
+      "description": "Each time point gets a class prediction, then average over all time points to get the series prediction.",
+      "details": [
+        "Input: embeddings tensor (batch, 1, t, d).",
+        "Operation: apply a classifier (linear layer) independently to each time point to generate predictions (batch, 1, t, c).",
+        "Pool: average over time dimension (dim=2) to produce (batch, 1, 1, c).",
+        "This directly yields class-specific time point scores, interpretable as motifs supporting/refuting classes."
+      ],
+      "considerations": [
+        "Ensure the classifier is applied in a convolutional manner or with proper reshaping.",
+        "Support batch operations efficiently."
+      ]
+    },
+    {
+      "component": "AdditivePooling",
+      "description": "Combine attention and instance predictions: compute attention weights, produce time point class predictions, then scale by attention, and pool.",
+      "details": [
+        "Input: embeddings (batch, 1, t, d).",
+        "Attention head: same as AttentionPooling, producing attention scores a_i_j.",
+        "Classifier head: independently produce class scores y_i_j for each time point.",
+        "Combine: element-wise multiply each class prediction y_i_j by attention score a_i_j, per time point.",
+        "Pool: average over time points for each class to obtain final series predictions."
+      ],
+      "considerations": [
+        "Ensure that the scaling and pooling preserve class-specific interpretability.",
+        "Manage tensor shapes for batch processing."
+      ]
+    },
+    {
+      "component": "ConjunctivePooling",
+      "description": "Separate attention head and classifier for each time point, then combine via element-wise product of attention score and class prediction per time point, followed by average over time.",
+      "details": [
+        "Input: embeddings (batch, 1, t, d).",
+        "Attention head: as before, produce attention scores a_i_j (batch, 1, t, 1).",
+        "Classifier head: produce class predictions y_i_j per time point (batch, 1, t, c).",
+        "Combine: create scaled predictions: y_i_j_scaled = a_i_j * y_i_j.",
+        "Pool: average y_i_j_scaled over time to produce final class prediction per series."
+      ],
+      "considerations": [
+        "Class-specific interpretability: attention highlights important time points supporting particular classes.",
+        "Ensure model stability: scale predictions carefully, possibly normalize attention scores."
+      ]
+    },
+    {
+      "common considerations": "For all pooling modules:",
+      "details": [
+        "Make sure they accept input tensor of shape (batch, 1, t, d).",
+        "Return class prediction logits (batch, 1, 1, c).",
+        "Incorporate dropout layers after positional encoding or within attention/classification heads if specified in the configuration.",
+        "Support for different attention head sizes and attention heads count via parameters.",
+        "Ensure all modules are differentiable for training."
+      ]
+    }
+  ],
+  "considerations": [
+    "Tensor device management: ensure all tensors are on the same device (CPU/GPU).",
+    "Initialization of parameters: apply Xavier/Glorot uniform for linear layers.",
+    "In the context of the full system, ensure the pooling modules can be swapped seamlessly for experimentation.",
+    "Design each class with a forward() method accepting input tensors and returning outputs.",
+    "Include optional support for positional encoding addition inside each pooling module if needed."
+  ],
+  "unclear_points": [
+    "Handling of variable sequence length at runtime: whether to support dynamic length or fixed length only.",
+    "Whether attention heads are multi-head or single-head in configuration.",
+    "If softmax or sigmoid is preferred for attention at inference time. The paper indicates sigmoid is used.",
+    "Additional normalization steps for attention weights or class predictions in Conjunctive pooling."
+  ]
+}

@@ -1,0 +1,110 @@
+# requirements.txt
+
+# This file summarizes the detailed logical dependencies and structured flow needed to implement the methodology and experiments described in the paper "Knowledge Distillation Based on Transformed Teacher Matching (TTM & WTTM)". It aligns with the plan, design, dataset handling, model architectures, loss functions, hyperparameters, and experimental procedures as specified.
+
+---
+
+## Essential Package Dependencies
+
+- **PyTorch (torch)**: core deep learning framework for defining models, computing losses, gradients, etc.
+
+- **torchvision**: provides model architectures (ResNet, MobileNet, ShuffleNet variants), datasets, and image transforms.
+
+- **NumPy**: numerical operations, especially for probability normalization, dataset statistics, and auxiliary calculations.
+
+- **PyYAML**: loads configuration parameters from `config.yaml`, ensuring hyperparameters and dataset paths are flexible and reproducible.
+
+---
+
+## Additional Logical Dependencies
+
+- **Dataset Loading & Preprocessing**:
+  - Use `torchvision.datasets` for CIFAR-100 and ImageNet.
+  - Implement image augmentation strategies (random crop, flip, normalization) in data loaders.
+  - Provide training and validation iterators with batch size and shuffling controlled via config.
+
+- **Model Definition & Loading**:
+  - Instantiate teacher and student models as per architecture names in the configuration.
+  - Load pre-trained weights for the teacher from specified paths.
+  - Initialize student models randomly for training.
+
+- **Loss Components & Computation**:
+  - Implement cross-entropy loss (`nn.CrossEntropyLoss`) for ground-truth supervision.
+  - Implement KL divergence loss, with temperature/post-transformation applied:
+    - Compute teacher's output probabilities: `p_i = softmax(logits)`.
+    - Apply **power transform**: `p_i^\gamma` normalized to sum to 1.
+    - Compute student output probabilities `q_i` similarly.
+  - Incorporate sample weights in WTTM:
+    - Calculate `U_{1/T}(p^t)` for each sample.
+    - Normalize or scale as per formula to weight the KL divergence loss.
+  - Implement the combined loss:
+    \[
+    \mathcal{L}_{total} = H(y,q) + \beta \cdot U_{1/T}(p^t) \cdot D_{KL}(p_T^t || q) + \mu \cdot \mathcal{L}_{dist}
+    \]
+  - Support additional distillation methods like CRD or ITRD (if combined) with their respective hyperparameters.
+
+- **Power Transform & Renyi Entropy**:
+  - Implement function to perform the power transform of teacher's probabilities with exponent \(\gamma = 1/T\).
+  - Compute sample-wise weight `U_{1/T}` used in WTTM.
+  - Calculate the Renyi entropy or related regularization terms as needed (for analysis).
+
+- **Training Loop & Optimization**:
+  - For each batch:
+    - Forward pass through teacher and student models.
+    - Generate teacher probabilities, perform power transform.
+    - Compute loss components with appropriate weights.
+    - Backpropagate and handle optimizer steps.
+  - Schedule learning rate updates (e.g., step decay, cosine annealing).
+
+- **Logging & Evaluation**:
+  - Track metrics: top-1 accuracy on validation/test set.
+  - Record entropy distribution of student outputs per epoch to visualize regularization effects.
+  - Save model checkpoints at intervals set in config.
+  - Log loss components and sample-wise metrics for analysis and reproduction.
+
+---
+
+## Reproducibility & Hyperparameter Control
+
+- All hyperparameters (T, beta, lambda, mu, etc.) are to be read from `config.yaml`.
+- Hyperparameters such as the dimension of the models, optimizer parameters, and data augmentation are fixed to match experimental setups.
+- Multiple runs (3–5) for CIFAR-100 to report mean and standard deviation.
+- For ImageNet, follow canonical training schedules and reported settings.
+
+---
+
+## Implementation Logic Summary
+
+- Load configuration parameters.
+- Instantiate datasets and data loaders with augmentation.
+- Initialize models (teacher from checkpoint, student randomly).
+- Prepare loss functions:
+  - Custom power transform function.
+  - KL divergence with sample weights for WTTM.
+- During training:
+  - Forward: get teacher logits, compute teacher probabilities, apply power transform.
+  - Forward: student logits, compute predictions.
+  - Compute cross entropy with labels.
+  - Compute distillation loss (with weights if WTTM).
+  - Combine losses with hyperparameters.
+  - Backpropagate, update student.
+- After each epoch:
+  - Check validation accuracy.
+  - Save checkpoints.
+- Final evaluation:
+  - Calculation of top-1 accuracy.
+  - Entropy and divergence analyses.
+  - Optional visualization of output distribution entropy histograms to match Figures 3 and 4.
+
+---
+
+## Final Notes
+
+- Ensure all computations involving probability distributions are numerical stable and normalized.
+- Code modules should be modular to allow switching between TTM, WTTM, and other distillation methods.
+- Maintain strict alignment with pseudocode and hyperparameter settings provided in the appendices for exact reproducibility.
+- Add proper logging, seed control, and resource management to ensure consistency across runs.
+
+---
+
+*This 'requirements.txt' encapsulates the logical dependencies, critical steps, and structured flow necessary for an accurate, faithful implementation aligned with the paper's methodology and experimental protocol.*

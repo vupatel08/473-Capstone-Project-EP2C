@@ -1,0 +1,95 @@
+{
+  "Overview": "The `model.py` module defines all core neural network components necessary for the MutaPLM framework. It encompasses classes that wrap pretrained protein sequence models (ProteinPLM), language models for textual data (TextEncoder), the explicit mutation modeling architecture (ProteinDeltaNetwork), and auxiliary classes for soft prompt token management (PromptEmbedding). The design enables modular composition of the holistic mutation explanation and engineering pipeline, integrating cross-modal features with explicit mutation representations.",
+  "Class: ProteinPLM": {
+    "Purpose": "To encapsulate a pretrained protein language model (e.g., ESM-2) capable of producing dense per-residue embeddings from input sequences.",
+    "Key Responsibilities": [
+      "Load pretrained weights from 'transformers' library or local checkpoint.",
+      "Tokenize input amino acid sequences into model-expected format.",
+      "Forward pass: obtain hidden states (embeddings) for the sequence.",
+      "Provide interfaces to extract sequence-level, residue-level representations.",
+      "Optionally, perform sequence reconstruction or mutation probability predictions as per downstream heads."
+    ],
+    "Implementation Notes": {
+      "Input": "Sequence string or token IDs.",
+      "Output": "Sequence of hidden states (Tensor of shape [L, D]) or pooled sequence embedding.",
+      "Initialization": "From transformers.AutoModelForSequenceClassification or similar, loaded with specified checkpoint.",
+      "Tokenizer": "Use the corresponding pretrained tokenizer for consistent tokenization.",
+      "Device": "Ensure model and inputs are on GPU/CPU as per environment."
+    }
+  },
+  "Class: TextEncoder": {
+    "Purpose": "To encode biomedical texts or prompts into dense latent representations aligned with protein features for cross-modal interaction.",
+    "Key Responsibilities": [
+      "Load pretrained language model (e.g., BioMedGPT, SciBERT).",
+      "Tokenize input textual descriptions or prompts.",
+      "Perform forward pass to produce token embeddings, pooled sentence embedding, or special prompt embeddings.",
+      "Output feature vectors suitable for prompt embeddings or sequence alignment."
+    ],
+    "Implementation Notes": {
+      "Input": "Raw text string or list of strings.",
+      "Output": "Tensor of shape [N, D], representing text features.",
+      "Integration": "Will supply embeddings for prompts, chain-of-thought, mutation explanations, and soft prompts."
+    }
+  },
+  "Class: PromptEmbedding": {
+    "Purpose": "Manage trainable soft prompt tokens used to align textual and protein feature spaces, and to facilitate chain-of-thought prompting.",
+    "Key Responsibilities": [
+      "Initialize a set of soft tokens as learnable parameters (e.g., `K=32`, dim=D).",
+      "Concatenate soft tokens with prompt embeddings during forward passes.",
+      "Support gradient updates during training (pretraining and fine-tuning).",
+      "Provide interfaces for retrieval of prompt embeddings for use in other models."
+    ],
+    "Implementation Notes": {
+      "Initialization": "Random initialization, requires gradient tracking.",
+      "Shape": "Tensor of shape [K, D], where K is the number of soft tokens, D is feature dimension.",
+      "Usage": "Concatenate with textual token embeddings before passing into transformer layers."
+    }
+  },
+  "Class: ProteinDeltaNetwork": {
+    "Purpose": "To explicitly model mutation effects via delta representations, capturing the difference between wild-type and mutant sequences, and decoding mutation proposals.",
+    "Structure": "Encoder-Decoder architecture with dedicated sub-modules:",
+    "Components": {
+      "WT encoder": "Encodes wild-type sequence features, produces fixed latent features (`z_wt`).",
+      "Delta encoder": "Encodes mutation-induced differences (`h_delta`), input from `h_mut - h_wt`, producing `z_delta`.",
+      "Delta decoder": "Reconstructs mutation effects (`h_delta`) from `z_delta` and WT features.",
+      "Heads": {
+        "Position head": "Predicts mutation site or whether position should mutate.",
+        "Amino acid head": "Predicts the type of amino acid mutation at each position."
+      }
+    },
+    "Functionality": [
+      "Input: `h_wt` (wild-type features), `h_mut` (mutant features).",
+      "Process: Compute `h_delta = h_mut - h_wt`, encode with delta encoder, reconstruct with delta decoder.",
+      "Output: Mutation representation `h_delta`, mutation proposal distributions (positions & amino acids)."
+    ],
+    "Implementation Details": {
+      "Architecture": "Cross-attention modules for encoder & decoder, with residual connections.",
+      "Dimension": "Input/output latent dimensions match PLM hidden size (e.g., 768).",
+      "Attention": "Multi-head, with `num_attention_heads`, possibly 12 in default.",
+      "Loss": "To be used during training: mutation prediction loss (classification), reconstruction loss."
+    }
+  },
+  "Class: Heads for Mutation Prediction": {
+    "Purpose": "Provide task-specific classifiers for mutation site and amino acid type prediction.",
+    "Components": {
+      "PositionHead": "Fully connected layer predicting mutation position/mutability (binary or categorical).",
+      "AminoAcidHead": "Fully connected layer projecting to amino acid classes (e.g., 20)."
+    },
+    "Implementation Notes": {
+      "Input": "Reconstructed `h_mut` features.",
+      "Output": "Probability distribution over positions or amino acids (via softmax).",
+      "Initialization": "Typically initialized with Kaiming uniform; can be trained with cross-entropy."
+    }
+  },
+  "Integration & Data Flow": "The overall pipeline orchestrates as follows:\n- Input raw protein sequence -> `ProteinPLM` -> `h_wt`\n- Sequence of textual prompts -> `TextEncoder` -> text features\n- Mutation site & sequence info -> `ProteinPLM` -> `h_mut`\n- Compute `h_delta = h_mut - h_wt`\n- `ProteinDeltaNetwork.Encode_delta` -> `z_delta`\n- `ProteinDeltaNetwork.Decode_delta` + `h_wt` -> reconstruct `h_delta`\n- Heads on `h_mut` for mutation proposals\n- During training, compute losses and backpropagate.\n- During inference, generate mutation proposals, explanations, and predictions as per prompts.",
+  "Extension & Variants": "Design allows swapping in different pretrained models for proteins and text, supporting multiple modalities. The architecture supports both self-supervised pretraining (sequence masking, textual generation) and task-specific fine-tuning with chain-of-thought prompts.",
+  "Implementation points": [
+    "Inherit from torch.nn.Module for each class.",
+    "Use transformers.AutoModel or AutoModelForSeqClassification for pretrained modules.",
+    "Laid out with dependency on `transformers`, `torch`.",
+    "Ensure that data passed into `forward()` is already tokenized and on correct device.",
+    "Support batch processing with padding masks.",
+    "Design modular: separate config parameters for hidden sizes, number of heads, dropout, etc. as per configuration."
+  ],
+  "Summary": "The structured design in `model.py` should provide a flexible, modular implementation of all core classes, with clear interface methods for encoding sequences, generating prompts, modeling mutation effects explicitly via delta representations, and predicting mutation proposals. These classes will facilitate both pretraining objectives and task-specific fine-tuning for explanation and engineering tasks, ensuring fidelity to the described architecture and training strategies."
+}

@@ -1,0 +1,65 @@
+{
+  "Logic Analysis": [
+    {
+      "Component": "Initialization",
+      "Purpose": "Set up the Trainer class with all necessary parameters and modules.",
+      "Details": "The Trainer class takes as input the model, dataset, optimizer, hyperparameters (including lambda, sigma, lazy update settings), and configuration flags (e.g., use_previous_outputs). It initializes internal variables for storing previous epoch outputs (for lazy variant), gradient norm tracking, and logging. It also sets up the perturbation function (multiplicative Gaussian noise) with the value of sigma from configs."
+    },
+    {
+      "Component": "Training Loop",
+      "Purpose": "Perform the optimization steps across all epochs.",
+      "Details": "For each epoch, iterate through batches of data. For each batch: (a) apply perturbation to the adapter features using multiplicative Gaussian noise; (b) perform forward passes with different perturbations: either two independent noise samples (standard PACE) or a stored previous epoch output (lazy variant); (c) compute the main task loss (classification or regression); (d) compute the consistency loss based on the model outputs for perturbed inputs; (e) combine losses with the hyperparameter lambda; (f) perform backward propagation, clip gradients if necessary, and optimizer step; (g) track gradient norms if required for analysis."
+    },
+    {
+      "Component": "Perturbation Application",
+      "Purpose": "Introduce multiplicative noise to adapter features.",
+      "Details": "Within each batch, for each input sample: (a) extract adapter features via the model’s interface; (b) generate Gaussian noise \(z \sim \mathcal{N}(1, \sigma^2)\) for each feature dimension; (c) multiply adapter features elementwise by the noise \(z\). For the base (non-lazy) approach, generate independent noise samples \(z_1, z_2\) per perturbation; for lazy variants, re-use previous epoch outputs or perform intermittent perturbations."
+    },
+    {
+      "Component": "Model Forward Passes",
+      "Purpose": "Run predictions with different perturbations to compute consistency.",
+      "Details": "For each batch, perform at least two forward passes: (a) with the original adapter features (possibly perturbed); (b) with a different sampled noise or previous epoch output (for lazy). Ensure the model supports injecting input features or adapter features with perturbations via the perturbation function or wrapper. Collect the model outputs (logits or regression outputs)."
+    },
+    {
+      "Component": "Consistency Loss Computation",
+      "Purpose": "Encourage invariance of model outputs under adapter feature perturbations.",
+      "Details": "Calculate the L2 difference between the two outputs obtained under different perturbations: \( \text{loss}_{\text{cons}} = \|f(\mathbf{x}; \theta + z_1 \odot \Delta \theta) - f(\mathbf{x}; \theta + z_2 \odot \Delta \theta)\|_2^2 \). This is averaged over the batch. When using previous epoch outputs, compute the consistency between current model outputs (with perturbation) and stored previous epoch outputs. The consistency loss is scaled by the hyperparameter lambda and added to the main task loss."
+    },
+    {
+      "Component": "Loss Aggregation",
+      "Purpose": "Combine main task loss with regularization via consistency loss.",
+      "Details": "Total loss per batch = main task loss + lambda * consistency loss. This total loss is used for backward propagation."
+    },
+    {
+      "Component": "Backward Pass & Gradient Step",
+      "Purpose": "Update only the trainable parameters related to PEFT modules and adapter features.",
+      "Details": "Compute gradients via loss.backward(). Optionally clip gradient norms for stability. Perform optimizer.step() to update parameters. Reset gradients to zero afterward."
+    },
+    {
+      "Component": "Gradient Norm Tracking",
+      "Purpose": "Measure the implicit regularization effect of PACE.",
+      "Details": "Throughout training, after each optimizer step, extract the gradients of trainable parameters (adapter weights, PEFT modules). Compute norm: \( \|\nabla_\theta \mathcal{L}\|_2 \). Store these norms per iteration or epoch for analysis. Plot or log to compare with baseline to verify the gradient regularization effect."
+    },
+    {
+      "Component": "Lazy & Fast Variants",
+      "Purpose": "Reduce computational overhead while maintaining the regularization effect.",
+      "Details": "Lazy variant: store model outputs after each epoch in a memory buffer; during subsequent epoch, only compute consistency of current output vs stored previous epoch output. Update stored output once in a specified interval (e.g., every N epochs). Fast variant: store previous epoch's outputs and compare with current at every step. Adjust the code to conditionally perform perturbation and consistency calculation based on configuration flags."
+    },
+    {
+      "Component": "Epoch End Handling",
+      "Purpose": "Update stored previous outputs if using lazy approach.",
+      "Details": "At the end of each epoch, save the model outputs (or features) for the validation/train set if 'use_previous_epoch_outputs' is True and lazy updates are enabled. This allows the lazy consistency to compare current outputs with stored previous outputs."
+    },
+    {
+      "Component": "Evaluation & Logging",
+      "Purpose": "Monitor training progress and analyze the regularization effect.",
+      "Details": "At specified intervals (e.g., every 10 epochs), run evaluation on validation/test split. Compute metrics (accuracy, MSE). Log gradient norms, consistency loss, output differences, and metrics. Check for gradient explosion or instability, especially at high regularization weights or noise levels."
+    },
+    {
+      "Component": "Finalization",
+      "Purpose": "Save best-performing model and report metrics.",
+      "Details": "If 'save_best_model' is True, track validation metrics and save model checkpoints accordingly. After training completes, evaluate on test set with the saved best model, without perturbation, for final metrics."
+    }
+  ],
+  "Notes": "Ensure that the perturbation process is compatible with the model architecture—especially the insertion points for the adapter features. Modularize perturbation, loss computation, and gradient norm tracking for clarity and reusability. For multiple GPUs or distributed settings, synchronize gradient norms and model outputs as needed. The code must be flexible to switch between standard, lazy, and fast variants through configuration flags."
+}

@@ -1,0 +1,276 @@
+{
+  "code_to_paper": {
+    "attention.py:AttentionLayer": [
+      "As an AI",
+      "I need more information to provide an accurate answer. However",
+      "based on the given code component",
+      "potential relevant sections could be \"Methodology\"",
+      "\"Implementation Details\"",
+      "\"Self-Attention Mechanism\"",
+      "or \"Smoothed Energy Guidance (SEG)\". Please provide the actual paper sections for a more accurate match."
+    ],
+    "attention.py:__init__": [
+      "Model Architecture",
+      "Methodology",
+      "Experiment and Results"
+    ],
+    "dataset_loader.py:DatasetLoader": [
+      "The provided information does not include specific paper sections related to the code component. Please provide the relevant paper sections for a proper analysis."
+    ],
+    "dataset_loader.py:__len__": [
+      "The provided paper sections are not sufficient to link with the given code component. Please provide more relevant paper sections."
+    ],
+    "diffusion_sampler.py:DiffusionSampler": [
+      "The provided paper sections are not sufficient to link with the given code component. Please provide more relevant paper sections."
+    ],
+    "diffusion_sampler.py:__init__": [
+      "Model Implementation",
+      "Parameter Settings",
+      "Experiment Setup"
+    ],
+    "evaluation.py:Evaluation": [
+      "The paper sections are not provided in the question. Please provide the paper sections to proceed."
+    ],
+    "evaluation.py:load_fid_stats": [
+      "The provided information does not include any paper sections relevant to the code component. Please provide the correct paper sections."
+    ],
+    "main.py:or": [
+      "The provided information is insufficient to determine the most relevant paper sections for the code component. Please provide more details about the code component and the paper sections."
+    ],
+    "main.py:main": [
+      "The provided information is insufficient to determine the most relevant paper sections for the code component. Please provide more details about the function in the main.py file and its purpose."
+    ],
+    "model.py:DiffusionModel": [
+      "Without the full list of paper sections",
+      "it's impossible to provide an accurate answer. However",
+      "based on the code component description",
+      "sections like \"Methodology\"",
+      "\"Model Implementation\"",
+      "\"Inference Process\"",
+      "or \"Attention Modules\" could potentially be relevant."
+    ],
+    "model.py:__init__": [
+      "The provided paper sections are not sufficient to link with the given code component. Please provide more relevant paper sections."
+    ],
+    "trainer.py:Trainer": [
+      "The provided information does not include any paper sections related to the code component. Please provide relevant paper sections."
+    ],
+    "trainer.py:__init__": [
+      "The paper sections are not provided in the question. Please provide the paper sections to proceed."
+    ]
+  },
+  "paper_to_code": {
+    "As an AI": [
+      {
+        "component": "attention.py:AttentionLayer",
+        "description": "Encapsulates self-attention with optional Gaussian blurring on query or key tensors,\n    supporting varying sigma values for Smoothed Energy Guidance (SEG).",
+        "file": "attention.py"
+      }
+    ],
+    "I need more information to provide an accurate answer. However": [
+      {
+        "component": "attention.py:AttentionLayer",
+        "description": "Encapsulates self-attention with optional Gaussian blurring on query or key tensors,\n    supporting varying sigma values for Smoothed Energy Guidance (SEG).",
+        "file": "attention.py"
+      }
+    ],
+    "based on the given code component": [
+      {
+        "component": "attention.py:AttentionLayer",
+        "description": "Encapsulates self-attention with optional Gaussian blurring on query or key tensors,\n    supporting varying sigma values for Smoothed Energy Guidance (SEG).",
+        "file": "attention.py"
+      }
+    ],
+    "potential relevant sections could be \"Methodology\"": [
+      {
+        "component": "attention.py:AttentionLayer",
+        "description": "Encapsulates self-attention with optional Gaussian blurring on query or key tensors,\n    supporting varying sigma values for Smoothed Energy Guidance (SEG).",
+        "file": "attention.py"
+      }
+    ],
+    "\"Implementation Details\"": [
+      {
+        "component": "attention.py:AttentionLayer",
+        "description": "Encapsulates self-attention with optional Gaussian blurring on query or key tensors,\n    supporting varying sigma values for Smoothed Energy Guidance (SEG).",
+        "file": "attention.py"
+      }
+    ],
+    "\"Self-Attention Mechanism\"": [
+      {
+        "component": "attention.py:AttentionLayer",
+        "description": "Encapsulates self-attention with optional Gaussian blurring on query or key tensors,\n    supporting varying sigma values for Smoothed Energy Guidance (SEG).",
+        "file": "attention.py"
+      }
+    ],
+    "or \"Smoothed Energy Guidance (SEG)\". Please provide the actual paper sections for a more accurate match.": [
+      {
+        "component": "attention.py:AttentionLayer",
+        "description": "Encapsulates self-attention with optional Gaussian blurring on query or key tensors,\n    supporting varying sigma values for Smoothed Energy Guidance (SEG).",
+        "file": "attention.py"
+      }
+    ],
+    "Model Architecture": [
+      {
+        "component": "attention.py:__init__",
+        "description": "Initialize the AttentionLayer.\n\n        Args:\n            embed_dim (int): Embedding dimension.\n            num_heads (int): Number of attention heads.\n            apply_blur (bool): Whether to enable Gaussian blurring.\n            blur_on (str): Element to blur ('query' or 'key').\n            default_sigma (float): Default sigma for Gaussian blur.\n            device (torch.device): Computation device.",
+        "file": "attention.py"
+      }
+    ],
+    "Methodology": [
+      {
+        "component": "attention.py:__init__",
+        "description": "Initialize the AttentionLayer.\n\n        Args:\n            embed_dim (int): Embedding dimension.\n            num_heads (int): Number of attention heads.\n            apply_blur (bool): Whether to enable Gaussian blurring.\n            blur_on (str): Element to blur ('query' or 'key').\n            default_sigma (float): Default sigma for Gaussian blur.\n            device (torch.device): Computation device.",
+        "file": "attention.py"
+      }
+    ],
+    "Experiment and Results": [
+      {
+        "component": "attention.py:__init__",
+        "description": "Initialize the AttentionLayer.\n\n        Args:\n            embed_dim (int): Embedding dimension.\n            num_heads (int): Number of attention heads.\n            apply_blur (bool): Whether to enable Gaussian blurring.\n            blur_on (str): Element to blur ('query' or 'key').\n            default_sigma (float): Default sigma for Gaussian blur.\n            device (torch.device): Computation device.",
+        "file": "attention.py"
+      }
+    ],
+    "The provided information does not include specific paper sections related to the code component. Please provide the relevant paper sections for a proper analysis.": [
+      {
+        "component": "dataset_loader.py:DatasetLoader",
+        "description": "DatasetLoader loads datasets for training/evaluation of diffusion models.\n    Supports unconditional and conditional datasets with optional prompts.",
+        "file": "dataset_loader.py"
+      }
+    ],
+    "The provided paper sections are not sufficient to link with the given code component. Please provide more relevant paper sections.": [
+      {
+        "component": "dataset_loader.py:__len__",
+        "description": "Fetch preprocessed image and optional conditioning data.\n        Returns:\n            image_tensor: torch.FloatTensor of shape [3, H, W], normalized [-1,1]\n            condition: Optional[str or tensor], if dataset is conditional",
+        "file": "dataset_loader.py"
+      },
+      {
+        "component": "diffusion_sampler.py:DiffusionSampler",
+        "description": "Implements the reverse diffusion sampling process with optional Smoothed Energy Guidance (SEG).\n    Coordinates the iterative denoising, guiding the process using guidance scale, sigma schedule,\n    and Gaussian-blurred attention provided by the diffusion model's attention modules.",
+        "file": "diffusion_sampler.py"
+      },
+      {
+        "component": "model.py:__init__",
+        "description": "Initialize the diffusion model by loading the pretrained checkpoint and \n        locating attention layers.\n        \n        Args:\n            architecture (str): Name/identifier of the model architecture.\n            pretrained_path (str): Path to the pretrained checkpoint.",
+        "file": "model.py"
+      }
+    ],
+    "Model Implementation": [
+      {
+        "component": "diffusion_sampler.py:__init__",
+        "description": "Initializes the sampler with model, guidance parameters, and schedule.\n\n        Args:\n            model (DiffusionModel): The trained diffusion model with attention modules supporting Gaussian blur.\n            guidance_scale (float): Guidance scale parameter.\n            sigma_schedule (list): List of sigma values for each inference step.\n            steps (int): Total number of denoising steps.\n            sampler_type (str): 'ddim' or 'ddpm' (for this implementation, we'll focus on 'ddim').\n            guidance_type (str): Guidance method, e.g., 'none', 'segmented_attention'.",
+        "file": "diffusion_sampler.py"
+      }
+    ],
+    "Parameter Settings": [
+      {
+        "component": "diffusion_sampler.py:__init__",
+        "description": "Initializes the sampler with model, guidance parameters, and schedule.\n\n        Args:\n            model (DiffusionModel): The trained diffusion model with attention modules supporting Gaussian blur.\n            guidance_scale (float): Guidance scale parameter.\n            sigma_schedule (list): List of sigma values for each inference step.\n            steps (int): Total number of denoising steps.\n            sampler_type (str): 'ddim' or 'ddpm' (for this implementation, we'll focus on 'ddim').\n            guidance_type (str): Guidance method, e.g., 'none', 'segmented_attention'.",
+        "file": "diffusion_sampler.py"
+      }
+    ],
+    "Experiment Setup": [
+      {
+        "component": "diffusion_sampler.py:__init__",
+        "description": "Initializes the sampler with model, guidance parameters, and schedule.\n\n        Args:\n            model (DiffusionModel): The trained diffusion model with attention modules supporting Gaussian blur.\n            guidance_scale (float): Guidance scale parameter.\n            sigma_schedule (list): List of sigma values for each inference step.\n            steps (int): Total number of denoising steps.\n            sampler_type (str): 'ddim' or 'ddpm' (for this implementation, we'll focus on 'ddim').\n            guidance_type (str): Guidance method, e.g., 'none', 'segmented_attention'.",
+        "file": "diffusion_sampler.py"
+      }
+    ],
+    "The paper sections are not provided in the question. Please provide the paper sections to proceed.": [
+      {
+        "component": "evaluation.py:Evaluation",
+        "description": "Evaluation class for computing FID, CLIP score, and LPIPS for generated images.\n    Loads precomputed real dataset statistics for FID, and uses pretrained models for metrics.",
+        "file": "evaluation.py"
+      },
+      {
+        "component": "trainer.py:__init__",
+        "description": "Fetch a batch of data, move to device.",
+        "file": "trainer.py"
+      }
+    ],
+    "The provided information does not include any paper sections relevant to the code component. Please provide the correct paper sections.": [
+      {
+        "component": "evaluation.py:load_fid_stats",
+        "description": "Load precomputed real dataset mean and covariance for FID.\n        Expected to be saved as a numpy npz or npy containing 'mu' and 'sigma'.",
+        "file": "evaluation.py"
+      }
+    ],
+    "The provided information is insufficient to determine the most relevant paper sections for the code component. Please provide more details about the code component and the paper sections.": [
+      {
+        "component": "main.py:or",
+        "description": "",
+        "file": "main.py"
+      }
+    ],
+    "The provided information is insufficient to determine the most relevant paper sections for the code component. Please provide more details about the function in the main.py file and its purpose.": [
+      {
+        "component": "main.py:main",
+        "description": "",
+        "file": "main.py"
+      }
+    ],
+    "Without the full list of paper sections": [
+      {
+        "component": "model.py:DiffusionModel",
+        "description": "Encapsulates a pretrained diffusion backbone (e.g., SDXL),\n    supporting attention modules with Gaussian blur (SEG) during inference.",
+        "file": "model.py"
+      }
+    ],
+    "it's impossible to provide an accurate answer. However": [
+      {
+        "component": "model.py:DiffusionModel",
+        "description": "Encapsulates a pretrained diffusion backbone (e.g., SDXL),\n    supporting attention modules with Gaussian blur (SEG) during inference.",
+        "file": "model.py"
+      }
+    ],
+    "based on the code component description": [
+      {
+        "component": "model.py:DiffusionModel",
+        "description": "Encapsulates a pretrained diffusion backbone (e.g., SDXL),\n    supporting attention modules with Gaussian blur (SEG) during inference.",
+        "file": "model.py"
+      }
+    ],
+    "sections like \"Methodology\"": [
+      {
+        "component": "model.py:DiffusionModel",
+        "description": "Encapsulates a pretrained diffusion backbone (e.g., SDXL),\n    supporting attention modules with Gaussian blur (SEG) during inference.",
+        "file": "model.py"
+      }
+    ],
+    "\"Model Implementation\"": [
+      {
+        "component": "model.py:DiffusionModel",
+        "description": "Encapsulates a pretrained diffusion backbone (e.g., SDXL),\n    supporting attention modules with Gaussian blur (SEG) during inference.",
+        "file": "model.py"
+      }
+    ],
+    "\"Inference Process\"": [
+      {
+        "component": "model.py:DiffusionModel",
+        "description": "Encapsulates a pretrained diffusion backbone (e.g., SDXL),\n    supporting attention modules with Gaussian blur (SEG) during inference.",
+        "file": "model.py"
+      }
+    ],
+    "or \"Attention Modules\" could potentially be relevant.": [
+      {
+        "component": "model.py:DiffusionModel",
+        "description": "Encapsulates a pretrained diffusion backbone (e.g., SDXL),\n    supporting attention modules with Gaussian blur (SEG) during inference.",
+        "file": "model.py"
+      }
+    ],
+    "The provided information does not include any paper sections related to the code component. Please provide relevant paper sections.": [
+      {
+        "component": "trainer.py:Trainer",
+        "description": "Handles training, fine-tuning, and sampling of the diffusion model with SEG (Gaussian blurred attention).",
+        "file": "trainer.py"
+      }
+    ]
+  },
+  "paper_sections": [
+    {
+      "section": "Abstract",
+      "text": "Susung Hong\u2217 University of Washington",
+      "ontology": "abstract"
+    }
+  ],
+  "coverage_score": 27.0
+}

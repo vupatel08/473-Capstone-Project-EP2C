@@ -1,0 +1,124 @@
+# Logic Analysis for dataset_loader.py
+
+## Purpose:
+`dataset_loader.py` is responsible for defining the `DatasetLoader` class, which will facilitate loading and preprocessing datasets used across experiments in the paper. This includes datasets for prompt pairs (for semantic similarity evaluation), WordNet hyponym/hypernym relations, and multimodal inputs (images and captions). The loader should produce data in formats directly compatible with the sampling, inference, and evaluation modules.
+
+---
+
+## High-Level Design:
+- **Class:** `DatasetLoader`
+- **Initialization:**  
+  - Accept dataset identifiers (via paths or dataset names in the configuration).  
+  - Accept additional configuration parameters if needed (e.g., dataset splits, filtering options).  
+- **Methods:**  
+  - `load_prompt_pairs()`: Load question pairs or sentence pairs for semantic similarity tasks.  
+  - `load_wordnet_relations()`: Load paired WordNet relations (hyponym/hypernym).  
+  - `load_multimodal_inputs()`: Load image-caption pairs or data necessary for multimodal experiments.  
+  
+- **Outputs:**  
+  - Data should be returned as lists (or iterable generators) of suitably formatted items, e.g., tuples or dictionaries, ready to be fed into sampling routines or evaluation modules.
+
+---
+
+## Dataset-specific details:
+
+### 1. load_prompt_pairs()
+- **Input:** Path to JSON or other structured dataset (from config).  
+- **Content:** Pairs of texts or prompts designed for semantic similarity evaluation.  
+- **Format:**  
+  - List of tuples `(prompt1, prompt2)` or dictionaries with keys:  
+    ```python
+    [{"prompt1": str, "prompt2": str, "label": float (human similarity score)}]  
+    ```
+- **Loading process:**  
+  - Parse JSON file.  
+  - Ensure encoding is consistent.  
+  - For each pair, extract the text inputs.  
+  - Optionally, include the human similarity score as a label for evaluation.  
+- **Preprocessing:**  
+  - Clean whitespace if necessary.  
+  - Standardize prompt formats (e.g., add punctuation if required by the methodology).  
+- **Return:**  
+  - List of `(prompt1, prompt2, label)` tuples or dicts.
+
+### 2. load_wordnet_relations()
+- **Input:** Path to JSON or structured list of relations.  
+- **Content:**  
+  - Word pairs with relations like hyponym or hypernym.  
+  - Example: `[{"word1": str, "word2": str, "relation": "hyponym" | "hypernym"}]`  
+- **Process:**  
+  - Parse JSON/data.  
+  - For each pair, extract words and relation label.  
+  - (Optional) Filter pairs to a predefined set of interest or specific relation types.  
+- **Preprocessing:**  
+  - Ensure words are formatted consistently.  
+  - Possibly map relation strings to binary labels (`1` for hyponym, `0` for hypernym).  
+- **Return:**  
+  - List of tuples `(word1, word2, relation_label)`.
+
+### 3. load_multimodal_inputs()
+- **Input:** Path to JSON or structured dataset (from config).  
+- **Content:**  
+  - List of dict objects containing image and caption data, e.g.:  
+    ```python
+    [{"image_path": str, "caption": str}, ...]
+    ```
+  - Or, if images are preprocessed, feature vectors.  
+- **Process:**  
+  - Read image paths or features.  
+  - Load images via an image loader (e.g., PIL or OpenCV).  
+  - Verify the caption text.  
+- **Preprocessing:**  
+  - Resize or normalize images if necessary, or leave to be handled downstream.  
+  - Format prompt strings consistently: e.g., for images: `"Describe this image: <image>"`; for captions: no change or formatted as: `"This is a caption: <caption>"`.  
+- **Return:**  
+  - List of dictionaries with keys: `{"image": <image object/loaded data>, "caption": <text>, "prompt": <formatted prompt string>}`.
+
+---
+
+## Implementation considerations:
+
+- **File formats:**  
+  - JSON is standard; ensure parsing robustness.  
+  - Support for various dataset schemas should be flexible.  
+- **Error handling:**  
+  - Missing data entries (e.g., missing images, captions, or relations).  
+  - Invalid JSON or malformed entries should be caught with exceptions or logged warnings.  
+- **Efficiency:**  
+  - For large datasets, use lazy loaders or generators if possible.  
+  - Use caching or memory-mapping for images to avoid memory overload.  
+- **Compatibility:**  
+  - Ensure that loaded prompts or data are compatible with the sampling routines: e.g., already tokenized or raw text?  
+  - Presumably, leave tokenization to be handled later to maintain uniformity and flexibility.
+
+---
+
+## Connection with other modules:
+
+- **Sampling module:**  
+  - Provide prompt text (or image prompts) to generate trajectories.  
+- **Evaluation module:**  
+  - Retrieve labels to compare with predictions for correlation or classification accuracy.  
+- **Multimodal:**  
+  - Prepare prompts or input formats matching the prompts used in the main methodology (“Describe this image,” etc.)  
+  - Possibly serve as input to `ModelWrapper` for trajectory sampling.
+
+---
+
+## Summary:
+
+| Functionality | Implementation details | Expected data output format | Caveats / Notes |
+|---|---|---|---|
+| load_prompt_pairs() | Read JSON, extract prompt pairs, optional human scores | List[Tuple[str, str, float]] | Ensure normalization, punctuation consistency |
+| load_wordnet_relations() | Read JSON, extract word pairs and relation types | List[Tuple[str, str, int]] | Map relation string to binary; filter as needed |
+| load_multimodal_inputs() | Load image paths with image processing, extract captions, compose prompts | List[Dict] with keys: 'image', 'caption', 'prompt' | Maintain uniform prompt formats for model input |
+
+---
+
+## Final notes:
+
+- The loader should be easy to extend if new datasets or formats are added later.  
+- The returned data structures should be compatible with downstream functions: e.g., sampling trajectory functions expect prompts (prompt strings) and labels (for evaluation).  
+- Consider adding optional parameters in class initialization for dataset filtering (e.g., only specific relations or splits).
+
+This thorough analysis will guide precise implementation of `DatasetLoader` to meet the experimental and methodological requirements described in the paper and the system design.

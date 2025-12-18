@@ -1,0 +1,140 @@
+# model_loader.py
+import os
+import torch
+
+# Import model architectures; assuming these classes are available in the codebase
+# If not, placeholders or dummy classes should be replaced with actual implementations.
+try:
+    from models.swinir import SwinIR
+except ImportError:
+    # Placeholder class if actual class is unavailable.
+    class SwinIR(torch.nn.Module):
+        def __init__(self, **kwargs):
+            super().__init__()
+            # Dummy initialization
+        def forward(self, x):
+            return x
+
+try:
+    from models.rdn import RDN
+except ImportError:
+    # Placeholder class if actual class is unavailable.
+    class RDN(torch.nn.Module):
+        def __init__(self, **kwargs):
+            super().__init__()
+        def forward(self, x):
+            return x
+
+class ModelLoader:
+    """
+    A class to load pretrained super-resolution models based on configuration.
+    """
+
+    def __init__(self, model_path: str, model_name: str, device: str = 'cuda'):
+        """
+        Initializes the ModelLoader with checkpoint path, model architecture name, and device.
+
+        Args:
+            model_path (str): Path to the pretrained model weights (.pth or .pt).
+            model_name (str): Name of the model architecture ('SwinIR', 'RDN', etc.).
+            device (str): Device to load the model onto ('cuda' or 'cpu').
+
+        Raises:
+            ValueError: If unsupported model_name provided.
+        """
+        self.model_path = model_path
+        self.model_name = model_name
+        self.device = device
+        self.model = None
+
+    def build_model(self):
+        """
+        Builds the model architecture based on the model_name.
+
+        Returns:
+            torch.nn.Module: Instantiated model architecture.
+
+        Raises:
+            ValueError: If model_name is unsupported.
+        """
+        architecture_map = {
+            'SwinIR': SwinIR,
+            'RDN': RDN,
+            # Extend this dictionary with other supported architectures
+        }
+
+        if self.model_name not in architecture_map:
+            raise ValueError(f"Unsupported model architecture: {self.model_name}")
+
+        # Instantiate the selected model with necessary parameters.
+        # These parameters should match those used during training.
+        # For simplicity, they are omitted here; adapt as needed.
+        if self.model_name == 'SwinIR':
+            # Example parameters; replace with actual ones as needed
+            self.model = architecture_map[self.model_name](
+                upscale=2,
+                in_chans=3,
+                img_size=128,
+                window_size=8,
+                img_range=1.0,
+                depths=[6, 6, 6, 6],
+                embed_dim=180,
+                num_heads=[6, 6, 6, 6],
+                model_name='SwinIR',
+                upsampler='pixelshuffle'
+            )
+        elif self.model_name == 'RDN':
+            # Example parameters; replace as needed
+            self.model = architecture_map[self.model_name](
+                in_channels=3,
+                out_channels=3,
+                num_features=64,
+                growth_rate=32,
+                num_blocks=16
+            )
+        else:
+            # Fallback: instantiate with empty init or raise error
+            # Or extend the logic with other architectures
+            self.model = architecture_map[self.model_name]()
+        return self.model
+
+    def load_model(self):
+        """
+        Loads the pretrained weights into the model.
+
+        Returns:
+            torch.nn.Module: Model with loaded weights in eval mode.
+
+        Raises:
+            FileNotFoundError: If the model checkpoint file does not exist.
+            RuntimeError: If loading state_dict fails.
+        """
+        if not os.path.exists(self.model_path):
+            raise FileNotFoundError(f"Model weights not found at {self.model_path}")
+
+        # Build model architecture
+        model = self.build_model()
+
+        # Load checkpoint; support architectures with or without 'state_dict' key
+        checkpoint = torch.load(self.model_path, map_location=self.device)
+        if isinstance(checkpoint, dict) and 'state_dict' in checkpoint:
+            state_dict = checkpoint['state_dict']
+        else:
+            state_dict = checkpoint
+
+        # Load parameters into model
+        try:
+            model.load_state_dict(state_dict)
+        except RuntimeError as e:
+            raise RuntimeError(f"Error loading state_dict: {e}")
+
+        # Move model to device
+        model.to(self.device)
+
+        # Set to evaluation mode
+        model.eval()
+
+        # Store in instance variable
+        self.model = model
+
+        return self.model

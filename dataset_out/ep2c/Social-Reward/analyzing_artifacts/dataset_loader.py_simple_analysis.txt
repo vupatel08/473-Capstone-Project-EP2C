@@ -1,0 +1,173 @@
+# Logic Analysis for `dataset_loader.py`
+
+This file defines the `DatasetLoader` class responsible for preparing data for training and evaluation of the Social Reward model. The logic is informed directly by the paper's described data collection, filtering, clustering, and dataset split procedures, along with specific details in the configuration file.
+
+---
+
+## 1. Initialization (`__init__`)
+
+- **Inputs:**
+  - `dataset_path`: Path to the curated dataset directory or files.
+  - `prompt_cluster_data` (optional): Metadata or computed cluster labels for prompts (if precomputed); else, clustering can be computed within the loader.
+  
+- **Actions:**
+  - Load raw data files containing:
+    - Triplet data: prompt, positive image, negative image.
+    - Engagement signals: remix counts, creator signals.
+  - Load or compute prompt embeddings.
+  - Load any auxiliary metadata for prompt textual content, user signals.
+  - Store hyperparameters specified in `config.yaml`, e.g., `max_prompt_words`, `min_view_count`, `max_view_count`.
+  - Prepare data structures for later filtering and splitting.
+
+---
+
+## 2. Data Loading & Parsing
+
+- **Data Files:**
+  - Could be CSV, JSONL, or custom formats containing:
+    - Prompt text.
+    - Paths to positive and negative images.
+    - Labels/signals:
+      - Remix counts.
+      - Influencer or creator signals.
+      - View counts for bias mitigation.
+      - Additional marking such as NSFW filtering results.
+      
+- **Processing:**
+  - Read all triplets.
+  - Filter data based on:
+    - **View count filters:**
+      - Remove images/populations with view count below `min_view_count`.
+      - Remove images exceeding `max_view_count`.
+    - **NSFW filtering:**
+      - Drop images flagged as inappropriate if filtering enabled.
+    - **Prompt filtering:**
+      - Exclude prompts with non-English content or exceeding `max_prompt_words`.
+      
+- **Outcome:**
+  - Cleaned list of triplet samples: (prompt, positive image, negative image).
+
+---
+
+## 3. Prompt Clustering
+
+- **Purpose:**
+  - Capture thematic and semantic diversity.
+  - Enable analysis of prompt distributions (in support of prompt analysis and visualizations).
+  
+- **Implementation:**
+  - **Embedding computation:**
+    - Use Sentence-BERT or a similar text encoder.
+    - Possibly cache embeddings for performance.
+  
+  - **Clustering procedure:**
+    - Use hierarchical clustering with Ward's method (`scikit-learn` `AgglomerativeClustering` or `scipy.cluster.hierarchy.linkage`).
+    - Set number of clusters (`num_clusters=173`) as per the paper.
+    - Alternatively, determine a cutoff distance if using an agglomerative approach with a `linkage_distance_threshold`.
+  
+  - **Output:**
+    - Assign each prompt to a cluster ID.
+    - Store cluster labels for downstream filtering or batch sampling.
+  
+- **Note:** 
+  - Use the clustering to analyze or stratify data.
+  - For visualization purposes, t-SNE can be applied later in `evaluation.py`.
+
+---
+
+## 4. Data Splitting
+
+- **Allocation:**
+  - Split data into training (70%), validation (10%), and test (20%) sets based on prompt, ensuring:
+    - No overlap of prompts between sets (prompt-level split).
+    - Maintain the distribution of positive/negative across splits.
+  
+- **Implementation:**
+  - Use random shuffling with a fixed seed for reproducibility (`seed=42` from config).
+  - Use indices or indices-based split for dataset objects.
+  - Store splits separately for easy access during training and testing.
+
+---
+
+## 5. Data Preparation for Triplet Training
+
+- **Sample Generation:**
+  - For each prompt:
+    - Sample **positive image** (with high social engagement, e.g., remix count above threshold).
+    - Sample **negative image** having zero or low engagement under the same prompt, respecting view count thresholds.
+    - Apply optional augmentations or transformations to images (if specified).
+    
+- **Formatting:**
+  - Return a data structure (e.g., list or torch Dataset object) with entries:
+    ```python
+    {
+      "prompt": prompt_text,
+      "prompt_embedding": Tensor,  # For efficient training, precompute embeddings if possible
+      "positive_image_path": str,
+      "negative_image_path": str,
+      "cluster_id": int,  # optional for stratified sampling
+    }
+    ```
+  - During training, encode images on-the-fly using the model's `encode_image()` method or precompute to speed up.
+
+---
+
+## 6. Helper Functions & Utils
+
+- **Filtering functions:**
+  - Filter images and prompts based on view counts, safe-for-work filtering, and prompt length.
+  
+- **Embedding functions:**
+  - Compute and cache prompt embeddings to avoid repeated encoding.
+  - Encode images on demand or cache as well.
+  
+- **Clustering utilities:**
+  - Provide methods to cluster prompts or to retrieve cluster metadata.
+
+---
+
+## 7. Data Output & Interface Methods
+
+- **Public Methods:**
+  - `get_train_data()`: Return an iterable or list of triplet samples for training.
+  - `get_val_data()`, `get_test_data()`: Likewise for evaluation.
+  
+- **Batch Handling:**
+  - Implement with PyTorch `Dataset` and `DataLoader` classes for batching.
+  - Each batch should contain:
+    - Prompt text or embeddings.
+    - Positive and negative images (or their embeddings).
+    
+- **Embedding Extraction:**
+  - Method to produce prompt embeddings (`encode_prompt`) for efficiency.
+Reserved for model training code.
+
+---
+
+## 8. Final Notes
+
+- **Reproducibility:**
+  - Fix random seeds during data shuffling.
+  
+- **Flexibility:**
+  - Make clustering threshold or number of clusters configurable.
+  - Allow optional re-computation of embeddings/extensions for incremental updates.
+
+- **Validation:**
+  - Validate filtering and clustering outputs visually (via prompt clusters) and statistically (prompt distribution metrics).
+
+---
+
+# Summary
+
+`dataset_loader.py` is a comprehensive data preparation module that:
+
+- Loads curated social community preference triplets.
+- Filters data based on view counts, content safety.
+- Clusters prompts to capture thematic diversity.
+- Splits data into train/validation/test ensuring prompt-level separation.
+- Provides functions to sample triplets for triplet loss training.
+- Encodes prompts and images into tensors for model input.
+- Supports reproducibility and flexible configuration.
+
+This logical overview guides the implementation of robust, consistent, and scalable data handling aligned with the paper’s experimental setup.

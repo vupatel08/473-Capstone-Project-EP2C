@@ -1,0 +1,274 @@
+## model.py
+
+import jax
+import jax.numpy as jnp
+from flax import linen as nn
+from typing import Optional, Dict, Tuple, Any
+import functools
+
+# If equivariance is enabled, use e3nn modules
+try:
+    import e3nn_jax as e3nn
+except ImportError:
+    e3nn = None
+
+class ParticleTypeEmbedding(nn.Module):
+    """
+    Embedding layer for particle types if enabled.
+    """
+    num_types: int
+    embedding_dim: int
+
+    @nn.compact
+    def __call__(self, particle_types: jnp.ndarray) -> jnp.ndarray:
+        embed = nn.Embed(num_embeddings=self.num_types, features=self.embedding_dim)
+        return embed(particle_types)
+
+class MLP(nn.Module):
+    """
+    A simple multi-layer perceptron with specified features per layer.
+    """
+    features: list
+    activation: Any = nn.relu
+    final_activation: Optional[Any] = None
+
+    @nn.compact
+    def __call__(self, x):
+        for feat in self.features[:-1]:
+            x = nn.Dense(feat)(x)
+            x = self.activation(x)
+        x = nn.Dense(self.features[-1])(x)
+        if self.final_activation is not None:
+            x = self.final_activation(x)
+        return x
+
+class GNS(nn.Module):
+    """
+    Standard (non-equivariant) GNN-based model for acceleration prediction.
+    """
+    hyperparams: Dict
+    num_types: int
+    embedding_dim: int
+
+    def setup(self):
+        self.hidden_dim = self.hyperparams.get('hidden_dim', 128)
+        self.num_layers = self.hyperparams.get('num_layers', 10)
+
+        # Particle type embedding if enabled
+        if self.hyperparams.get('particle_type_embedding', True):
+            self.type_embedding = ParticleTypeEmbedding(self.num_types, self.embedding_dim)
+        else:
+            self.type_embedding = None
+
+        # MLP encoder
+        encoder_layers = [self.hidden_dim] * (self.num_layers // 2) + [self.hidden_dim]
+        self.encoder = MLP(encoder_layers)
+
+        # Message passing layers
+        self.message_layers = []
+        for _ in range(self.num_layers):
+            self.message_layers.append(
+                nn.Dense(self.hidden_dim)
+            )
+
+        # Decoder for acceleration
+        self.decoder = MLP([self.hidden_dim, self.hidden_dim, 3])  # 3 for 3D, adjust for dims
+
+    def encode_node_features(self, velocities, particle_types):
+        """
+        Encode features by concatenating velocities and particle type embeddings.
+        """
+        features = [velocities]
+        if self.type_embedding:
+            type_emb = self.type_embedding(particle_types)
+            features.append(type_emb)
+        node_feat = jnp.concatenate(features, axis=-1)
+        return node_feat
+
+    def __call__(self,
+                 positions: jnp.ndarray,
+                 velocities: jnp.ndarray,
+                 external_force: Optional[jnp.ndarray],
+                 particle_types: jnp.ndarray,
+                 predict_forces: bool = False) -> Dict[str, jnp.ndarray]:
+        """
+        Forward pass:
+        Args:
+            positions: (N, d)
+            velocities: (N, d)
+            external_force: (N, d) or None
+            particle_types: (N,)
+            predict_forces: if True, outputs raw accelerations including external g, else just internal
+        Returns:
+            dict:
+                'acceleration': (N, d)
+                'internal_acceleration': (N, d)
+                'external_forces': (N, d)
+        """
+        N, d = positions.shape
+
+        # Build input features
+        node_features = self.encode_node_features(velocities, particle_types)
+
+        # Start message passing
+        h = node_features
+        for layer in self.message_layers:
+            h = layer(h)
+            h = nn.relu(h)
+
+        # Compute output acceleration
+        acc = self.decoder(h)
+        acc = acc.reshape((N, d))
+        # By default, this is raw acceleration including external g if provided
+
+        # Organize outputs
+        output = {
+            'acceleration': acc,
+            'internal_acceleration': acc,
+            'external_forces': external_force if external_force is not None else jnp.zeros_like(acc)
+        }
+
+        return output
+
+# If equivariance is enabled, define SEGNN
+class SEGNN(nn.Module):
+    """
+    E(3)-equivariant GNN for acceleration prediction using e3nn modules.
+    """
+    hyperparams: Dict
+    num_types: int
+    embedding_dim: int
+
+    def setup(self):
+        if e3nn is None:
+            raise ImportError("e3nn is required for SEGNN but not installed.")
+
+        self.hidden_dim = self.hyperparams.get('hidden_dim', 128)
+        self.num_layers = self.hyperparams.get('num_layers', 10)
+
+        # Particle type embedding if enabled
+        if self.hyperparams.get('particle_type_embedding', True):
+            self.type_embedding = ParticleTypeEmbedding(self.num_types, self.embedding_dim)
+        else:
+            self.type_embedding = None
+
+        # Build E(3)-equivariant layers
+        self.layers = []
+        for _ in range(self.num_layers):
+            layer = e3nn.nn.SequentialModule([
+                e3nn.nn.Linear(self.hidden_dim),
+                e3nn.nn.ReLU(),
+                e3nn.nn.Linear(self.hidden_dim)
+            ])
+            self.layers.append(layer)
+
+        # Final MLP to produce accelerations
+        self.output_mlp = e3nn.nn.SequentialModule([
+            e3nn.nn.Linear(self.hidden_dim),
+            e3nn.nn.ReLU(),
+            e3nn.nn.Linear(self.hidden_dim),
+            e3nn.nn.ReLU(),
+            e3nn.nn.Linear(self.hidden_dim, output_dim=3)  # 3D acceleration
+        ])
+
+    def encode_node_features(self, velocities, particle_types):
+        """
+        Encode node features with type embeddings if enabled.
+        """
+        features = [velocities]
+        if self.type_embedding:
+            type_emb = self.type_embedding(particle_types)
+            features.append(type_emb)
+        node_feat = jnp.concatenate(features, axis=-1)
+        return node_feat
+
+    def message_passing(self, h, edge_index, relative_positions):
+        """
+        Implement message passing with e3nn modules.
+        Args:
+            h: node features with e3nn types
+            edge_index: (2, E) tensor of edges
+            relative_positions: (E, d)
+        Returns:
+            Updated node features
+        """
+        # Build messages based on relative positions
+        # For simplicity, implement a basic message function
+        # e3nn edge models can consider geometric features
+        messages = []
+        for i in range(edge_index.shape[1]):
+            src, dst = edge_index[0, i], edge_index[1, i]
+            rel_pos = relative_positions[i]
+            edge_feat = e3nn.SphericalTensor.tensor_from_tensor(rel_pos)
+            msg = nn.Dense(self.hidden_dim)(h[src])
+            messages.append(msg)
+        messages = jnp.stack(messages, axis=0)
+        # Aggregate messages per node
+        # Here, for illustration, sum aggregation
+        sum_messages = jnp.zeros_like(h)
+        for i in range(edge_index.shape[1]):
+            dst = edge_index[1, i]
+            sum_messages = sum_messages.at[dst].add(messages[i])
+        return sum_messages
+
+    def __call__(self,
+                 positions: jnp.ndarray,
+                 velocities: jnp.ndarray,
+                 external_force: Optional[jnp.ndarray],
+                 particle_types: jnp.ndarray,
+                 predict_forces: bool = False) -> Dict[str, jnp.ndarray]:
+        """
+        Forward pass:
+        Args same as GNS, returns:
+            dict with keys:
+                'acceleration': total acceleration
+                'internal_acceleration': learned internal component
+                'external_forces': external forcing component
+        """
+        N, d = positions.shape
+
+        # Build input features
+        node_features = self.encode_node_features(velocities, particle_types)
+
+        # Construct edges based on neighbor relations
+        # For this placeholder, assume edge_index and relative_positions are precomputed
+        # In practice, include a neighbor search routine
+        edge_index, relative_positions = self.build_graph(positions)
+
+        h = node_features
+        for layer in self.layers:
+            h = layer(h)
+            h = e3nn.nn.ReLU()(h)
+
+        # Apply message passing
+        messages = self.message_passing(h, edge_index, relative_positions)
+        # Combine with node features
+        h_updated = h + messages
+
+        # Final acceleration prediction
+        acc = self.output_mlp(h_updated)
+        acc = acc.reshape((N, d))
+
+        # Return as dictionary
+        output = {
+            'acceleration': acc,
+            'internal_acceleration': acc,
+            'external_forces': external_force if external_force is not None else jnp.zeros_like(acc)
+        }
+        return output
+
+    def build_graph(self, positions: jnp.ndarray) -> Tuple[jnp.ndarray, jnp.ndarray]:
+        """
+        Placeholder for graph construction and relative position calculation.
+        In practice, replace with neighbor search (e.g., via scipy KDTree in preprocessing).
+        """
+        # Dummy: connect each node to its K nearest neighbors
+        # For code simplicity, assume fully connected (not efficient in practice)
+        N = positions.shape[0]
+        edge_index = jnp.array([[i for i in range(N) for _ in range(N)],
+                                [j for i in range(N) for j in range(N)]])
+        rel_positions = positions[edge_index[1]] - positions[edge_index[0]]
+        return edge_index, rel_positions
+
+# Additional utility functions for parameter save/load could be added if needed
+

@@ -1,0 +1,220 @@
+```python
+## trainer.py
+import torch
+import torch.nn as nn
+import torch.optim as optim
+import numpy as np
+import random
+import os
+from typing import List, Dict, Tuple
+import copy
+
+from utils import perform_ttest
+from dataset_loader import DatasetLoader
+from model import SAMTransformer
+from utils import denormalize_sequence
+
+class SAMOptimizer:
+    """
+    Wraps an optimizer to perform Sharpness-Aware Minimization (SAM).
+    """
+    def __init__(self, params: List[torch.Tensor], base_optimizer: optim.Optimizer, rho: float):
+        self.params = list(params)
+        self.base_optimizer = base_optimizer
+        self.rho = rho
+        self.state = {}
+
+    def zero_grad(self):
+        self.base_optimizer.zero_grad()
+
+    def first_step(self, model: nn.Module):
+        """
+        Performs the ascent step: move parameters in the direction of the loss gradient.
+        """
+        # Save original parameters if needed
+        grad_norm = torch.norm(
+            torch.stack([torch.norm(p.grad.detach()) for p in self.params if p.grad is not None])
+        )
+        # Avoid division by zero
+        scale = self.rho / (grad_norm + 1e-12)
+        # Save original parameters
+        self.save_params()
+
+        # Move params in the direction of gradient
+        with torch.no_grad():
+            for p in self.params:
+                if p.grad is not None:
+                    e_w = p.grad * scale
+                    p.add_(e_w)
+
+    def second_step(self, model: nn.Module):
+        """
+        Performs the descent step: restore parameters and do optimizer step.
+        """
+        # Restore original parameters
+        self.restore_params()
+        # Now perform optimizer step
+        self.base_optimizer.step()
+
+    def save_params(self):
+        */
+        # In practice, to restore later, store backup
+        for p in self.params:
+            self.state[p] = p.data.clone()
+
+    def restore_params(self):
+        """
+        Restores saved parameters.
+        """
+        for p in self.params:
+            p.data.copy_(self.state[p])
+
+def set_seed(seed: int):
+    torch.manual_seed(seed)
+    torch.cuda.manual_seed_all(seed)
+    np.random.seed(seed)
+    random.seed(seed)
+    torch.backends.cudnn.deterministic = True
+    torch.backends.cudnn.benchmark = False
+
+class Trainer:
+    def __init__(self,
+                 model: nn.Module,
+                 train_loader,
+                 val_loader,
+                 test_loader,
+                 optimizer,
+                 criterion,
+                 config: Dict,
+                 device: torch.device):
+        self.model = model
+        self.train_loader = train_loader
+        self.val_loader = val_loader
+        self.test_loader = test_loader
+        self.criterion = criterion
+        self.device = device
+        self.optimizer = optimizer
+        self.rho = config.get('training', {}).get('rho', 1e-4)
+        self.epochs = config.get('training', {}).get('epochs', 300)
+        self.patience = 10  # early stopping patience
+        self.seed = config.get('training', {}).get('seed', 42)
+        self.best_val_loss = float('inf')
+        self.best_model_state = None
+        self.results = {
+            'train_loss': [],
+            'val_loss': [],
+            'test_mse': None,
+            'test_mae': None
+        }
+        self.plots_dir = config.get('save_dir', 'outputs/')
+        set_seed(self.seed)
+
+    def train(self):
+        wait = 0
+        for epoch in range(1, self.epochs + 1):
+            self.model.train()
+            epoch_losses = []
+            for batch_idx, (batch_x, batch_y) in enumerate(self.train_loader):
+                batch_x = batch_x.to(self.device)  # shape: (B, L, D)
+                batch_y = batch_y.to(self.device)  # shape: (B, D, H)
+                self.optimizer.zero_grad()
+
+                # Forward pass
+                outputs = self.model(batch_x)  # shape: (B, D, H)
+                outputs = outputs.transpose(1, 2)  # shape: (B, H, D) if needed, or keep consistent
+                if outputs.shape != batch_y.shape:
+                    outputs = outputs.transpose(1, 2)
+
+                loss = self.criterion(outputs, batch_y)
+
+                # SAM step
+                loss.backward()
+                # Save original parameters
+                self.optimizer.first_step(model=self.model)
+                # Recompute loss at perturbed weights
+                outputs_sam = self.model(batch_x)
+                outputs_sam = outputs_sam.transpose(1, 2)
+                loss_sam = self.criterion(outputs_sam, batch_y)
+                self.optimizer.zero_grad()
+                loss_sam.backward()
+                self.optimizer.second_step(model=self.model)
+
+                epoch_losses.append(loss.item())
+
+            avg_loss = np.mean(epoch_losses)
+            self.result_log('train_loss', avg_loss)
+
+            # Validation
+            val_loss = self.validate()
+            self.result_log('val_loss', val_loss)
+
+            # Save best model
+            if val_loss < self.best_val_loss:
+                self.best_val_loss = val_loss
+                self.best_model_state = copy.deepcopy(self.model.state_dict())
+                wait = 0
+            else:
+                wait += 1
+
+            # Early stopping
+            if wait >= self.patience:
+                print(f"Early stopping at epoch {epoch}")
+                break
+
+    def validate(self):
+        self.model.eval()
+        val_losses = []
+        with torch.no_grad():
+            for batch_x, batch_y in self.val_loader:
+                batch_x = batch_x.to(self.device)
+                batch_y = batch_y.to(self.device)
+                outputs = self.model(batch_x)  # shape: (B, D, H)
+                outputs = outputs.transpose(1, 2)
+                loss = self.criterion(outputs, batch_y)
+                val_losses.append(loss.item())
+        return np.mean(val_losses)
+
+    def test(self):
+        # Load best model
+        self.model.load_state_dict(self.best_model_state)
+        self.model.eval()
+        preds_list = []
+        targets_list = []
+        with torch.no_grad():
+            for batch_x, batch_y in self.test_loader:
+                batch_x = batch_x.to(self.device)
+                batch_y = batch_y.to(self.device)
+                outputs = self.model(batch_x)  # shape: (B, D, H)
+                outputs = outputs.transpose(1, 2)  # shape: (B, H, D)
+                preds_list.append(outputs.cpu())
+                targets_list.append(batch_y.cpu())
+
+        preds = torch.cat(preds_list, dim=0).numpy()  # All test preds
+        targets = torch.cat(targets_list, dim=0).numpy()  # All targets
+
+        return preds, targets
+
+    def save_model(self, filename: str):
+        os.makedirs(self.plots_dir, exist_ok=True)
+        path = os.path.join(self.plots_dir, filename)
+        torch.save(self.model.state_dict(), path)
+
+    def result_log(self, key: str, value: float):
+        if key not in self.results:
+            self.results[key] = []
+        self.results[key].append(value)
+
+    def run(self):
+        self.train()
+        # Save best model
+        self.save_model('best_model.pth')
+        # Final test
+        preds, targets = self.test()
+        # Save or plot predictions as needed
+        return preds, targets
+
+# Usage: in main.py, instantiate DatasetLoader, DataLoaders, model, optimizer, criterion
+# and then
+# trainer = Trainer(model, train_loader, val_loader, test_loader, optimizer, criterion, config, device)
+# trainer.run()
+```

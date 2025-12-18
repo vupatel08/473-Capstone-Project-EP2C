@@ -1,0 +1,169 @@
+# Logic Analysis for datasets.py
+
+## Purpose and Scope
+The datasets.py module is responsible for defining classes and functions that facilitate loading, managing, and accessing the datasets used in the experiments outlined in the paper. This includes environment-specific ground-truth PDDL domain files, multiple problem instances, corresponding natural language (NL) descriptions (for domain and problems), and other auxiliary data. It must support structured data management to allow iterative process execution in the main code, ensure proper access to data needed for environment interaction, and facilitate consistent handling across multiple environments.
+
+---
+
+## Core Objectives
+- **Load environment datasets**: For each environment, load ground-truth PDDL domain and multiple problem PDDL files.
+- **Associate NL descriptions**: For each environment, include NL descriptions for domain and problem(s) to enable prompt generation.
+- **Data integrity**: Validate data format consistency, e.g., matching object sets between NL and PDDL files.
+- **Support multiple environments**: Allow loading datasets for multiple environments (including original and modified variations, e.g., Grippersood).
+- **Provide easy access**: Expose methods to retrieve datasets, such as:
+  - The list of environments.
+  - Ground-truth PDDL files per environment.
+  - NL descriptions.
+  - Problem set per environment.
+
+---
+
+## Design Considerations
+
+### Data Structures
+- **EnvironmentData class**:
+  - Encapsulates all data related to a single environment class.
+  - Attributes:
+    - `name`: Environment identifier (string).
+    - `domain_pddl`: String containing the ground-truth domain PDDL code.
+    - `problems_pddl`: List of strings, each representing a problem PDDL.
+    - `nl_domain_desc`: String NL description of the environment domain.
+    - `nl_problems_desc`: List of strings NL descriptions for each problem.
+    - `object_list`: List of objects/entities involved, possibly parsed from NL or PDDL.
+    - `action_interface`: Dictionary / data structure describing available actions API details, if applicable.
+- **DatasetManager class**:
+  - Holds a collection (e.g., list or dict) of `EnvironmentData` objects.
+  - Responsible for initialization (from files), validation, and providing access methods.
+
+### Loading Process
+1. **Read configuration**:
+   - Environment data can be stored as structured files (e.g., JSON, YAML) or in directories.
+2. **Ground-truth PDDL files**:
+   - Read `.pddl` files for domain and each problem.
+   - Validate syntax correctness.
+3. **NL descriptions**:
+   - Load from predefined text files or embedded in code.
+   - For NL-to-PDDL translation, may include back-translated or manually curated descriptions.
+4. **Object list extraction**:
+   - Parse object declarations from PDDL or NL.
+   - Ensure consistency for environment simulation.
+5. **Store metadata**:
+   - Environment name, data files, NL descriptions, object list, action interface info.
+
+### Validation and Consistency
+- Ensure that the object set in PDDL files matches that described in NL (or handled appropriately).
+- Check that the problem instances are valid (syntax, predicates).
+- Confirm the match between NL descriptions and PDDL files.
+
+---
+
+## Functions and Methods
+
+### Loader Methods
+- `load_all_datasets(dataset_path: str) -> list`
+  - Read directory structure or config files listing environments.
+  - Instantiate `EnvironmentData` objects.
+  - Return list or dict of environment data objects.
+- `load_environment_files(env_dir: str) -> EnvironmentData`
+  - Load all relevant files (domain, problems, NL descriptions) for a specific environment.
+  - Validate syntax.
+  - Return an EnvironmentData object.
+
+### Accessor Methods
+- `get_environment_list() -> list`
+  - Provide list of environment names or IDs.
+- `get_ground_truth_pddl(env_name: str) -> (str, list)`
+  - Return domain PDDL string and list of problem PDDL strings.
+- `get_nl_descriptions(env_name: str) -> dict`
+  - Return NL domain and problem descriptions.
+- `get_object_list(env_name: str) -> list`
+  - Return list of environment objects.
+- `get_action_interface(env_name: str) -> dict`
+  - Return environment API details (if applicable).
+
+### Data Validation
+- `validate_pddl_syntax(pddl_code: str) -> bool`
+  - Check syntax correctness using `pddlpy` or similar tools.
+- `validate_dataset_consistency()`
+  - Confirm that object sets are matching.
+  - Confirm that all files are reachable and properly formatted.
+
+---
+
+## Example Implementation Skeleton (Conceptual)
+
+```python
+class EnvironmentData:
+    def __init__(self, name, domain_path, problem_paths, nl_descs):
+        self.name = name
+        self.domain_pddl = self.load_pddl(domain_path)
+        self.problems_pddl = [self.load_pddl(p) for p in problem_paths]
+        self.nl_domain_desc = nl_descs['domain']
+        self.nl_problems_desc = nl_descs['problems']
+        self.object_list = self.extract_objects()
+        self.action_interface = self.load_action_interface()
+
+    def load_pddl(self, path):
+        with open(path, 'r') as f:
+            pddl_code = f.read()
+        if not validate_pddl_syntax(pddl_code):
+            raise ValueError(f"PDDL syntax invalid in {path}")
+        return pddl_code
+
+    def extract_objects(self):
+        # Parse object list from PDDL or NL description
+        # This could involve regex or structured parsing
+        pass
+
+    def load_action_interface(self):
+        # Load or define environment API details
+        pass
+
+
+class DatasetLoader:
+    def __init__(self, dataset_path):
+        self.environments = {}
+        self.load_all_environments(dataset_path)
+
+    def load_all_environments(self, path):
+        # Read from directory or config file
+        # For each environment:
+        #   - Read files
+        #   - Create EnvironmentData instances
+        #   - Store in self.environments
+        pass
+
+    def get_environment_names(self):
+        return list(self.environments.keys())
+
+    def get_ground_truth_pddl(self, env_name):
+        env_data = self.environments[env_name]
+        return env_data.domain_pddl, env_data.problems_pddl
+
+    def get_nl_descriptions(self, env_name):
+        env_data = self.environments[env_name]
+        return {
+            'domain': env_data.nl_domain_desc,
+            'problems': env_data.nl_problems_desc
+        }
+
+    def get_object_list(self, env_name):
+        return self.environments[env_name].object_list
+
+    def get_action_interface(self, env_name):
+        return self.environments[env_name].action_interface
+```
+
+## Summary and Key Points
+- **Data loading must be resilient**: Handle missing files, syntax errors, and inconsistent object sets.
+- **Format standards**: Use consistent file formats and validated syntax.
+- **Lazy vs. eager validation**: Validate data upon load, report errors early.
+- **Data access functions**: Designed for ease of use by other modules (e.g., environment.py, main.py).
+- **Extensibility**: Structure should support addition of more environments with minimal code change.
+
+---
+
+## Final Note
+The implementation should be aligned with the rest of the system, especially ensuring that the object lists, PDDL syntax validation, and NL descriptions function correctly and efficiently. Proper validation mechanisms are vital for debugging the iterative refinement process later, as invalid PDDL prevents planning or exploration, and mismatched objects could cause environment API failures.
+
+This detailed logic analysis should guide precise and robust implementation of `datasets.py`.

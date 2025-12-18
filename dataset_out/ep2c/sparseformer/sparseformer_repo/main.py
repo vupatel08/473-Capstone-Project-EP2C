@@ -1,0 +1,204 @@
+## main.py
+import os
+import yaml
+import time
+import torch
+import torch.nn as nn
+import torch.optim as optim
+from torch.cuda import amp
+import torchvision
+from torch.utils.data import DataLoader
+from dataset import ImageNetDataset
+from model import SparseFormer
+from utils import get_lr_scheduler, setup_logging, save_checkpoint, initialize_weights
+import math
+
+def main():
+    # Load configuration from YAML
+    with open('config.yaml', 'r') as f:
+        config = yaml.safe_load(f)
+
+    # Set device
+    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+    print(f"Using device: {device}")
+
+    # Set seed for reproducibility
+    seed = 42
+    torch.manual_seed(seed)
+    if torch.cuda.is_available():
+        torch.cuda.manual_seed_all(seed)
+    # Optional: deterministic cudnn
+    torch.backends.cudnn.deterministic = True
+    torch.backends.cudnn.benchmark = False
+
+    # Setup logging (e.g., TensorBoard)
+    writer = setup_logging()
+
+    # Prepare datasets and dataloaders
+    print("Preparing datasets and dataloaders...")
+    train_dataset = ImageNetDataset(config, split='train')
+    val_dataset = ImageNetDataset(config, split='val')
+
+    batch_size = config['training'].get('batch_size', 128)
+    num_workers = config['dataset'].get('num_workers', 8)
+
+    train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True,
+                              num_workers=num_workers, pin_memory=True)
+    val_loader = DataLoader(val_dataset, batch_size=batch_size, shuffle=False,
+                            num_workers=num_workers, pin_memory=True)
+
+    # Initialize model
+    print("Initializing model...")
+    model = SparseFormer(config)
+    model.to(device)
+
+    # Initialize weights
+    model.apply(initialize_weights)
+
+    # Load from checkpoint if resume
+    checkpoint_dir = config['saving'].get('checkpoint_dir', './checkpoints/')
+    os.makedirs(checkpoint_dir, exist_ok=True)
+    start_epoch = 1
+    best_acc1 = 0.0
+    checkpoint_path = os.path.join(checkpoint_dir, 'latest.pth')
+    if config['training'].get('resume_from_checkpoint', False) and os.path.exists(checkpoint_path):
+        print(f"Resuming from checkpoint {checkpoint_path}...")
+        checkpoint = torch.load(checkpoint_path, map_location=device)
+        model.load_state_dict(checkpoint['model'])
+        optimizer_state = checkpoint.get('optimizer')
+        if optimizer_state:
+            # will initialize optimizer later
+            pass
+        start_epoch = checkpoint.get('epoch', 1)
+        best_acc1 = checkpoint.get('best_acc1', 0.0)
+    else:
+        optimizer_state = None
+
+    # Build optimizer
+    optimizer = optim.AdamW(model.parameters(),
+                            lr=config['training'].get('lr', 0.001),
+                            weight_decay=config['training'].get('weight_decay', 0.05))
+    if optimizer_state:
+        optimizer.load_state_dict(optimizer_state)
+
+    # Build scheduler
+    total_steps = int(len(train_loader) * config['training'].get('epochs', 50))
+    scheduler = get_lr_scheduler(optimizer, config, total_steps)
+
+    # AMP scaler for mixed precision
+    scaler = amp.GradScaler(enabled=config['training'].get('mixed_precision', False))
+
+    # Training loop
+    max_epochs = config['training'].get('epochs', 50)
+    gradient_clip_norm = config['training'].get('gradient_clip_norm', 0.0)
+    save_every = config['saving'].get('save_every_epochs', 10)
+
+    for epoch in range(start_epoch, max_epochs + 1):
+        model.train()
+        total_loss = 0.0
+        total_correct = 0
+        total_samples = 0
+        epoch_start_time = time.time()
+
+        for batch_idx, (images, labels) in enumerate(train_loader):
+            images = images.to(device, non_blocking=True)
+            labels = labels.to(device, non_blocking=True)
+
+            optimizer.zero_grad()
+
+            with amp.autocast(enabled=config['training'].get('mixed_precision', False)):
+                outputs = model(images)
+                loss = nn.CrossEntropyLoss()(outputs, labels)
+
+            scaler.scale(loss).backward()
+
+            # Gradient clipping if set
+            if gradient_clip_norm > 0:
+                scaler.unscale_(optimizer)
+                torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=gradient_clip_norm)
+
+            scaler.step(optimizer)
+            scaler.update()
+
+            # Step learning rate scheduler
+            scheduler.step()
+
+            # Compute accuracy
+            _, preds = torch.max(outputs, dim=1)
+            total_correct += torch.sum(preds == labels).item()
+            total_samples += labels.size(0)
+            total_loss += loss.item() * images.size(0)
+
+            if (batch_idx + 1) % 50 == 0:
+                print(f"Epoch [{epoch}/{max_epochs}] Step [{batch_idx+1}/{len(train_loader)}] "
+                      f"Loss: {loss.item():.4f}")
+                # Log to TensorBoard
+                global_step = (epoch - 1) * len(train_loader) + batch_idx + 1
+                writer.add_scalar('train/loss', loss.item(), global_step)
+                train_acc = 100.0 * total_correct / total_samples
+                writer.add_scalar('train/accuracy', train_acc, global_step)
+
+        epoch_loss = total_loss / len(train_dataset)
+        epoch_acc = 100.0 * total_correct / total_samples
+        print(f"Epoch [{epoch}] Training Loss: {epoch_loss:.4f} | Accuracy: {epoch_acc:.2f}%")
+        writer.add_scalar('train/epoch_loss', epoch_loss, epoch)
+        writer.add_scalar('train/epoch_accuracy', epoch_acc, epoch)
+
+        # Save checkpoint
+        if epoch % save_every == 0:
+            save_path = os.path.join(checkpoint_dir, f'checkpoint_epoch_{epoch}.pth')
+            torch.save({
+                'epoch': epoch,
+                'model': model.state_dict(),
+                'optimizer': optimizer.state_dict(),
+                'best_acc1': best_acc1
+            }, save_path)
+            print(f"Checkpoint saved at {save_path}")
+
+        # Validation
+        print(f"Running validation...")
+        model.eval()
+        val_total_correct = 0
+        val_total_samples = 0
+        val_loss_sum = 0.0
+        with torch.no_grad():
+            for images, labels in val_loader:
+                images = images.to(device, non_blocking=True)
+                labels = labels.to(device, non_blocking=True)
+                with amp.autocast(enabled=config['training'].get('mixed_precision', False)):
+                    outputs = model(images)
+                    loss_val = nn.CrossEntropyLoss()(outputs, labels)
+                val_loss_sum += loss_val.item() * images.size(0)
+                _, preds = torch.max(outputs, dim=1)
+                val_total_correct += torch.sum(preds == labels).item()
+                val_total_samples += labels.size(0)
+
+        val_loss_epoch = val_loss_sum / len(val_dataset)
+        val_acc1 = 100.0 * val_total_correct / val_total_samples
+        print(f"Validation Loss: {val_loss_epoch:.4f} | Top-1 Accuracy: {val_acc1:.2f}%")
+        writer.add_scalar('val/loss', val_loss_epoch, epoch)
+        writer.add_scalar('val/accuracy', val_acc1, epoch)
+
+        # Save best model
+        if val_acc1 > best_acc1:
+            best_acc1 = val_acc1
+            best_path = os.path.join(checkpoint_dir, 'best_model.pth')
+            torch.save(model.state_dict(), best_path)
+            print(f"New best model saved at epoch {epoch} with accuracy {best_acc1:.2f}%")
+
+        print(f"Epoch {epoch} completed in {time.time() - epoch_start_time:.2f} seconds\n")
+
+    print("Training finished.")
+    print(f"Best val accuracy: {best_acc1:.2f}%")
+    # Save final model
+    final_path = os.path.join(checkpoint_dir, 'final.pth')
+    torch.save({
+        'epoch': epoch,
+        'model': model.state_dict(),
+        'optimizer': optimizer.state_dict(),
+        'best_acc1': best_acc1
+    }, final_path)
+    print(f"Final model saved at {final_path}")
+
+if __name__ == '__main__':
+    main()

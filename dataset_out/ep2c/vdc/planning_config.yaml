@@ -1,0 +1,57 @@
+dataset:
+  cifar10:
+    image_size: 32
+    num_classes: 10
+    train_samples_per_class: 500
+    test_samples_per_class: 100
+  imagenet100:
+    image_size: 224
+    num_classes: 100
+    train_samples_per_class: 500
+    test_samples_per_class: 100
+  imagenet_dog:
+    image_size: 224
+    num_classes: 10
+    train_samples_per_class: 800
+    test_samples_per_class: 200
+
+attack:
+  poisoned:
+    triggers: [BadNets, Blended, SIG, TrojanNN, SSBA, WaNet]
+    embed_method: "trigger embedding method details"
+    label_change_strategy: "change label to target label"
+  noisy_labels:
+    type: symmetric
+    ratio: 0.4
+    type: asymmetric
+    ratio: 0.4
+  hybrid:
+    poison_ratio: 0.09
+    noise_ratio: 0.1
+
+training:
+  epochs: 40  # standard for CIFAR-10 as per paper
+  learning_rate: 0.1  # typical default, adjust if needed
+  batch_size: 64  # typical batch size, adjust per system memory
+  optimizer: "SGD or Adam"  # specified in experiments
+  learning_rate_decay: 0.1  # optional, based on usual conventions
+  
+detection:
+  questions_per_sample: 4  # example from experiments
+  question_type: "general and label-specific"
+  threshold: 0.2
+  use_multimodal_model: true
+
+model:
+  name: "ResNet"  # or other models used for retraining
+  input_size: 32  # for CIFAR-10 baseline; change for ImageNet
+  epochs: 40
+  optimizer: "SGD"
+  learning_rate: 0.01  # default, tune if necessary
+
+evaluation:
+  detection_threshold: 0.2
+  retraining_epochs: 40
+  metrics:
+    detection: {TPR, FPR}
+    downstream: {accuracy, attack success rate}

@@ -1,0 +1,174 @@
+# Logic Analysis for main.py
+
+The role of `main.py` is to serve as the orchestrator for the entire training and evaluation pipeline, following the design plan and ensuring fidelity to the methodology described in the paper. Its primary responsibilities include initializing configurations, setting up datasets, loading models, executing training routines, and performing evaluation. Below is a detailed step-by-step logical flow and reasoning to implement `main.py`:
+
+---
+
+## 1. Load Configuration
+
+- **Objective:** Read all experiment settings, hyperparameters, paths, and dataset options from `config.yaml`.
+- **Approach:** Use `PyYAML` to parse the YAML file into a Python dictionary or structured config object.
+- **Details to extract:**
+  - Dataset info (`name`, `data_dir`, `image_size`)
+  - Training hyperparameters (`batch_size`, `epochs`, `learning_rate`, `weight_decay`, `momentum`)
+  - Distillation hyperparameters (`T`, `lambda`, `beta`, `TTM_ratio`) 
+  - Model specifications (`teacher_architecture`, `student_architecture`, `pretrained_teacher_weights_path`)
+  - Optimization parameters (optimizer type and parameters)
+  - Logging paths and frequency (`save_checkpoint_dir`, `save_summary_every`, `verify_every`)
+
+---
+
+## 2. Instantiate DatasetLoader
+
+- **Objective:** Prepare data loaders for training, validation, and testing.
+- **Approach:**
+  - Use a class or function (e.g., in `datasets.py`) to load datasets based on `dataset.name`.
+  - Apply appropriate transformations:
+    - **Training:** data augmentation (random crop, flip), normalization.
+    - **Validation/test:** only normalization.
+  - Return PyTorch `DataLoader` objects for:
+    - `train_loader`
+    - `val_loader`
+    - `test_loader`
+- **Important considerations:**
+  - Ensure batch size matches configuration.
+  - Set `shuffle=True` for training.
+
+---
+
+## 3. Load Models
+
+- **Teacher Model:**
+  - Instantiate architecture specified by `teacher_architecture`.
+  - Load pretrained weights from `pretrained_teacher_weights_path`.
+  - Set to evaluation mode (`model.eval()`) during training, but keep for inference.
+- **Student Model:**
+  - Instantiate architecture specified by `student_architecture`.
+  - Initialize randomly or with a specified initialization strategy.
+- **Frameworks/libraries:**
+  - Use torchvision or custom model definitions as per `models.py`.
+- **Additional:**
+  - Optionally, move models to GPU (if available) for acceleration.
+
+---
+
+## 4. Define Loss Function(s)
+
+- **Core Distillation Loss (WTTM):**
+  - For each batch:
+    - Pass input images through teacher and student models.
+    - Obtain teacher logits.
+    - Compute teacher probabilities: `p = softmax(teacher_logits)`.
+    - Compute power transform: \(\hat{p}_i = \frac{p_i^\gamma}{\sum_j p_j^\gamma}\) with \(\gamma = 1/T\).
+    - Generate sample-specific weight \(U_{1/T}(p)\).
+    - Compute student probabilities: `q = softmax(student_logits)`.
+    - Compute student transformed distribution if necessary (`q_T`).
+    - Calculate the KL divergence: `D_{KL}(\hat{p}_i || q_i)`.
+    - Incorporate sample weight: multiply divergence by \(U_{1/T}(p)\).
+    - Combine with cross entropy loss: `H(y, q)`.
+  - For WTTM, combine losses as:
+    \[
+    \mathcal{L} = H(y, q) + \beta U_{1/T}(p) D_{KL}(\hat{p}_T^t || q).
+    \]
+- **Additional losses (optional):**
+  - If the experiment involves other loss terms (e.g., contrastive, feature alignment), prepare as needed with their hyperparameters.
+
+---
+
+## 5. Set Up Optimizer and Scheduler
+
+- Instantiate optimizer, such as SGD, with parameters from config.
+- Set learning rate scheduler if specified:
+  - E.g., CosineAnnealingLR, StepLR, etc.
+- Make sure optimizer updates only student model parameters.
+
+---
+
+## 6. Prepare Training Loop
+
+For each epoch (from 1 to `epochs`):
+
+- **Training phase:**
+  - Set student model to train (`model.train()`).
+  - For each batch:
+    1. Load input images and labels.
+    2. Forward pass:
+       - Compute teacher logits via teacher model.
+       - Compute student logits.
+    3. Generate teacher's power-transformed distribution:
+       - Calculate teacher probabilities: `p`.
+       - Compute \(\hat{p}\) with \(\gamma=1/T\): softmax of scaled logits raised to power.
+       - Calculate sample weight: `U_{1/T}(p)`.
+    4. Compute loss:
+       - Cross entropy with ground truth.
+       - KL divergence between teacher's transformed distribution and student.
+       - Multiply divergence by sample weight for WTTM.
+       - Sum/average over batch.
+    5. Backpropagation:
+       - Zero gradients.
+       - Compute gradients.
+       - Step optimizer.
+  - Log training metrics (loss, entropy, etc.).
+
+- **Evaluation phase (every `verify_every` epochs or at end):**
+  - Set student model to eval (`model.eval()`).
+  - Compute top-1 accuracy over validation/test set.
+  - Record distribution entropy, divergence, and other metrics.
+
+- **Logging:**
+  - Save checkpoints periodically.
+  - Save metrics for analysis.
+
+---
+
+## 7. Final Evaluation and Results Saving
+
+- After training:
+  - Perform a final evaluation on the test set.
+  - Save the best model (according to validation accuracy or other criteria).
+  - Log final metrics:
+    - Top-1 accuracy
+    - Distribution entropy history
+    - Divergence progress
+- Save logs and checkpoints into specified directory.
+
+---
+
+## 8. Additional Considerations
+
+- Ensure reproducibility:
+  - Fix random seeds.
+  - Use deterministic algorithms if necessary.
+- Use GPU acceleration if available:
+  - `cuda`/`cpu` device management.
+- Modularize code:
+  - Call functions from `datasets.py`, `models.py`, `losses.py`, etc.
+  - Keep configuration-driven hyperparameters.
+
+---
+
+## Summary of the Logical Steps in main.py
+
+```plaintext
+1. Load config.yaml into a structured config object/dict.
+2. Initialize dataset loaders with transformations based on dataset and augmentation configurations.
+3. Instantiate teacher and student models with appropriate architectures.
+4. Load teacher weights; initialize student.
+5. Define optimizer, scheduler, and loss functions, including the WTTM-specific loss with hyperparameters from config.
+6. For each epoch:
+   - For each batch:
+     a. Forward pass through teacher and student.
+     b. Compute teacher's power-transformed distribution.
+     c. Compute sample weight \(U_{1/T}(p)\).
+     d. Calculate WTTM loss (including cross entropy, KL divergence, weighted).
+     e. Backpropagate and optimize.
+   - If evaluation step:
+     - Perform validation.
+     - Log accuracy, entropy, divergence.
+     - Save checkpoints.
+7. Final evaluation, report final metrics.
+```
+
+---
+
+This structured logic plan ensures a comprehensive and faithful implementation of `main.py`, aligned with the paper's methodology and the provided plan and configuration. It prepares for detailed coding and integration across all modules.

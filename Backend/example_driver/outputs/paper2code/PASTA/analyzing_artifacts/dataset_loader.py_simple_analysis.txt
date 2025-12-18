@@ -1,0 +1,130 @@
+**Logic Analysis for `dataset_loader.py` — DatasetLoader Class**
+
+---
+
+### **Purpose & Role**
+The `DatasetLoader` class is designed to facilitate loading, preprocessing, and formatting datasets for use in profiling, inference, and evaluation of the PASTA method. It must support:
+- Loading datasets from specified directories.
+- Splitting datasets into train, validation, and test sets.
+- Tokenizing input texts compatible with the target LLM.
+- Annotating emphasis spans from user-highlighted input markers.
+- Structuring data samples appropriately for downstream modules.
+
+---
+
+### **Core Responsibilities**
+1. **Loading Data**
+   - Read raw datasets from the specified directory, which likely contain textual prompts and labels.
+   - For the evaluation datasets (BiasBios, CounterFact, JSON Formatting, Pronouns Changing), load the data splits: `train`, `validation`, and `test`.
+   - Support dataset formats such as JSONL, CSV, or plain text, depending on dataset specifics provided.
+
+2. **Dataset Splitting & Sampling**
+   - Use dataset sizes specified in `config.yaml`:
+     - `train_size`: e.g., 1000 samples for training.
+     - `val_size`: e.g., 1000 samples for validation.
+     - `test_size`: e.g., 5000 samples for testing.
+   - Draw **random samples** (preferably via reproducible seed) to create subsets for profiling and evaluation.
+   - Ensure balanced sample selection when necessary, especially for profiling (e.g., diverse samples to evaluate attention head performance).
+
+3. **Preprocessing & Tokenization**
+   - **Tokenize** prompts and contexts using the model’s tokenizer (`transformers` library).
+   - Convert texts into token ID sequences compatible with model inference.
+   - Maintain offsets of tokens to align with emphasis span annotations.
+   - Handle input length constraints (truncate or pad) as necessary to match model input limits.
+
+4. **Annotating Emphasis Spans**
+   - Detect and extract emphasized segments within inputs:
+     - Presumably enclosed with markers like `*` or markdown syntax, e.g., `*emphasized text*`.
+   - For each sample, identify the start and end token indices corresponding to emphasized spans:
+     - Use tokenizer offsets to map character span positions to token indices.
+     - Support multiple emphasized spans (not necessarily contiguous).
+     - Generate a list of emphasized token indices or spans for downstream reweighting.
+   - Store emphasis annotations within each sample, e.g., as `emphasis_spans: List[List[int]]`.
+
+5. **Data Structuring**
+   - Store each sample as a structured object, e.g., a dictionary or custom class, with fields such as:
+     - `prompt`: raw prompt input text.
+     - `tokenized_input`: token IDs after tokenization.
+     - `attention_mask`: for padding.
+     - `emphasis_spans`: list of token indices or start/end pairs.
+     - `labels`: target output (for evaluation and profiling).
+   - Support retrieval of raw text, tokenized input, and emphasis annotations.
+
+6. **Output & Compatibility**
+   - Provide an API to retrieve datasets as ready-to-batch forms, e.g., via `__getitem__` and `__len__`, enabling integration with training, profiling, or evaluation pipelines.
+   - Enable batching and shuffling for validation and training sets.
+   - Ensure datasets are compatible with models, i.e., potential padding/truncation logic.
+
+---
+
+### **Implementation Details & Considerations**
+
+- **Dataset Format Handling**
+  - Detect dataset file formats (JSON, CSV, etc.) based on file extension or metadata.
+  - Parse dataset entries, assuming consistent schema per dataset:
+    - For example: `{ "context": "...", "question": "...", "label": "...", "emphasis_marker": "*" }`.
+  - For datasets with pre-labeled emphasis regions, load span indices directly.
+  - For datasets with emphasis markers in raw text, implement span extraction logic.
+
+- **Emphasis Span Extraction Logic**
+  - Use utility functions to locate emphasis markers.
+  - Extract character start/end positions of emphasized sections.
+  - Map character spans to token indices:
+    - Tokenizer outputs include offsets mapping tokens to original string positions.
+    - Use these offsets to assign tokens to emphasis spans.
+
+- **Tokenization & Offset Handling**
+  - For each raw text, tokenize with `return_offsets_mapping=True`.
+  - For emphasis spans specified as character ranges:
+    - Match these to token index ranges via offsets.
+  - For multiple emphasis spans, accumulate token indices.
+
+- **Reproducibility & Sampling**
+  - Fix random seed for samples selection to ensure reproducible results.
+  - Use `np.random.choice()` or similar for sampling with replacement or without, as needed.
+
+- **Edge Cases**
+  - Empty emphasis spans or missing markers: treat as no emphasis.
+  - Overlapping emphasis spans: merge or treat distinctly as per intent.
+  - Very long inputs: truncate to max token length aligned with model limits.
+
+---
+
+### **Outputs & Interface**
+- **`DatasetLoader` Interface**
+  - Initialization parameters: task name, data directory, split (`train`/`validation`/`test`).
+  - Method `load_dataset()`:
+    - Loads raw data.
+    - Performs sampling.
+    - Tokenizes texts.
+    - Extracts emphasis spans.
+    - Returns dataset object optimized for iterating during profiling/evaluation.
+  - Support optional parameters:
+    - Reproducibility seed.
+    - Maximum sequence length.
+    - Whether to extract emphasis span information or use pre-labeled data.
+
+---
+
+### **Summary of Critical Logic Steps**
+
+| Step | Description                                                                                      | Implementation Notes                                                                                       |
+|-------|--------------------------------------------------------------------------------------------------|------------------------------------------------------------------------------------------------------------|
+| 1     | **Load dataset files** from `data_dir`, supporting multiple formats.                            | Use `json.load()`, `csv.reader()`, etc., with format detection.                                            |
+| 2     | **Sample subsets** for profiling or evaluation, based on `train_size`, `val_size`, `test_size`. | Use fixed seed; sample without replacement; ensure dataset diversity.                                  |
+| 3     | **Parse prompts/context** and **detect emphasis markers** (`*` or other).                      | Use regex or string functions; handle multiple/mixed spans.                                               |
+| 4     | **Map character spans** of emphasis to token indices via `return_offsets_mapping`.             | Match span start/end to token offset ranges; handle multiple spans.                                     |
+| 5     | **Store tokenized inputs**, emphasizing span info, along with labels and raw texts.            | Prepare data dictionaries for dataset objects with all relevant fields.                                |
+| 6     | **Provide dataset objects** with APIs or attributes for downstream use.                       | Support indexing, batching, shuffling.                                                                    |
+
+---
+
+### **Final Points**
+- Ensure reproducibility and robustness in span extraction.
+- Maintain alignment between character-based emphasis marks and token indices.
+- Confirm dataset format compatibility.
+- This class must serve as a foundational component, feeding data to profiling, inference, and evaluation modules with the correct emphasis annotations to facilitate attention steering in PASTA.
+
+---
+
+This detailed analysis guides the implementation of `DatasetLoader` class, ensuring it reliably loads, preprocesses, and annotates datasets for effective profiling, inference, and evaluation aligned with the PASTA methodology.

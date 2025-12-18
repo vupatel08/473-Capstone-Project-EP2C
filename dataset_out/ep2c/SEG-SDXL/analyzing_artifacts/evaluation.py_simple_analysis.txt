@@ -1,0 +1,116 @@
+**Evaluation.py Logic Analysis**
+
+---
+
+### Purpose:
+Implement an `Evaluation` class responsible for computing critical metrics to evaluate the quality, fidelity, and side effects of generated images in the experiment pipeline. The core metrics include:
+
+- **FID (Fréchet Inception Distance):** Measures similarity of generated images’ feature distribution to real dataset.
+- **CLIP score:** Measures semantic similarity between generated images and prompts.
+- **LPIPS:** Quantifies perceptual similarity (diversity/side-effects).
+
+This class will accept generated images, run inference using pretrained models, and output relevant scores for comparison with real datasets. It may also facilitate analysis of side effects by comparing generated images to baseline/out-of-sample images.
+
+---
+
+### Inputs:
+- **Generated images:** Tensor or image file paths.
+- **Prompts (for CLIP):** Corresponding text descriptions (if applicable).
+- **Precomputed real dataset stats:** For FID (mean, covariance), or load via external files.
+- **Configuration parameters:** For selecting which metrics to compute, batch sizes, device setup, etc.
+
+---
+
+### Key Components & Steps:
+
+#### 1. Initialization (`__init__`)
+- Load precomputed real dataset statistics for FID:
+  - e.g., `self.real_mu`, `self.real_sigma` (mean vector and covariance matrix).
+  - From files, e.g., `'fid_stats.npy'`
+
+- Setup models:
+  - **Inception model** (or compatible feature extractor) for FID.
+  - **CLIP model** (e.g., `CLIPModel`, `clip.tokenize`) for semantic scoring.
+  - **LPIPS model** (e.g., torchvision LPIPS) for perceptual distance.
+
+- Assign device (GPU/CPU).
+
+#### 2. Method: `calculate_fid(generated_images)`
+- Extract features:
+  - Pass images through the InceptionV3 (or similar) model.
+  - Compute feature vectors for each generated image.
+- Calculate mean (`mu_gen`) and covariance (`sigma_gen`) of generated features.
+- Compute FID using:
+  \[
+  \text{FID} = || \mu_{real} - \mu_{gen} ||^2 + \operatorname{Tr}\left( \sigma_{real} + \sigma_{gen} - 2 (\sigma_{real}\sigma_{gen})^{1/2} \right)
+  \]
+  - Use `scipy.linalg.sqrtm` for matrix square root.
+  - Return scalar FID score.
+
+#### 3. Method: `calculate_clip_score(images, prompts)`
+- Tokenize prompts using CLIP tokenizer.
+- Process images into CLIP-compatible format:
+  - Resize/crop to CLIP input size.
+  - Normalize pixel values.
+- Compute image embeddings:
+  - Forward images through CLIP image encoder.
+  - Forward prompts through CLIP text encoder.
+- Calculate cosine similarity for each pair:
+  \[
+  \text{Similarity} = \frac{E_{image} \cdot E_{text}}{||E_{image}|| \times ||E_{text}||}
+  \]
+- Average across batch/ set of images and prompts.
+- Return average CLIP score.
+
+#### 4. Method: `calculate_lpips(images)`
+- Images normalized to [-1, 1], compatible with LPIPS.
+- Compute pairwise LPIPS value against baseline/reference images (or across pairwise generated images if measuring diversity).
+- Return mean LPIPS as measure of perceptual difference or side effects.
+
+#### 5. Utility: `load_statistics()`
+- Optional method to load precomputed real dataset stats for FID from file.
+- Returns `mu`, `sigma`.
+
+#### 6. Main method: `evaluate(generated_images, prompts=None, reference_stats=None)`
+- Take a batch of images, optional prompts, optional reference stats.
+- Compute metrics:
+  - FID
+  - CLIP
+  - LPIPS
+- Collect and output/report metric scores, possibly in a dictionary for logging.
+
+---
+
+### 7. Additional features:
+- Support for batch processing: process images in chunks to handle large sets.
+- Support for saving intermediate scores or visual diagnostics.
+- Flexibility to disable/enable individual metrics.
+
+---
+
+### 8. Error Handling & Logging:
+- Validate images: shape, dtype, pixel range.
+- Log progress (% completion), batch processing info.
+- Gracefully handle errors in model inference or matrix operations.
+- Pretty print summary of scores and optional detailed per-image scores.
+
+---
+
+### 9. Configurable Parameters:
+- Metrics to compute: enable/disable.
+- Batch size for feature extraction.
+- Paths to real dataset stats.
+- Device selection (GPU/CPU).
+
+---
+
+### Summary:
+- Initialize models and load real stats.
+- For each generated set:
+  - Compute features, scores, and divergences.
+  - Return a structured report.
+- Use this evaluation routine for quantitative comparison of different guidance methods, e.g., vanilla, SAG, PAG, and SEG (with various \( \sigma \) values).
+
+---
+
+This detailed logical plan ensures `evaluation.py` provides accurate, efficient, and reproducible metric assessments aligned with experimental claims, facilitating faithful comparisons and comprehensive evaluation of generated images in the context of the SEG paper experiments.

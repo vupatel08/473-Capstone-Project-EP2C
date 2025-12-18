@@ -1,0 +1,227 @@
+```python
+## trainer.py
+import os
+import torch
+import torch.nn as nn
+import torch.nn.functional as F
+from torch.utils.data import DataLoader
+from tqdm import tqdm
+from typing import Optional, List, Dict
+import yaml
+import numpy as np
+
+from dataset_loader import DatasetLoader
+from model import DiffusionModel
+from attention import AttentionLayer
+
+class Trainer:
+    """
+    Handles training, fine-tuning, and sampling of the diffusion model with SEG (Gaussian blurred attention).
+    """
+    def __init__(self, config: Dict, device: torch.device):
+        # Load hyperparameters from config
+        self.device = device
+        # Model and dataset initialization
+        self.dataset = DatasetLoader(
+            dataset_path=config['dataset']['dataset_path'],
+            image_size=tuple(config['dataset']['image_size']),
+            dataset_type=config['dataset'].get('dataset_type', 'unconditional'),
+            dataset_name=config['dataset'].get('dataset_name', 'laion')
+        )
+        self.dataloader = DataLoader(
+            self.dataset,
+            batch_size=config['training'].get('batch_size', 8),
+            shuffle=True,
+            drop_last=True
+        )
+
+        # Load diffusion backbone
+        self.model = DiffusionModel(
+            architecture=config['model']['architecture'],
+            pretrained_path=config['model']['pretrained_checkpoint']
+        ).to(self.device)
+        self.model.eval()  # Set to eval by default; fine-tuning optional
+
+        # Optimize which parameters? For now, fine-tune entire model
+        self.optimizer = torch.optim.AdamW(
+            filter(lambda p: p.requires_grad, self.model.parameters()),
+            lr=config['training'].get('learning_rate', 3e-4),
+            weight_decay=0.01
+        )
+
+        # Scheduler (optional)
+        self.scheduler = None
+        if 'scheduler' in config:
+            # For simplicity, assume CosineAnnealingLR if specified
+            # Replace or extend as needed
+            from torch.optim.lr_scheduler import CosineAnnealingLR
+            self.scheduler = CosineAnnealingLR(self.optimizer, T_max=100000)
+
+        # Guidance parameters
+        self.guidance_scale = config['guidance'].get('guidance_scale', 3.0)
+        # Sigma schedule (for Gaussian blur)
+        self.sigma_schedule = config['sampling'].get('sigma_schedule', [0, 1, 2, 5, 10, 20, 50, 100])
+        self.current_sigma = self.sigma_schedule[0]
+
+        self.guidance_variant = config['guidance'].get('guidance_variant', 'segmented_attention')
+        self.total_steps = config['sampling'].get('steps', 1000)
+        self.sampler_type = config['sampling'].get('sampler_type', 'ddim')
+        self.guidance_gamma = 3.0  # fixed guidance scale for SEG as per paper
+
+        # Save path
+        self.checkpoint_dir = config.get('checkpoint_dir', './checkpoints')
+        os.makedirs(self.checkpoint_dir, exist_ok=True)
+
+        # Save config for reproducibility
+        self.config = config
+
+    def get_batch(self):
+        """Fetch a batch of data, move to device."""
+        batch = next(iter(self.dataloader))
+        if self.dataset.dataset_type == 'conditional':
+            images, prompts_or_conditions = batch
+            images = images.to(self.device)
+            # prompts_or_conditions: process prompts if needed
+            conditioning = prompts_or_conditions
+        else:
+            images = batch.to(self.device)
+            conditioning = None
+        return images, conditioning
+
+    def train_step(self, images, conditioning):
+        """
+        Perform one training step: forward, loss, backward, optimize.
+        """
+        self.model.train()
+        self.optimizer.zero_grad()
+
+        # Prepare guidance input
+        guidance_scale = self.guidance_scale
+
+        # Forward pass with Gaussian blur at attention, passing current sigma
+        # Model should accept sigma for attention blurring
+        output = self.model(
+            images,
+            guidance_scale=guidance_scale,
+            sigma=self.current_sigma,
+            conditioning=conditioning
+        )
+
+        # Compute diffusion loss - assume model predicts noise for training
+        # Placeholder: since actual diffusion training involves simulating noised images
+        # and target is the true noise; here, we assume output is noise prediction
+        # and inputs are the previous noised images and true noise; adapt as per actual training
+        # For simplicity, assume a dummy loss (e.g., MSE with a target tensor)
+        # In practice, replace with proper noise estimation
+        target_noise = torch.randn_like(output)  # Placeholder
+        loss = F.mse_loss(output, target_noise)
+
+        loss.backward()
+        # Optional: gradient clipping
+        torch.nn.utils.clip_grad_norm_(self.model.parameters(), max_norm=1.0)
+        self.optimizer.step()
+        if self.scheduler:
+            self.scheduler.step()
+        return loss.item()
+
+    def save_checkpoint(self, step: int):
+        """Save model and optimizer state."""
+        save_path = os.path.join(self.checkpoint_dir, f"checkpoint_{step}.pt")
+        torch.save({
+            'model_state_dict': self.model.state_dict(),
+            'optimizer_state_dict': self.optimizer.state_dict(),
+            'scheduler_state_dict': self.scheduler.state_dict() if self.scheduler else None,
+            'step': step,
+            'sigma': self.current_sigma,
+            'guidance_scale': self.guidance_scale,
+            'config': self.config
+        }, save_path)
+
+    def load_checkpoint(self, path: str):
+        """Load model and optimizer."""
+        checkpoint = torch.load(path, map_location=self.device)
+        self.model.load_state_dict(checkpoint['model_state_dict'])
+        self.optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
+        if self.scheduler and checkpoint.get('scheduler_state_dict'):
+            self.scheduler.load_state_dict(checkpoint['scheduler_state_dict'])
+        self.current_sigma = checkpoint.get('sigma', self.current_sigma)
+        self.guidance_scale = checkpoint.get('guidance_scale', self.guidance_scale)
+
+    def run_training(self, total_steps: int = 100000, save_interval: int = 5000):
+        """Main training loop."""
+        progress_bar = tqdm(range(total_steps))
+        for step in progress_bar:
+            images, conditioning = self.get_batch()
+            loss = self.train_step(images, conditioning)
+            # Log progress
+            progress_bar.set_description(f"Loss: {loss:.4f}, sigma: {self.current_sigma}")
+            # Update sigma schedule (if desired)
+            # For example, schedule sigma change at certain steps
+            # For simplicity, pick the nearest value in sigma_schedule
+            # or implement a schedule (e.g., linear, cosine)
+            # Here, keep sigma fixed at initial or last sigma
+            # Optional: implement scheduling logic
+            # Save checkpoints
+            if (step + 1) % save_interval == 0:
+                self.save_checkpoint(step + 1)
+
+    def evaluate_metrics(self, sample_images: List[torch.Tensor], real_data_path: str, prompts: Optional[List[str]] = None):
+        """
+        Compute evaluation metrics like FID, CLIP, LPIPS for generated samples.
+        Placeholder: assumes externally implemented functions.
+        """
+        from evaluation import Evaluation
+        evaluator = Evaluation()
+        fid_score = evaluator.calculate_fid(sample_images, real_data_path)
+        clip_score = evaluator.calculate_clip_score(sample_images, prompts)
+        # optional: LPIPS
+        return {'fid': fid_score, 'clip': clip_score}
+
+    def generate_samples(self, num_samples: int, conditioning: Optional[torch.Tensor] = None):
+        """
+        Generate images using the trained model with current sigma.
+        """
+        # Implement sampling with your diffusion scheduler and model
+        # For simplicity, provide a stub
+        # Use your diffusion sampling routine, passing model, guidance, sigma
+        samples = []
+        for _ in tqdm(range(num_samples)):
+            # noise initialization
+            x_T = torch.randn((1, 3, *self.dataset.image_size), device=self.device)
+            sample = self.run_reverse_process(x_T, conditioning)
+            samples.append(sample)
+        return samples
+
+    def run_reverse_process(self, x_T: torch.Tensor, conditioning: Optional[torch.Tensor] = None):
+        """
+        Run the diffusion reverse process for a predefined number of steps.
+        Incorporate attention with Gaussian blur at each step.
+        """
+        # Placeholder: replace with actual reverse diffusion code with model
+        # During each step, pass sigma for attention blurring
+        x = x_T
+        for step in reversed(range(self.total_steps)):
+            # Optionally, adjust sigma over steps
+            # Here, keep fixed sigma
+            self.model.train()
+            pred_noise = self.model(
+                x,
+                guidance_scale=self.guidance_scale,
+                sigma=self.current_sigma,
+                conditioning=conditioning
+            )
+            # Compute previous x (sample) from pred_noise
+            # Placeholder: simple Euler step (replace with actual scheduler)
+            # e.g., dt = ... 
+            # For demonstration:
+            x = x - pred_noise  # Not exact, replace with correct reverse step
+        return x
+
+# Usage example (for external script):
+# if __name__ == "__main__":
+#     with open("config.yaml", 'r') as f:
+#         config = yaml.safe_load(f)
+#     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+#     trainer = Trainer(config, device)
+#     trainer.run_training(total_steps=100000, save_interval=10000)
+```

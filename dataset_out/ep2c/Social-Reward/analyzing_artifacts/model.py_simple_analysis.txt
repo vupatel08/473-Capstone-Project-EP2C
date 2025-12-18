@@ -1,0 +1,163 @@
+# Logic Analysis for model.py
+
+This module is tasked with defining the core Model class that encapsulates the functionality of encoding prompts and images using pre-trained models, computing similarity scores, and managing model weights (loading and saving). Its design is aligned with the methodology presented in the paper, primarily leveraging CLIP or BLIP as the backbone encoders for text and images, fine-tuned using triplet loss for social preference scoring.
+
+---
+
+## Core Responsibilities & Implementation Details
+
+### 1. Initialization
+- **Inputs:**
+  - `pretrained_model_name`: String, e.g., `"openai/clip-vit-base-patch32"`.
+  - Optionally, a saved weight checkpoint path (`load_weights`), or `None` to load the default pre-trained model.
+- **Process:**
+  - Load pre-trained model components (text encoder, image encoder) from HuggingFace `transformers`.
+  - Initialize encoders, ensuring they are set to evaluation mode if freeze fine-tuning is not intended.
+  - If `load_weights` is provided:
+    - Load checkpoint weights into the model.
+  - Else:
+    - Load the pre-trained weights (default from the model repository).
+- **Output:**
+  - A `Model` instance with two core parts: `text_encoder` and `image_encoder`, both as transformers with modifiable residual blocks as needed (e.g., last residual blocks).
+
+### 2. Encoding Prompts
+- **Function:** `encode_prompt(prompt: str) -> Tensor`
+- **Process:**
+  - Tokenize the input prompt:
+    - Use the tokenizer associated with the chosen backbone model.
+    - Limit to `max_prompt_words` (from config, e.g., 5 words).
+  - Convert tokens into model inputs.
+  - Pass through the text encoder (transformer).
+  - Obtain the prompt embedding:
+    - Typically, use the CLS token representation or average the token embeddings.
+  - Normalize the embedding:
+    - Represent as a unit vector (L2 normalization).
+- **Output:**
+  - A tensor `d`-dimensional (e.g., 512 or 768), representing the prompt embedding.
+
+### 3. Encoding Images
+- **Function:** `encode_image(image_path: str) -> Tensor`
+- **Process:**
+  - Load image from the provided path.
+  - Resize and preprocess:
+    - Follow the standard preprocessing pipeline for the backbone (e.g., normalization, resizing, center crop).
+  - Pass through the image encoder.
+  - Extract feature vector:
+    - Use the CLS token output or pooled representation.
+  - Normalize the embedding:
+    - L2 normalization to match prompt embeddings.
+- **Output:**
+  - A `d`-dimensional tensor, normalized, representing the image embedding.
+
+### 4. Computing Similarity Score
+- **Function:** `compute_score(prompt_embedding: Tensor, image_embedding: Tensor) -> float`
+- **Method:**
+  - Calculate cosine similarity:
+    \[
+    score = \frac{\textbf{prompt} \cdot \textbf{image}}{\|\textbf{prompt}\|\|\textbf{image}\|}
+    \]
+  - Since the embeddings are normalized, this reduces to computing dot product.
+  - Return as a scalar float value.
+- **Optional:**
+  - For ranking, use the cosine similarity directly.
+  - For margin-based ranking (triplet loss), compare positive and negative pair scores.
+
+### 5. Loading and Saving Model Weights
+- **Save:**
+  - Save the state dictionary (`state_dict()`) of both encoders.
+  - Save to a specified directory/file.
+  - Can include optimizer states if relevant.
+- **Load:**
+  - Load saved checkpoint weights.
+  - Map weights to the current model structure.
+  - Support versioning or compatibility checks.
+
+---
+
+## Additional Considerations
+
+### Encoders & Freezing
+- Design the model so that only final residual blocks are fine-tuned (as per paper).
+- During encoding, encoders are in `eval()` mode unless fine-tuning.
+
+### Embedding Dimensionality
+- Ensure the computed embeddings are consistent with the pre-trained model (e.g., 512, 768).
+- Use `torch.nn.functional.normalize()` for L2 normalization.
+
+### Tokenization
+- Use HuggingFace tokenizer compatible with the backbone (e.g., CLIPTokenizer).
+- Limit input tokens to `max_prompt_words` for consistency.
+
+### Device Management
+- Include parameter or method to set device (`cuda` or `cpu`).
+- Move model and inputs accordingly.
+
+### Extensibility
+- Design for support of multiple backbone models (CLIP, BLIP).
+- Inheritability for extending with other models.
+
+---
+
+## Pseudocode Skeleton (not actual code) for `model.py`
+
+```python
+class Model:
+    def __init__(self, pretrained_model_name, load_weights=None, device='cuda'):
+        # Load pre-trained models (text and image encoders)
+        self.device = device
+        self.tokenizer = ... # Load tokenizer based on model
+        self.text_encoder = ... # Load or initialize text encoder
+        self.image_encoder = ... # Load or initialize image encoder
+        
+        # Set model to eval mode for inference, or train mode if fine-tuning
+        self.text_encoder.eval()
+        self.image_encoder.eval()
+        
+        # Load weights if provided
+        if load_weights:
+            self.load_weights(load_weights)
+
+    def encode_prompt(self, prompt: str) -> Tensor:
+        tokens = self.tokenizer(prompt, max_length=max_prompt_words, truncation=True, padding='max_length', return_tensors='pt')
+        tokens = tokens.to(self.device)
+        with torch.no_grad():
+            features = self.text_encoder(**tokens)
+            embedding = extract_cls_token(features)
+            embedding = torch.nn.functional.normalize(embedding, p=2, dim=-1)
+        return embedding
+
+    def encode_image(self, image_path: str) -> Tensor:
+        image = load_and_preprocess_image(image_path)
+        image = image.to(self.device)
+        with torch.no_grad():
+            features = self.image_encoder(image)
+            embedding = extract_cls_token(features)
+            embedding = torch.nn.functional.normalize(embedding, p=2, dim=-1)
+        return embedding
+
+    def compute_score(self, prompt_embedding, image_embedding):
+        # Dot product (cosine similarity)
+        score = torch.sum(prompt_embedding * image_embedding)
+        return score.item()
+
+    def save_weights(self, path):
+        torch.save({
+            'text_encoder_state_dict': self.text_encoder.state_dict(),
+            'image_encoder_state_dict': self.image_encoder.state_dict(),
+        }, path)
+
+    def load_weights(self, path):
+        checkpoint = torch.load(path)
+        self.text_encoder.load_state_dict(checkpoint['text_encoder_state_dict'])
+        self.image_encoder.load_state_dict(checkpoint['image_encoder_state_dict'])
+```
+
+---
+
+## Final Remarks
+- Ensure all dependencies from HuggingFace transformers and related libraries are correctly imported.
+- Confirm that the tokenizers and encoders are compatible with the chosen backbone.
+- The design should facilitate easy extension to other models, e.g., BLIP, by parameterizing model loading.
+- Static methods or utility functions for embedding normalization, cosine similarity, and image preprocessing should be included or imported from utility modules.
+
+This detailed logic analysis clarifies the core functions and their interplay, ensuring implementation fidelity aligned with the experimental framework proposed in the paper.

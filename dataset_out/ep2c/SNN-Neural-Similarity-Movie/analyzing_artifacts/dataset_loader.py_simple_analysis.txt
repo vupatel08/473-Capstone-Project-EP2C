@@ -1,0 +1,151 @@
+### Logic Analysis: dataset_loader.py
+
+This module is responsible for loading, preprocessing, and organizing the neural response data from the Allen Brain Observatory dataset as well as stimuli movies used for both neural data comparison and model input. It lays the foundation for simulating neural responses and generating data for evaluation metrics such as TSRSA and regression analysis.
+
+---
+
+#### 1. **Primary Functionality Overview**
+
+- Load neural responses (spike trains or PSTH data) for the 6 cortical regions.
+- Normalize or preprocess neural data for consistency with the experimental measures.
+- Load visual stimulus movies (Movie1 and Movie2) and manipulate them for experiments.
+- Provide interfaces to extract neural responses aligned with stimulus frames.
+- Support data splits for calculating neural ceilings and variability estimates.
+- Enable data synchronization between neural responses and stimulus presentation.
+
+---
+
+#### 2. **Datasets and Data Sources**
+
+- **Neural responses**:
+  - From the Allen Brain Observatory Visual Coding dataset.
+  - Recorded responses from six cortical regions with electrode (Neuropixels) data.
+  - Each response per neuron per trial, per frame.
+  - Responses: raw spike counts over time, to be converted to PSTH (per frame average spikes).
+
+- **Stimuli movies**:
+  - Movie1: 30s, 30Hz frame rate (900 frames, approx.).
+  - Movie2: 120s, 30Hz (3600 frames, approx.).
+
+---
+
+#### 3. **Data Loading Procedures**
+
+- **Neural data**:
+  - Load from storage: assumed to be in structured formats (e.g., HDF5, NPY, CSV, or MATLAB files).
+  - Load neural spike times or per-trial responses.
+  - Convert spike times to PSTH:
+    - Sum spikes within each frame (per frame bin).
+    - Average over trials to get mean response for each neuron.
+  - Filter neurons:
+    - Exclude neurons with average firing rate < 0.5 spikes/sec.
+    - Implementation:
+      - Calculate mean spike rate per neuron: (sum of spikes / total duration).
+      - Drop neurons below threshold.
+
+- **Stimuli movies**:
+  - Load from video files or image sequences stored locally.
+  - Resize to specified dimensions (e.g., 224x224) for model input.
+  - Ensure temporal order is preserved.
+  - Store as numpy arrays or tensors.
+
+---
+
+#### 4. **Functionality Details**
+
+**A. Neural Response Loading**
+
+- Implement `load_neural_responses()`:
+  - Parameter: dataset path, region identifiers.
+  - Load neural spike data.
+  - Compute PSTH:
+    - Sum spikes across each frame interval.
+    - Average across all trials per neuron.
+  - Return:
+    - A numpy ndarray of shape `(number of neurons, number of frames)` for each cortical region.
+    - Also return a list of region labels or names.
+
+**B. Data Preprocessing**
+
+- Function to exclude neurons with low firing rate:
+  - For each neuron: compute mean response over all frames.
+  - Remove neurons with response below 0.5 spikes/sec.
+  - Output filtered response matrix.
+
+**C. Stimuli Movie Loading**
+
+- Implement `load_stimuli()`:
+  - Read movie files (`.mp4`, `.avi`, or image sequences).
+  - Resize frames to `[224, 224]`.
+  - For Movie1:
+    - Convert to numpy array of shape `(num_frames, height, width, channels)`.
+  - For Movie2:
+    - Same as above.
+- Maintain chronological order.
+- Normalize pixel values as needed (e.g., [0,1] or mean/std).
+
+**D. Stimuli Manipulation Functions**
+
+- Implement functions for experimental conditions:
+  - `shuffle_frames(movie_array, window_size)`:
+    - Divide the sequence into windows of `window_size`.
+    - Shuffle frames within each window.
+    - Return the modified movie.
+  - `replace_with_noise(movie_array, ratio)`:
+    - For each proportion of total frames (ratio), replace selected frames with Gaussian noise images.
+    - To generate noise images:
+      - Use numpy with mean=0.5, std=0.5 (or as per the experiments).
+      - Consistent size `[224, 224, 3]`.
+  - Additional:
+    - Load static noise images from a specified source if needed for further experiments.
+
+**E. Data Splitting and Neural Ceiling Calculation**
+
+- For neural ceiling estimates:
+  - Split the neural response data into two halves (by trials or neurons).
+  - Store the responses separately.
+  - Compute the TSRSA between the two halves to estimate maximum achievable similarity.
+  - Implement `compute_neural_ceiling()`:
+    - Input: neural responses split into two subsets.
+    - Output: scalar ceiling value.
+
+---
+
+#### 5. **File Format and Data Access**
+
+- Neural responses:
+  - Likely stored as `.npy`, `.mat`, or `.csv`.
+  - Load with `numpy.load()`, `scipy.io.loadmat()`, or `pandas.read_csv()`.
+- Stimuli movies:
+  - Load via OpenCV (`cv2.VideoCapture`) or `imageio`.
+  - Convert frames to numpy arrays.
+
+---
+
+#### 6. **Interfaces and Usage Pattern**
+
+- Instantiate the DatasetLoader class with dataset path.
+- On initialization:
+  - Load neural data for all cortical regions.
+  - Load stimulus movies and preprocessed responses.
+- Methods:
+  - `get_neural_responses(region_name)` returns responses for a specific cortical region.
+  - `get_movie(condition)` returns movie array(s).
+  - `get_responses_aligned_with_movie()` returns neural responses aligned with stimulus frames for TSRSA.
+  - `apply_manipulations()` functions return manipulated movies for experiments.
+  - `compute_ceiling()` returns neural ceiling scores for reference.
+
+---
+
+#### 7. **Summary & Remarks**
+
+- Ensure that data loading functions are flexible with file paths or dataset versions.
+- Maintain synchronous timing: neural responses aligned to frames at 30Hz.
+- Consistent handling of data shapes: `(neurons, frames)` for responses, `(frames, H, W, C)` for stimulus.
+- Implement robust filtering and normalization steps.
+- Modular functions for manipulation to facilitate repeatability and testing.
+- Prepare for experiments involving multiple stimulus versions, so parameterize window sizes, ratios, and noise types.
+
+---
+
+This comprehensive logic outline will guide the implementation of `dataset_loader.py`, ensuring accurate reproduction of the neural and stimulus data processing as per the paper’s experimental paradigm.

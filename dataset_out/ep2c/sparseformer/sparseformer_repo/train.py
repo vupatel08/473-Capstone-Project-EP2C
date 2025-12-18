@@ -1,0 +1,209 @@
+## train.py
+import os
+import yaml
+import math
+import torch
+import torch.nn as nn
+import torch.optim as optim
+from torch.cuda import amp
+from torch.utils.data import DataLoader
+from dataset import ImageNetDataset
+from model import SparseFormer
+from utils import get_lr_scheduler, setup_logging, save_checkpoint, initialize_weights
+import time
+from typing import Dict
+
+def main():
+    # -----------------------------------------------------
+    # 1. Configuration Parsing
+    # Load config.yaml
+    config_path = 'config.yaml'
+    with open(config_path, 'r') as f:
+        config: Dict = yaml.safe_load(f)
+
+    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+    print(f"Using device: {device}")
+
+    # Fix seed for reproducibility
+    seed = 42
+    torch.manual_seed(seed)
+    if torch.cuda.is_available():
+        torch.cuda.manual_seed_all(seed)
+
+    # Initialize logging
+    from torch.utils.tensorboard import SummaryWriter
+    writer = setup_logging()
+
+    # -----------------------------------------------------
+    # 2. Dataset and DataLoader Preparation
+    print("Preparing datasets and dataloaders...")
+    train_dataset = ImageNetDataset(config, split='train')
+    val_dataset = ImageNetDataset(config, split='val')
+    batch_size = config['training'].get('batch_size', 128)
+    num_workers = config['dataset'].get('num_workers', 8)
+
+    train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True,
+                              num_workers=num_workers, pin_memory=True)
+    val_loader = DataLoader(val_dataset, batch_size=batch_size, shuffle=False,
+                            num_workers=num_workers, pin_memory=True)
+
+    # -----------------------------------------------------
+    # 3. Model Initialization
+    print("Initializing model...")
+    model = SparseFormer(config)
+    model.to(device)
+
+    # Initialize weights (if training from scratch)
+    model.apply(initialize_weights)
+
+    # Load checkpoint if resuming or pretraining
+    resume = config['saving'].get('resume_from_checkpoint', False)
+    checkpoint_path = os.path.join(config['saving'].get('checkpoint_dir', './checkpoints/'), 'latest.pth')
+
+    start_epoch = 1
+    best_acc1 = 0.0
+
+    if resume and os.path.exists(checkpoint_path):
+        print(f"Resuming from checkpoint: {checkpoint_path}")
+        checkpoint = torch.load(checkpoint_path, map_location=device)
+        model.load_state_dict(checkpoint['model'])
+        optimizer.load_state_dict(checkpoint['optimizer'])
+        scaler.load_state_dict(checkpoint['scaler']) if 'scaler' in checkpoint else None
+        start_epoch = checkpoint.get('epoch', 1)
+        best_acc1 = checkpoint.get('best_acc1', 0.0)
+        print(f"Resumed at epoch {start_epoch}")
+
+    # -----------------------------------------------------
+    # 4. Loss function, optimizer, LR scheduler
+    print("Setting up loss, optimizer, scheduler...")
+    criterion = nn.CrossEntropyLoss()
+
+    optimizer = optim.AdamW(model.parameters(),
+                            lr=config['training']['optimizer'].get('lr', 1e-3),
+                            weight_decay=config['training'].get('weight_decay', 0.05))
+    total_steps = int(len(train_loader) * config['training']['epochs'])
+    scheduler = get_lr_scheduler(optimizer, config, total_steps)
+
+    # Use GradScaler for AMP
+    scaler = amp.GradScaler(enabled=config['training'].get('mixed_precision', False))
+
+    # Optional gradient clipping
+    clip_norm = config['training'].get('gradient_clip_norm', 0.0)
+
+    # -----------------------------------------------------
+    # 5. Training Loop
+    print("Starting training...")
+    for epoch in range(start_epoch, config['training']['epochs'] + 1):
+        model.train()
+        running_loss = 0.0
+        correct = 0
+        total = 0
+
+        epoch_start_time = time.time()
+
+        for batch_idx, (images, labels) in enumerate(train_loader):
+            images = images.to(device, non_blocking=True)
+            labels = labels.to(device, non_blocking=True)
+
+            optimizer.zero_grad()
+
+            with amp.autocast(enabled=config['training'].get('mixed_precision', False)):
+                outputs = model(images)
+                loss = criterion(outputs, labels)
+
+            scaler.scale(loss).backward()
+
+            # Optional gradient clipping
+            if clip_norm > 0:
+                scaler.unscale_(optimizer)
+                torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=clip_norm)
+
+            scaler.step(optimizer)
+            scaler.update()
+            scheduler.step()
+
+            # Compute metrics
+            _, preds = torch.max(outputs, 1)
+            correct += torch.sum(preds == labels).item()
+            total += labels.size(0)
+            running_loss += loss.item() * images.size(0)
+
+            # Logging every few iterations
+            if (batch_idx + 1) % 50 == 0:
+                print(f"Epoch [{epoch}/{config['training']['epochs']}], Step [{batch_idx+1}/{len(train_loader)}], "
+                      f"Loss: {loss.item():.4f}")
+                # Log to TensorBoard
+                global_step = (epoch - 1) * len(train_loader) + batch_idx + 1
+                writer.add_scalar('train/loss', loss.item(), global_step)
+                acc = 100.0 * correct / total
+                writer.add_scalar('train/accuracy', acc, global_step)
+
+        train_loss = running_loss / len(train_dataset)
+        train_acc = 100.0 * correct / total
+        print(f"Epoch [{epoch}] training loss: {train_loss:.4f}, accuracy: {train_acc:.2f}%")
+        writer.add_scalar('train/epoch_loss', train_loss, epoch)
+        writer.add_scalar('train/epoch_accuracy', train_acc, epoch)
+        # Save checkpoint periodically
+        if epoch % config['saving'].get('save_every_epochs', 10) == 0:
+            save_path = os.path.join(config['saving'].get('checkpoint_dir', './checkpoints/'), f'checkpoint_epoch_{epoch}.pth')
+            torch.save({
+                'epoch': epoch,
+                'model': model.state_dict(),
+                'optimizer': optimizer.state_dict(),
+                'scaler': scaler.state_dict(),
+                'best_acc1': best_acc1
+            }, save_path)
+            print(f"Saved checkpoint: {save_path}")
+
+        # -------------------------------------------------
+        # 6. Validation and Evaluation
+        print(f"Running validation for epoch {epoch}...")
+        model.eval()
+        val_loss = 0.0
+        val_correct = 0
+        val_total = 0
+        with torch.no_grad():
+            for val_images, val_labels in val_loader:
+                val_images = val_images.to(device, non_blocking=True)
+                val_labels = val_labels.to(device, non_blocking=True)
+                with amp.autocast(enabled=config['training'].get('mixed_precision', False)):
+                    val_outputs = model(val_images)
+                    loss_val = criterion(val_outputs, val_labels)
+                val_loss += loss_val.item() * val_images.size(0)
+                # Accuracy
+                _, val_preds = torch.max(val_outputs, 1)
+                val_correct += torch.sum(val_preds == val_labels).item()
+                val_total += val_labels.size(0)
+
+            val_epoch_loss = val_loss / len(val_dataset)
+            val_acc1 = 100.0 * val_correct / val_total
+            print(f"Validation Epoch [{epoch}] Loss: {val_epoch_loss:.4f}, Accuracy: {val_acc1:.2f}%")
+            writer.add_scalar('val/loss', val_epoch_loss, epoch)
+            writer.add_scalar('val/accuracy', val_acc1, epoch)
+
+        # Save best model
+        if val_acc1 > best_acc1:
+            best_acc1 = val_acc1
+            best_model_path = os.path.join(config['saving'].get('checkpoint_dir', './checkpoints/'), 'best_model.pth')
+            torch.save(model.state_dict(), best_model_path)
+            print(f"New best model saved at epoch {epoch} with accuracy {best_acc1:.2f}%.")
+
+        print(f"Epoch {epoch} completed in {(time.time() - epoch_start_time):.2f} seconds.\n")
+
+    # -----------------------------------------------------
+    # 7. Finish
+    print("Training completed.")
+    print(f"Best validation accuracy: {best_acc1:.2f}%")
+    # Save final model
+    final_checkpoint_path = os.path.join(config['saving'].get('checkpoint_dir', './checkpoints/'), 'final.pth')
+    torch.save({
+        'epoch': epoch,
+        'model': model.state_dict(),
+        'optimizer': optimizer.state_dict(),
+        'scaler': scaler.state_dict(),
+        'best_acc1': best_acc1
+    }, final_checkpoint_path)
+    print(f"Final model saved at {final_checkpoint_path}")
+
+if __name__ == "__main__":
+    main()

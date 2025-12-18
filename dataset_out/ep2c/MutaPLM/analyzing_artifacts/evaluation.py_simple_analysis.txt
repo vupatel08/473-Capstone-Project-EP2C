@@ -1,0 +1,73 @@
+{
+  "evaluation.py": {
+    "Purpose": "Implement evaluation routines for both mutation explanation (text generation) and mutation proposal tasks, alongside visualization functions for mutation ranking and performance analysis.",
+    "Dependencies": [
+      "predictions from trainer.py",
+      "dataset information (e.g., ground-truth annotations, mutation details)",
+      "standard NLP evaluation libraries (e.g., ROUGE, BLEU, METEOR from nltk or rouge-score packages)",
+      "scikit-learn for metrics like Spearman correlation",
+      "matplotlib/ seaborn for visualization"
+    ],
+    "Key Components": {
+      "1. evaluate_explanation": {
+        "Input": "Predicted explanations and ground-truth annotations for mutation explanations.",
+        "Outputs": {
+          "ROUGE-L": "Using a standard ROUGE implementation, compute ROUGE-L scores between predicted and reference explanations.",
+          "BLEU-2": "Compute BLEU-2 scores to quantify n-gram consistency.",
+          "METEOR": "Calculate METEOR scores for semantic and lexical quality assessment."
+        },
+        "Process": [
+          "Ensure predictions and references are tokenized consistently.",
+          "Apply rouge-score, nltk bleu_score, nltk METEOR or equivalent libraries.",
+          "Aggregate scores over the dataset samples, producing mean and possibly standard deviation metrics for reporting."
+        ],
+        "Reference": "Use batch processing for all samples, with optional computation of confidence intervals if multiple runs are performed."
+      },
+      "2. evaluate_mutations": {
+        "Input": "Model's ranked candidate mutations, ground-truth mutated positions and amino acids, and potentially the relevance scores.",
+        "Outputs": {
+          "Recall@50": "Calculate the proportion of true mutation sites present within top-50 ranked proposals.",
+          "Position accuracy": "Measure the fraction of proposals correctly placing mutation at the true position.",
+          "Amino acid accuracy": "Compute how often the predicted mutated amino acid matches the ground-truth.",
+          "Spearman correlation": "Compute the correlation between predicted mutation scores (e.g., mutation likelihood logits) and ground-truth fitness or mutation effects."
+        },
+        "Process": [
+          "For each test protein, compare the top-K proposals with ground-truth mutations.",
+          "Count how many of the true mutation positions are within the proposals, for each sample.",
+          "Compute the proportion over the dataset for Recall@50.",
+          "For amino acid accuracy, check if the top predicted amino acid (or top K) matches ground-truth.",
+          "For correlation, align the model's mutation scores with experimentally measured or reference scores.",
+          "Aggregate results globally (mean, std) and justify variance with dataset splits."
+        ],
+        "Note": "Handle potential imbalance in mutation types by stratifying metrics if needed."
+      },
+      "3. visualization functions": {
+        "Purpose": "Visualize mutation proposal rankings, fitness trajectories across multiple rounds, and correlations.",
+        "Visualizations": [
+          "Fitness landscape curves across multi-round optimization (line plots with mean ± std shading).",
+          "Bar plots or histograms for proposal distributions.",
+          "Scatter plots for correlation analysis (proposals vs. ground truth).",
+          "Heatmaps for mutation scores and proposal rankings."
+        ],
+        "Process": [
+          "Input: mutation proposal scores, sequence, fitness data, ground truth.",
+          "Use matplotlib or seaborn to plot curves, distributions, or heatmaps.",
+          "Annotate with relevant dataset info (e.g., protein name, mutation site).",
+          "Save figures with clear labels and captions for reporting."
+        ]
+      }
+    },
+    "Implementation notes": {
+      "Data handling": "Predictions and ground truths should be standardized in terms of sequence formats, mutation representation, and scoring systems.",
+      "Evaluation consistency": "Ensure tokenization, scoring, and comparison protocols align with the training and test pipelines.",
+      "Computational efficiency": "Batch evaluation for multiple samples; precompute metrics where possible.",
+      "Robustness": "Handle missing or ambiguous data gracefully; provide error logs for debugging."
+    },
+    "Unclear points": [
+      "Exact schema of predictions: e.g., dictionary formats, ranking scores used for proposals.",
+      "Whether to include multi-metric scoring or flexibility for different datasets.",
+      "Details on visualization aesthetics (labels, plot types) and output formats."
+    ],
+    "Summary": "Design evaluation.py to include functions for calculating standard NLP metrics for explanation quality and specialized metrics (recall, accuracy, correlation) for mutation proposal tasks, along with visualization utilities for analysis and presentation of model performances."
+  }
+}

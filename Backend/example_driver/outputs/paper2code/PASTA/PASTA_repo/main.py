@@ -1,0 +1,143 @@
+## main.py
+import os
+import yaml
+import torch
+import random
+from tqdm import tqdm
+
+from dataset_loader import DatasetLoader
+from model_wrapper import ModelWrapper
+from attention_steering import AttentionSteering
+from profile import Profiler
+from evaluation import Evaluation
+from utils import extract_emphasis_token_indices
+
+def main():
+    # 1. Load configuration from YAML
+    with open('config.yaml', 'r') as f:
+        config = yaml.safe_load(f)
+
+    # Set seeds for reproducibility
+    seed = 42
+    random.seed(seed)
+    torch.manual_seed(seed)
+    if torch.cuda.is_available():
+        torch.cuda.manual_seed_all(seed)
+
+    # 2. Initialize tokenizer and datasets
+    model_name = config['model'].get('name')
+    model_path = config['model'].get('model_path', None)
+    data_dir = config['dataset'].get('data_dir')
+    dataset_name = config['dataset'].get('name', 'BiasBios')
+    split_names = config['dataset'].get('split', ['train', 'validation', 'test'])
+    train_size = config['dataset'].get('train_size', 1000)
+    val_size = config['dataset'].get('val_size', 1000)
+    test_size = config['dataset'].get('test_size', 5000)
+
+    # 3. Initialize ModelWrapper
+    model_wrapper = ModelWrapper(model_name=model_name, model_path=model_path)
+
+    # 4. Load datasets for profiling and evaluation
+    # Initialize dataset loaders for train/val/test
+    tokenizer = model_wrapper.tokenizer
+
+    dataset_train = DatasetLoader(
+        task_name=dataset_name, data_dir=data_dir, split=split_names[0],
+        tokenizer=tokenizer).load_dataset()
+    dataset_val = DatasetLoader(
+        task_name=dataset_name, data_dir=data_dir, split=split_names[1],
+        tokenizer=tokenizer).load_dataset()
+    dataset_test = DatasetLoader(
+        task_name=dataset_name, data_dir=data_dir, split=split_names[2],
+        tokenizer=tokenizer).load_dataset()
+
+    # 5. Prepare profiling dataset (small subset)
+    prof_train_samples = dataset_train.sample_data(train_size)
+    prof_val_samples = dataset_val.sample_data(val_size)
+
+    # Re-assign to dataset objects for profiling if needed
+    dataset_train.raw_data = prof_train_samples
+    dataset_val.raw_data = prof_val_samples
+
+    # 6. Profiling: identify effective attention heads
+    profiler = Profiler(
+        model_wrapper=model_wrapper,
+        dataset=dataset_val,
+        top_heads_count=config['profiling'].get('top_heads_count', 50),
+        profile_samples=1000,
+        strategy=config['attention_steering'].get('heads_selection_strategy', 'top-per-task')
+    )
+    selected_heads = profiler.profile_heads()
+
+    # 7. Set the selected heads in model for steering
+    # Alternatively, we can encapsulate in AttentionSteering
+    alpha = config['attention_steering'].get('alpha', 0.01)
+    attention_strategy = config['attention_steering'].get('heads_selection_strategy', 'top-per-task')
+
+    # Initialize AttentionSteering with selected heads
+    attention_steering = AttentionSteering(
+        model=model_wrapper,
+        selected_heads=selected_heads,
+        alpha=alpha
+    )
+
+    # 8. Inference on test set with attention steering
+    # For each test example, extract emphasis spans and generate
+    results = {}
+    task_name = dataset_name  # or could be specified per dataset
+
+    # Optional: prepare evaluation metrics
+    eval_flags = {
+        'format_accuracy': config['evaluation']['metrics'].get('format_accuracy', True),
+        'prediction_accuracy': config['evaluation']['metrics'].get('prediction_accuracy', True),
+        'pronoun_accuracy': config['evaluation']['metrics'].get('pronoun_accuracy', True),
+        'fluency': config['evaluation']['metrics'].get('fluency', True),
+        'counterfact': config['evaluation']['metrics'].get('counterfact_effectiveness', True)
+    }
+
+    evaluation_dataset = dataset_test.get_samples(test_size)
+
+    # Loop over test samples
+    for sample in tqdm(evaluation_dataset, desc='Inference with PASTA on test'):
+        raw_prompt = sample.raw_prompt
+        input_ids = sample.tokenized_input
+
+        # 8a. Extract emphasis spans: find emphasized tokens using utils
+        emphasis_token_indices = extract_emphasis_token_indices(raw_prompt, tokenizer)
+        # 8b. Set the emphasis in model for hooks
+        model_wrapper.set_current_emphasis_spans(emphasis_token_indices)
+
+        # 8c. Generate output with attention steering
+        generated_text = model_wrapper.generate(
+            input_ids=input_ids,
+            emphasis_spans=emphasis_token_indices,
+            alpha=alpha,
+            max_new_tokens=100,
+            temperature=0.7
+        )
+
+        # 8d. Store generated output for evaluation
+        # We can store in the sample object or separately
+        sample.generated_text = generated_text
+
+    # 9. Evaluation on generated outputs
+    evaluator = Evaluation(
+        model=model_wrapper,
+        dataset=evaluation_dataset,
+        task_name=task_name,
+        tokenizer=tokenizer,
+        config={'evaluation': eval_flags}
+    )
+
+    results = evaluator.evaluate()
+
+    # 10. Log results
+    print("=== PASTA Inference and Evaluation Results ===")
+    for metric_name, metric_value in results.items():
+        print(f"{metric_name}: {metric_value:.2f}")
+
+    # 11. Clean up hooks
+    attention_steering.clear_hooks()
+
+if __name__ == "__main__":
+    main()

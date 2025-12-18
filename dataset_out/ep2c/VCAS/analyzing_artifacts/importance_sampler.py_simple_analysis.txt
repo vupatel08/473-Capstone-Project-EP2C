@@ -1,0 +1,140 @@
+## Logic Analysis for importance_sampler.py
+
+### Objective:
+Implement the `ImportanceSampler` class to manage importance ratios, adaptively update these ratios based on gradient variance estimates, and provide sampling functions for data points (e.g., samples in a batch or dataset) and tokens (sequence elements). The class facilitates importance sampling in VCAS, ensuring unbiased estimates and controlled variance.
+
+---
+
+## 1. Class responsibilities:
+- Maintain current importance ratios:
+  - Activation importance ratios (`rho_l`) for each layer `l`.
+  - Weight importance ratios (`nu_l`) for each layer `l`.
+- Support adaptive updating of these ratios based on variance estimates:
+  - Use variance estimates from the `VarianceEstimator`.
+  - Update ratios to keep additional variance within specified thresholds.
+- Provide sampling functions:
+  - For data points (per batch): `sample_indices()` based on importance scores with current ratios.
+  - For tokens (per sequence): `sample_tokens()` based on importance scores with current ratios.
+- Initialize with default ratios (`initial_ratio`, e.g., 1.0).
+- Store importance scores or importance measures (gradients or leverage scores) to support sampling.
+
+---
+
+## 2. Key inputs and hyperparameters:
+- `initial_ratio`
+- Importance measurement method (e.g., `gradient_norm`)
+- Importance scores for data points and tokens, supplied externally during `sample_indices()`.
+- Current ratios `rho_l` and `nu_l` (layer-specific importance ratios).
+
+---
+
+## 3. Components and methods:
+
+### 3.1. Initialization (`__init__`)
+- Store initial ratios:
+  - Set `self.rho = [initial_ratio for _ in range(L)]` for activation importance ratios.
+  - Set `self.nu = [initial_ratio for _ in range(L)]` for weight importance ratios.
+- Store method for importance measurement (e.g., `gradient_norm`) as configuration.
+- Initialize any internal state for ratio updates, e.g., thresholds, moving averages if needed.
+- Optional: prepare data structures for storing importance scores/update history if required.
+
+---
+
+### 3.2. `update_ratios(variance_estimates: dict) -> None`
+Input:
+- `variance_estimates`: a dictionary containing variance estimates for each layer's gradient.
+  - e.g., keys `'activation'`, `'weight'` for overall corresponding variance bounds.
+  - Could be further layered into individual layer variances if needed.
+- Use thresholds `tau_act` and `tau_w` (from hyperparameters).
+
+Process:
+- For each layer `l`:
+  - Calculate the desired ratio `rho_l` (activation) and `nu_l` (weight) based on the estimated variance for that layer.
+  - The goal:
+    - If variance exceeds the target (threshold), decrease ratio `>1` to reduce variance.
+    - If variance is below target, possibly increase ratio to allow for larger importance sampling scope.
+  - Employ rules, e.g.:
+    - `rho_l_new = min(1, rho_l * (variance_estimate / tau_act))`
+    - Similarly for `nu_l`.
+  - Possibly clamp ratios to `[0, 1]`.
+
+Output:
+- Update internal ratios `self.rho` and `self.nu` accordingly.
+
+### 3.3. `sample_indices(importance_scores: Tensor, ratio: float) -> Tensor`
+Input:
+- `importance_scores`: a 1D tensor of importance scores for data points (`N` samples in current batch).
+- `ratio`: current importance ratio for data points, `ρ` (e.g., 0.8).
+
+Process:
+- Convert importance scores into sampling probabilities:
+  - Normalize importance scores to sum to 1 or to a total importance budget.
+  - For example:
+    - `p_i = importance_scores[i] / sum(importance_scores)`
+  - Scale probabilities so that expected number of samples is `N * ratio`:
+    - e.g., `p_i = min(1, importance_scores[i] / threshold)` or normalized to sum to `ratio * N`.
+- Use a sampling mechanism:
+  - Bernoulli sampling or multinomial:
+    - Bernoulli per element with probability `p_i`: construct a mask.
+  - Alternatively, select top-k aligned with importance scores:
+    - For unbiased sampling, Bernoulli with probabilities per importance.
+- Return:
+  - A boolean mask tensor (size `N`) indicating which data points are sampled.
+  - Sampled indices for gradient computation.
+
+### 3.4. `sample_tokens(token_importance_scores: Tensor, ratio: float) -> Tensor`
+Input:
+- `token_importance_scores`: 2D tensor of importance scores per sample and token, shape: `[N, T]`.
+- `ratio`: importance sampling ratio for tokens, `ν`.
+
+Process:
+- Flatten importance scores:
+  - For each data point `i` and token `t`, assign importance.
+- Convert importance scores to probabilities similarly:
+  - Normalize across all tokens to sum to `ratio * N * T`.
+  - Use Bernoulli sampling to select tokens:
+    - For each token, sample with probability proportional to its importance.
+- Create a mask tensor `[N, T]` indicating which tokens are retained.
+- Use this mask in backward computations:
+  - Scale gradients with `1 / p_{i,t}` for unbiasedness.
+- Return:
+  - Boolean mask or importance weighting factors.
+
+---
+
+## 4. Additional considerations:
+- **Variance bounds enforcement:**
+  - Use empirical variance estimates from `variance_estimator.py`.
+  - Ratios `rho_l`, `nu_l` controlled so that additional variance remains within tolerances `τ_{act}`, `τ_w`.
+- **Multiple importance measures:**
+  - Can implement multiple options (`gradient_norm`, leverage scores).
+  - For this plan, assume `gradient_norm` as default.
+- **Updating schedule:**
+  - Ratios are updated periodically, every `F` steps, with `update_ratios()` receiving new variance estimates.
+- **Numerical stability:**
+  - Ensure the importance probabilities are bounded, e.g., minimum epsilon, maxima of 1.
+  - For small importance scores, prevent probabilities of 0.
+
+---
+
+## 5. Data structures:
+- Internal parameters:
+  - `self.rho` (list or tensor): per-layer activation ratios.
+  - `self.nu` (list or tensor): per-layer weight ratios.
+- Input importance scores:
+  - For data points, a 1D tensor (length `N`).
+  - For tokens, a 2D tensor `[N, T]`.
+- Sampling functions output:
+  - Boolean masks or indices for selected data/tokens.
+- Variance estimates stored externally or passed during update.
+
+---
+
+## 6. Summary:
+- The `ImportanceSampler` class will:
+  - Initialize ratios to 1.
+  - Provide `sample_indices()` and `sample_tokens()` that generate importance-weighted Bernoulli samples based on importance scores and current ratios.
+  - Update ratios via `update_ratios()` according to estimated variances to control additional variance.
+  - Support different importance measurement strategies (mainly gradient norm).
+
+This detailed plan ensures the implementation captures the theory, maintains unbiasedness, controls variance, and supports dynamic importance ratio management during training, aligned with the paper's methodology.

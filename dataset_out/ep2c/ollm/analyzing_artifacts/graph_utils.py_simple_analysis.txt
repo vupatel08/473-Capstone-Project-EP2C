@@ -1,0 +1,55 @@
+{
+  "Implementation approach": "In 'graph_utils.py', implement utility functions to handle graph construction, manipulation, pruning, and visualization using NetworkX. These functions will be designed to support the end-to-end ontology learning pipeline, including converting model outputs into graph structures, merging multiple subgraphs, applying pruning thresholds, removing cycles, and visualizing graphs. Each function should be stateless and accept data as parameters, returning updated graph objects. The functions will be used sequentially in the main pipeline to process raw relations into validated ontology graphs.",
+  "File list": [
+    "app.py",
+    "dataset_loader.py",
+    "model.py",
+    "trainer.py",
+    "prompt_generator.py",
+    "graph_utils.py",
+    "evaluation.py",
+    "visualization.py",
+    "hyperparameter_search.py"
+  ],
+  "Data structures and interfaces": "
+classGraphUtils:
+    + create_graph_from_relations(relations: List[Tuple[str, str, str, float]]) -> nx.DiGraph
+        # Converts a list of relations with optional weights into a directed graph.
+    + merge_graphs(graph_list: List[nx.DiGraph]) -> nx.DiGraph
+        # Merges multiple graphs into a single graph, summing weights of duplicate edges.
+    + prune_edges(graph: nx.DiGraph, alpha: float, beta: float) -> nx.DiGraph
+        # Applies threshold pruning based on alpha (global) and beta (local relative).
+    + remove_self_loops(graph: nx.DiGraph) -> nx.DiGraph
+        # Removes all edges where u == v.
+    + remove_inverse_edges(graph: nx.DiGraph) -> nx.DiGraph
+        # Enforces unidirectionality for bidirectional edges, keeping edges with higher weight.
+    + remove_cycles(graph: nx.DiGraph, strategy: str='greedy') -> nx.DiGraph
+        # Detects cycles and removes edges based on a strategy (default 'greedy') until acyclic.
+    + visualize_graph(graph: nx.DiGraph, output_path: str, options: dict=None) -> None
+        # Plot the graph with optional styling, saving to output_path.
+",
+  "Program call flow": "
+sequenceDiagram
+    participant G as GraphUtils
+    participant D as DatasetLoader
+    participant M as Model
+    participant P as PromptGenerator
+    participant E as Evaluation
+    participant V as Visualization
+
+    D->>G: create_graph_from_relations(raw_relations)
+    G-->>V: visualize_graph(initial_raw_graph, 'initial.png')
+    G->>G: merge_graphs(list_of_subgraphs)
+    G-->>V: visualize_graph(merged_graph, 'merged.png')
+    G->>G: prune_edges(merged_graph, alpha, beta)
+    G-->>V: visualize_graph(pruned_graph, 'pruned.png')
+    G->>G: remove_self_loops
+    G-->>V: visualize_graph(no_self_loops_graph, 'noselfloops.png')
+    G->>G: remove_inverse_edges
+    G-->>V: visualize_graph(unidirectional_graph, 'unidirectional.png')
+    G->>G: remove_cycles(strategy='greedy')
+    G-->>V: visualize_graph(acyclic_graph, 'acyclic.png')
+    G->>E: evaluate(acyclic_graph, ground_truth)
+    E-->>V: output_metrics
+    "
+}

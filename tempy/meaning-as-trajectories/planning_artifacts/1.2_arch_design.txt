@@ -1,0 +1,28 @@
+----------------------------------------
+[Implementation approach]
+Design a modular Python system leveraging HuggingFace transformers for model inference, PyTorch for tensor operations, and standard Python libraries for data handling. The core components include a trajectory sampler that generates continuations for input prompts, a likelihood calculator that computes sequence probabilities, and a distance/relation evaluator based on sampled trajectories. Multi-threading or multiprocessing will be used to parallelize sampling across prompts for efficiency. The system supports text-only models and multimodal models (like LLaVA) by extended token sampling, with optional prompt alignment. Evaluation routines compute similarity metrics against benchmark datasets, implementing the paper's algorithms for similarity, entailment, and hyponym relations. All hyperparameters are configurable via a YAML or JSON config file.
+
+----------------------------------------
+[File list]
+- main.py
+- dataset_loader.py
+- model.py
+- sampling.py
+- likelihood.py
+- distance.py
+- relation.py
+- evaluation.py
+- config.yaml
+
+----------------------------------------
+[Data structures and interfaces]
+classDiagramclass Main {+__init__(config_path: str)+run() -> None}class DatasetLoader {+__init__(dataset_paths: dict)+load_datasets() -> dict+get_pairs(task_name: str) -> list[tuple[str, str]]}class ModelWrapper {+__init__(model_name: str, device: str)+generate_continuations(prompt: str, n: int, m: int, temperature: float) -> list[str]+compute_sequence_log_prob(sequence: str, prompt: str) -> float+tokenize(text: str) -> list[int]+detokenize(tokens: list[int]) -> str}class Sampler {+__init__(model: ModelWrapper, n: int, m: int, temperature: float)+sample_trajectories(prompt: str) -> list[str]+parallel_sample(prompts: list[str]) -> dict[str, list[str]]}class LikelihoodCalculator {+compute_log_prob(sequence: str, prompt: str) -> float}class DistanceEvaluator {+__init__(num_samples: int)+compute_distance(prompt_u: str, prompt_v: str, sampler: Sampler, likelihood: LikelihoodCalculator) -> float+compute_relation(prompt_u: str, prompt_v: str, sampler: Sampler, likelihood: LikelihoodCalculator, relation_type: str) -> bool}class Evaluation {+__init__(datasets: dict)+evaluate_similarity(task_name: str, distance_eval: DistanceEvaluator, dataset_split: str) -> dict+evaluate_relation(task_name: str, relation_eval: DistanceEvaluator, dataset_split: str, relation_type: str) -> dict}Main --> DatasetLoaderMain --> ModelWrapperMain --> SamplerMain --> LikelihoodCalculatorMain --> DistanceEvaluatorMain --> EvaluationSampler --> ModelWrapperDistanceEvaluator --> SamplerDistanceEvaluator --> LikelihoodCalculatorEvaluation --> DistanceEvaluator
+
+----------------------------------------
+[Program call flow]
+sequenceDiagramparticipant M as Mainparticipant DL as DatasetLoaderparticipant MW as ModelWrapperparticipant S as Samplerparticipant LD as LikelihoodCalculatorparticipant DE as DistanceEvaluatorparticipant EV as EvaluationNote over M: Load config from 'config.yaml'M->>DL: load_datasets()DL-->>M: datasetsM->>MW: initialize(model_name, device)Note over S,MW: Setup sampler with model, n=20, m=20, temperature=1.0M->>EV: load datasets for evaluationloop for each dataset and taskEV->>DE: create DistanceEvaluator with num_samples=20EV->>DE: compute and record similarity scoresEV->>DE: compute and record relation judgmentsendEV-->>M: output metricsM->>Main: completeNote over all: Parallelize trajectory sampling with multiprocessing for efficiency.
+
+----------------------------------------
+[Anything UNCLEAR]
+Clarification needed on handling special tokens (e.g., [EOS]) in different models. Confirm if multimodal models like LLaVA have specific tokenization or sequence sampling modifications. Also, whether to precompute and store all sampled trajectories for repeated evaluations or regenerate per query.
+

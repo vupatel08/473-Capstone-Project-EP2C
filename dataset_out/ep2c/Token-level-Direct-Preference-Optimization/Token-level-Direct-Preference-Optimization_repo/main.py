@@ -1,0 +1,191 @@
+## main.py
+import os
+import yaml
+import torch
+import numpy as np
+from tqdm import tqdm
+
+from dataset_loader import DatasetLoader
+from model import ResponseGenerator
+from losses import TDPOLoss
+from utils import (
+    generate_response,
+    sequence_kl_divergence,
+)
+from trainer import Trainer
+from evaluation import Evaluation
+
+# Load configuration
+with open('config.yaml', 'r') as f:
+    config = yaml.safe_load(f)
+
+# Set device
+device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+
+# Extract training config
+train_cfg = config.get('training', {})
+model_cfg = config.get('model', {})
+dataset_cfg = config.get('dataset', {})
+eval_cfg = config.get('evaluation', {})
+hyper_cfg = config.get('hyperparameters', {})
+
+# Set defaults if keys missing
+learning_rate = train_cfg.get('learning_rate', 5e-6)
+batch_size = train_cfg.get('batch_size', 64)
+train_steps = train_cfg.get('train_steps', 200)
+max_response_tokens = train_cfg.get('max_response_tokens', 512)
+warmup_steps = train_cfg.get('warmup_steps', 50)
+gradient_clipping = train_cfg.get('gradient_clipping', 1.0)
+eval_interval = eval_cfg.get('evaluation_interval', 50)
+save_interval = eval_cfg.get('save_checkpoint_interval', 100)
+
+# Model and data paths
+pretrained_model_name = model_cfg.get('pretrained_model_name', 'gpt2-medium')
+checkpoint_path = model_cfg.get('checkpoint_path', None)
+train_data_path = dataset_cfg.get('train_data_path', 'path/to/train/dataset')
+validation_data_path = dataset_cfg.get('validation_data_path', 'path/to/validation/dataset')
+test_data_path = dataset_cfg.get('test_data_path', 'path/to/test/dataset')
+
+# Hyperparameters for divergence control
+beta = hyper_cfg.get('beta', 0.1)
+alpha = hyper_cfg.get('alpha', 0.5)
+divergence_scale = hyper_cfg.get('divergence_offset', 1.0)
+stop_gradient = hyper_cfg.get('stop_gradient', True)
+
+# Initialize DatasetLoader
+dataset = DatasetLoader(
+    data_path=train_data_path,
+    max_response_tokens=max_response_tokens,
+    dataset_format='jsonl'  # or 'csv', depending on dataset file
+)
+
+# Initialize model
+model = ResponseGenerator(pretrained_model_name, checkpoint_path)
+
+# Reference model - for simplicity, assume same as base
+ref_model = ResponseGenerator(pretrained_model_name)
+
+# Initialize preference scorer (here a placeholder; use GPT-4 API in practice)
+# For actual implementation, replace with API calls or precalculated scores
+preference_model = None  # Placeholder, or implement as class
+
+# Initialize loss
+loss_fn = TDPOLoss(
+    beta=beta,
+    alpha=alpha,
+    divergence_scale=divergence_scale,
+    method='tdpo_2',  # or 'tdpo_1'
+    stop_gradient=stop_gradient
+)
+
+# Initialize optimizer
+optimizer = torch.optim.AdamW(model.model.parameters(), lr=learning_rate)
+
+# Prepare trainer
+trainer = Trainer(
+    model=model,
+    dataset=dataset,
+    preference_model=preference_model,
+    loss_fn=loss_fn,
+    optimizer=optimizer,
+    device=device,
+    config={
+        'training': train_cfg,
+        'hyperparameters': hyper_cfg,
+        'evaluation': eval_cfg
+    }
+)
+
+# Optional: Load from checkpoint if provided
+if checkpoint_path:
+    model.model.load_state_dict(torch.load(checkpoint_path))
+    print(f"Loaded checkpoint from {checkpoint_path}")
+
+# Training loop
+print("Start training...")
+for step in tqdm(range(1, train_steps + 1)):
+    # Sample mini-batch of prompts
+    batch_pairs = []
+    for _ in range(batch_size):
+        # Random sample prompt from dataset
+        data_item = np.random.choice(dataset.dataset)
+        prompt = data_item['prompt']
+        pair = dataset.get_response_pair(prompt, num_pairs=1)
+        if len(pair) == 0:
+            continue
+        y_w, y_l, _ = pair[0]
+        batch_pairs.append((prompt, y_w, y_l))
+    if len(batch_pairs) == 0:
+        continue
+
+    # Perform training step
+    trainer.optimizer.zero_grad()
+    loss = trainer.loss_fn
+    total_loss = 0.0
+    total_rewards = []
+
+    # Sum over batch to backprop
+    batch_losses = []
+    for (prompt, y_w, y_l) in batch_pairs:
+        # Encode responses
+        y_w_ids = torch.tensor(model.tokenizer.encode(y_w, add_special_tokens=False), dtype=torch.long, device=device)
+        y_l_ids = torch.tensor(model.tokenizer.encode(y_l, add_special_tokens=False), dtype=torch.long, device=device)
+        # Generate responses (if needed), here responses are assumed given
+        # Compute response probabilities
+        pi_w, pi_ref_w = utils.get_response_probabilities(model, prompt, y_w_ids)
+        pi_l, pi_ref_l = utils.get_response_probabilities(model, prompt, y_l_ids)
+        # Calculate u(x, y_w, y_l)
+        u, _, _ = loss.compute_response_log_probs(y_w_ids, pi_w, pi_ref_w, model.tokenizer, y_w)
+        _, _, _ = loss.compute_response_log_probs(y_l_ids, pi_l, pi_ref_l, model.tokenizer, y_l)
+        delta = loss.compute_delta(pi_ref_w, pi_ref_l, pi_w, pi_l, prompt, y_w_ids, y_l_ids, model.tokenizer)
+
+        if loss.method == 'tdpo_1':
+            argument = u - delta
+            pair_loss = -torch.mean(torch.log(torch.sigmoid(argument) + 1e-12))
+        elif loss.method == 'tdpo_2':
+            delta_value = delta
+            if loss.stop_gradient:
+                delta_value = torch.detach(delta_value)
+            argument = u - alpha * delta_value
+            pair_loss = -torch.mean(torch.log(torch.sigmoid(argument) + 1e-12))
+        else:
+            raise ValueError("Invalid method in loss function")
+        batch_losses.append(pair_loss)
+
+        # Simulate reward (use GPT-based or classifier; here set to placeholder)
+        reward_w = 1.0  # Placeholder
+        reward_l = 0.5  # Placeholder
+        total_rewards.append((reward_w + reward_l) / 2)
+
+    # Average loss for batch
+    batch_loss = torch.stack(batch_losses).mean()
+    batch_loss.backward()
+
+    # Gradient clipping
+    if gradient_clipping:
+        torch.nn.utils.clip_grad_norm_(model.model.parameters(), gradient_clipping)
+
+    # Step optimizer
+    trainer.optimizer.step()
+
+    # Logging periodically
+    if step % 10 == 0:
+        print(f"Step {step}: Loss {batch_loss.item():.4f}")
+
+    # Save checkpoint
+    if step % save_interval == 0:
+        checkpoint_dir = f'checkpoint_step_{step}'
+        os.makedirs(checkpoint_dir, exist_ok=True)
+        torch.save(model.model.state_dict(), os.path.join(checkpoint_dir, 'model.pt'))
+        model.tokenizer.save_pretrained(checkpoint_dir)
+        print(f"Checkpoint saved at step {step} to {checkpoint_dir}")
+
+    # Periodic evaluation
+    if step % eval_interval == 0:
+        # Generate responses on validation/test set
+        # Here, just do a quick demo on sample prompts
+        eval_prompts = [item['prompt'] for item in dataset.dataset[:10]]  # sample 10 prompts
+        eval = Evaluation(model, dataset, preference_model, {'training': train_cfg, 'evaluation': eval_cfg})
+        eval.evaluate(eval_prompts, ref_model=ref_model)
+
+print("Training completed.")

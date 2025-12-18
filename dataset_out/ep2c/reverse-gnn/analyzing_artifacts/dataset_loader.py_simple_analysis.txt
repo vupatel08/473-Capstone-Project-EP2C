@@ -1,0 +1,119 @@
+## Logic Analysis for dataset_loader.py
+
+### 1. Purpose and Responsibilities
+- Implement `DatasetLoader` class to load a variety of graph datasets (heterophilic and homophilic) from files or URLs.
+- Process raw data into standardized PyTorch tensors:
+  - Adjacency matrix in sparse format (preferably `torch.sparse.FloatTensor`).
+  - Node features (`torch.FloatTensor`).
+  - Labels (`torch.LongTensor` for classification tasks).
+  - Masks for train, validation, and test splits (`torch.BoolTensor`).
+- For heterophilic datasets, ensure filtering is applied as specified in the paper (e.g., to prevent train-test leakage in datasets like Squirrel and Chameleon).
+- Cleanly separate support for datasets via dataset name identifiers, likely mapped to files or URLs.
+- Compute or assign dataset statistics and splits, maintaining reproducibility via seed.
+- Expose a method `load_data()` that returns all components needed for training/validation/testing.
+
+---
+
+### 2. Dataset Input Sources
+- Datasets may be stored locally or downloaded from URLs.
+- Key datasets include:
+  - Heterophilic: Minesweeper, Roman-empire, Questions, Tolokers, AmazonRatings, etc.
+  - Homophilic: Cora, CiteSeer, PubMed, etc.
+- For datasets like Minesweeper, the standard input format is likely a text or adjacency list file (e.g., edge list; features in separate files).
+- The datasets could be in common formats (e.g., `.npz`, `.mat`, or custom JSON/CSV files).
+- Use `scipy.io.loadmat`, `numpy.load`, or manual parsing as necessary.
+
+---
+
+### 3. Data Structures
+- **Adjacency:**
+  - Build a sparse adjacency matrix \(A\) using `scipy.sparse` (e.g., `csr_matrix`)
+  - Convert to PyTorch sparse tensor when needed (using `torch.sparse_coo_tensor`).
+  - For GCN, add self-loops (`A + I`) before normalization.
+- **Features:**
+  - Load into `numpy` array or `scipy` sparse matrix, then convert to `torch.FloatTensor`.
+- **Labels:**
+  - Load as numpy array, convert to `torch.LongTensor`.
+- **Masks:**
+  - Create boolean masks for train/val/test splits.
+  - Use a consistent seed when shuffling or splitting data for reproducibility.
+  
+---
+
+### 4. Data Loading and Preprocessing
+- **Loading:**
+  - For each dataset, implement a method that reads files or downloads data.
+  - The method should output adjacency, features, labels, and masks.
+- **Filtering (for heterophilic datasets):**
+  - For datasets like Squirrel and Chameleon, perform filtering to remove data leakage.
+  - For example, ensure the train/val/test nodes are separated meaningfully, potentially removing edges that connect train and test nodes, or based on provided splits.
+- **Normalization:**
+  - For features: possibly normalize each node feature vector (e.g., row-wise L2 normalization) if required.
+  - For adjacency: ensure the adjacency matrix is symmetric (if undirected), normalized as per GCN (`D^{-1/2} A D^{-1/2}`).
+  - Ensure the adjacency matrix is in sparse format compatible with torch.
+
+---
+
+### 5. Data Splits & Randomness
+- Use the seed (`seed=42`) for reproducibility.
+- Maintain consistent splits across experiments:
+  - Support multiple splits (`splits=10`).
+  - For each split: randomly permute nodes, assign first 60% to train, next 20% val, remaining 20% test.
+- Store masks accordingly:
+  - `train_mask`, `val_mask`, `test_mask`, boolean arrays indicating which nodes belong to each split.
+- Provide a method to generate these splits programmatically for datasets where they are not pre-defined.
+
+---
+
+### 6. Dataset-Specific Details
+- For datasets with labels: ensure labels are aligned with node ordering.
+- For datasets with node features: ensure feature dimensions are consistent.
+- For datasets with known splits: load predefined splits if available; otherwise, generate splits using the seed.
+
+---
+
+### 7. Handling Dataset Variations
+- Define dataset-specific loading functions if necessary due to format differences.
+- Maintain a dataset-to-filepath or URL mapping.
+- Support filtering or preprocessing steps specific to the dataset:
+  - E.g., in case of Minesweeper, features could be provided as grid data; convert into graph form.
+  - For other datasets, ensure data is consistently processed into adjacency, features, and labels.
+
+---
+
+### 8. Return Structure
+- `load_data()` should return:
+  - `adjacency`: sparse matrix as `torch.sparse.FloatTensor`
+  - `features`: `torch.FloatTensor` (shape: [num_nodes, feature_dim])
+  - `labels`: `torch.LongTensor` (shape: [num_nodes])
+  - `train_mask`: `torch.BoolTensor`
+  - `val_mask`: `torch.BoolTensor`
+  - `test_mask`: `torch.BoolTensor`
+
+### 9. Implementation Considerations
+- Use `torch.device` to ensure tensors are on GPU if available.
+- Process large datasets efficiently; convert sparse matrices appropriately.
+- Add exception handling if files are missing or data formats are incompatible.
+- Document data source assumptions and preprocessing steps thoroughly for reproducibility.
+
+---
+
+### Summary of Main Steps in dataset_loader.py
+
+1. **Initialization:**
+   - Accept config parameters: dataset name, seed, data directory/URL.
+2. **Data Acquisition:**
+   - Download or load datasets.
+3. **Preprocessing:**
+   - Build adjacency, add self-loops.
+   - Normalize adjacency for GCN.
+   - Load and process node features.
+   - Load labels.
+   - Generate or load train/validation/test splits with masks.
+   - For heterophilic datasets, apply filtering to prevent leakage.
+4. **Output:**
+   - Return tensors: adjacency in sparse form, features, labels, masks.
+
+---
+
+This logical breakdown guides the code implementation for the dataset loader, ensuring datasets are loaded reliably, processed correctly, and suitable for subsequent diffusion and GNN modeling in the main codebase.

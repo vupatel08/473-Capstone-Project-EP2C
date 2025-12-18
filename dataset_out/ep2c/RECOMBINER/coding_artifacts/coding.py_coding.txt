@@ -1,0 +1,208 @@
+```python
+## coding.py
+import torch
+import torch.nn.functional as F
+import numpy as np
+
+class BayesianCoder:
+    """
+    Implements Bayesian entropy coding for Gaussian variables, supporting
+    encoding and decoding of weights (or parameters) using their Gaussian
+    posteriors and Bernoulli (or continuous relaxation) approximations.
+    Uses a simple bits-back A* or similar scheme implied by the paper.
+    """
+    def __init__(self):
+        # Placeholder for actual entropy coding library or custom implementation.
+        # Here, we mock basic interface for encode and decode.
+        pass
+
+    def encode_gaussian(self, data, mu, sigma, prior_mu, prior_sigma):
+        """
+        Encodes `data` assuming Gaussian likelihood and prior.
+        Returns bits used (simulated), actual implementation depends on coder.
+        """
+        # For simplicity, compute negative log likelihood as bits estimate.
+        # In practice, replace with actual entropy coder.
+        # Avoid log(0): add epsilon
+        epsilon = 1e-8
+        nll = 0.5 * torch.log(2 * np.pi * prior_sigma**2 + epsilon) + \
+              0.5 * ((data - mu)**2 / (prior_sigma**2 + epsilon))
+        bits = torch.sum(nll) / torch.log(torch.tensor(2.0))
+        return bits
+
+    def decode_gaussian(self, bitstream, mu, sigma, prior_mu, prior_sigma):
+        """
+        Decodes data assuming Gaussian likelihood and prior.
+        For the mock, simply returns the mean, as actual decoding requires
+        the inverse process of encode.
+        """
+        # In an actual implementation, the decoding process retrieves values.
+        # Here, we mock by returning previous data (which would not be available).
+        # For illustration, return mu.
+        return mu
+
+    def encode_weights(self, weights, variational_params, prior_params, permutation=None):
+        """
+        Encodes a weight vector (flattened) with permutations.
+        - weights: tensor of shape [total_params]
+        - variational_params: dict with 'mu' and 'rho' tensors, each shape [total_params]
+        - prior_params: dict with 'mu' and 'rho'
+        - permutation: tensor of permutation indices (optional)
+        Returns:
+            bits: estimated bits (float)
+            stored bits during process (placeholder)
+        """
+        # Apply permutation if provided
+        if permutation is not None:
+            weights_perm = weights[permutation]
+            mu_perm = variational_params['mu'][permutation]
+            rho_perm = variational_params['rho'][permutation]
+            prior_mu_perm = prior_params['mu'][permutation]
+            prior_rho_perm = prior_params['rho'][permutation]
+        else:
+            weights_perm = weights
+            mu_perm = variational_params['mu']
+            rho_perm = variational_params['rho']
+            prior_mu_perm = prior_params['mu']
+            prior_rho_perm = prior_params['rho']
+
+        sigma_post = torch.exp(0.5 * rho_perm)
+        sigma_prior = torch.exp(0.5 * prior_rho_perm)
+
+        # Encode using Gaussian likelihood (approximate KL)
+        bits = self.encode_gaussian(weights_perm, mu_perm, sigma_post, prior_mu_perm, sigma_prior)
+        # In actual implementation, the bits above would be used to quantify bits in bitstream
+        # For mock, we just return the estimate
+        return bits
+
+    def decode_weights(self, bitstream, variational_params, prior_params, permutation=None, shape=None):
+        """
+        Decodes weights given bitstream and prior/posterior parameters.
+        Here, a mock returning the posterior mean.
+        """
+        # In a real implementation, decoding would retrieve values from bitstream
+        # For simplicity, return the posterior mean
+        if permutation is not None:
+            mu_perm = variational_params['mu'][permutation]
+        else:
+            mu_perm = variational_params['mu']
+        # Return reconstructed weights: just the mean
+        reconstructed = mu_perm
+        # Undo permutation if provided
+        if permutation is not None:
+            inv_perm = torch.argsort(permutation)
+            reconstructed = reconstructed[inv_perm]
+        return reconstructed
+
+class Encoder:
+    """
+    Handles the encoding of weights (sampled from q(w)) using neural entropy coding
+    with permutation strategies, block-wise processing, and prior models.
+    """
+    def __init__(self, prior_params, post_params, permutation_indices, block_size=1024):
+        """
+        Args:
+            prior_params: dict with 'mu', 'rho' tensors of prior
+            post_params: dict with 'mu', 'rho' tensors of q(w)
+            permutation_indices: permutation tensor for the weights
+            block_size: size of blocks to partition the weight vector
+        """
+        self.prior_params = prior_params
+        self.post_params = post_params
+        self.permutation = permutation_indices
+        self.block_size = block_size
+        self.coder = BayesianCoder()
+        self.bitstream = []  # placeholder list for bits
+
+    def encode(self, weights):
+        """
+        Encode the full weight vector with permutations and blocks.
+        """
+        # Apply permutation
+        w_perm = weights[self.permutation]
+        total_params = w_perm.shape[0]
+        bits_total = 0.0
+        # Divide into blocks
+        for start in range(0, total_params, self.block_size):
+            end = min(start + self.block_size, total_params)
+            block_w = w_perm[start:end]
+            block_mu = self.post_params['mu'][start:end]
+            block_rho = self.post_params['rho'][start:end]
+            prior_mu_block = self.prior_params['mu'][start:end]
+            prior_rho_block = self.prior_params['rho'][start:end]
+            # Encode block
+            bits_block = self.coder.encode_gaussian(
+                data=block_w,
+                mu=block_mu,
+                sigma=torch.exp(0.5 * block_rho),
+                prior_mu=prior_mu_block,
+                prior_sigma=torch.exp(0.5 * prior_rho_block)
+            )
+            bits_total += bits_block.item()
+            # In practice, store bits to actual bitstream here
+        self.bitstream.append(bits_total)
+        return bits_total
+
+    def get_bitstream(self):
+        """
+        Return the final bitstream (here, placeholder list).
+        """
+        return self.bitstream
+
+class Decoder:
+    """
+    Handles Bayesian decoding of weights from bitstream, applying inverse permutations,
+    reconstructing the weight vector for INR.
+    """
+    def __init__(self, prior_params, post_params, permutation_indices, shape):
+        """
+        Args:
+            prior_params: dict with 'mu', 'rho'
+            post_params: dict with 'mu', 'rho'
+            permutation_indices: permutation tensor used during encoding
+            shape: shape of the full weight tensor
+        """
+        self.prior_params = prior_params
+        self.post_params = post_params
+        self.permutation = permutation_indices
+        self.shape = shape
+        self.coder = BayesianCoder()
+
+    def decode(self, bitstream):
+        """
+        Decode weights assuming stored bits (here, placeholder returns posterior mean).
+        """
+        total_params = np.prod(self.shape)
+        # Reconstruct weights block-wise
+        reconstructed_full = torch.zeros(total_params, device=self.post_params['mu'].device)
+        for start in range(0, total_params, self.shape[0]):
+            end = min(start + self.shape[0], total_params)
+            # Decode block
+            block_mu = self.post_params['mu'][start:end]
+            block_rho = self.post_params['rho'][start:end]
+            decoded_block = self.coder.decode_gaussian(
+                bitstream=bitstream,
+                mu=block_mu,
+                sigma=torch.exp(0.5 * block_rho),
+                prior_mu=self.prior_params['mu'][start:end],
+                prior_sigma=torch.exp(0.5 * self.prior_params['rho'][start:end])
+            )
+            reconstructed_full[start:end] = decoded_block
+        # Undo permutation
+        inv_perm = torch.argsort(self.permutation)
+        weights_reconstructed = reconstructed_full[inv_perm]
+        return weights_reconstructed.view(self.shape)
+
+def apply_permutation(vector: torch.Tensor, permutation: torch.Tensor) -> torch.Tensor:
+    """
+    Applies a permutation to a vector.
+    """
+    return vector[permutation]
+
+def inverse_permutation(vector: torch.Tensor, permutation: torch.Tensor) -> torch.Tensor:
+    """
+    Applies the inverse permutation.
+    """
+    inv_perm = torch.argsort(permutation)
+    return vector[inv_perm]
+```

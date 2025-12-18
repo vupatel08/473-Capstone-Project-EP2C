@@ -1,0 +1,222 @@
+## evaluation.py
+import os
+import torch
+import torch.nn.functional as F
+import numpy as np
+import yaml
+from torchvision.utils import save_image
+
+from dataset_loader import ImageTokensDataset
+from model import TransformerAutoRegressive, DiffusionMLP
+from utils import (
+    load_model,
+    get_cosine_schedule,
+    get_inception_score,
+    compute_fid,
+    extract_features,
+    save_images,
+    set_seed
+)
+
+# Load configuration from 'config.yaml'
+with open('config.yaml', 'r') as f:
+    cfg = yaml.safe_load(f)
+
+# Set device and seed for reproducibility
+device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+seed = cfg.get('seed', 42)
+set_seed(seed)
+
+# Load paths and parameters
+dataset_params = cfg['dataset']
+eval_batch_size = cfg['evaluation'].get('eval_batch_size', 512)
+eval_steps = cfg['evaluation'].get('eval_steps', 10000)
+fid_real_path = cfg['evaluation'].get('fid_real_dataset_path', None)
+fid_lib = cfg['evaluation'].get('fid_scoring_lib', 'torch-fid')
+sequence_length = dataset_params.get('sequence_length', 1024)
+tokenizer_type = dataset_params.get('tokenizer_type', 'vq-gan')
+checkpoint_dir = cfg['output_paths']['checkpoints_dir']
+sample_dir = cfg['output_paths'].get('samples_dir', './samples')
+results_dir = cfg['output_paths'].get('evaluation_results_dir', './eval')
+
+# Create directories if needed
+os.makedirs(sample_dir, exist_ok=True)
+os.makedirs(results_dir, exist_ok=True)
+
+# Load trained models
+# Assume checkpoint files are named 'autoregressive.pth' and 'denoising.pth'
+ar_ckpt = os.path.join(checkpoint_dir, 'autoregressive.pth')
+denoiser_ckpt = os.path.join(checkpoint_dir, 'denoising.pth')
+
+# Instantiate models
+# Load autoregressive transformer
+ar_cfg = cfg['model']['transformer']
+ar_model = load_model(TransformerAutoRegressive, ar_ckpt).to(device)
+ar_model.eval()
+
+# Load diffusion denoising network
+denoiser_cfg = cfg['model']['diffusion_denoiser']
+denoising_model = load_model(DiffusionMLP, denoiser_ckpt).to(device)
+denoising_model.eval()
+
+# Load evaluation dataset
+dataset = ImageTokensDataset(
+    dataset_path=dataset_params['path'],
+    tokenizer_type=tokenizer_type,
+    sequence_length=sequence_length,
+    normalization=dataset_params.get('normalization', True)
+)
+
+dataloader = torch.utils.data.DataLoader(
+    dataset,
+    batch_size=eval_batch_size,
+    shuffle=False,  # for reproducibility, shuffle can be False here
+    num_workers=4,
+    pin_memory=True,
+    drop_last=False
+)
+
+# Load evaluation dataset images for real references (for FID)
+# Assuming a function to load real images from tokens for FID
+# and a separate folder to save generated images
+# These can be assigned as needed; in practice, we should prepare real images for FID.
+# For this code, we assume it's handled elsewhere or by torch-fid
+# Similarly, for computing FID, real datasets are used directly.
+
+# Load the pre-trained classifier (e.g., Inception) for IS and feature extraction
+# For simplicity, we use utils.extract_features (assuming it's implemented)
+# For FID, assuming torch-fid's functions are used
+
+# Function to generate conditioning vectors for a batch
+@torch.no_grad()
+def generate_conditioning(x_batch):
+    # x_batch: shape [B, L], LongTensor
+    z_seq = ar_model(x_batch)
+    return z_seq
+
+# Function to run reverse diffusion conditioned on z^i
+@torch.no_grad()
+def run_reverse_diffusion(z_seq, init_noise=None):
+    B, L, D = z_seq.shape
+    # Initialize x with Gaussian noise
+    if init_noise is None:
+        x = torch.randn(B, L, D, device=device)
+    else:
+        x = init_noise.to(device)
+
+    total_inference_steps = cfg['diffusion'].get('inference_steps', 100)
+    schedule_type = cfg['diffusion'].get('schedule_type', 'cosine')
+    schedule_params = cfg['diffusion'].get('noise_schedule_params', {})
+    # Get schedule for t
+    alpha_t, beta_t, sigma_t = get_cosine_schedule(total_inference_steps, schedule_type, **schedule_params)
+
+    # Get inference timesteps: from T-1 down to 0
+    inference_t = torch.linspace(total_inference_steps - 1, 0, steps=total_inference_steps).long()
+
+    for t_idx in inference_t:
+        t = torch.tensor([t_idx], device=device).float()
+        t_batch = t.expand(B)
+        # Predict noise
+        epsilon_theta = denoising_model(x, t_batch, z_seq)
+        alpha = alpha_t[t_idx].to(device)
+        sigma = sigma_t[t_idx].to(device)
+        # Calculate coefficient
+        denom = alpha.sqrt()
+        # Reverse diffusion
+        x0_pred = (x - (1 - alpha).sqrt() * epsilon_theta) / denom
+        mean_x_prev = (x - (1 - alpha) / (1 - alpha).sqrt() * epsilon_theta) / denom
+        # Add noise scaled by sigma and temperature
+        sigma_scaled = sigma * cfg['diffusion'].get('temperature', 1.0)
+        delta = torch.randn_like(x) * sigma_scaled
+        x = mean_x_prev + delta
+    return x
+
+# Main evaluation loop
+generated_images = []
+all_fid_preds = []
+all_real_preds = []
+
+for batch_idx, batch in enumerate(dataloader):
+    if batch_idx * eval_batch_size >= eval_steps:
+        break
+    x_tokens = batch.to(device)  # shape [B, L], LongTensor or float
+    B = x_tokens.shape[0]
+
+    # Generate conditioning vectors
+    z_seq = generate_conditioning(x_tokens)
+
+    # Run reverse diffusion conditioned on z^i
+    generated_vectors = run_reverse_diffusion(z_seq)
+
+    # Decode vectors into images
+    # Assuming a decoder function: decode_tokens
+    # For placeholders, we use simple normalization or identity
+    # If vectors are image features, decode accordingly
+    # For this, suppose there exists a 'decode_tokens' function
+    # For illustration, we treat vectors as features directly
+    # Replace with actual decode if available
+    generated_images_batch = None
+    try:
+        from utils import decode_tokens
+        generated_images_batch = decode_tokens(generated_vectors)
+    except ImportError:
+        # fallback: if no decoder, just save raw vectors
+        generated_images_batch = generated_vectors
+
+    # Save images for FID
+    save_image(
+        (generated_images_batch + 1) / 2,  # normalize to [0,1] assuming input in [-1,1]
+        os.path.join(sample_dir, f"generated_{batch_idx}.png"),
+        normalize=True
+    )
+    generated_images.append(generated_images_batch)
+
+# Concatenate all generated images
+all_g_images = torch.cat(generated_images, dim=0)
+# For real dataset images, load a subset for FID
+# Let's assume a folder with real images is available and use torch-fid for FID
+# If not, you need to extract real images from the dataset:
+# For simplicity, user should provide real image folder path matching tokens
+real_image_folder = fid_real_path
+print("Computing FID...")
+fid_score = compute_fid(real_image_folder, sample_dir, device=device, num_workers=4)
+
+# Compute Inception Score
+print("Computing Inception Score...")
+is_mean, is_std = get_inception_score(sample_dir, device=device, batch_size=eval_batch_size)
+# Compute other metrics: Precision, Recall
+# Assume `extract_features` function computes features from images
+print("Extracting features for metric analysis...")
+gen_features = extract_features(all_g_images, model_name='inception_v3', device=device)
+# For real features
+# Assuming real images could be loaded similarly
+real_images_for_metrics = None
+try:
+    real_images_for_metrics = torch.load(os.path.join(real_image_folder, 'images.pt')).to(device)
+except:
+    # skip or user provides precomputed features
+    pass
+
+# Placeholders for real features, replace with actual feature extraction
+real_features = None
+if real_images_for_metrics is not None:
+    real_features = extract_features(real_images_for_metrics, model_name='inception_v3', device=device)
+
+# Calculate precision and recall based on features
+# For simplicity, assume functions compute_precision_recall exist
+from utils import compute_precision_recall
+precision, recall = compute_precision_recall(gen_features, real_features)
+
+# Save metrics
+results_path = os.path.join(results_dir, 'evaluation_metrics.txt')
+with open(results_path, 'w') as f:
+    f.write(f"FID: {fid_score:.4f}\n")
+    f.write(f"Inception Score: {is_mean:.2f} ± {is_std:.2f}\n")
+    f.write(f"Precision: {precision:.4f}\n")
+    f.write(f"Recall: {recall:.4f}\n")
+
+print(f"Evaluation completed. Results saved to {results_path}")
+print(f"FID: {fid_score:.4f}")
+print(f"Inception Score: {is_mean:.2f} ± {is_std:.2f}")
+print(f"Precision: {precision:.4f}")
+print(f"Recall: {recall:.4f}")

@@ -1,0 +1,128 @@
+```python
+# main.py
+import argparse
+import os
+import random
+import numpy as np
+import torch
+import yaml
+
+from dataset_loader import DatasetLoader
+from model import Model
+from trainer import Trainer
+from evaluation import Evaluation
+from utils import set_seed, plot_prompt_clusters, plot_ranking_visualization
+
+def main():
+    # Parse command-line arguments
+    parser = argparse.ArgumentParser(description="Social Reward Evaluation Framework")
+    parser.add_argument("--config", type=str, default="config.yaml", help="Path to config YAML")
+    parser.add_argument("--mode", type=str, choices=["train", "evaluate", "finetune"], default="train", help="Operation mode")
+    parser.add_argument("--checkpoint", type=str, default=None, help="Path to model checkpoint to load")
+    parser.add_argument("--output_dir", type=str, default="outputs/", help="Directory to save models and logs")
+    args = parser.parse_args()
+
+    # Load configuration
+    with open(args.config, 'r') as f:
+        config = yaml.safe_load(f)
+
+    # Set device
+    device = torch.device(config['training'].get('device', 'cuda') if torch.cuda.is_available() else 'cpu')
+    
+    # Set seeds for reproducibility
+    seed = config['training'].get('seed', 42)
+    set_seed(seed)
+
+    # Create output directory if not exists
+    os.makedirs(args.output_dir, exist_ok=True)
+
+    # Load and process dataset
+    dataset_path = config['dataset']['dataset_path']
+    loader = DatasetLoader(
+        dataset_path=dataset_path,
+        max_prompt_words=config['dataset'].get('max_prompt_words',5),
+        min_view_count=config['dataset'].get('min_view_count',10),
+        max_view_count=config['dataset'].get('max_view_count',1000),
+        filter_negative_signals=True,
+        seed=seed,
+        clustering_method=config.get('clustering', {}).get('method', 'ward'),
+        num_clusters=config.get('clustering', {}).get('num_clusters', 173)
+    )
+    # Dataset splits
+    train_data = loader.get_train_data()
+    val_data = loader.get_val_data()
+    test_data = loader.get_test_data()
+
+    # Initialize model
+    pretrained_model_name = config['model'].get('pretrained_model_name', "openai/clip-vit-base-patch32")
+    model_path = args.checkpoint if args.checkpoint else None
+    social_reward_model = Model(pretrained_model_name=pretrained_model_name, load_weights=model_path, device=device)
+
+    # Depending on mode, execute different workflows
+    if args.mode == "train":
+        # Initialize trainer
+        trainer = Trainer(
+            model=social_reward_model,
+            train_dataset=train_data,
+            val_dataset=val_data,
+            test_dataset=test_data,
+            config=config
+        )
+        # Train the model
+        trainer.train()
+        # Save final model weights
+        save_path = os.path.join(args.output_dir, 'social_reward_final.pt')
+        trainer.save_model(save_path)
+
+        # Optional: visualize prompt clustering after training
+        trainer.visualize_prompt_clustering()
+
+    elif args.mode == "evaluate":
+        # Load the trained model weights if checkpoint provided
+        if args.checkpoint:
+            social_reward_model.load_weights(args.checkpoint)
+        else:
+            print("No checkpoint provided; evaluating with current model weights.")
+
+        # Evaluate on test set
+        evaluator = Evaluation(
+            model_checkpoint_path=args.checkpoint if args.checkpoint else None,
+            dataset_test=test_data,
+            dataset_name="TestSet"
+        )
+        # Compute pairwise accuracy
+        pairwise_acc = evaluator.compute_pairwise_accuracy()
+        print(f"Pairwise accuracy on test set: {pairwise_acc:.4%}")
+
+        # Visualize ranking examples
+        evaluator.visualize_ranking()
+
+        # Optional: perform t-SNE visualization of prompts
+        evaluator.generate_prompt_tsne()
+
+        # Optional per-cluster analysis
+        evaluator.run_full_evaluation()
+
+    elif args.mode == "finetune":
+        # Assumed available: trained social reward model checkpoint
+        if args.checkpoint is None:
+            raise ValueError("Checkpoint must be provided for fine-tuning mode.")
+
+        # Load existing weights
+        social_reward_model.load_weights(args.checkpoint)
+
+        # Placeholder for fine-tuning process:
+        # 1. Generate top/bottom images for prompts
+        # 2. Use Social Reward scores to fine-tune generative model (not implemented here due to scope)
+        # 3. Save fine-tuned generator weights
+        print("Fine-tuning mode selected, but implementation depends on generative model specifics.")
+        # This could involve RLHF routines or supervised re-training, which are complex workflows.
+        # For now, just a placeholder.
+        pass
+
+    else:
+        raise ValueError(f"Unsupported mode: {args.mode}")
+
+if __name__ == "__main__":
+    main()
+```

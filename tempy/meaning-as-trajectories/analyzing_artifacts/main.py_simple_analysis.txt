@@ -1,0 +1,196 @@
+# Logic Analysis for main.py: Entry Point of the Reproduction Code
+
+## Purpose
+
+`main.py` serves as the central orchestrator of the experiment pipeline for the paper "*Meaning Representations from Trajectories in Autoregressive Models*". It manages the overall flow from configuration loading, dataset preparation, model initialization, trajectory sampling, distance and relation calculation, to final evaluation and reporting. The script should produce reproducible results that mirror the experimental settings described in the paper, aligning with all hyperparameters, datasets, and evaluation metrics.
+
+---
+
+## Core Responsibilities and Flow
+
+### 1. Configuration Loading
+
+- Load parameters from `config.yaml`, such as:
+  - Sampling parameters: number of trajectories (`num_trajectories`), max length (`max_length`), temperature (`temperature`).
+  - Dataset specification: type (e.g., "STS") and split ("validation").
+  - Model details: model name (`name`) and device (`device`).
+  - Evaluation settings: distance metric (`distance_metric`) and seed for randomness.
+
+- Utilize a YAML parser (`PyYAML`) to read and parse `config.yaml` into a Python dictionary.
+
+- Set global random seed for reproducibility:
+  - Use `numpy.random.seed()` and `torch.manual_seed()`.
+  - For related packages, ensure the seed influences sampling randomness.
+
+---
+
+### 2. Dataset Initialization
+
+- Instantiate `DatasetLoader` with dataset type and split info from config:
+  - Example: If dataset type is `"STS"` and split `"validation"`.
+- Call `load_datasets()` to retrieve a dictionary of datasets, e.g.,
+  ```python
+  datasets = {
+    "STS": {
+      "validation": list of sentence pairs,
+      ...
+    },
+    "SNLI": {...},
+    "WordNet": {...},
+    "CxC": {...}
+  }
+  ```
+- Extract specific subset for evaluation:
+  - For evaluation, typically select the relevant dataset split, e.g.,
+    ```python
+    dataset_pairs = datasets[dataset_type][split]
+    ```
+- Dataset format:
+  - For similarity tasks: list of pairs `(string1, string2)`.
+  - For WordNet: list of word pairs with known relation.
+  - For SNLI: list of pairs with entailment labels.
+  - For CxC: list of pairs with human similarity scores.
+
+### 3. Model Initialization
+
+- Instantiate `ModelWrapper` with:
+  - Model name (`name`) from config.
+  - Device (`device`) from config.
+- This class handles loading the model, tokenization, and device management.
+- Verify model compatibility:
+  - Check if the model supports token sampling and likelihood computation.
+  - For multimodal models like LLaVA, ensure tokenization accommodates images if applicable.
+- Confirm the tokenization scheme:
+  - Handling special tokens like `[EOS]`.
+  - Consistency with the paper's prompt design.
+
+### 4. Sampling Setup
+
+- Instantiate `Sampler` with parameters:
+  - Random seed for reproducibility.
+  - N (`num_trajectories`) from config.
+  - M (`max_length`) from config.
+  - temperature (`temperature`) from config.
+  - ModelWrapper instance.
+- The sampler should:
+  - Generate multiple trajectories per prompt.
+  - Use parallelization (multiprocessing or threading) to speed up sampling.
+  - Incorporate the specified temperature, maximum length, and number of trajectories.
+
+### 5. Trajectory Sampling
+
+- For each prompt `s` (sentence or word):
+  - Call `Sampler.sample_trajectories(s)`:
+    - Generate `n` sequences (`n=20`).
+    - Each sequence is generated iteratively:
+      - At each step, get output token distribution using model.
+      - Sample next token with temperature.
+      - Stop if `[EOS]` is sampled or max length is reached.
+- Store sampled sequences for subsequent likelihood and distance calculations.
+- For efficiency, consider caching `log M_s(t)` values once computed.
+
+### 6. Likelihood Computation
+
+- Instantiate `LikelihoodCalculator` to:
+  - Compute log probabilities of sequences conditioned on prompts.
+- For each pair `(u, v)`:
+  - Sample trajectories for `u` and `v`.
+  - For each trajectory `t`:
+    - Calculate `log M_u(t)` and `log M_v(t)`:
+      - Use `ModelWrapper.compute_log_prob(sequence, prompt=u)` etc.
+  - Store values in structures for distance calculation.
+
+### 7. Distance and Similarity Evaluation
+
+- Instantiate `DistanceEvaluator` with `num_samples` (20 as per paper).
+- For each pair `(u, v)`:
+  - Gather their sampled trajectories and corresponding logs.
+  - Compute the approximate semantic distance:
+    \[
+    d(M_u, M_v) \approx \frac{1}{2n} \sum_{t} | \log M_u(t) - \log M_v(t) |
+    \]
+  - Store distances for similarity correlation analysis (e.g., Spearman coefficient).
+
+### 8. Relation Inference (Entailment / Hyponym)
+
+- Use the distance formulas and algebra:
+  - For entailment:
+    - Compute `d(M_u ∧ M_v, M_v)` and `d(M_u ∧ M_v, M_u)` using set-minimum operations.
+    - Apply threshold as per paper to infer `u ⇒ v`.
+  - For hyponym/hypernym detection:
+    - Similar approach, specifically checking containment relations.
+- Use thresholds to decide relation directionality or existence.
+
+### 9. Evaluation and Metrics
+
+- Based on the ground-truth labels:
+  - Compute Spearman correlation for similarity tasks in `evaluation.py`.
+  - Calculate classification accuracy (e.g., how often the relation inference is correct).
+- For datasets like SNLI:
+  - Perform binary classification based on the relation inference algorithm.
+  - Record true positives, false positives, compute accuracy.
+- For datasets like WordNet:
+  - Compare inferred hypernym/hyponym relations against ground truth.
+- For CxC:
+  - Compute correlation between predicted semantic distances and human scores.
+- For multimodal tasks:
+  - Extend the same sampling and distance metrics to image inputs (using image tokens).
+
+### 10. Visualization / Reporting
+
+- Summarize evaluation metrics:
+  - Correlation coefficients for semantic similarity.
+  - Accuracy for entailment/hyponym relations.
+- Log or print results in a human-readable format.
+- Save outputs for reproducibility, e.g., store sampled trajectories if needed.
+
+---
+
+## Additional Details & Clarifications
+
+- **Prompt design:**
+  - Use prompts verbatim per dataset instructions.
+  - Append punctuation (`.`) if missing, as recommended.
+  
+- **Handling special tokens ([EOS]):**
+  - Identify the model's end-of-sequence token.
+  - During sampling, stop sequences upon sampling `[EOS]` or reaching max length.
+  
+- **Random seed:**
+  - Fixed seed ensures reproducibility.
+  - Influences trajectory sampling and probabilistic components.
+
+- **Parallelization:**
+  - Use multiprocessing Pool or ThreadPoolExecutor for sampling multiple prompts simultaneously.
+  - Collect results asynchronously for efficiency.
+
+- **Memory considerations:**
+  - Store sampled trajectories and likelihoods if reuse is necessary.
+  - Use batching for likelihood calculations if supported by the model API.
+
+- **Scalability:**
+  - For large datasets, process in batches.
+  - Precompute `M_s(t)` where possible for fixed prompts in a search scenario.
+
+---
+
+## Summary Checklist for main.py
+
+- Load configuration (`yaml.safe_load()`).
+- Set global random seed.
+- Initialize dataset loader, load datasets.
+- Initialize model wrapper, load model.
+- For each prompt in dataset:
+  - Generate trajectories with `Sampler`.
+- For each pair `(u, v)` or word pair:
+  - Compute likelihoods via `LikelihoodCalculator`.
+  - Estimate distance.
+  - Decide on relations (entailment, hyponym) based on distances.
+- Aggregate metrics across dataset:
+  - Correlation coefficients.
+  - Classification accuracy.
+- Output and log findings.
+
+---
+
+This comprehensive logic analysis will guide the implementation of `main.py`, ensuring adherence to the methodology, datasets, hyperparameters, and evaluation strategy from the paper, in accordance with the specified design plan.

@@ -1,0 +1,43 @@
+# Training hyperparameters: not explicitly specified in the paper; set defaults based on common practice.
+training:
+  learning_rate: 1e-5  # Typical for fine-tuning large language models
+  batch_size: 16     # Standard batch size suitable for GPU memory constraints
+  epochs: 3          # Few epochs for fine-tuning or profiling, since the method is inference-time
+  max_sequence_length: 512  # Supporting typical prompt lengths
+  inference_batch_size: 8   # For evaluation, small batch inference
+  alpha: 0.01        # Attention score reweighting coefficient fixed as per paper
+  num_profiling_samples: 1000  # Number of samples used during head profiling
+  top_k_heads: 400   # Number of attention heads selected for steering after profiling
+  model_name: llama-7b  # Default model for experiments, can be overridden
+  device: cuda       # Use GPU for profiling and inference; fallback to cpu if unavailable
+
+datasets:
+  count_ratio: 1.0    # Use full datasets during evaluation; small subset for profiling
+  dataset_paths:  # Placeholder paths for datasets (user to specify actual paths)
+    bias_bios: path/to/biasbios_dataset
+    counterfact: path/to/counterfact_dataset
+    json_format: path/to/json_dataset
+    pronouns_changing: path/to/pronouns_dataset
+
+prompts:
+  json_format_template: |
+    {instruction} {highlighted_spans}
+  pronouns_change_template: |
+    {instruction} {highlighted_spans}
+
+evaluation:
+  metrics:
+    json_format:
+      format_accuracy: true
+      prediction_accuracy: true
+    pronouns_changing:
+      accuracy: true
+      all_changed_accuracy: true
+    bias_bios:
+      classification_accuracy: true
+    counterfact:
+      efficacy_score: true
+      paraphrase_score: true
+    fluency:
+      min_entropy: 3.0
+  evaluation_metrics: [accuracy, fluency, consistency]

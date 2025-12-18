@@ -1,0 +1,43 @@
+training:
+  learning_rate: 0.03  # following cosine schedule, initial LR
+  batch_size: 256    # standard batch size used in experiments
+  epochs: 500        # number of epochs for CIFAR experiments
+  optimizer: SGD     # optimizer type
+  momentum: 0.9      # momentum value
+  weight_decay: 1e-4 # weight decay
+  warmup_epochs: 10  # optional, typical in SSL but not specified
+  lambda_uniformity: 0.1  # weight for uniformity loss
+
+model:
+  backbone: ResNet-18     # or ResNet-50
+  projection_dim: 128     # dimension of projection head
+  predictor_dim: 128      # used in BYOL
+  predictor: true         # whether to include predictor (BYOL)
+  use_mlp: true           # whether to use MLP for projection/predictor
+
+dataset:
+  name: CIFAR-10          # or CIFAR-100
+  augmentations:        # list of data augmentation techniques
+    - RandomCrop: [32, 32, 4]
+    - HorizontalFlip: true
+    - ColorJitter: [0.4, 0.4, 0.4, 0.1]
+    - GaussianBlur: 0.5
+
+loss:
+  base_loss: InfoNCE    # or MSE for BYOL, Covariance loss for Barlow
+  uniformity_lambda: 0.1  # weight for Wasserstein uniformity loss
+  tau: 0.2               # temperature for contrastive loss
+
+training_schedule:
+  schedule_type: cosine
+  warmup_epochs: 10
+  min_lr_ratio: 0.001
+
+evaluation:
+  downstream_epochs: 100 # epochs for linear evaluation
+  evaluation_metric: accuracy
+  evaluation_split: test
+
+logging:
+  log_dir: ./logs
+  save_model_every: 50  # save checkpoint every 50 epochs

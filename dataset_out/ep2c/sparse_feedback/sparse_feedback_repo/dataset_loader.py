@@ -1,0 +1,194 @@
+## dataset_loader.py
+
+import json
+import os
+import random
+from typing import List, Dict, Tuple, Optional
+import torch
+from transformers import AutoTokenizer, AutoModelForCausalLM
+
+# Assuming the model.py defines a LanguageModel, imported here
+from model import LanguageModel
+
+
+class Instruction:
+    """
+    Represents a single instruction with optional metadata.
+    """
+    def __init__(self, instruction_id: str, text: str, source: Optional[str] = None):
+        self.id = instruction_id
+        self.text = text
+        self.source = source
+
+
+class ResponseSample:
+    """
+    Represents a generated response for an instruction, with optional token info.
+    """
+    def __init__(self,
+                 instruction_id: str,
+                 response_text: str,
+                 response_id: str,
+                 response_tokens: Optional[int] = None,
+                 response_length: Optional[int] = None):
+        self.instruction_id = instruction_id
+        self.response_text = response_text
+        self.response_id = response_id
+        self.response_tokens = response_tokens
+        self.response_length = response_length
+
+
+class FeedbackInstance:
+    """
+    Represents a feedback data point, either rating or ranking.
+    """
+    def __init__(self,
+                 instruction_id: str,
+                 responses: List[str],  # For ratings, list length=1; for rankings, list length=2 or more
+                 score: Optional[float] = None,  # For ratings
+                 preference: Optional[int] = None):  # For rankings: 1/2 (which response is preferred)
+        self.instruction_id = instruction_id
+        self.responses = responses
+        self.score = score
+        self.preference = preference  # 1 if responses[0] preferred, 2 if responses[1], 0 if equal
+
+
+class DatasetLoader:
+    """
+    Class for loading instruction data, feedback data, and generating responses.
+    """
+    def __init__(self, config: dict):
+        """
+        Initialize with configuration, e.g.,
+        {
+            "instruction_data_path": "path/to/instructions.json",
+            "feedback_data_path": "path/to/feedback.json",
+            "reference_responses_path": "path/to/reference.json",
+            "seed": 42
+        }
+        """
+        self.config = config
+        self.instruction_data_path: str = config.get("instruction_data_path", "")
+        self.feedback_data_path: str = config.get("feedback_data_path", "")
+        self.reference_responses_path: str = config.get("reference_responses_path", "")
+        self.seed: int = config.get("seed", 42)
+
+        # Initialize internal storage
+        self.instructions: List[Instruction] = []
+        self.ratings_feedback: Dict[Tuple[str, str], float] = {}  # (instruction_id, response_id) -> score
+        self.rankings_feedback: List[Tuple[str, str, str, int]] = []  # (instruction_id, resp_id1, resp_id2, preference)
+        self.reference_responses: Dict[str, str] = {}  # instruction_id -> response
+
+        # For reproducibility
+        random.seed(self.seed)
+        torch.manual_seed(self.seed)
+
+    def load_instructions(self):
+        """
+        Load instruction dataset (assumed JSON lines or list of dicts).
+        Each instruction entry should contain at least 'id' and 'text'.
+        """
+        if not os.path.exists(self.instruction_data_path):
+            raise FileNotFoundError(f"Instruction data file not found at {self.instruction_data_path}")
+
+        with open(self.instruction_data_path, 'r', encoding='utf-8') as f:
+            data = json.load(f)
+        self.instructions = []
+        for idx, item in enumerate(data):
+            instr_id = item.get('id', f'instr_{idx}')
+            text = item.get('text') or item.get('instruction') or item.get('prompt')
+            source = item.get('source', None)
+            if text:
+                self.instructions.append(Instruction(instr_id, text, source))
+            else:
+                # Skip entries without 'text'
+                continue
+
+    def load_feedback(self, feedback_format: str = 'json'):
+        """
+        Load feedback data, depending on the format (assumed JSON).
+        Supports 'ratings' and 'rankings' in the same file or separate files.
+        The format is assumed to follow the paper's description.
+        """
+        if not os.path.exists(self.feedback_data_path):
+            raise FileNotFoundError(f"Feedback data file not found at {self.feedback_data_path}")
+
+        with open(self.feedback_data_path, 'r', encoding='utf-8') as f:
+            data = json.load(f)
+
+        # Clear previous data
+        self.ratings_feedback.clear()
+        self.rankings_feedback.clear()
+
+        # Load feedback; depends on format
+        for entry in data:
+            instr_id = entry.get('instruction_id')
+            # Ratings
+            if 'rating' in entry:
+                response_id = entry.get('response_id')
+                score = entry.get('rating')  # expected in 1-7
+                if score is not None and 1 <= score <=7:
+                    self.ratings_feedback[(instr_id, response_id)] = float(score)
+            # Rankings
+            if 'rankings' in entry:
+                # Should be a list of dicts with response comparisons
+                for comp in entry['rankings']:
+                    resp_id1 = comp.get('response_id1')
+                    resp_id2 = comp.get('response_id2')
+                    preference = comp.get('preference')  # 1, 2, or 0 for equal
+                    if preference in [1,2,0]:
+                        self.rankings_feedback.append(
+                            (instr_id, resp_id1, resp_id2, preference)
+                        )
+
+    def load_references(self):
+        """
+        Load reference responses used for evaluation.
+        Assumed JSON: { instruction_id: response }
+        """
+        if not os.path.exists(self.reference_responses_path):
+            raise FileNotFoundError(f"Reference responses file not found at {self.reference_responses_path}")
+
+        with open(self.reference_responses_path, 'r', encoding='utf-8') as f:
+            data = json.load(f)
+        self.reference_responses = data  # dict: instruction_id -> response
+
+    def generate_responses(self,
+                           model: 'LanguageModel',
+                           instructions: List[Instruction],
+                           responses_per_instruction: int = 5,
+                           max_length: int = 128,
+                           temperature: float = 0.0) -> List[ResponseSample]:
+        """
+        Generate responses for each instruction using the provided model.
+        Responses are labeled with responses IDs for tracking.
+        """
+        generated_responses: List[ResponseSample] = []
+        for instr in instructions:
+            responses = model.generate(
+                prompt=instr.text,
+                max_length=max_length,
+                num_return_sequences=responses_per_instruction,
+                temperature=temperature
+            )
+            for idx, resp_text in enumerate(responses):
+                # Tokenize response to get length info
+                tokens = model.tokenize(resp_text)
+                resp_id = f"{instr.id}_resp_{idx}"
+                resp_sample = ResponseSample(
+                    instruction_id=instr.id,
+                    response_text=resp_text,
+                    response_id=resp_id,
+                    response_tokens=len(tokens),
+                    response_length=len(resp_text)
+                )
+                generated_responses.append(resp_sample)
+        return generated_responses
+
+    def load_all(self):
+        """
+        Convenience method to load all datasets.
+        """
+        self.load_instructions()
+        self.load_feedback()
+        self.load_references()

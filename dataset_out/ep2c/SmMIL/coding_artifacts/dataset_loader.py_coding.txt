@@ -1,0 +1,228 @@
+```python
+## dataset_loader.py
+import os
+import numpy as np
+import torch
+from torch.utils.data import Dataset, DataLoader
+from sklearn.neighbors import NearestNeighbors
+import pickle
+import pandas as pd
+
+class CustomDataset(Dataset):
+    """
+    Dataset class for MIL bags containing precomputed features, labels, optional instance labels,
+    and adjacency matrices for each bag.
+    """
+    def __init__(self, features_list, bag_labels, instance_labels_list=None, adjacency_matrices=None):
+        """
+        Args:
+            features_list (list of torch.Tensor): list of tensors, each tensor shape (num_instances, feature_dim)
+            bag_labels (list or array): list of binary labels for each bag
+            instance_labels_list (list of list or tensor): optional, ground truth instance labels for validation
+            adjacency_matrices (list of torch.Tensor): optional, normalized adjacency matrices for each bag
+        """
+        self.features = features_list
+        self.labels = torch.tensor(bag_labels, dtype=torch.float)
+        self.instance_labels = instance_labels_list
+        self.adjacency_matrices = adjacency_matrices
+
+    def __len__(self):
+        return len(self.features)
+
+    def __getitem__(self, idx):
+        data = {
+            'features': self.features[idx],  # Tensor (num_instances, feature_dim)
+            'label': self.labels[idx],       # float tensor
+        }
+        if self.instance_labels is not None:
+            data['instance_labels'] = self.instance_labels[idx]
+        if self.adjacency_matrices is not None:
+            data['adjacency'] = self.adjacency_matrices[idx]
+        return data
+
+class DatasetLoader:
+    """
+    Loads dataset features, labels, constructs adjacency matrices, performs dataset splits,
+    and provides DataLoader for training/evaluation.
+    """
+    def __init__(self, data_paths, split_seed=42, split_type='k-NN', k=8, dataset_name='RSNA', batch_size=8, device='cuda'):
+        """
+        Args:
+            data_paths (dict): contains 'features' and 'labels' paths
+            split_seed (int): seed for reproducibility of splits
+            split_type (str): 'k-NN' for adjacency, can be extended
+            k (int): number of neighbors for k-NN graph construction
+            dataset_name (str): name identifier, e.g., 'RSNA', 'PANDA', 'CAMELYON16'
+            batch_size (int): batch size for DataLoader
+            device (str): 'cuda' or 'cpu'
+        """
+        self.features_path = data_paths['features']
+        self.labels_path = data_paths['labels']
+        self.split_seed = split_seed
+        self.split_type = split_type
+        self.k = k
+        self.dataset_name = dataset_name
+        self.batch_size = batch_size
+        self.device = torch.device(device)
+
+        # Internal variables
+        self.dataset = None
+        self.splits = None  # Dict: {'train': indices, 'val': indices, 'test': indices}
+        self.adjacency_matrices = None
+
+        # Load data
+        self.features_list, self.bag_labels, self.instance_labels_list = self.load_raw_data()
+
+        # Construct dataset object
+        self.construct_dataset()
+
+        # Generate splits
+        self.create_splits()
+
+        # Compute adjacency matrices for each bag
+        self.compute_adjacency_matrices()
+
+    def load_raw_data(self):
+        """
+        Loads features and labels from disk.
+        Assumes features are stored as individual files per bag or as a large array.
+        Adjust according to data format.
+        """
+        # Load features
+        # For this implementation, assume features are stored as a pickle/dict with bag_id as key
+        features_list = []
+        with open(self.features_path, 'rb') as f:
+            features_data = pickle.load(f)
+        # features_data: dict {bag_id: np.array or torch.Tensor (num_instances, feature_dim)}
+        for key in sorted(features_data.keys()):
+            feat = features_data[key]
+            if not isinstance(feat, torch.Tensor):
+                feat = torch.tensor(feat, dtype=torch.float)
+            features_list.append(feat)
+
+        # Load labels
+        # Assume labels are stored as a CSV or pickle with same key order
+        labels_df = pd.read_csv(self.labels_path)
+        # Expect columns: 'bag_id', 'label', possibly 'instance_labels'
+        labels_df = labels_df.sort_values('bag_id')
+        bag_labels = labels_df['label'].astype(int).tolist()
+
+        # Optionally load instance labels if available
+        instance_labels_list = None
+        if 'instance_labels' in labels_df.columns:
+            # Assuming stored as stringified list or pickled format per row
+            # Here, implement accordingly if needed
+            # For simplicity, assume not available
+            instance_labels_list = None
+
+        return features_list, bag_labels, instance_labels_list
+
+    def construct_dataset(self):
+        """Constructs the dataset object."""
+        self.dataset = CustomDataset(
+            features_list=self.features_list,
+            bag_labels=self.bag_labels,
+            instance_labels_list=self.instance_labels_list
+        )
+
+    def create_splits(self):
+        """
+        Creates train/validation/test splits using stratified or random sampling.
+        Uses the fixed seed for reproducibility.
+        """
+        np.random.seed(self.split_seed)
+        total_bags = len(self.dataset)
+        indices = np.arange(total_bags)
+        # For simplicity, perform a random split stratified if labels are binary
+        # Otherwise, random split
+        # Here, as in paper, assume fixed splits are provided; or generate a stratified split
+        from sklearn.model_selection import StratifiedShuffleSplit
+
+        strat_split = StratifiedShuffleSplit(n_splits=1, test_size=0.2, random_state=self.split_seed)
+        train_val_idx, test_idx = next(strat_split.split(indices, self.dataset.labels.numpy()))
+        strat_split_val = StratifiedShuffleSplit(n_splits=1, test_size=0.2, random_state=self.split_seed+1)
+        train_idx, val_idx = next(strat_split_val.split(train_val_idx, np.array(self.dataset.labels)[train_val_idx]))
+
+        self.splits = {
+            'train': train_idx,
+            'val': val_idx,
+            'test': test_idx
+        }
+
+    def compute_adjacency_matrices(self):
+        """
+        For each bag, construct adjacency matrix based on feature similarity using k-NN.
+        Use Euclidean distance, then build symmetric adjacency.
+        For small bags, fallback to fully connected if instances < k.
+        """
+        adjacency_list = []
+        for feat in self.features_list:
+            num_instances = feat.shape[0]
+            # Handle small bags
+            if num_instances <= self.k:
+                adj = torch.ones((num_instances, num_instances))
+            else:
+                # Convert to numpy for sklearn
+                feat_np = feat.numpy()
+                nbrs = NearestNeighbors(n_neighbors=self.k+1, algorithm='auto', metric='euclidean').fit(feat_np)
+                distances, indices = nbrs.kneighbors(feat_np)
+                # Build adjacency matrix
+                adj = torch.zeros((num_instances, num_instances))
+                for i in range(num_instances):
+                    # skip the first neighbor if it's the point itself
+                    for j in indices[i][1:]:
+                        adj[i, j] = 1
+                        adj[j, i] = 1  # symmetrize
+            # Normalize adjacency later in the pipeline if needed
+            # Save adjacency as dense tensor
+            adjacency_list.append(adj)
+        self.adjacency_matrices = adjacency_list
+
+    def get_dataloader(self, split_name='train'):
+        """
+        Returns a DataLoader for the specified split.
+        """
+        indices = self.splits[split_name]
+        subset = torch.utils.data.Subset(self.dataset, indices)
+        return DataLoader(subset, batch_size=self.batch_size, shuffle=(split_name=='train'), pin_memory=True, collate_fn=self.collate_fn)
+
+    def get_full_dataset(self):
+        """Returns the full dataset object."""
+        return self.dataset
+
+    def collate_fn(self, batch):
+        """
+        Custom collate function to handle variable-sized bags.
+        Batches will be a list of dicts from __getitem__.
+        Returns batch dictionaries with padded tensors or list of tensors.
+        """
+        features = [item['features'] for item in batch]
+        labels = torch.stack([item['label'] for item in batch], dim=0)
+        adjacency = [item['adjacency'] for item in batch] if 'adjacency' in batch[0] else None
+        instance_labels = [item.get('instance_labels', None) for item in batch]
+
+        # Pad features to max length in batch if necessary
+        max_instances = max(feat.shape[0] for feat in features)
+        feat_dim = features[0].shape[1]
+        batch_features = torch.zeros((len(features), max_instances, feat_dim))
+        batch_adjacency = []
+        for i, feat in enumerate(features):
+            length = feat.shape[0]
+            batch_features[i, :length, :] = feat
+            if adjacency is not None:
+                # Pad adjacency
+                adj = adjacency[i]
+                pad_size = max_instances - adj.shape[0]
+                adj_pad = torch.zeros((max_instances, max_instances))
+                adj_pad[:adj.shape[0], :adj.shape[1]] = adj
+                batch_adjacency.append(adj_pad)
+        if adjacency is not None:
+            batch_adjacency = torch.stack(batch_adjacency)
+
+        return {
+            'features': batch_features.to(self.device),
+            'labels': labels.to(self.device),
+            'adjacency': batch_adjacency.to(self.device) if adjacency is not None else None,
+            'instance_labels': instance_labels
+        }
+```

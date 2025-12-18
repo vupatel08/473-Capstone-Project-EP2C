@@ -1,0 +1,179 @@
+# Logic Analysis for main.py
+
+This script is the main orchestration point for the approach described in the SAMformer paper. Its responsibilities include dataset loading, normalization, model instantiation, optimizer setup (including SAM), training and validation loops with early stopping, and final evaluation and visualization. It should follow the outlined plan and ensure fidelity to the paper's methodology, datasets, hyperparameters, and experimental setup.
+
+---
+
+## 1. **Import necessary modules and packages**
+
+- Import standard packages: numpy, torch, pandas, matplotlib, and any utilities.
+- Import custom modules:
+  - DatasetLoader from dataset_loader.py
+  - RevIN class from model.py
+  - TransformerModel class (or specific model class) from model.py
+  - SAM optimizer wrapper class from trainer.py or utils.py
+  - Trainer class from trainer.py
+  - Evaluation class from evaluation.py
+  - Config parser to load settings from `config.yaml`
+
+## 2. **Reproducibility & Seed Setting**
+
+- Read seed value from config.yaml (`seed: 42`)
+- Set random seed for:
+  - Python `random`
+  - numpy
+  - torch (`torch.manual_seed`)
+  - torch.cuda (`torch.cuda.manual_seed_all`)
+- Enable deterministic behavior for PyTorch if possible:
+  ```python
+  torch.backends.cudnn.deterministic = True
+  torch.backends.cudnn.benchmark = False
+  ```
+
+## 3. **Load configuration from `config.yaml`**
+
+- Use pyyaml or `yaml` package to parse `config.yaml`.
+- Extract hyperparameters:
+  - Learning rate, batch size, total epochs, weight decay, rho (SAM neighborhood)
+  - List of datasets with their paths, features, prediction horizons, etc.
+  - Random seed
+- Store configurations in a dictionary or namespace for easy access.
+
+## 4. **Dataset Loading & Preprocessing**
+
+- Instantiate DatasetLoader with dataset-specific parameters, such as:
+  - Dataset name (ETTh1, etc.)
+  - Path to data file
+  - Sequence length (`L`)
+  - Prediction horizon (`H`)
+  - Granularity (for time normalization if needed)
+- Call `load_data()` (or similar method) to load train, validation, test datasets:
+  - It returns data as numpy arrays or pandas DataFrames.
+- Generate sequences:
+  - Use sliding window method with stride=1 as per paper.
+  - Separate into inputs (`X`) and targets (`Y`).
+- Perform normalization:
+  - During dataset loading, compute feature-wise mean and variance for train data.
+  - Pass training, validation, test data through RevIN normalization layers (or compute and store stats for normalization).
+  - Make sure normalization is invertible (for denormalization during evaluation).
+
+## 5. **Initialize RevIN normalization layers**
+
+- Instantiate RevIN object with feature dimension `D`.
+- During data preprocessing:
+  - For each dataset split, apply `RevIN.fit_transform()` on input sequences.
+  - Save normalization parameters (`mean`, `std`, `beta`, `gamma`) for denormalization in evaluation.
+
+## 6. **Build the model**
+
+- Instantiate `TransformerModel` with parameters:
+  - Input dimension `D`
+  - Model dimension (`d_m`) as specified (e.g., 16)
+  - Attention parameters (e.g., feature-wise attention as per paper)
+  - Whether to use spectral normalization
+  - Number of attention heads (likely 1, as per paper)
+  - Normalization layers (RevIN inside the model, if incorporated)
+- The model should implement:
+  - Attention module (channel-wise attention)
+  - Residual connections (input + attention output)
+  - Linear output layer
+  - All modules as per paper's Eq. 3, 4, 11
+
+## 7. **Setup optimizer with SAM**
+
+- Use `torch.optim.AdamW` with:
+  - Learning rate as per config (e.g., 0.001)
+  - Weight decay as per config (e.g., 1e-4)
+- Wrap optimizer with SAM:
+  - Implement or import SAM wrapper class.
+  - Pass model parameters, base optimizer, and `rho` from config.
+
+## 8. **Training loop**
+
+- For each epoch:
+  - Set model to train mode.
+  - Loop over training batches:
+    - Load batch data `X_batch`, `Y_batch`.
+    - Apply RevIN normalization:
+      - Normalize input sequences with stored train stats.
+    - Forward pass:
+      - Pass normalized `X_batch` through model, get predictions.
+    - Compute loss (e.g., MSE) over batch.
+    - Zero out optimizer gradients.
+    - Backpropagate:
+      - Compute gradient of loss.
+    - SAM step:
+      - Perturb weights in the direction of the gradient (via the SAM wrapper method):
+        - Approximate inner maximization by epsilon in the neighborhood.
+        - Perform ascent step.
+        - Compute loss at perturbed weights.
+        - Perform descent step (update weights).
+    - Store or log training loss (for reporting and visualization).
+  - Validation:
+    - Switch model to eval mode.
+    - Run on validation set without gradient updates.
+    - Compute validation metrics (MSE, MAE).
+    - Save best model if validation improves.
+  - Early stopping:
+    - Monitor validation loss for early stop patience (e.g., 5 epochs).
+
+## 9. **Evaluation**
+
+- Load the best model checkpoint.
+- Run inference on test set:
+  - Normalize inputs with RevIN.
+  - Forward pass for each sample.
+  - Denormalize outputs with stored RevIN parameters.
+  - Compute metrics: MSE, MAE.
+- Save predictions and metrics.
+- Optionally, generate plots:
+  - Attention matrices heatmaps.
+  - Loss landscape visualizations (if applicable).
+  - Predicted vs ground truth series.
+
+## 10. **Visualization & Save Results**
+
+- Use `utils.py` functions for plotting:
+  - Attention matrices (heatmaps).
+  - Loss landscape.
+  - Prediction overlays.
+- Save figures to disk.
+- Save final model and configurations for reproducibility.
+
+## 11. **Repeat for Multiple Datasets & Prediction Horizons**
+
+- Loop over dataset list from configuration:
+  - For each dataset, perform the entire process.
+- Repeat experiments for multiple seeds (e.g., 5) for statistical robustness.
+- Aggregate results:
+  - Compute mean and standard deviation of errors.
+  - Perform significance testing if needed.
+
+## 12. **Logging & Reproducibility**
+
+- Log hyperparameters, dataset info, seed, and results.
+- Save experiment logs, checkpoints, predictions, and plots.
+- Use consistent file naming for comparison.
+
+---
+
+# Summary of main steps in main.py:
+- Parse config.
+- Set seed.
+- For each dataset:
+  - Load data.
+  - Compute normalization stats.
+  - Initialize RevIN.
+  - Generate sequences.
+  - Instantiate model.
+  - Wrap optimizer with SAM.
+  - Train with early stopping.
+  - Validate and save best.
+  - Final evaluation:
+    - Inference.
+    - Denormalization.
+    - Error computation.
+    - Visualization.
+- Save overall results.
+
+This detailed logic ensures the implementation aligns with the methodology and experimental setup described in the paper, considering all hyperparameters, datasets, and models’ specifics.

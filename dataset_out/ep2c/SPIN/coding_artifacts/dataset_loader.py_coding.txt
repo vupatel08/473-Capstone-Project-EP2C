@@ -1,0 +1,175 @@
+```python
+## dataset_loader.py
+import os
+from typing import List, Optional, Generator
+import random
+import numpy as np
+from datasets import load_dataset, Dataset, DatasetDict
+
+class DatasetLoader:
+    """
+    DatasetLoader handles loading, sampling, and iteration over a dataset used for self-play training.
+    It supports loading from a specified path, sampling prompts for response generation, and batching.
+
+    Attributes:
+        dataset_path (str): Path to dataset directory or file.
+        sample_size (int): Number of prompts to sample for generation each iteration.
+        dataset (Dataset): Loaded dataset object.
+        prompt_field (str): Field name for prompts in the dataset.
+        response_field (str): Field name for responses in the dataset.
+        seed (int): Random seed for reproducibility.
+        _shuffle_indices (List[int]): Current shuffled indices for iteration.
+        _current_idx (int): Pointer to the current index in shuffled order.
+        _initialized (bool): Avoid reloading multiple times.
+    """
+
+    def __init__(self, dataset_path: str = "path/to/your/dataset", sample_size: int = 50000, seed: int = 42):
+        """
+        Initialize DatasetLoader with dataset path and sampling size.
+        Loads dataset from the specified path.
+
+        Args:
+            dataset_path (str): Path to dataset file or directory.
+            sample_size (int): Number of prompts to sample per iteration.
+            seed (int): Random seed for reproducibility.
+        """
+        self.dataset_path = dataset_path
+        self.sample_size = sample_size
+        self.seed = seed
+        self.dataset: Optional[Dataset] = None
+        self.prompt_field = 'prompt'
+        self.response_field = 'response'
+        self._shuffle_indices: Optional[List[int]] = None
+        self._current_idx: int = 0
+        self._initialized: bool = False
+
+        self.load()
+
+    def load(self) -> None:
+        """
+        Loads the dataset from the dataset_path.
+        Supports common formats via load_dataset.
+        Assumes dataset has 'prompt' and 'response' fields.
+        """
+        if self._initialized:
+            return
+
+        # Determine dataset loading method
+        # Supports datasets from local files or HF hub
+        if os.path.isdir(self.dataset_path):
+            # Load from directory assuming dataset script or dataset name
+            # Here, assume a dataset script or local dataset, fallback to generic loading
+            # For safety, user should specify more info or handle accordingly
+            self.dataset = load_dataset('json', data_files=os.path.join(self.dataset_path, '*.jsonl'))['train']
+        elif os.path.isfile(self.dataset_path):
+            # Try loading as json, csv, or default
+            ext = os.path.splitext(self.dataset_path)[1]
+            if ext == '.json' or ext == '.jsonl':
+                self.dataset = load_dataset('json', data_files=self.dataset_path)['train']
+            elif ext == '.csv':
+                self.dataset = load_dataset('csv', data_files=self.dataset_path)['train']
+            else:
+                # Default to json
+                self.dataset = load_dataset('json', data_files=self.dataset_path)['train']
+        else:
+            # Assuming a named HF dataset
+            try:
+                self.dataset = load_dataset(self.dataset_path, split='train')
+            except Exception:
+                raise ValueError(f"Could not load dataset from path: {self.dataset_path}")
+
+        assert isinstance(self.dataset, Dataset), "Dataset loading failed or returned invalid object."
+        # Validate expected fields
+        sample = self.dataset[0]
+        if self.prompt_field not in sample or self.response_field not in sample:
+            raise ValueError(f"Dataset must have '{self.prompt_field}' and '{self.response_field}' fields.")
+
+        # Initialize shuffle indices for iteration over dataset
+        self._shuffle_indices = list(range(len(self.dataset)))
+        random.Random(self.seed).shuffle(self._shuffle_indices)
+        self._current_idx = 0
+        self._initialized = True
+
+    def load_dataset(self) -> Dataset:
+        """
+        Return the loaded dataset.
+
+        Returns:
+            Dataset: Loaded dataset object.
+        """
+        if not self._initialized:
+            self.load()
+        return self.dataset
+
+    def sample(self, prompts: Optional[List[str]] = None) -> List[str]:
+        """
+        Sample prompts for response generation.
+        If prompts are provided, sample from them directly.
+        Else, randomly sample self.sample_size prompts from the dataset.
+
+        Args:
+            prompts (Optional[List[str]]): Optional list of prompts to sample from.
+
+        Returns:
+            List[str]: List of prompts for response generation.
+        """
+        if prompts is not None:
+            # Use provided prompts directly
+            return prompts
+        else:
+            # Sample randomly from dataset
+            if len(self.dataset) == 0:
+                raise ValueError("Dataset is empty.")
+            # Protect against sampling more than dataset size
+            sample_size = min(self.sample_size, len(self.dataset))
+            # Use numpy for reproducibility
+            np.random.seed(self.seed)
+            indices = np.random.choice(len(self.dataset), size=sample_size, replace=False)
+            prompts = [self.dataset[idx][self.prompt_field] for idx in indices]
+            return prompts
+
+    def __iter__(self) -> Generator[List[str], None, None]:
+        """
+        Iterator over dataset in batches.
+        The dataset is shuffled at the start and reshuffled after full pass.
+
+        Yields:
+            List[str]: A batch of prompts for training or response generation.
+        """
+        if not self._initialized:
+            self.load()
+
+        dataset_size = len(self.dataset)
+        indices = self._shuffle_indices.copy()
+        start_idx = 0
+
+        while True:
+            if start_idx >= dataset_size:
+                # Shuffle for next epoch
+                random.Random(self.seed).shuffle(indices)
+                start_idx = 0
+
+            end_idx = min(start_idx + self.sample_size, dataset_size)
+            batch_indices = indices[start_idx:end_idx]
+            batch_prompts = [self.dataset[idx][self.prompt_field] for idx in batch_indices]
+            start_idx = end_idx
+            yield batch_prompts
+
+    def get_batch(self, batch_size: int) -> List[str]:
+        """
+        Retrieve a single batch of prompts for training or inference.
+
+        Args:
+            batch_size (int): Number of prompts to return.
+
+        Returns:
+            List[str]: List of prompts of size batch_size.
+        """
+        # Use the dataset's internal iterator
+        # For simplicity, instantiate a new generator each call
+        generator = self.__iter__()
+        batch_prompts = []
+        for _ in range(batch_size):
+            batch_prompts.append(next(generator))
+        return batch_prompts
+```

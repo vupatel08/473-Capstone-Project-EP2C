@@ -1,0 +1,192 @@
+**Logic Analysis for `model.py` — Class `Model`**
+
+---
+
+### 1. **Purpose & Responsibilities**
+
+The `Model` class is responsible for encapsulating all neural network components necessary for the self-supervised learning framework, including:
+
+- The backbone encoder (either ResNet-18 or ResNet-50).
+- The projection head (MLP) that maps encoder features to the learned embedding space.
+- An optional predictor network (MLP), used in methods like BYOL.
+- Methods to perform forward passes overall, extract features for analysis, and handle model initialization based on the configuration.
+
+---
+
+### 2. **Core Components**
+
+#### 2.1. **Encoder (Backbone)**
+- **Implementation:**
+  - Instantiate a ResNet-18 or ResNet-50, based on the configuration parameter `backbone`.
+  - Use torchvision's implementation (`torchvision.models.resnet18` / `resnet50`).
+- **Output:**
+  - Encoder outputs feature maps; typically, the output before the final fully connected layer.
+  - For SSL, often features are taken after the global average pooling layer (`avgpool`).
+- **Note:**
+  - May need to exclude the final classification layer (`fc`) to get feature embeddings.
+  - Optional: modify the last layer to output features of desired dimension if applicable.
+
+#### 2.2. **Projection Head**
+- **Implementation:**
+  - An MLP with one or two fully-connected layers.
+  - Input size: the encoder's feature dimension (e.g., 512 for ResNet-18/50 after global pooling).
+  - Output size: the `projection_dim` (e.g., 128).
+- **Activation:**
+  - Use non-linear activation (ReLU) between layers.
+  - Optional normalization (e.g., BatchNorm) after each linear layer.
+- **Design considerations:**
+  - Maintain consistent architecture with experimental setup.
+  - Use dropout or other regularizers if needed (not specified but optional).
+
+#### 2.3. **Predictor Network (Optional, Mainly in BYOL)**
+- **Implementation:**
+  - Same as the projection head but only instantiated if `predictor` is True.
+  - Input: features from the projection head.
+  - Output: same dimension as projection, typically.
+- **Purpose:**
+  - To predict the transformed representation, as in BYOL.
+- **Parameters:**
+  - Similar architecture to the projection MLP or simplified.
+
+---
+
+### 3. **Methods and Functionalities**
+
+#### 3.1. **`__init__()`**
+- **Inputs:**
+  - The configuration parameters:
+    - `backbone`: string, "ResNet-18" or "ResNet-50".
+    - `projection_dim`: int, e.g., 128.
+    - `predictor`: bool, whether predictor is used (BYOL).
+    - `use_mlp`: bool, whether to include MLP layers.
+  - Initialize:
+    - `encoder`: the ResNet model without the final FC layer.
+    - `projection_head`: MLP for feature embedding.
+    - `predictor`: optional MLP.
+  - Additional:
+    - Possibly initialize weights, set device (GPU/CPU).
+- **Implementation hints:**
+  - Use `torchvision.models.resnet18` / `resnet50`.
+  - Remove or replace the final FC layer, keeping features before classification.
+  - Implement the MLPs with `nn.Sequential` for simplicity.
+  
+#### 3.2. **`forward(x)`**
+- **Input:**
+  - Input images or augmented views (batch).
+- **Process:**
+  - Pass input through encoder.
+  - Apply the projection head to produce embedding features.
+  - If `predictor` exists, pass the embedding through predictor.
+- **Output:**
+  - The predicted features (for the model used in SSL training).
+  - Or, if needed, just the embedding features.
+- **Note:**
+  - Can be designed to return different outputs: e.g., features before predictor, final prediction, depending on the use case.
+
+#### 3.3. **`extract_features(x)`**
+- **Purpose:**
+  - Extract raw features from the encoder (excluding projection head).
+  - Useful for evaluating spectral properties, visualization, or auxiliary experiments.
+- **Implementation:**
+  - Pass input through encoder only.
+  - Return the features immediately before the classification layer (global avg pooling output).
+
+---
+
+### 4. **Implementation Details & Tips**
+
+- **Dynamic Initialization:**
+  - Allow flexible selection of backbone (`resnet18`, `resnet50`).
+- **Pre-trained weights:**
+  - Default to training from scratch; optionally, support preloaded weights for fine-tuning.
+- **Feature dimension determination:**
+  - Need to determine the output size of encoder's pooled features (commonly 512 or 2048).
+  - Usually accessible via inspecting the pretrained model or by forward pass with a dummy batch.
+- **Normalization:**
+  - Typically, features are normalized (L2) prior to computing the uniformity loss, but this can be handled outside `Model`.
+
+---
+
+### 5. **Summary & Pseudocode Outline**
+
+- **Initialization:**
+
+```python
+class Model(nn.Module):
+    def __init__(self, config):
+        super().__init__()
+        # Select backbone
+        if config.backbone == 'ResNet-18':
+            self.encoder = torchvision.models.resnet18(pretrained=False)
+        elif config.backbone == 'ResNet-50':
+            self.encoder = torchvision.models.resnet50(pretrained=False)
+        else:
+            raise ValueError('Unsupported backbone')
+        
+        # Remove final fc layer
+        self.encoder = nn.Sequential(*(list(self.encoder.children())[:-1])) # Exclude last FC
+        
+        # Determine feature dimension (e.g., 512 for ResNet-18, 2048 for ResNet-50)
+        self.feature_dim = ... # get from model or forward dummy input
+        
+        # Projection head
+        self.projection_head = nn.Sequential(
+            nn.Linear(self.feature_dim, 512),
+            nn.ReLU(),
+            nn.Linear(512, config.projection_dim)
+        )
+        
+        # Predictor (if BYOL)
+        if config.predictor:
+            self.predictor = nn.Sequential(
+                nn.Linear(config.projection_dim, 512),
+                nn.ReLU(),
+                nn.Linear(512, config.projection_dim)
+            )
+        else:
+            self.predictor = None
+```
+
+- **Forward pass:**
+
+```python
+def forward(self, x):
+    features = self.extract_features(x)  # raw features
+    projections = self.projection_head(features)
+    if self.predictor:
+        predictions = self.predictor(projections)
+        return predictions
+    return projections
+```
+
+- **Feature extraction:**
+
+```python
+def extract_features(self, x):
+    # Pass through encoder
+    feat_map = self.encoder(x)
+    # Global average pooling
+    pooled_feat = torch.flatten(feat_map, start_dim=1)
+    return pooled_feat
+```
+
+- **Notes:**
+  - During training, features from `extract_features()` are used for the distribution-based uniformity computation.
+  - Features may be normalized (L2) as a preprocessing step before calculating statistics.
+  - Model parameters such as dropout, BatchNorm, etc., follow the original ResNet implementation or as specified.
+
+---
+
+### 6. **Edge Cases & Additional Considerations**
+- **Size of features:**
+  - Confirm the output size based on the input image size and architecture.
+- **Batch Normalization:**
+  - Use train mode; ensure BatchNorm is updated properly during training.
+- **Device:**
+  - Move all modules and tensors onto the same device (GPU/CPU).
+- **Reproducibility:**
+  - Set random seeds, initialize weights if needed.
+
+---
+
+This logic analysis provides a detailed, step-by-step blueprint for implementing the `Model` class aligned with the paper and experimental plan. It ensures modularity, flexibility, and correctness for subsequent coding.

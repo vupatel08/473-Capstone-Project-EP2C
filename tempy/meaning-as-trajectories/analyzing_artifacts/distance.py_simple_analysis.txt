@@ -1,0 +1,137 @@
+# Logic Analysis for distance.py
+
+## Overview
+The purpose of this file is to implement the `DistanceEvaluator` class, which facilitates computation of semantic distances and relations between input prompts (`u`, `v`) by utilizing Monte Carlo estimates derived from sampled trajectories. It applies the methodology described in the paper: sample trajectories, compute likelihoods, and compare these distributions to evaluate semantic similarities, entailments, and hyponym/hypernym relations.
+
+---
+
+## Core Objectives
+1. **Sampling trajectories for prompts**:
+   - Use the `Sampler` class to generate `n` trajectories, each with a maximum length `m`, at a specified temperature.
+   
+2. **Computing sequence likelihoods**:
+   - For each sampled trajectory `t`, compute the log-likelihood `log M_s(t)` for prompt `s` (either `u` or `v`).
+   - Store these likelihoods efficiently, preferably in a dictionary or array, to facilitate rapid distance and relation calculations.
+   
+3. **Approximating the probability functions**:
+   - Use Monte Carlo sampling over the sets of trajectories to estimate the expectation of the absolute difference in log-likelihoods, defining the semantic distance.
+   
+4. **Algorithms and relations**:
+   - Implement methods for:
+     - Computing the **distance** between two prompts, based on the formula involving the average of absolute log-likelihood differences.
+     - Performing **set operations** (intersection/conjunction `M_u ∧ M_v`), which are element-wise minima of the sampled likelihood functions.
+     - Conducting **relation inferences**:
+       - **Entailment**: compare `d(M_u ∧ M_v, M_v)` and `d(M_u ∧ M_v, M_u)`, using the criterion from the paper to infer `u ⇒ v`.
+       - **Hyponym/hypernym detection**: similar distance comparisons tailored for word relations.
+   
+5. **Thresholding and relation decision rules**:
+   - Use empirical or fixed thresholds (possibly configurable) to interpret the magnitude of distances—if `d(M_u ∧ M_v, M_v)` is significantly smaller than `d(M_u ∧ M_v, M_u)`, the relation holds.
+   
+6. **Handling sampling and likelihood calculations**:
+   - Implement efficient likelihood computation:
+     - For each trajectory `t`, use the `LikelihoodCalculator` class.
+     - To speed up, cache likelihoods when possible.
+   - For large datasets or repeated computations, consider precomputing likelihood summaries.
+   
+7. **Input and output structure**:
+   - Methods should accept prompts (`u`, `v`) as strings.
+   - The `sampler` instance provides `sample_trajectories(prompt)` for each prompt.
+   - The `LikelihoodCalculator` provides `compute_log_prob(sequence, prompt)`.
+
+---
+
+## Stepwise Breakdown
+
+### 1. Initialization
+- Constructor accepts parameters:
+  - `num_samples` (n)
+  - `max_length` (m)
+  - `distance_metric` (e.g., `"log-l1"`)
+  - Share references to `Sampler`, `LikelihoodCalculator`, and possibly the model/device info.
+
+### 2. Sampling Trajectories
+- For each prompt `s` (`u` and `v`):
+  - Call `sample_trajectories(s)` in parallel or sequentially.
+  - Store `T_s` as `list[str]` with length `n`.
+
+### 3. Likelihood Computation
+- For each trajectory `t` in `T_u` and `T_v`:
+  - Use `LikelihoodCalculator.compute_log_prob(t, s)` to get `log M_s(t)`.
+  - Store in a dict or list, e.g.:
+
+```python
+log_probs_u = {t: log_M_u(t) for t in T_u}
+log_probs_v = {t: log_M_v(t) for t in T_v}
+```
+
+- This allows quick access during distance calculation.
+
+### 4. Distance Calculation
+- When asked to compute `d(M_u, M_v)`:
+  - Merge the trajectory lists: `T_union = T_u ∪ T_v`.
+  - For each trajectory `t` in `T_union`:
+    - Retrieve stored `log M_u(t)` and `log M_v(t)`
+    - Compute `|log M_u(t) - log M_v(t)|`.
+  - Average over all `t`.
+  - Return the result, based on the selected metric (`log-l1`), i.e., the mean of absolute log differences.
+
+### 5. Set Operations and Relations
+- **Conjunction (`∧`)**:
+  - For each `t` consistently sampled across `u` and `v`:
+    - Compute `min(log M_u(t), log M_v(t))`.
+  - This creates the minimum likelihood set, representing the intersection in the function space.
+  
+- **Entailment and Hyponym Relations**:
+  - Use the distances between the conjunction `M_u ∧ M_v` and each `M_u`, `M_v`.
+  - Apply the decision rule:
+    - If `d(M_u ∧ M_v, M_v)` is less than `d(M_u ∧ M_v, M_u)`, infer `u ⇒ v`.
+  - Analogously for hyponym detection, adapt thresholds and relation semantics.
+
+### 6. Thresholding and Decision Boundary
+- Implement a configurable threshold (empirically derived or fixed, e.g., relative difference ratios).
+- Use the ratio or difference of the distances to assign a relation hypothesis.
+
+### 7. Wrapper Methods
+- High-level methods to perform:
+  - `compute_distance(prompt_u, prompt_v)`
+  - `infer_entailment(prompt_u, prompt_v)`
+  - `infer_hyponym(prompt_u, prompt_v)`
+  
+- These call internal sampling, likelihood computation, and distance comparison functions.
+
+---
+
+## Implementation Specifics
+- **Parallelization**:
+  - Sampling for `u` and `v` can be parallelized.
+  - Likelihood calculations are independent.
+  - Use Python's `multiprocessing` to minimize runtime.
+  
+- **Caching**:
+  - Cache likelihoods for trajectories to avoid recomputation.
+  - Possibly memorize set operations if the same pairs are evaluated multiple times.
+
+- **Handling the [EOS] token**:
+  - During trajectory sampling, stop if `[EOS]` token appears.
+  - For likelihood calculations, treat the sampled sequence accordingly.
+
+---
+
+## Summary
+In `distance.py`, the `DistanceEvaluator` class will:
+
+- Accept model and sampling configurations.
+- For each evaluation:
+  - Sample trajectories from prompts `u` and `v`.
+  - Compute and cache their likelihoods.
+  - Compute the distance via the specified metric.
+  - Use set-theoretic operations for relation inference.
+- Provide methods to produce:
+  - Continuous similarity scores.
+  - Binary relation hypotheses (entailment, hyponym).
+  
+This design fully aligns with the experimental methodology described in the paper, ensuring that distances and relations are estimated in a manner compatible with their distribution-based, prompt-free, sampling approach.
+
+---
+
+**Note:** Specific thresholds and parameters should be linked to the configuration or set as constants, tested empirically. All operations rely on the assumption that the trajectory sampling process and likelihood computations are faithful to the model's distribution as described.

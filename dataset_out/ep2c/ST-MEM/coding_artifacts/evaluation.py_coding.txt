@@ -1,0 +1,219 @@
+```python
+## evaluation.py
+import os
+import torch
+import numpy as np
+from sklearn.metrics import roc_auc_score, f1_score
+from sklearn.manifold import TSNE
+import matplotlib.pyplot as plt
+
+class Evaluation:
+    def __init__(self, model: torch.nn.Module, dataset, config: dict):
+        """
+        Initialize Evaluation with trained model, dataset, and configs.
+        Args:
+            model (torch.nn.Module): Trained encoder or classification model.
+            dataset: Dataset object for evaluation (test/validation set).
+            config (dict): Dictionary containing evaluation and visualization settings from YAML.
+        """
+        import torch
+        self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+        self.model = model.to(self.device)
+        self.dataset = dataset
+        self.config = config
+
+        # Extract evaluation flags
+        eval_cfg = self.config.get('evaluation', {})
+        self.downstream_tasks = eval_cfg.get('downstream_tasks', {})
+        self.metrics = eval_cfg.get('metrics', ['AUROC', 'F1'])
+        self.visualize_embeddings = 'embeddings' in eval_cfg.get('visualization', [])
+        self.visualize_attention = 'attention_maps' in eval_cfg.get('visualization', [])
+        self.embedding_output_dir = eval_cfg.get('embedding_output_dir', './embeddings')
+        self.attention_output_dir = eval_cfg.get('attention_output_dir', './attention_maps')
+        os.makedirs(self.embedding_output_dir, exist_ok=True)
+        os.makedirs(self.attention_output_dir, exist_ok=True)
+
+        # Setup DataLoader for evaluation
+        from torch.utils.data import DataLoader
+        batch_size = self.config.get('training', {}).get('batch_size', 1024)
+        self.eval_loader = DataLoader(self.dataset, batch_size=batch_size, shuffle=False, num_workers=4)
+
+        # If visualization of embeddings needed
+        if self.visualize_embeddings:
+            self.embeddings = []  # Collect embeddings
+            self.labels = []      # Corresponding labels
+
+        # For attention visualization, prepare sample input(s)
+        self.sample_input = None
+
+    def evaluate(self):
+        """
+        Evaluate the model on dataset: compute predictions, metrics, and optionally visualize.
+        Returns:
+            dict: Metrics results, e.g., {'AUROC': ..., 'F1': ...}
+        """
+        self.model.eval()
+        all_labels = []
+        all_preds = []
+        all_probs = []
+
+        # For embedding visualization
+        if self.visualize_embeddings:
+            all_embeddings = []
+
+        # For attention maps
+        if self.visualize_attention:
+            # Prepare a single sample (could pick first batch or a dedicated sample)
+            for batch in self.eval_loader:
+                input_sample = batch['patches'].to(self.device)  # shape: [B, N, *]
+                break
+            self.sample_input = input_sample
+
+        with torch.no_grad():
+            for batch in self.eval_loader:
+                patches = batch['patches'].to(self.device)  # shape: [B, N, *]
+                labels = batch['label'].to(self.device)    # shape: [B] or [B, C]
+                # Forward pass
+                # Assuming model outputs logits for classification
+                # Or for representation models, extract embeddings
+                # For simplicity, assume model outputs logits
+                outputs = self.model(patches)  # shape: [B, num_classes]
+                probs = torch.softmax(outputs, dim=1)
+                preds = torch.argmax(probs, dim=1)
+
+                # Move to cpu for metrics
+                all_labels.extend(labels.cpu().numpy())
+                all_preds.extend(preds.cpu().numpy())
+                all_probs.extend(probs.cpu().numpy())
+
+                # For embedding visualization
+                if self.visualize_embeddings:
+                    # Assume model has method to extract embeddings
+                    if hasattr(self.model, 'get_embeddings'):
+                        embeds = self.model.get_embeddings(patches)  # shape: [B, embed_dim]
+                        self.embeddings.append(embeds.cpu().numpy())
+                        self.labels.extend(labels.cpu().numpy())
+
+        # Compute metrics
+        results = {}
+        y_true = np.array(all_labels)
+        y_pred_probs = np.array(all_probs)
+        y_pred = np.array(all_preds)
+
+        # For multi-class metrics, compute macro AUROC and macro F1
+        if 'AUROC' in self.metrics:
+            try:
+                # Handling multi-class AUROC
+                auroc = roc_auc_score(y_true, y_pred_probs, multi_class='ovr', average='macro')
+                results['AUROC'] = auroc
+            except Exception as e:
+                print(f"Error computing AUROC: {e}")
+                results['AUROC'] = None
+        if 'F1' in self.metrics:
+            f1_macro = f1_score(y_true, y_pred, average='macro', zero_division=0)
+            results['F1'] = f1_macro
+
+        # Embed visualization
+        if self.visualize_embeddings:
+            all_embs = np.concatenate(self.embeddings, axis=0)
+            # Use true labels for coloring
+            self._plot_embeddings(all_embs, self.labels, save_path=os.path.join(self.embedding_output_dir, 'tsne_embeddings.png'))
+
+        # Attention maps visualization
+        if self.visualize_attention and self.sample_input is not None:
+            self._visualize_attention_map(self.sample_input, save_dir=self.attention_output_dir)
+
+        return results
+
+    def _plot_embeddings(self, embeddings: np.ndarray, labels: list, save_path: str):
+        """
+        Reduce embeddings with t-SNE, plot and save.
+        Args:
+            embeddings (np.ndarray): shape [n_samples, embed_dim]
+            labels (list): class labels per sample
+            save_path (str): file path to save plot
+        """
+        tsne = TSNE(n_components=2, perplexity=30, learning_rate=200, n_iter=1000, random_state=42)
+        reduced = tsne.fit_transform(embeddings)
+        plt.figure(figsize=(8,8))
+        unique_labels = list(set(labels))
+        for lbl in unique_labels:
+            idxs = [i for i, l in enumerate(labels) if l == lbl]
+            plt.scatter(reduced[idxs,0], reduced[idxs,1], label=str(lbl), alpha=0.6)
+        plt.legend()
+        plt.title('t-SNE of Embeddings')
+        plt.savefig(save_path)
+        plt.close()
+
+    def _visualize_attention_map(self, input_tensor: torch.Tensor, save_dir: str):
+        """
+        Generate attention maps for a sample input (uses hooks or model's built-in method).
+        Args:
+            input_tensor (torch.Tensor): shape [B, N, *]
+            save_dir (str): directory to save attention heatmaps
+        """
+        import numpy as np
+        # For visualization, pick first sample in batch
+        sample_input = input_tensor[0:1]  # shape [1, N, *]
+        # Assuming model can output attention scores
+        if hasattr(self.model, 'get_attention_weights'):
+            attn_weights = self.model.get_attention_weights(sample_input)
+            # attn_weights shape: [layers, heads, seq_len, seq_len]
+        else:
+            # Try to hook into internal attention modules
+            attn_weights = self._extract_attention_weights(sample_input)
+
+        if attn_weights is None:
+            print("Attention weights not available.")
+            return
+
+        # Plot attention maps per layer and head
+        for layer_idx, layer_attn in enumerate(attn_weights):
+            # layer_attn: shape [heads, seq_len, seq_len]
+            for head_idx in range(layer_attn.shape[0]):
+                attn_map = layer_attn[head_idx].cpu().numpy()
+                self._plot_attention_heatmap(attn_map, input_signal=self._get_signal_from_input(input_tensor),
+                                             save_path=os.path.join(save_dir, f'layer{layer_idx}_head{head_idx}.png'))
+
+    def _extract_attention_weights(self, sample_input: torch.Tensor):
+        """
+        Register hooks or extract attention weights directly.
+        """
+        attn_weights = []
+
+        def hook(module, input, output):
+            # If module outputs attention weights
+            if hasattr(module, 'self_attn'):
+                # Need to access attention weights through hooks
+                # Placeholder for implementation; depends on model structure
+                pass
+
+        # Attach hooks to self-attention layers
+        # For simplicity, this implementation assumes model has method to get attention weights
+        return None  # placeholder, implementation depends on model class
+
+    def _plot_attention_heatmap(self, attn_map: np.ndarray, input_signal: np.ndarray, save_path: str):
+        """
+        Plot and save attention map heatmap.
+        Args:
+            attn_map: np.ndarray [seq_len, seq_len]
+            input_signal: original ECG signal for overlay
+            save_path: path to save image
+        """
+        plt.figure(figsize=(6,6))
+        plt.imshow(attn_map, cmap='viridis')
+        plt.colorbar()
+        plt.title('Attention Map')
+        plt.savefig(save_path)
+        plt.close()
+
+    def _get_signal_from_input(self, input_tensor: torch.Tensor):
+        """
+        Reconstruct or retrieve original ECG waveform for overlay or analysis.
+        This depends on how input is prepared.
+        """
+        # For now, assume input_tensor contains raw ECG signal patches with shape [B, N, ...]
+        # Or, if input to model is embedding, attempt to revert.
+        # Placeholder: return None
+        return None
+```

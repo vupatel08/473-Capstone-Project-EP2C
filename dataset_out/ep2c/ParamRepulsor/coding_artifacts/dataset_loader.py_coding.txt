@@ -1,0 +1,252 @@
+```python
+## dataset_loader.py
+
+import numpy as np
+import os
+import pickle
+from sklearn.decomposition import PCA
+from sklearn.preprocessing import StandardScaler
+from sklearn.neighbors import NearestNeighbors
+
+class DatasetLoader:
+    def __init__(self, config: dict):
+        """
+        Initialize dataset loader based on configuration.
+        Args:
+            config (dict): Configuration dictionary containing dataset info.
+                Expected keys:
+                    - name (str): Dataset name, e.g., 'MNIST'.
+                    - feature_dim (int or 'auto'): Target feature dimension after PCA.
+                    - data_path (str): Path to load dataset from.
+        """
+        self.dataset_name = config.get('name', 'MNIST')
+        self.feature_dim_setting = config.get('feature_dim', 'auto')
+        self.data_path = config.get('data_path', None)
+        self.n_neighbors = config.get('neighbor_count', 15)
+        self.random_seed = config.get('random_seed', 42)
+        
+        # Placeholders for data
+        self.data = None          # Original data
+        self.norm_data = None     # Normalized data
+        self.pca_data = None      # PCA reduced data (if applied)
+        self.knn_indices = None   # NN indices
+        self.knn_distances = None # NN distances
+        self.mn_pairs = None      # Mid-Near pairs indices
+        self.fp_indices = None    # Far Negative indices (per point)
+        self.N = 0                # Number of data points
+        self.D = 0                # Data dimensionality
+        
+        np.random.seed(self.random_seed)
+        
+        # Load dataset
+        self.load_dataset()
+        # Preprocess: normalize features
+        self._preprocess()
+        # Apply PCA if needed
+        self._apply_pca()
+        # Compute neighbor graph
+        self._compute_knn()
+        # Generate mid-near pairs
+        self._generate_mn_pairs()
+        # Generate FP indices (for negative sampling)
+        self._generate_fp_indices()
+    
+    def load_dataset(self):
+        """
+        Loads dataset based on dataset name.
+        Supports MNIST, F-MNIST, USPS, COIL-20, COIL-100, and biological datasets.
+        """
+        if self.dataset_name == 'MNIST':
+            from sklearn.datasets import fetch_openml
+            mnist = fetch_openml('mnist_784', version=1, as_frame=False)
+            data = mnist.data.astype(np.float32)
+            labels = mnist.target.astype(int)
+        elif self.dataset_name == 'F-MNIST':
+            from sklearn.datasets import fetch_openml
+            f_mnist = fetch_openml('Fashion-MNIST', version=1, as_frame=False)
+            data = f_mnist.data.astype(np.float32)
+            labels = f_mnist.target.astype(int)
+        elif self.dataset_name == 'USPS':
+            from sklearn.datasets import fetch_openml
+            usps = fetch_openml('USPS', version=1, as_frame=False)
+            data = usps.data.astype(np.float32)
+            labels = usps.target.astype(int)
+        elif self.dataset_name == 'COIL-20':
+            # Assuming dataset stored as features
+            # User provides feature matrix, else replace with custom loader
+            data_path = self.data_path
+            data = np.loadtxt(data_path)
+            labels = np.arange(data.shape[0])  # No labels; placeholder
+        elif self.dataset_name == 'COIL-100':
+            data_path = self.data_path
+            data = np.loadtxt(data_path)
+            labels = np.arange(data.shape[0])
+        # Biological datasets
+        elif self.dataset_name == 'scRNAseq_HumanPancreas':
+            data_path = self.data_path
+            data = np.loadtxt(data_path, delimiter=',')
+            labels = None
+        elif self.dataset_name == 'scRNAseq_Kang':
+            data_path = self.data_path
+            data = np.loadtxt(data_path, delimiter=',')
+            labels = None
+        elif self.dataset_name == 'Kazer':
+            data_path = self.data_path
+            data = np.loadtxt(data_path, delimiter=',')
+            labels = None
+        elif self.dataset_name == 'Circle':
+            # Generate synthetic circle data
+            np.random.seed(self.random_seed)
+            angles = np.random.uniform(0, 2*np.pi, 5000)
+            radius = 1.0
+            data = np.stack([np.cos(angles), np.sin(angles)], axis=1)
+            labels = np.floor(angles / (2*np.pi/10)).astype(int)  # 10 arcs
+        elif self.dataset_name == 'Mammoth':
+            data_path = self.data_path
+            data = np.loadtxt(data_path)
+            labels = None
+        elif self.dataset_name == 'Lineage':
+            # Generate Gaussian points in line
+            np.random.seed(self.random_seed)
+            data = np.zeros((10000,50))
+            labels = None
+            for i in range(20):
+                mean = np.array([i])
+                cov = np.eye(50)*0.1
+                points = np.random.multivariate_normal(mean, cov, size=500)
+                data[i*500:(i+1)*500,:] = points
+        elif self.dataset_name == 'Hierarchy':
+            # Generate hierarchy data (placeholder)
+            np.random.seed(self.random_seed)
+            data = np.random.randn(12500, 50)
+            labels = None
+        else:
+            raise ValueError(f"Dataset {self.dataset_name} not supported.")
+        # Store data and labels
+        self.data = data
+        self.labels = labels
+        self.N = data.shape[0]
+        self.D = data.shape[1]
+    
+    def _preprocess(self):
+        """
+        Normalize features: zero mean, unit variance per feature.
+        """
+        scaler = StandardScaler()
+        self.norm_data = scaler.fit_transform(self.data)
+        # For biological datasets, additional normalization could be added if needed
+    
+    def _apply_pca(self):
+        """
+        Apply PCA if feature_dim is specified and less than original dimension.
+        If feature_dim='auto', heuristically reduce to 50 dims if dataset is large.
+        """
+        target_dim = self.feature_dim_setting
+        if target_dim is None or target_dim == 'auto':
+            # Decide based on dataset size
+            if self.N > 10000:
+                target_dim = 50
+            elif self.D > 50:
+                target_dim = 50
+            else:
+                target_dim = self.D
+        elif isinstance(target_dim, int):
+            pass  # use as is
+        else:
+            # fallback
+            target_dim = self.D
+        if target_dim < self.D:
+            pca = PCA(n_components=target_dim, random_state=self.random_seed)
+            self.pca_data = pca.fit_transform(self.norm_data)
+        else:
+            # no PCA reduction
+            self.pca_data = self.norm_data
+    
+    def _compute_knn(self):
+        """
+        Compute k-nearest neighbor graph using sklearn's NearestNeighbors.
+        """
+        nbrs = NearestNeighbors(n_neighbors=self.n_neighbors+1, algorithm='auto', metric='euclidean')
+        nbrs.fit(self.pca_data)
+        distances, indices = nbrs.kneighbors(self.pca_data)
+        # Remove self from neighbor list
+        self.knn_indices = indices[:,1:]  # shape (N, k)
+        self.knn_distances = distances[:,1:]
+    
+    def _generate_mn_pairs(self):
+        """
+        Generate Mid-Near (MN) pairs:
+        For each point, sample 6 points uniformly, find the closest among these to form MN.
+        """
+        N, k, seed = self.N, self.n_neighbors, self.random_seed
+        np.random.seed(seed)
+        MN_pairs = np.zeros(N, dtype=int)  # store index of MN partner for each point
+        for i in range(N):
+            sampled_indices = np.random.choice(N, size=6, replace=True)
+            # compute distances to sampled points
+            src_point = self.pca_data[i]
+            sampled_points = self.pca_data[sampled_indices]
+            dists = np.linalg.norm(sampled_points - src_point, axis=1)
+            # second closest among sampled points
+            second_idx = np.argsort(dists)[1]  # index in sampled_indices array
+            MN_pairs[i] = sampled_indices[second_idx]
+        self.mn_pairs = MN_pairs
+    
+    def _generate_fp_indices(self, n_fp_per_point=20):
+        """
+        Generate Far Negative (FP): For each point, randomly sample n_fp_per_point points
+        not in its NN set.
+        """
+        N, k = self.N, self.n_neighbors
+        fp_indices_list = []
+        all_indices = np.arange(N)
+        for i in range(N):
+            # Exclude the NN indices from sampling
+            neighbor_set = set(self.knn_indices[i])
+            exclude_set = neighbor_set.union({i})
+            candidate_indices = np.setdiff1d(all_indices, list(exclude_set))
+            # If dataset is small, case where candidate set is smaller than needed
+            replace = False
+            if candidate_indices.shape[0] < n_fp_per_point:
+                replace = True
+            fp_sample = np.random.choice(candidate_indices, size=n_fp_per_point, replace=replace)
+            fp_indices_list.append(fp_sample)
+        # Store as an array (N, n_fp_per_point)
+        self.fp_indices = np.array(fp_indices_list)
+    
+    def get_data(self):
+        """
+        Return the raw dataset before preprocessing.
+        """
+        return self.data
+    
+    def get_normalized_data(self):
+        """
+        Return normalized data.
+        """
+        return self.norm_data
+    
+    def get_pca_data(self):
+        """
+        Return PCA-reduced data.
+        """
+        return self.pca_data
+    
+    def get_knn(self):
+        """
+        Return neighbor indices and distances.
+        """
+        return self.knn_indices, self.knn_distances
+    
+    def get_mn_pairs(self):
+        """
+        Return mid-near pairs as array of shape (N,), with each entry as the MN partner index.
+        """
+        return self.mn_pairs
+    
+    def get_fp_indices(self):
+        """
+        Return FP indices: array of shape (N, n_fp_per_point).
+        """
+        return self.fp_indices
+```

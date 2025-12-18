@@ -1,0 +1,183 @@
+# Logic Analysis for utils.py
+
+The `utils.py` module will serve as a collection of utility functions to support core processes in dataset handling, model operations, mathematical transformations, and logging. The functions should be modular, reusable, and aligned with the paper's methodology and experimental setup.
+
+Below is a detailed, step-by-step logical breakdown of the functions and components to implement, including their purpose, inputs, outputs, and any relevant considerations derived from the paper and plan.
+
+---
+
+## 1. Configuration Loading
+
+**Purpose:**  
+Provide a function to load hyperparameters and experimental settings from the `config.yaml` file, ensuring that all modules can access consistent configuration values.
+
+**Design Considerations:**  
+- Use `PyYAML` to parse `config.yaml`.
+- Return a dictionary or a structured object (e.g., namespace or custom class) containing all hyperparameters.
+- Handle missing keys gracefully; set defaults if necessary.
+
+**Implementation Highlights:**  
+- Function Signature: `def load_config(path: str) -> dict`
+- Example: `config = load_config('./config.yaml')`
+
+---
+
+## 2. Probability Transformation Functions
+
+### 2.1 Power Transform of Teacher Outputs
+
+**Purpose:**  
+Implement the core transformation \( p_i^{\gamma} \) normalized over all classes, corresponding to the interpretation of temperature as a power `γ`.
+
+**Input:**  
+- `teacher_logits`: Tensor of shape `(batch_size, num_classes)` (logits from the teacher model)  
+- `gamma`: float, the exponent for the power transform, derived from `T` as `γ=1/T`.
+
+**Output:**  
+- Probability tensor `p_power`: `(batch_size, num_classes)` with each class probability after power transform and normalization.
+
+**Logic:**  
+- Apply softmax to teacher logits to obtain `p_teacher`.
+- Compute `p_i^{\gamma}` for each sample.
+- Normalize `p_i^{\gamma}` to sum to 1 per sample.
+
+**Mathematical details:**  
+\[
+\hat p_i = \frac{ p_i^\gamma }{ \sum_j p_j^\gamma }
+\]
+
+**Additional notes:**  
+- Use `torch.clamp()` if numerical stability issues occur (e.g., zero probabilities).
+- Ensure no NaNs or Infs during computations.
+
+### 2.2 Calculation of U\(_{\alpha}\) (Sample-Adaptive Weight)
+
+**Purpose:**  
+Compute the power sum \( U_\alpha(p) = \sum_j p_j^\alpha \), which acts as a measure of the teacher distribution’s smoothness.
+
+**Input:**  
+- `teacher_probs`: `(batch_size, num_classes)`
+
+- `alpha`: float, e.g., \( \alpha = 1/T \)
+
+**Output:**  
+- Tensor of shape `(batch_size, 1)` or `(batch_size,)` for the sum per sample.
+
+**Logic:**  
+- Raise probabilities to the power `alpha`.
+- Sum over classes for each sample.
+
+---
+
+## 3. Entropy Calculations
+
+### 3.1 Shannon Entropy
+
+**Purpose:**  
+Compute the Shannon entropy \( H(p) = - \sum_j p_j \log p_j \) of a probability distribution.
+
+**Input:**  
+- `probs`: `(batch_size, num_classes)`
+
+**Output:**  
+- `entropy`: `(batch_size,)`
+
+**Implementation Details:**  
+- Use `torch.clamp()` to avoid `log(0)` issues (`p_j > 0`).
+- Sum over classes with negative sign.
+
+### 3.2 Renyi Entropy
+
+**Purpose:**  
+Compute the Renyi entropy of order \( \alpha \):
+
+\[
+H_\alpha(p) = \frac{1}{1 - \alpha} \log \sum_j p_j^\alpha
+\]
+
+- This generalizes Shannon entropy (limit as \( \alpha \to 1 \)).
+
+**Input:**  
+- `probs`: `(batch_size, num_classes)`  
+- `alpha`: float, typically \( 1/T \).
+
+**Output:**  
+- `renyi_entropy`: `(batch_size,)`
+
+**Considerations:**  
+- Handle `alpha` near 1 carefully (use numerical stability or approximate limit).
+- Use `torch.clamp()` to prevent `log(0)`.
+
+---
+
+## 4. Save & Load Checkpoints
+
+**Purpose:**  
+Facilitate saving and loading model states during training.
+
+**Functions:**  
+- `def save_checkpoint(model, optimizer, epoch, path: str) -> None`
+- `def load_checkpoint(model, optimizer, path: str) -> None`
+
+**Logic:**  
+- Save state dictionaries for model and optimizer.
+- Load into model, optimizer as needed.
+
+---
+
+## 5. Miscellaneous Helper Functions
+
+### 5.1 Model Checkpoints Path Management
+
+**Purpose:**  
+Create paths based on experiment names, model architectures, and epochs for saving/loading.
+
+### 5.2 Data Normalization (if required)
+
+**Purpose:**  
+Provide standard normalization functions matching dataset statistics.
+
+- For CIFAR-100: mean and std normalization as per typical values.
+- For ImageNet: similar.
+
+---
+
+## 6. Model & Dataset Utilities
+
+**Note:**  
+Although mainly in other modules, include minimal helper functions if needed (e.g., dynamically instantiate models).
+
+---
+
+## 7. Practical Considerations
+
+- Use `torch.no_grad()` during inference for efficiency.
+- Ensure numerical stability across transformations.
+- Add comments and docstrings for clarity, aligning with the coding standards.
+
+---
+
+## Summary of Required Functions in `utils.py`
+
+| Function Name                                | Purpose                                              | Inputs                                    | Outputs                      | Notes                                               |
+|----------------------------------------------|------------------------------------------------------|------------------------------------------|------------------------------|-----------------------------------------------------|
+| `load_config(path: str) -> dict`             | Load configuration hyperparameters                  | `path`: str                              | `dict`                       | Use `PyYAML`                                        |
+| `compute_power_probs(teacher_logits, gamma)`  | Power transform of teacher logits                     | `teacher_logits`, `gamma` (float)        | `(batch_size, num_classes)`  | Normalize after power transform                     |
+| `compute_U(teacher_probs, alpha)`             | Compute U\(_{\alpha}\) (sample weight)               | `teacher_probs`, `alpha` (float)         | `(batch_size,)` or `(batch_size,1)` | Sum over classes                                    |
+| `compute_shannon_entropy(probs)`              | Compute Shannon entropy                              | `probs`: `(batch_size, num_classes)`    | `(batch_size,)`              | Use `-sum(p*log(p))`                                |
+| `compute_renyi_entropy(probs, alpha)`         | Compute Renyi entropy                                | `probs`, `alpha`                        | `(batch_size,)`              | Handle `alpha` near 1 carefully                     |
+| `save_checkpoint(model, optimizer, epoch, path)` | Save model checkpoint                               | `model`, `optimizer`, `epoch`, `path`   | None                         | Save `state_dict`s                                 |
+| `load_checkpoint(model, optimizer, path)`     | Load model checkpoint                                | `model`, `optimizer`, `path`            | None                         | Load `state_dict`s                                |
+
+---
+
+## 8. Final Notes
+
+- All functions should be compatible with batch processing.
+- Use torch functions for differentiable parts, numpy if needed for auxiliary computations.
+- Incorporate configuration parameters (e.g., T, beta) from loaded config where applicable.
+- Document functions adequately for readability and traceability with respect to the paper’s methodology.
+
+---
+
+This detailed logic analysis ensures `utils.py` will provide robust, correct, and efficient support functions aligned with the theoretical and experimental contributions of the paper, supporting a faithful reproduction of results.

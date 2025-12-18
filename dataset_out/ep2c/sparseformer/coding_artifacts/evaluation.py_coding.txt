@@ -1,0 +1,287 @@
+```python
+## evaluation.py
+import torch
+import torch.nn as nn
+import torch.nn.functional as F
+import time
+import os
+import numpy as np
+import matplotlib.pyplot as plt
+from typing import Tuple, List, Dict
+from torchvision.utils import draw_bounding_boxes
+from dataset import ImageNetDataset  # Assuming dataset.py provides ImageNetDataset
+from model import SparseFormer          # Assuming model.py provides SparseFormer
+from utils import bilinear_sample, setup_logging  # Utility functions
+from torch.utils.data import DataLoader
+from torchvision.transforms import functional as TF
+
+try:
+    from ptflops import get_model_complexity_info
+except ImportError:
+    get_model_complexity_info = None  # Require user to install 'ptflops' if needed
+
+# Load the config for evaluation parameters
+import yaml
+with open('config.yaml', 'r') as f:
+    CONFIG = yaml.safe_load(f)
+
+DEVICE = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+
+def compute_top1_accuracy(model: nn.Module, dataloader: DataLoader, device: torch.device, max_samples: int = 1000) -> float:
+    """
+    Evaluate top-1 accuracy over the validation set.
+    """
+    model.eval()
+    total_correct = 0
+    total_samples = 0
+
+    with torch.no_grad():
+        for i, (images, labels) in enumerate(dataloader):
+            images = images.to(device, non_blocking=True)
+            labels = labels.to(device, non_blocking=True)
+            outputs = model(images)
+            preds = torch.argmax(outputs, dim=1)
+            total_correct += torch.sum(preds == labels).item()
+            total_samples += labels.size(0)
+            if total_samples >= max_samples:
+                break
+
+    accuracy = 100.0 * total_correct / total_samples
+    model.train()
+    return accuracy
+
+def measure_model_flops(model: nn.Module, input_res: Tuple[int, int] = (224, 224)) -> float:
+    """
+    Calculate the FLOPs of the model on a dummy input.
+    Requires 'ptflops' package.
+    """
+    if get_model_complexity_info is None:
+        print("ptflops is not installed. Please install it for FLOPs measurement.")
+        return -1.0
+    model.eval()
+    dummy_input = torch.randn(1, 3, input_res[0], input_res[1]).to(DEVICE)
+    flops, params = get_model_complexity_info(model, input_res, as_strings=False,
+                                              print_per_layer=False)
+    model.train()
+    return flops / 1e9  # Convert to GFLOPs
+
+def measure_throughput(model: nn.Module, dataloader: DataLoader, device: torch.device, 
+                       num_iters: int = 50, batch_size: int = 128) -> float:
+    """
+    Measure inference throughput (images/sec) over a fixed number of iterations.
+    """
+    model.eval()
+    images_iter = iter(dataloader)
+    # Prepare a batch of dummy images
+    dummy_batch = next(images_iter)[0][:batch_size]
+    dummy_batch = dummy_batch.to(device, non_blocking=True)
+
+    # Warm-up
+    with torch.no_grad():
+        for _ in range(10):
+            _ = model(dummy_batch)
+
+    # Timer start
+    torch.cuda.synchronize()
+    start_time = time.time()
+
+    with torch.no_grad():
+        for _ in range(num_iters):
+            try:
+                images = next(images_iter)[0][:batch_size]
+            except StopIteration:
+                images_iter = iter(dataloader)
+                images = next(images_iter)[0][:batch_size]
+            images = images.to(device, non_blocking=True)
+            _ = model(images)
+    torch.cuda.synchronize()
+    end_time = time.time()
+
+    total_images = batch_size * num_iters
+    throughput = total_images / (end_time - start_time)
+    model.train()
+    return throughput
+
+def visualize_token_rois(model: nn.Module, image: torch.Tensor, save_dir: str, idx: int):
+    """
+    Visualize RoIs of tokens on the input image.
+    """
+    import cv2
+    import numpy as np
+
+    model.eval()
+    image = image.unsqueeze(0).to(DEVICE)  # [1, 3, H, W]
+
+    # Hook or modify model to output token RoIs during forward
+    # Here, we assume model provides an attribute/function to get RoIs
+    # For demonstration, we rerun the forward with hook to capture RoIs.
+    token_rois = None
+
+    def hook_fn(module, input, output):
+        nonlocal token_rois
+        # Assuming the model stores the latest RoIs in an accessible attribute
+        # Or modify model code to output RoIs explicitly
+        if hasattr(model, 'last_token_rois'):
+            token_rois = model.last_token_rois.detach().cpu()
+
+    # Register hook on the focusing transformer stage or relevant module
+    # For simplicity, assuming model has method 'forward_with_rois'
+    # and returns RoIs along with logits, otherwise you'll need to modify model to output RoIs.
+    try:
+        # Run inference with hook
+        _ = model(image)
+        # After inference, token_rois should be set in model
+        rois_np = model.last_token_rois.cpu().numpy()  # shape: [N, 4], normalized [0,1]
+    except AttributeError:
+        print("Model does not provide token RoIs access. Implement model hook to get RoIs.")
+        return
+
+    # Load original image
+    img_path = None
+    # In actual implementation, you should keep track of the original image path
+    # or pass the original image tensor for visualization.
+    # Here, we assume the original image tensor was saved separately or passed as input.
+    # For demonstration, create dummy image
+    image_np = image.squeeze(0).permute(1,2,0).cpu().numpy()
+    image_np = (image_np * 255).astype(np.uint8)
+
+    # Convert normalized RoIs to pixel coordinates
+    H, W = image_np.shape[:2]
+    boxes = []
+    for (x, y, w, h) in rois_np:
+        x1 = int((x - 0.5 * w) * W)
+        y1 = int((y - 0.5 * h) * H)
+        x2 = int((x + 0.5 * w) * W)
+        y2 = int((y + 0.5 * h) * H)
+        boxes.append([x1, y1, x2, y2])
+
+    # Draw bounding boxes
+    box_tensor = torch.tensor(boxes)
+    img_bboxes = draw_bounding_boxes(
+        torch.tensor(image_np).permute(2,0,1),
+        boxes=box_tensor,
+        width=2,
+        colors="red",
+        labels=None
+    )
+
+    # Save or show image
+    os.makedirs(save_dir, exist_ok=True)
+    save_path = os.path.join(save_dir, f"token_rois_{idx}.png")
+    img_bboxes = img_bboxes.permute(1,2,0).numpy()
+    plt.imshow(img_bboxes)
+    plt.axis('off')
+    plt.tight_layout()
+    plt.savefig(save_path)
+    plt.close()
+
+def visualize_sampling_density(model: nn.Module, dataset: Dataset, idx: int, save_dir: str):
+    """
+    Visualize sampling point density maps for a specific image.
+    """
+    import seaborn as sns
+    import cv2
+
+    # Run inference on selected image
+    image, label = dataset[idx]
+    image_tensor = image.unsqueeze(0).to(DEVICE)
+
+    # Hook or modify model to save sampling points at each stage
+    sampling_points_list: List[np.ndarray] = []
+
+    # For demonstration, assuming model or its focusing layers have a method or attribute to get sampling points
+    # If not, modify model to store sampling points during forward pass.
+    try:
+        _ = model(image_tensor)
+        # Assuming model has attribute 'last_sampling_points' as list of P x 2 arrays per stage
+        sampling_points_list = model.last_sampling_points  # List of NxP x 2 arrays
+    except AttributeError:
+        print("Model does not provide sampling points. Please modify model to output them.")
+        return
+
+    # Prepare original image
+    image_np = image.permute(1,2,0).cpu().numpy()
+
+    for stage_idx, points in enumerate(sampling_points_list):
+        # points: [N, P, 2], normalized coords
+        # For visualization, project to pixel location
+        H, W = image.shape[1], image.shape[2]
+        points = np.clip(points, 0, 1)
+        abs_points = points.copy()
+        abs_points[:,:,0] = points[:,:,0] * W
+        abs_points[:,:,1] = points[:,:,1] * H
+
+        # For density map, flatten all points
+        all_points = abs_points.reshape(-1, 2)
+        x_coords, y_coords = all_points[:,0], all_points[:,1]
+        # Generate density map
+        density_map, xedges, yedges = np.histogram2d(
+            y_coords, x_coords, bins=(H//4, W//4),
+            range=[[0, H], [0, W]]
+        )
+
+        # Smooth density with kernel
+        from scipy.ndimage import uniform_filter
+        density_map_smooth = uniform_filter(density_map, size=7)
+
+        # Plot heatmap
+        plt.figure(figsize=(6,6))
+        plt.imshow(image_np)
+        plt.imshow(density_map_smooth, alpha=0.6, cmap='hot', extent=[0, W, H, 0])
+        plt.axis('off')
+        plt.tight_layout()
+        os.makedirs(save_dir, exist_ok=True)
+        save_path = os.path.join(save_dir, f"sampling_density_stage_{stage_idx+1}_{idx}.png")
+        plt.savefig(save_path)
+        plt.close()
+
+def main():
+    # Initialize dataset and model for evaluation
+    dataset_val = ImageNetDataset(CONFIG, split='val')
+    dataloader_val = DataLoader(dataset_val, batch_size=1, shuffle=False, num_workers=CONFIG['dataset'].get('num_workers', 8))
+    model = SparseFormer(CONFIG)
+    model.to(DEVICE)
+    model.eval()
+
+    # Load trained model checkpoint
+    checkpoint_path = os.path.join(CONFIG['saving'].get('checkpoint_dir', './checkpoints/'), 'final.pth')
+    if os.path.exists(checkpoint_path):
+        checkpoint = torch.load(checkpoint_path, map_location=DEVICE)
+        model.load_state_dict(checkpoint['model'])
+        print(f"Loaded model checkpoint from {checkpoint_path}")
+    else:
+        print("Model checkpoint not found. Run training first.")
+        return
+
+    # 1. Compute top-1 accuracy
+    print("Calculating top-1 accuracy on validation set...")
+    val_acc1 = compute_top1_accuracy(model, dataloader_val, DEVICE)
+    print(f"Validation Top-1 Accuracy: {val_acc1:.2f}%")
+
+    # 2. Measure FLOPs
+    print("Measuring model FLOPs...")
+    flops_g = measure_model_flops(model, input_res=(224,224))
+    print(f"Model GFLOPs: {flops_g:.2f} GF")
+
+    # 3. Measure throughput
+    print("Measuring throughput (images/sec)...")
+    throughput = measure_throughput(model, dataloader_val, DEVICE)
+    print(f"Approximate throughput: {throughput:.2f} images/sec")
+
+    # 4. Visualization: RoIs
+    if CONFIG['evaluation'].get('visualize_token_rois', False):
+        print("Visualizing token RoIs for selected images...")
+        for idx in range(min(10, len(dataset_val))):  # sample 10 images
+            image, _ = dataset_val[idx]
+            visualize_token_rois(model, image, save_dir='visualizations/rois', idx=idx)
+
+    # 5. Visualization: Sampling Density Maps
+    if CONFIG['evaluation'].get('visualize_sampling_density', False):
+        print("Visualizing sampling point density maps...")
+        for idx in range(min(10, len(dataset_val))):
+            image, _ = dataset_val[idx]
+            visualize_sampling_density(model, dataset_val, idx, save_dir='visualizations/sampling_density')
+
+if __name__ == "__main__":
+    main()
+```

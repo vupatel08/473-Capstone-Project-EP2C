@@ -1,0 +1,44 @@
+training:
+  learning_rate: 0.0003
+  batch_size: 32
+  epochs: 10  # Number of epochs not explicitly given; set a reasonable default for large-scale triplet training
+  optimizer: AdamW
+  device: cuda # Assuming GPU execution
+  seed: 42
+
+dataset:
+  dataset_path: "path/to/curated/dataset"
+  train_split_ratio: 0.7
+  val_split_ratio: 0.1
+  test_split_ratio: 0.2
+  max_prompt_words: 5
+  min_view_count: 10
+  max_view_count: 1000
+  filter_negative_signals: true
+
+model:
+  pretrained_model_name: "openai/clip-vit-base-patch32"
+  save_dir: "models/checkpoints/"
+  load_weights: null  # Set if resuming training
+
+loss:
+  margin: 0.2  # Typical triplet margin, not explicitly given but a standard choice
+  loss_function: triplet  # Custom triplet loss implementation
+
+clustering:
+  method: ward  # Hierarchical clustering method
+  num_clusters: 173  # Based on suggested clustering analysis
+  linkage_distance_threshold: null  # Will be set based on silhouette score or kept as variable
+
+evaluation:
+  rank_visualization: true
+  cluster_dimensionality: 2  # For t-SNE visualization
+  evaluation_metrics:
+    pairwise_accuracy: true
+    ranking_visualization: true
+
+fine_tuning:
+  enabled: false  # Enable if planning fine-tuning generative model later
+  learning_rate: 1e-4
+  epochs: 5  # Optional, not specified in paper => default to 5
+  reward_model_checkpoint: "models/your_trained_social_reward.pt"

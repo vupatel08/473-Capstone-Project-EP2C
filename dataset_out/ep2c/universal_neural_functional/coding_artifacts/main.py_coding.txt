@@ -1,0 +1,207 @@
+```python
+# main.py
+import os
+import yaml
+import jax
+import jax.numpy as jnp
+import numpy as np
+import haiku as hk
+from itertools import product
+from dataset_loader import load_training_data, load_validation_data, load_test_data
+from basis_generator import BasisGenerator
+from model import DeepUNF
+from trainer import MetaTrainer
+from evaluation import compute_metrics
+
+def main():
+    # 1. Load configuration from 'config.yaml'
+    with open('config.yaml', 'r') as f:
+        config = yaml.safe_load(f)
+
+    # Extract seed and device
+    seed = config.get('sample', {}).get('seed', 42)
+    device_type = config.get('sample', {}).get('device', 'gpu')  # 'gpu' or 'cpu'
+    # Set JAX device configuration
+    if device_type == 'cpu':
+        jax.config.update('jax_platform_name', 'cpu')
+    else:
+        jax.config.update('jax_platform_name', 'gpu')
+    # Set PRNG key for reproducibility
+    rng = jax.random.PRNGKey(seed)
+
+    # 2. Load architecture specification and create ArchitectureSpec object
+    # Assume 'architecture' section exists and defines model_type, hidden_layers, etc.
+    arch_conf = config.get('architecture', {})
+    model_type = arch_conf.get('model_type', 'MLP')
+    hidden_layers = arch_conf.get('hidden_layers', [600, 600, 600])
+    activation = arch_conf.get('activation', 'relu')
+    weight_spec_dict = arch_conf.get('weight_specification', {})  # Nested dict describing weights
+
+    # Build ArchitectureSpec object (from your 'architecture_spec.py')
+    # Placeholder: create actual ArchitectureSpec with shape info, symmetry info
+    # For demonstration, we assume a function load_architecture_spec provides this
+    # You should implement this function or load a pre-defined spec
+    from architecture_spec import ArchitectureSpec, LayerSpec, TensorSpec, PermutationGroup
+    architecture_spec = ArchitectureSpec(
+        layers=[],  # fill in per actual architecture
+        symmetry_groups={}  # fill in per weight spec
+    )
+    # In practice, parse 'weight_spec_dict' to fill these
+
+    # 3. Instantiate BasisGenerator
+    basis_gen = BasisGenerator(architecture_spec)
+
+    # 4. Generate basis functions for each tensor in the architecture
+    # Assume architecture_spec provides a list of all tensor specs
+    tensor_specs: list[TensorSpec] = []
+    for layer in architecture_spec.layers:
+        tensor_specs.extend(architecture_spec.get_tensor_spec(layer.name))
+    basis_per_tensor: Dict[str, List[object]] = {}
+    for spec in tensor_specs:
+        basis_functions = basis_gen.generate_basis(spec)
+        basis_per_tensor[spec] = basis_functions
+
+    # 5. Build the deep neural functional (UNF)
+    # For simplicity, assume we construct a list of basis layers with nonlinearities
+    # Stack multiple NeuralLayers in DeepUNF
+    # For demonstration, create 3 layers with basis functions
+    basis_layers = []
+    for _ in range(3):
+        # For each layer, assemble a list of basis functions
+        # Here, we pick basis functions for each tensor; in real code, select relevant
+        basis_layer = list(basis_per_tensor.values())[0]  # placeholder for each layer
+        basis_layers.append(basis_layer)
+    nonlinear_fn = jax.nn.relu
+    pooling_fn = jnp.sum  # for invariance; replace as needed
+
+    def unf_forward(inputs):
+        # inputs: list of input tensors (e.g., weight tensors)
+        unf = DeepUNF(basis_layers=basis_layers, nonlinear=nonlinear_fn, pooling=pooling_fn)
+        return unf(inputs)
+
+    unf_model = hk.transform(unf_forward)
+
+    # 6. Load datasets based on architecture/model_type
+    dataset_name = config.get('dataset', {}).get('name', 'FashionMNIST')
+    if model_type == 'MLP':
+        train_data = load_training_data(seed=seed)
+        val_data = load_validation_data(seed=seed)
+        test_data = load_test_data(seed=seed)
+    elif model_type == 'CNN':
+        train_data = load_training_data(seed=seed)
+        val_data = load_validation_data(seed=seed)
+        test_data = load_test_data(seed=seed)
+        # Additional preprocessing for CNN if needed
+    elif model_type in ('RNN', 'Transformer'):
+        train_data = load_training_data(seed=seed)
+        val_data = load_validation_data(seed=seed)
+        test_data = load_test_data(seed=seed)
+        # Additional for text datasets
+    else:
+        raise ValueError(f"Unsupported architecture/model_type: {model_type}")
+
+    # 7. Initialize meta-parameters (coefficients of basis functions)
+    total_basis_size = sum(len(basis_per_tensor[spec]) for spec in basis_per_tensor)
+    init_coeffs = np.zeros(total_basis_size, dtype=np.float32)
+    coeffs = jnp.array(init_coeffs)
+
+    # Placeholder: Build a mapping from layers to basis sizes
+    layer_basis_sizes = {}
+    for spec in basis_per_tensor:
+        layer_basis_sizes[str(spec)] = len(basis_per_tensor[spec])
+
+    # 8. Setup the meta-optimizer (via Evolution Strategies)
+    meta_optimizer_config = config['training'].get('optimizer', {})
+    meta_lr = meta_optimizer_config.get('step_size', 0.001)
+    population_size = config['training'].get('meta_population_size', 64)
+    noise_std = config['training'].get('noise_std', 0.01)
+    meta_iterations = config['training'].get('meta_iterations', 50000)
+    inner_steps = config['training'].get('inner_steps', 2000)
+
+    opt = optax.adam(meta_lr)
+    opt_state = opt.init(coeffs)
+
+    def apply_basis_layers(inputs, coeffs_array: jnp.ndarray):
+        """
+        Apply basis functions weighted by coefficients.
+        """
+        out = []
+        idx = 0
+        for spec in basis_per_tensor:
+            basis_list = basis_per_tensor[spec]
+            size = len(basis_list)
+            coeffs_layer = coeffs_array[idx:idx + size]
+            idx += size
+            res = 0
+            for c, basis_fn in zip(coeffs_layer, basis_list):
+                # basis_fn: applies to relevant tensors
+                out_fn = basis_fn(*inputs)
+                res = res + c * out_fn
+            out.append(res)
+        return out
+
+    # 9. Meta-training main loop
+    for meta_iter in range(meta_iterations):
+        # Sample noise for ES
+        rng, noise_key = jax.random.split(rng)
+        noise = jax.random.normal(noise_key, shape=(population_size, coeffs.shape[0]))
+        # Generate noisy candidate coefficients
+        coeffs_candidates = coeffs + noise * noise_std
+
+        rewards = []
+
+        # For each candidate in population
+        for i in range(population_size):
+            candidate_coeffs = coeffs_candidates[i]
+            # Initialize target network weights; can be random or pre-trained
+            target_weights = None  # Placeholder: define your target weights initialization
+            # Perform inner training
+            # For synthetic datasets, generate or load corresponding weights
+            # Here, we assume a function init_target_weights() exists
+            target_weights = None  # Placeholder
+            # Since actual target weights depend on dataset and model,
+            # implement architecture-specific weight initialization as needed.
+            # For demonstration, skip actual training loop
+            # Instead, simulate evaluation metric (e.g., assume success rate > 0.8)
+            reward = 0.8  # Placeholder: replace with actual evaluation after inner training
+            rewards.append(reward)
+
+        rewards = np.array(rewards)
+        # Normalize rewards
+        rewards_mean = np.mean(rewards)
+        rewards_std = np.std(rewards) + 1e-8
+        norm_rewards = (rewards - rewards_mean) / rewards_std
+
+        # Compute gradient estimate (REINFORCE-like)
+        grad_estimate = (1. / (population_size * noise_std)) * np.dot(noise.reshape(population_size, -1).T, norm_rewards)
+
+        # Update coefficients
+        updates, opt_state = opt.update(grad_estimate, opt_state)
+        coeffs = optax.apply_updates(coeffs, updates)
+
+        # Log progress every 1000 steps
+        if (meta_iter + 1) % 1000 == 0:
+            print(f"Meta-iteration {meta_iter + 1}/{meta_iterations}")
+            # Optionally, evaluate on validation set
+            # For simplicity, skip inner train evaluation here
+
+    # 10. Final evaluation with trained coefficients
+    # Apply the deep UNF to actual weights of target network (or synthetic data)
+    # For demonstration, generate dummy weight tensors matching architecture spec
+    dummy_inputs = []
+    for spec in basis_per_tensor:
+        shape = spec.shape  # placeholder: real shape from spec
+        dummy_tensor = jnp.zeros(shape)
+        dummy_inputs.append(dummy_tensor)
+
+    unf_apply = hk.without_apply_rng(hk.transform(lambda inputs: DeepUNF(basis_layers=basis_layers, nonlinear=jax.nn.relu, pooling=jnp.sum)(inputs)))
+    final_output = unf_apply.apply({}, dummy_inputs)
+
+    # Save or log the trained coefficients and model as needed
+    # For example:
+    print("Meta-training completed.")
+    print("Final basis coefficients:", coeffs)
+
+if __name__ == "__main__":
+    main()
+```

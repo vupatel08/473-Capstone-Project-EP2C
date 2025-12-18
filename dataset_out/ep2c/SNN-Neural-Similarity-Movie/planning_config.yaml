@@ -1,0 +1,59 @@
+training:
+  learning_rate: 0.1
+  batch_size: 32
+  epochs: 320
+  optimizer: Adam
+  surrogate_gradient: inverse_tangent
+  weight_decay: 1e-5
+  initial_lr: 0.1
+  lr_decay_steps: 100
+  lr_decay_rate: 0.1
+  simulation_time: 16  # for UCF101 training
+  feedback_strength: 1.0
+  feedback_delay: 2  # arbitrary delay in feedback module
+  membrane_tau: 2
+  neuron_threshold: 1.0
+  reset_voltage: 0.0
+  surrogate_alpha: 1.0  # for inverse tangent surrogate
+model:
+  backbone: ResidualConvSPikeNet
+  residual_blocks: 3  # number of residual stages
+  feedback_module: FeedbackModule
+  feedback_connection_type: recurrent
+  input_channels: 3
+  feature_channels: 64
+  num_regions: 6  # cortical regions
+  layers_per_region: [2, 2, 2]
+dataset:
+  ucf101:
+    video_length: 16  # num frames per clip
+    frame_rate: 30  # Hz
+    input_size: [224, 224]  # image resize
+    train_split: 0.8
+  imagenet:
+    image_size: [224, 224]
+    input_repeats: 4
+    train_split: 0.8
+evaluation:
+  consultation_methods:
+    - TSRSA
+    - NeuralCeiling
+    - RegressionAnalysis
+manipulations:
+  shuffle_frames:
+    window_sizes: [5, 10, 20, 50]  # frames per window
+  replace_with_noise:
+    ratios: [0.25, 0.5, 0.75, 1.0]
+    noise_type: Gaussian
+  static_images:
+    source: "Gaussian noise images"
+    image_size: [224, 224]
+feedback:
+  connection_weights: learned
+  feedback_delay: 2  # ms
+  feedback_strength: 1.0
+  feedback_module: FeedbackModule
+system:
+  max_epochs: 320
+  device: cuda  # or 'cpu'
+  seed: 42

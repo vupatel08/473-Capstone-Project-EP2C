@@ -1,0 +1,125 @@
+**Logic Analysis for `detector.py`**
+
+---
+
+### Purpose:
+The `detector.py` module provides an interface to various machine-generated text detectors, both open-source models (like RoBERTa-based classifiers) and commercial APIs (such as GPTZero, Originality.ai, Winston AI). It implements a `Detector` class that allows scoring individual responses or batches of responses, managing API keys, and formatting requests/responses according to the detector's protocol.
+
+---
+
+### Core Components:
+
+- **`Detector` Class**  
+  - Responsible for initializing detector instances based on detector type/name.
+  - Handles detection score computation for single prompts/responses.
+  - Supports batch scoring for multiple prompt-response pairs for efficiency.
+  - Stores API keys or model references as needed.
+  - Provides flexible configuration via constructor parameters (detector name, API keys, model type).
+
+- **Detector Types**:  
+  - *Open-source models*: e.g., RoBERTa-large, RoBERTa-base.  
+    - These can be loaded locally using `transformers`.  
+    - Scores are obtained by passing text pairs through the model's classification head.  
+  - *APIs/Commercial detectors*: e.g., GPTZero, Originality.ai, Winston AI.  
+    - These require HTTP requests to specific API endpoints, including authentication headers if needed.
+    - Responses are parsed to extract scores.
+
+---
+
+### Functional Requirements:
+
+#### 1. Initialization (`__init__`)
+- Create a detector instance given a detector name.
+- For open-source models:
+  - Load tokenizer and model.
+  - Set device (GPU/CPU) for model inference.
+- For API-based detectors:
+  - Store API endpoint URLs.
+  - Store API keys or credentials from configuration.
+- Maintain a clear internal structure mapping detector names to implementation details.
+
+#### 2. Scoring a Single Response (`score_response(prompt, response)`)
+- Input:
+  - `prompt`: optional; for some detectors, may be ignored.
+  - `response`: the text to evaluate.
+- For open-source models:
+  - Concatenate prompt and response as needed.
+  - Tokenize combined text.
+  - Calculate sequence likelihoods (e.g., using `log_probabilities`).
+  - Derive a 'human-ness' score, likely the normalized log probability per token, or other heuristic scores.
+  - Return a float score; higher score could indicate more "human-like."
+- For API detectors:
+  - Send a POST request with the prompt/response.
+  - Parse JSON response to retrieve a detector score (e.g., probability, logit, or binary label).
+  - Convert to numeric score, consistent with open-source scores.
+  - Return score as float.
+
+#### 3. Batch Scoring (`batch_score(prompts_responses)`)
+- Input:
+  - List of tuples: `(prompt, response)`
+- Process:
+  - For open-source models:
+    - Batch encode all responses with their prompts (if needed).
+    - Compute scores in parallel or as a batch.
+  - For API:
+    - Loop over responses with batching limits to respect API rate limits.
+    - For each batch, send batch requests.
+- Output:
+  - List of scores aligned with input pairs.
+  - Ensure scores are in the same scale as `score_response`.
+
+---
+
+### Additional Design Details:
+
+- **Score Format & Consistency:**
+  - The detector scores should be continuous and comparable across detectors.
+  - For detectors providing binary decisions, define a threshold (e.g., 0.5 probability) to convert to a score.
+  - For detectors providing log probabilities or logits, use these directly or normalize if necessary.
+
+- **Configuration:**
+  - Load detector-specific parameters, such as:
+    - API endpoint URLs
+    - API keys for each detector
+    - Local model identifiers for open-source models
+  - Allow for flexible detector selection as per `config.yaml`.
+
+- **Error Handling:**
+  - Implement try-except blocks for network API calls and model inference.
+  - Return a default or sentinel score when detection fails.
+  - Log errors for debugging.
+
+- **Performance & Efficiency:**
+  - Cache loaded models to avoid re-loading on each call.
+  - Use `torch.no_grad()` during inference to save memory.
+  - Allow batch processing for efficiency with open-source models.
+
+---
+
+### Implementation Notes:
+
+- **Open-source models:**
+  - Use HuggingFace models labeled (for example) as "roberta-large" or "roberta-base".
+  - Tokenize input, compute sequence likelihoods.
+  - From the likelihood, derive a representative score (e.g., negative log likelihood per token).
+
+- **API models:**
+  - Construct API requests with appropriate headers and body contents.
+  - Support rate limiting and retry mechanisms if needed.
+
+- **Detector Registry:**
+  - Maintain a mapping/dictionary of detector name to implementation details (model class, API URL, etc.)
+  - Abstract differences so that `score_response()` remains a uniform interface.
+
+---
+
+### Summary:
+The `detector.py` code needs to:
+- Define a `Detector` class that abstracts over different detector types.
+- Provide methods for single (`score_response`) and batch (`batch_score`) inference.
+- Handle local model loading and inference cleanly.
+- Handle external API calls robustly, with error fallback.
+- Return scores in a comparable, continuous numeric format suitable for preference comparison and evaluation.
+- Be configurable via detector name and API keys, enabling flexible use in the experimental pipeline.
+
+This structured approach ensures accurate, scalable, and reproducible detection scoring consistent with experimental methodology described in the paper.

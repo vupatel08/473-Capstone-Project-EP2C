@@ -1,0 +1,399 @@
+```python
+## dataset_loader.py
+import os
+import numpy as np
+import scipy.sparse as sp
+import torch
+
+class DatasetLoader:
+    """
+    DatasetLoader loads graph datasets (heterophilic and homophilic),
+    processes adjacency matrices, features, labels, and masks.
+    """
+
+    def __init__(self, config: dict):
+        """
+        Initialize the dataset loader with the provided configuration.
+
+        Args:
+            config (dict): Dictionary containing dataset parameters.
+                Should include keys:
+                    - 'dataset_name' (str)
+                    - 'seed' (int)
+                    - 'train_ratio' (float)
+                    - 'val_ratio' (float)
+                    - 'test_ratio' (float)
+                    - 'splits' (int)
+                    - 'data_dir' (str): path to data directory or base URL
+        """
+        self.dataset_name: str = config.get('dataset_name', '')
+        self.seed: int = config.get('seed', 42)
+        self.train_ratio: float = config.get('train_ratio', 0.6)
+        self.val_ratio: float = config.get('val_ratio', 0.2)
+        self.test_ratio: float = config.get('test_ratio', 0.2)
+        self.splits: int = config.get('splits', 10)
+        self.data_dir: str = config.get('data_dir', './datasets')
+
+        # Dataset-specific info: file names or URLs, dataset formats
+        self.dataset_info = self._get_dataset_info()
+
+    def _get_dataset_info(self):
+        """
+        Map dataset names to file paths or URLs, and to dataset specific processing info.
+        """
+        info = {}
+        # Placeholder: provide actual file paths or URLs as needed.
+        # For the purpose of this implementation, assume local files are prepared.
+        # Extend this dict with actual dataset files or URLs.
+        if self.dataset_name.lower().startswith('minesweeper'):
+            info = {
+                'features_file': os.path.join(self.data_dir, 'mines_features.npy'),
+                'edges_file': os.path.join(self.data_dir, 'mines_edges.npy'),
+                'labels_file': os.path.join(self.data_dir, 'mines_labels.npy'),
+                'node_ids_file': os.path.join(self.data_dir, 'mines_node_ids.npy')
+            }
+        elif self.dataset_name.lower().startswith('roman-empire'):
+            info = {
+                'edges_file': os.path.join(self.data_dir, 'roman_edges.npy'),
+                'features_file': os.path.join(self.data_dir, 'roman_features.npy'),
+                'labels_file': os.path.join(self.data_dir, 'roman_labels.npy')
+            }
+        elif self.dataset_name.lower().startswith('questions'):
+            info = {
+                'edges_file': os.path.join(self.data_dir, 'questions_edges.npy'),
+                'features_file': os.path.join(self.data_dir, 'questions_features.npy'),
+                'labels_file': os.path.join(self.data_dir, 'questions_labels.npy')
+            }
+        elif self.dataset_name.lower().startswith('squirrel'):
+            info = {
+                'edges_file': os.path.join(self.data_dir, 'squirrel_edges.npy'),
+                'features_file': os.path.join(self.data_dir, 'squirrel_features.npy'),
+                'labels_file': os.path.join(self.data_dir, 'squirrel_labels.npy')
+            }
+        elif self.dataset_name.lower().startswith('cora'):
+            info = {
+                'inductive': False,
+                'edges_file': os.path.join(self.data_dir, 'cora_adj.npz'),
+                'features_file': os.path.join(self.data_dir, 'cora_features.npy'),
+                'labels_file': os.path.join(self.data_dir, 'cora_labels.npy'),
+                'split_indices': os.path.join(self.data_dir, 'cora_splits.npy')  # if available
+            }
+        elif self.dataset_name.lower().startswith('citeseer'):
+            info = {
+                'inductive': False,
+                'edges_file': os.path.join(self.data_dir, 'citeseer_adj.npz'),
+                'features_file': os.path.join(self.data_dir, 'citeseer_features.npy'),
+                'labels_file': os.path.join(self.data_dir, 'citeseer_labels.npy')
+            }
+        elif self.dataset_name.lower().startswith('pubmed'):
+            info = {
+                'inductive': False,
+                'edges_file': os.path.join(self.data_dir, 'pubmed_adj.npz'),
+                'features_file': os.path.join(self.data_dir, 'pubmed_features.npy'),
+                'labels_file': os.path.join(self.data_dir, 'pubmed_labels.npy')
+            }
+        # Add other datasets similarly...
+        # For actual implementation, fill in with real data locations.
+        return info
+
+    def load_data(self):
+        """
+        Loads dataset according to dataset name and processes into tensors.
+
+        Returns:
+            adj (torch.sparse.FloatTensor): Sparse adjacency matrix with self-loops.
+            features (torch.FloatTensor): Node feature matrix.
+            labels (torch.LongTensor): Node labels.
+            train_mask (torch.BoolTensor): Mask for training nodes.
+            val_mask (torch.BoolTensor): Mask for validation nodes.
+            test_mask (torch.BoolTensor): Mask for test nodes.
+        """
+        # Based on dataset name, call the specific load function
+        ds_name = self.dataset_name.lower()
+        if ds_name.startswith('minesweeper'):
+            return self._load_minesweeper()
+        elif ds_name.startswith('roman-empire'):
+            return self._load_roman_empire()
+        elif ds_name.startswith('questions'):
+            return self._load_questions()
+        elif ds_name.startswith('squirrel'):
+            return self._load_squirrel()
+        elif ds_name.startswith('cora'):
+            return self._load_cora()
+        elif ds_name.startswith('citeseer'):
+            return self._load_citeseer()
+        elif ds_name.startswith('pubmed'):
+            return self._load_pubmed()
+        # Add other dataset load calls as needed
+        else:
+            raise ValueError(f"Dataset '{self.dataset_name}' is not supported or not implemented.")
+
+    def _load_minesweeper(self):
+        """
+        Load Minesweeper dataset: features, adjacency, labels.
+        Assume files exists in npy format: features, edges, labels.
+        """
+        features_path = self.dataset_info['features_file']
+        edges_path = self.dataset_info['edges_file']
+        labels_path = self.dataset_info['labels_file']
+        node_ids_path = self.dataset_info.get('node_ids_file', None)
+
+        # Load node features
+        features_np = np.load(features_path)  # shape: [num_nodes, feature_dim]
+        features = torch.FloatTensor(features_np)
+
+        # Load labels
+        labels_np = np.load(labels_path)  # shape: [num_nodes]
+        labels = torch.LongTensor(labels_np)
+
+        # Load edges
+        edges_np = np.load(edges_path)  # shape: [2, num_edges]
+        edge_index = torch.LongTensor(edges_np)
+        # Convert to sparse adjacency
+        num_nodes = features.shape[0]
+        adj = sp.coo_matrix(
+            (np.ones(edge_index.shape[1]), (edge_index[0], edge_index[1])),
+            shape=(num_nodes, num_nodes)
+        )
+        # Make undirected
+        adj = adj + adj.T.multiply(adj.T > adj)
+        adj = adj.tocoo()
+
+        # Add self-loops
+        adj = adj + sp.eye(adj.shape[0])
+        # Normalize adjacency for GCN
+        degs = np.array(adj.sum(1)).flatten()
+        degs_inv_sqrt = np.power(degs, -0.5)
+        degs_inv_sqrt[np.isinf(degs_inv_sqrt)] = 0.
+        D_inv_sqrt = sp.diags(degs_inv_sqrt)
+        adj_norm = D_inv_sqrt @ adj @ D_inv_sqrt
+
+        # Convert to torch sparse tensor
+        indices = torch.LongTensor([adj_norm.row, adj_norm.col])
+        values = torch.FloatTensor(adj_norm.data)
+        shape = adj_norm.shape
+        adj_tensor = torch.sparse.FloatTensor(indices, values, torch.Size(shape))
+
+        # Generate masks for splits
+        train_mask, val_mask, test_mask = self._generate_splits(features.shape[0])
+
+        return adj_tensor, features, labels, train_mask, val_mask, test_mask
+
+    def _load_roman_empire(self):
+        """
+        Similar to above, load Roman-empire dataset from files.
+        """
+        edges_path = self.dataset_info['edges_file']
+        features_path = self.dataset_info['features_file']
+        labels_path = self.dataset_info['labels_file']
+
+        # Load features
+        features_np = np.load(features_path)
+        features = torch.FloatTensor(features_np)
+        # Load labels
+        labels_np = np.load(labels_path)
+        labels = torch.LongTensor(labels_np)
+        # Load edges
+        edge_idx = np.load(edges_path)  # shape: [2, num_edges]
+        edge_index = torch.LongTensor(edge_idx)
+
+        # Build adjacency
+        num_nodes = features.shape[0]
+        adj = sp.coo_matrix(
+            (np.ones(edge_index.shape[1]), (edge_index[0], edge_index[1])),
+            shape=(num_nodes, num_nodes)
+        )
+        # Make symmetric
+        adj = adj + adj.T.multiply(adj.T > adj)
+        adj = adj.tocoo()
+
+        # Add self-loops
+        adj = adj + sp.eye(adj.shape[0])
+        # Normalize adjacency
+        degs = np.array(adj.sum(1)).flatten()
+        degs_inv_sqrt = np.power(degs, -0.5)
+        degs_inv_sqrt[np.isinf(degs_inv_sqrt)] = 0.
+        D_inv_sqrt = sp.diags(degs_inv_sqrt)
+        adj_norm = D_inv_sqrt @ adj @ D_inv_sqrt
+
+        indices = torch.LongTensor([adj_norm.row, adj_norm.col])
+        values = torch.FloatTensor(adj_norm.data)
+        shape = adj_norm.shape
+        adj_tensor = torch.sparse.FloatTensor(indices, values, torch.Size(shape))
+        # Generate splits
+        train_mask, val_mask, test_mask = self._generate_splits(features.shape[0])
+        return adj_tensor, features, labels, train_mask, val_mask, test_mask
+
+    def _load_questions(self):
+        """
+        Load Questions dataset similarly.
+        """
+        edges_path = self.dataset_info['edges_file']
+        features_path = self.dataset_info['features_file']
+        labels_path = self.dataset_info['labels_file']
+
+        features_np = np.load(features_path)
+        features = torch.FloatTensor(features_np)
+        labels_np = np.load(labels_path)
+        labels = torch.LongTensor(labels_np)
+        edge_idx = np.load(edges_path)
+        edge_index = torch.LongTensor(edge_idx)
+
+        num_nodes = features.shape[0]
+        adj = sp.coo_matrix(
+            (np.ones(edge_index.shape[1]), (edge_index[0], edge_index[1])),
+            shape=(num_nodes, num_nodes)
+        )
+        # Symmetrize
+        adj = adj + adj.T.multiply(adj.T > adj)
+        adj = adj.tocoo()
+
+        adj = adj + sp.eye(adj.shape[0])
+        degs = np.array(adj.sum(1)).flatten()
+        degs_inv_sqrt = np.power(degs, -0.5)
+        degs_inv_sqrt[np.isinf(degs_inv_sqrt)] = 0
+        D_inv_sqrt = sp.diags(degs_inv_sqrt)
+        adj_norm = D_inv_sqrt @ adj @ D_inv_sqrt
+
+        indices = torch.LongTensor([adj_norm.row, adj_norm.col])
+        values = torch.FloatTensor(adj_norm.data)
+        shape = adj_norm.shape
+        adj_tensor = torch.sparse.FloatTensor(indices, values, torch.Size(shape))
+        train_mask, val_mask, test_mask = self._generate_splits(features.shape[0])
+        return adj_tensor, features, labels, train_mask, val_mask, test_mask
+
+    def _load_squirrel(self):
+        """
+        Load Squirrel dataset with potential filtering for heterophily.
+        Similar steps; additional filtering can be implemented here.
+        """
+        edges_path = self.dataset_info['edges_file']
+        features_path = self.dataset_info['features_file']
+        labels_path = self.dataset_info['labels_file']
+
+        features_np = np.load(features_path)
+        features = torch.FloatTensor(features_np)
+
+        labels_np = np.load(labels_path)
+        labels = torch.LongTensor(labels_np)
+
+        edge_idx = np.load(edges_path)
+        edge_index = torch.LongTensor(edge_idx)
+
+        num_nodes = features.shape[0]
+        adj = sp.coo_matrix(
+            (np.ones(edge_index.shape[1]), (edge_index[0], edge_index[1])),
+            shape=(num_nodes, num_nodes)
+        )
+        # Make symmetric
+        adj = adj + adj.T.multiply(adj.T > adj)
+        adj = adj.tocoo()
+
+        # Optionally filter edges here if needed (e.g., remove edges connecting train/test nodes)
+        # For simplicity, assume no filtering unless specified.
+        adj = adj + sp.eye(adj.shape[0])  # self-loops
+        degs = np.array(adj.sum(1)).flatten()
+        degs_inv_sqrt = np.power(degs, -0.5)
+        degs_inv_sqrt[np.isinf(degs_inv_sqrt)] = 0
+        D_inv_sqrt = sp.diags(degs_inv_sqrt)
+        adj_norm = D_inv_sqrt @ adj @ D_inv_sqrt
+
+        indices = torch.LongTensor([adj_norm.row, adj_norm.col])
+        values = torch.FloatTensor(adj_norm.data)
+        shape = adj_norm.shape
+        adj_tensor = torch.sparse.FloatTensor(indices, values, torch.Size(shape))
+        train_mask, val_mask, test_mask = self._generate_splits(features.shape[0])
+        return adj_tensor, features, labels, train_mask, val_mask, test_mask
+
+    def _load_cora(self):
+        """
+        Load Cora dataset from .npz sparse adjacency, features, labels, optionally splits.
+        """
+        import scipy.sparse.linalg as la
+        adj_path = self.dataset_info['edges_file']
+        feat_path = self.dataset_info['features_file']
+        label_path = self.dataset_info['labels_file']
+        split_path = self.dataset_info.get('split_indices', None)
+
+        # Load adjacency
+        loader = np.load(adj_path)
+        adj = sp.coo_matrix((loader['data'], (loader['row'], loader['col'])), shape=loader['shape'])
+        adj = adj + adj.T.multiply(adj.T > adj)
+        adj = adj + sp.eye(adj.shape[0])  # add self-loops
+
+        # Normalize adjacency
+        degs = np.array(adj.sum(1)).flatten()
+        degs_inv_sqrt = np.power(degs, -0.5)
+        degs_inv_sqrt[np.isinf(degs_inv_sqrt)] = 0
+        D_inv_sqrt = sp.diags(degs_inv_sqrt)
+        adj_norm = D_inv_sqrt @ adj @ D_inv_sqrt
+
+        indices = torch.LongTensor([adj_norm.row, adj_norm.col])
+        values = torch.FloatTensor(adj_norm.data)
+        shape = adj_norm.shape
+        adj_tensor = torch.sparse.FloatTensor(indices, values, torch.Size(shape))
+
+        features_np = np.load(feat_path)
+        features = torch.FloatTensor(features_np)
+        labels_np = np.load(label_path)
+        labels = torch.LongTensor(labels_np)
+
+        if split_path and os.path.exists(split_path):
+            splits = np.load(split_path)
+            train_mask, val_mask, test_mask = self._create_masks_from_splits(splits, labels.shape[0])
+        else:
+            train_mask, val_mask, test_mask = self._generate_splits(labels.shape[0])
+
+        return adj_tensor, features, labels, train_mask, val_mask, test_mask
+
+    def _load_citeseer(self):
+        """
+        Load Citeseer dataset similarly.
+        """
+        # Implement similarly as Cora
+        pass
+
+    def _load_pubmed(self):
+        """
+        Load PubMed dataset similarly.
+        """
+        # Implement similarly as Cora
+        pass
+
+    def _generate_splits(self, num_nodes):
+        """
+        Generate random train/val/test masks for the nodes.
+        """
+        np.random.seed(self.seed)
+        indices = np.random.permutation(num_nodes)
+        train_end = int(num_nodes * self.train_ratio)
+        val_end = train_end + int(num_nodes * self.val_ratio)
+
+        train_idx = indices[:train_end]
+        val_idx = indices[train_end:val_end]
+        test_idx = indices[val_end:]
+
+        train_mask = torch.zeros(num_nodes, dtype=torch.bool)
+        val_mask = torch.zeros(num_nodes, dtype=torch.bool)
+        test_mask = torch.zeros(num_nodes, dtype=torch.bool)
+
+        train_mask[train_idx] = True
+        val_mask[val_idx] = True
+        test_mask[test_idx] = True
+
+        return train_mask, val_mask, test_mask
+
+    def _create_masks_from_splits(self, splits, num_nodes):
+        """
+        Create masks from pre-saved split indices.
+        """
+        train_mask = torch.zeros(num_nodes, dtype=torch.bool)
+        val_mask = torch.zeros(num_nodes, dtype=torch.bool)
+        test_mask = torch.zeros(num_nodes, dtype=torch.bool)
+
+        train_mask[splits['train']] = True
+        val_mask[splits['val']] = True
+        test_mask[splits['test']] = True
+
+        return train_mask, val_mask, test_mask
+```

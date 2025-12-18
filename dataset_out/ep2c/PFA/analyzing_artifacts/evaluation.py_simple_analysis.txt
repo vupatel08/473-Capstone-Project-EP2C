@@ -1,0 +1,150 @@
+### Evaluation.py Logic Analysis for `evaluate()` Function
+
+The purpose of `evaluate()` is to load a trained semantic segmentation model, perform inference on the validation dataset, compute quantitative metrics such as per-class IoU and mean IoU, and record these results for analysis and comparison. Additionally, it may include optional prototype-based guidance during inference based on configuration.
+
+This analysis outlines the detailed steps and considerations to implement the function correctly, aligning with the paper's methodology, experimental setup, and the provided configuration.
+
+---
+
+### 1. **Setup and Initialization**
+
+- **Load Configuration Parameters:**
+  - Dataset paths (validation data directory, scribble annotations if applicable).
+  - Whether to utilize prototypes during inference (`use_prototypes`).
+  - Whether to apply class label guidance during inference (`class_guidance`), if enabled.
+  - Model architecture and checkpoint path for loading trained weights.
+
+- **Initialize Environment:**
+  - Set device: CPU or CUDA GPU.
+  - Ensure reproducibility if necessary (e.g., set seed).
+
+- **Load the Trained Model:**
+  - Instantiate the model architecture specified in the config (e.g., Segformer MiT-B1).
+  - Load trained weights (checkpoint file path provided or pre-specified).
+  - Set the model to evaluation mode (`model.eval()`).
+
+---
+
+### 2. **Data Loader for Validation Set**
+
+- **Dataset Preparation:**
+  - Use the same dataset class as for training (`dataset.py`) but in 'validation' split.
+  - Implement a DataLoader with batch size `batch_size` (from config).
+  - Apply necessary transformations:
+    - Resize or crop to `image_size` (512).
+    - Avoid data augmentation or use only deterministic transforms suitable for evaluation.
+    - Load the original images and the ground truth labels.
+
+- **Scribble Annotations:**
+  - During evaluation, typically, scribble annotations are not used; only the original labels are used to compute metrics.
+  - However, if the model relies on scribble masks for auxiliary tasks, ignore during evaluation unless specified.
+
+---
+
+### 3. **Inference Loop - Per Batch**
+
+For each batch of images:
+
+- **Move input tensors to device.**
+
+- **Optional Prototype Guidance:**
+  - If `use_prototypes` is `True`, further steps depend on whether guidance during inference is enabled:
+    - If `class_guidance` is `True`, use additional predicted class labels or classification scores to retrieve relevant prototypes from the prototype memory bank.
+    - Else, proceed without guidance or with a heuristic (e.g., confidence threshold filtering of prototypes) as described in the paper.
+
+- **Model Forward Pass:**
+  - Feed the images into the model:
+    - During inference, typically the forward process:
+      - Generate feature maps via backbone.
+      - Pass through the decoder.
+      - Produce predicted segmentation logits (size: batch × classes × height × width).
+  - If feature augmentation with prototypes is enabled:
+    - Retrieve relevant prototypes.
+    - Perform prototype-based feature augmentation:
+      - For local prototypes, might involve attention-weighted features.
+      - For global prototypes, may involve merging global prototype sets and augmenting features.
+    - Use the augmented features to generate the final logits.
+
+- **Prediction Extraction:**
+  - Convert logits to predicted label maps:
+    - Use `torch.argmax` over class dimension.
+  - Move predictions to CPU for metric evaluation.
+
+- **Store predictions and ground truths for all images.**
+
+---
+
+### 4. **Metric Computation**
+
+- **Per-class IoU calculation:**
+  - Use `scikit-learn` functions such as `sklearn.metrics.confusion_matrix` or manual IoU calculation:
+    - For each class, compute intersection and union:
+      - Intersection = count of pixels where prediction == GT == class.
+      - Union = count of pixels where prediction == class OR GT == class.
+    - IoU for each class = intersection / union.
+
+- **Mean IoU:**
+  - Average per-class IoU across all 21 categories.
+
+- **Per-class and mean IoU storage:**
+  - Save metrics for reporting.
+  - Optionally, generate visualizations such as confusion matrices.
+
+---
+
+### 5. **Optional Features / Variants**
+
+- **Prototype Guidance During Evaluation:**
+  - If `use_prototypes` and `class_guidance` are enabled:
+    - Load or compute the prototypes associated with the models.
+    - Use the full prototype-based feature augmentation process:
+      - Retrieve prototypes aligned with predicted categories.
+      - Re-augment features.
+      - Recompute the logits or directly modify the prediction maps.
+  - This step could improve accuracy, as in the training phase, but should be used only if intended by the evaluation protocol.
+
+- **Additional Post-processing:**
+  - Optionally, apply DenseCRF or other post-processing techniques for better boundary delineation (not mandatory unless specified).
+  
+---
+
+### 6. **Final Metrics and Result Recording**
+
+- **Aggregate predictions and ground truths:**
+  - Accumulate across all validation images.
+
+- **Compute overall metrics:**
+  - Per-class IoU.
+  - Mean IoU.
+
+- **Record results:**
+  - Save per-class IoU results (e.g., CSV, JSON).
+  - Save overall score.
+  - Optionally, save some qualitative visualizations of segmentation for analysis.
+
+---
+
+### 7. **Return and Output**
+
+- **Return a dictionary with:**
+  - `per_class_iou`: dictionary mapping class IDs to IoU scores.
+  - `mean_iou`: float for overall mean IoU.
+  - Additional info (e.g., confusion matrix, time taken).
+
+- **Logging and presentation:**
+  - Print detailed metrics.
+  - Save metrics to a report file if required.
+
+---
+
+### 8. **Error Handling & Robustness**
+
+- Check for consistency in model and dataset loading.
+- Handle cases where prototypes are not available or guidance is disabled.
+- Ensure predictions are properly aligned with ground truth labels, masking ignored pixels if necessary.
+
+---
+
+### Summary
+
+This evaluation.py plan ensures a proper, reproducible, and accurate assessment of the proposed prototype-guided scribble-supervised semantic segmentation method. It respects the experimental design detailed in the paper, leverages the configuration settings, and accommodates optional prototype guidance during inference for improved performance analysis.

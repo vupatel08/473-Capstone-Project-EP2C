@@ -1,0 +1,173 @@
+## model_inference.py
+import requests
+import time
+import logging
+from typing import List, Tuple, Optional
+import numpy as np
+from PIL import Image
+from io import BytesIO
+from math import cos, sin
+from transformers import CLIPProcessor, CLIPModel
+
+# For API calls to OpenAI (GPT-4 with vision capabilities)
+import openai
+
+# Configure logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
+class ModelInference:
+    def __init__(self, config: dict):
+        """
+        Initialize the ModelInference with configuration.
+        Args:
+            config (dict): Configuration dictionary with necessary API keys and parameters.
+        """
+        # API keys for OpenAI; should be set in config
+        self.api_key = config.get("api_key", "")
+        # Api models for GPT family
+        self.gpt_model = config.get("gpt_model", "gpt-4-vision")  # Use GPT-4 with vision if available
+        self.temperature = config.get("temperature", 0.2)
+        self.max_tokens = config.get("max_tokens", 512)
+
+        # Initialize CLIP model and processor for similarity scores
+        self.clip_model_name = "openai/clip-vit-base-patch32"
+        self.clip_processor = CLIPProcessor.from_pretrained(self.clip_model_name)
+        self.clip_model = CLIPModel.from_pretrained(self.clip_model_name)
+
+        # Optional: cache for similarities to avoid repetitive processing
+        self.similarity_cache = {}
+
+    def _call_openai_api(self, messages: List[dict], max_retry: int = 3) -> str:
+        """
+        Helper function to call OpenAI API with retries.
+        Args:
+            messages (list): List of message dicts for chat completion.
+            max_retry (int): Maximum number of retries.
+        Returns:
+            str: The textual response from the API.
+        """
+        for attempt in range(max_retry):
+            try:
+                response = openai.ChatCompletion.create(
+                    model=self.gpt_model,
+                    messages=messages,
+                    temperature=self.temperature,
+                    max_tokens=self.max_tokens
+                )
+                answer = response.choices[0].message['content'].strip()
+                return answer
+            except Exception as e:
+                logger.warning(f"API call failed on attempt {attempt + 1}: {e}")
+                time.sleep(2 ** attempt)  # exponential backoff
+        logger.error("API call failed after retries.")
+        return ""
+
+    def answer_questions(self, image_path: str, questions: List[str]) -> List[str]:
+        """
+        Given an image path and questions, generate answers using GPT-4 (vision).
+        Args:
+            image_path (str): Path to the image file.
+            questions (List[str]): List of questions.
+        Returns:
+            List[str]: Answers corresponding to questions.
+        """
+        answers = []
+        # Read and possibly encode image
+        image = Image.open(image_path).convert('RGB')
+        # Prepare a prompt that includes the image and questions
+        # Note: Implementation depends on API capabilities
+        # Placeholder: Assuming API accepts image path or image encoded as base64
+        # For GPT-4 with vision, the exact API call supports image input directly.
+        # However, in typical implementations, you pass image via API parameters.
+        # Here, we simulate with a placeholder function.
+        for question in questions:
+            prompt = f"Answer the following question based on the provided image:\nQuestion: {question}"
+            messages = [
+                {"role": "system", "content": "You are a multimodal assistant that answers questions based on images."},
+                {"role": "user", "content": prompt}
+            ]
+            answer = self._call_openai_api(messages)
+            answers.append(answer)
+        return answers
+
+    def evaluate_response(self, question: str, answer: str, label: str) -> Tuple[bool, float]:
+        """
+        Evaluate if the answer correctly describes the label, using GPT prompt.
+        For yes/no questions, parse response.
+        Args:
+            question (str): The question asked.
+            answer (str): Model's answer.
+            label (str): Ground truth label.
+        Returns:
+            Tuple[bool, float]: (is_correct, similarity_score)
+        """
+        # For label-specific deterministic questions, apply string matching
+        q_lower = question.lower()
+        a_lower = answer.lower()
+
+        # Determine if question is about presence/attribute (heuristic)
+        if "?" in question:
+            # Use GPT to evaluate correctness for general questions
+            prompt = (
+                f"Assume you are an helpful assistant. "
+                f"Question: \"{question}\" "
+                f"Answer: \"{answer}\" "
+                f"Label: \"{label}\" "
+                f"Please decide whether the answer correctly describes the label. "
+                f"Respond with 'yes' or 'no' only."
+            )
+            response = self._call_openai_api([
+                {"role": "system", "content": "You are a helpful and precise assistant."},
+                {"role": "user", "content": prompt}
+            ])
+            is_correct = response.strip().lower().startswith("yes")
+            # For similarity: use CLIP cosine similarity as an auxiliary score
+            similarity = self.get_semantic_similarity(image_path=None, label=label)
+            return is_correct, similarity
+        else:
+            # For deterministic questions, use string matching
+            if "yes" in a_lower:
+                is_correct = True
+            elif "no" in a_lower:
+                is_correct = False
+            else:
+                # fallback: treat as incorrect
+                is_correct = False
+            similarity = self.get_semantic_similarity(image_path=None, label=label)
+            return is_correct, similarity
+
+    def get_semantic_similarity(self, image_path: Optional[str], label: str) -> float:
+        """
+        Compute cosine similarity between image and label text via CLIP.
+        Args:
+            image_path (Optional[str]): Path to image; if None, use cached or simulate.
+            label (str): Label text.
+        Returns:
+            float: similarity score in [-1, 1]
+        """
+        cache_key = (image_path, label)
+        if cache_key in self.similarity_cache:
+            return self.similarity_cache[cache_key]
+        # Encode label text
+        text_inputs = self.clip_processor(text=label, return_tensors="pt", padding=True)
+        text_embeddings = self.clip_model.get_text_features(**text_inputs)
+        text_embeddings = text_embeddings / text_embeddings.norm(p=2, dim=-1, keepdim=True)
+
+        if image_path is not None:
+            # Load and process image
+            image = Image.open(image_path).convert('RGB')
+            image_inputs = self.clip_processor(images=image, return_tensors="pt")
+            image_embeddings = self.clip_model.get_image_features(**image_inputs)
+            image_embeddings = image_embeddings / image_embeddings.norm(p=2, dim=-1, keepdim=True)
+            # Compute cosine similarity
+            similarity = torch.nn.functional.cosine_similarity(
+                image_embeddings, text_embeddings
+            ).item()
+        else:
+            # If image_path is None, fallback or simulate similarity
+            # Due to the context, default to 0 (neutral)
+            similarity = 0.0
+
+        self.similarity_cache[cache_key] = similarity
+        return similarity

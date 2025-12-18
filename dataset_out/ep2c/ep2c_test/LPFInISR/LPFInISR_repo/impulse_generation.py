@@ -1,0 +1,33 @@
+## impulse_generation.py
+import torch
+
+def create_impulse_image(size, device=None):
+    """
+    Generate a 2D impulse image tensor with a single pixel set to 1 at the center, others zero.
+
+    Args:
+        size (tuple or list): Pair of integers (height, width) specifying image dimensions.
+        device (str or torch.device, optional): Device on which tensor should be allocated.
+            Defaults to None, which results in tensor on CPU.
+
+    Returns:
+        torch.Tensor: 2D tensor of shape (height, width), dtype=torch.float32, with a single impulse pixel.
+    """
+    # Parse size
+    height, width = size
+
+    # Initialize tensor of zeros with specified size
+    impulse_img = torch.zeros((height, width), dtype=torch.float32)
+
+    # Calculate center indices
+    center_x = height // 2
+    center_y = width // 2
+
+    # Set impulse pixel to 1
+    impulse_img[center_x, center_y] = 1.0
+
+    # Move to specified device if provided
+    if device is not None:
+        impulse_img = impulse_img.to(device)
+
+    return impulse_img

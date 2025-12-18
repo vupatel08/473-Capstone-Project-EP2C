@@ -1,0 +1,2166 @@
+[
+    {
+        "type": "text",
+        "text": "SPARSEFORMER: SPARSE VISUAL RECOGNITION VIA LIMITED LATENT TOKENS ",
+        "text_level": 1,
+        "bbox": [
+            176,
+            98,
+            821,
+            146
+        ],
+        "page_idx": 0
+    },
+    {
+        "type": "text",
+        "text": "Ziteng Gao Show Lab, National University of Singapore ",
+        "bbox": [
+            184,
+            170,
+            477,
+            199
+        ],
+        "page_idx": 0
+    },
+    {
+        "type": "text",
+        "text": "Zhan Tong Ant Group ",
+        "bbox": [
+            542,
+            170,
+            620,
+            199
+        ],
+        "page_idx": 0
+    },
+    {
+        "type": "text",
+        "text": "Limin Wang Nanjing University ",
+        "bbox": [
+            686,
+            170,
+            812,
+            199
+        ],
+        "page_idx": 0
+    },
+    {
+        "type": "text",
+        "text": "Mike Zheng Shou\u0000 Show Lab, National University of Singapore ",
+        "bbox": [
+            184,
+            218,
+            477,
+            248
+        ],
+        "page_idx": 0
+    },
+    {
+        "type": "text",
+        "text": "ABSTRACT ",
+        "text_level": 1,
+        "bbox": [
+            454,
+            285,
+            544,
+            299
+        ],
+        "page_idx": 0
+    },
+    {
+        "type": "text",
+        "text": "Human visual recognition is a sparse process, where only a few salient visual cues are attended to rather than every detail being traversed uniformly. However, most current vision networks follow a dense paradigm, processing every single visual unit (such as pixels or patches) in a uniform manner. In this paper, we challenge this dense convention and present a new vision transformer, coined SparseFormer, to explicitly imitate human’s sparse visual recognition in an endto-end manner. SparseFormer learns to represent images using a highly limited number of tokens (e.g., down to 9) in the latent space with sparse feature sampling procedure instead of processing dense units in the original image space. Therefore, SparseFormer circumvents most of dense operations on the image space and has much lower computational costs. Experiments on the ImageNet-1K classification show that SparseFormer delivers performance on par with canonical or well-established models while offering more favorable accuracy-throughput tradeoff. Moreover, the design of our network can be easily extended to the video classification task with promising performance with lower compute. We hope our work can provide an alternative way for visual modeling and inspire further research on sparse vision architectures. Code and weights are available at https://github.com/showlab/sparseformer. ",
+        "bbox": [
+            233,
+            318,
+            764,
+            568
+        ],
+        "page_idx": 0
+    },
+    {
+        "type": "text",
+        "text": "1 INTRODUCTION ",
+        "text_level": 1,
+        "bbox": [
+            176,
+            603,
+            336,
+            619
+        ],
+        "page_idx": 0
+    },
+    {
+        "type": "text",
+        "text": "Designing neural architectures for visual recognition has long been an appealing yet challenging topic in the computer vision community. In past few years, there has been an paradigm shift for vision architectures from convolutional neural networks (CNNs) (Krizhevsky et al., 2012; He et al., 2016; Huang et al., 2017; Radosavovic et al., 2020; Liu et al., 2022) to vision transformers (ViTs) (Dosovitskiy et al., 2021; Touvron et al., 2021; Liu et al., 2021a; Wang et al., 2021). Though their underlying operations may vary, both architectures involve the traversal of every pixel or patch in an image to densely model visual patterns and image semantics. This traversal convention stems from the sliding window approaches (Ojala et al., 1996), assuming that foreground objects may appear uniformly at any spatial location in an image, and continues to dominate the design of modern visual neural networks. ",
+        "bbox": [
+            174,
+            637,
+            825,
+            776
+        ],
+        "page_idx": 0
+    },
+    {
+        "type": "text",
+        "text": "However, as humans, we do not need to examine every detail in a scene for perception. Instead, our eyes can quickly identify regions of interest with just few glimpses, and then recognize edges and textures, as well as high-level semantics (Desimone & Duncan, 1995; Marr, 2010; Itti & Koch, 2001; Rensink, 2000). This contrasts greatly with existing vision architectures, which need to exhaustively traverse tons of visual units in the image grid. Such dense convention incurs redundant computation for backgrounds, particularly when scaling up the input resolution. Also, this paradigm cannot directly provide interpretable insights about the specific regions of interest that vision model are focusing on within an image. ",
+        "bbox": [
+            174,
+            784,
+            823,
+            895
+        ],
+        "page_idx": 0
+    },
+    {
+        "type": "image",
+        "img_path": "images/45529eaa06fe07d7f4fd65ed44e5701807de4949a73e3a7b3bd04da890590fa7.jpg",
+        "image_caption": [
+            "Figure 1: Dense versus our proposed sparse paradigm for visual recognition. The dense paradigm requires traversing $H \\times W$ units to perform convolution or attention, while our proposed sparse paradigm performs transformers over only $N$ latent tokens where $N \\ll H \\times W$ . "
+        ],
+        "image_footnote": [],
+        "bbox": [
+            302,
+            101,
+            692,
+            208
+        ],
+        "page_idx": 1
+    },
+    {
+        "type": "text",
+        "text": "In this paper, we propose a new vision network architecture, coined SparseFormer, to perform sparse visual recognition by explicitly imitating the human vision system. SparseFormer learns to represent an image using transformers with a limited number of tokens in the latent space right from the beginning. Each latent token is associated with a region of interest (RoI) descriptor, and the token RoI can be adjusted iteratively to focus on foreground regions. With this design, we can highly reduce the number of tokens needed in the transformer (e.g., down to 9) and the overall computational cost of SparseFormer is almost irrelevant to the input resolution when a fixed number of latent tokens adopted. Therefore, it is reasonable to refer to our method as a sparse approach for visual recognition. Moreover, the RoI adjusting mechanism can be supervised solely with classification signals in an end-to-end manner, without prior training with localizing signals. ",
+        "bbox": [
+            173,
+            279,
+            825,
+            417
+        ],
+        "page_idx": 1
+    },
+    {
+        "type": "text",
+        "text": "SparseFormer, as an initial step towards sparse visual recognition, aims to provide an alternative paradigm for vision modeling, rather than achieving state-of-the-art results with bells or whistles. Nonetheless, it still delivers promising results on the challenging ImageNet classification benchmark on par with dense counterparts, but at lower computational costs. Since all transformer operations are performed on a reduced number of tokens in the latent space, SparseFormer has a lower memory footprint and higher throughput compared to dense architectures, especially in the low-compute region. Also, SparseFormer can deliver promising results compatibly with versatile token number settings, e.g., $7 4 . 5 \\%$ on IN-1K with only 9 tokens, and $8 1 . 9 \\%$ with 81 tokens for a tiny variant. Visualizations show SparseFormer can distinguish foregrounds from backgrounds when trained in an end-to-end manner using only classification labels. We also explore several scaling-up strategies of SparseFormer. The simple design of SparseFormer can be further extended to video understanding with minor efforts, where video inputs are more compute-expensive for dense models but well-suited for SparseFormer. Experimental results also demonstrate that our video extension of SparseFormer yields promising performance on the Kinetics-400 with low compute. ",
+        "bbox": [
+            173,
+            424,
+            825,
+            618
+        ],
+        "page_idx": 1
+    },
+    {
+        "type": "text",
+        "text": "2 RELATED WORK ",
+        "text_level": 1,
+        "bbox": [
+            176,
+            640,
+            343,
+            656
+        ],
+        "page_idx": 1
+    },
+    {
+        "type": "text",
+        "text": "Dense vision architectures. Since the pioneering AlexNet (Krizhevsky et al., 2012), convolutional neural networks (CNNs) has dominated the field of the visual recognition with comprehensive advancements (He et al., 2016; Huang et al., 2017; Radosavovic et al., 2020; Tan & Le, 2019; Liu et al., 2022; Szegedy et al., 2016; 2015; Ioffe & Szegedy, 2015; Wu & He, 2020). Recently, vision transformers Dosovitskiy et al. (2021) have delivered great modeling capabilities and remarkable performance with the transformer architecture, which originates from the machine translation community (Vaswani et al., 2017). Several variants of vision transformers (ViTs) have been proposed to improve its efficiency and effectiveness with specific designs for vision domain (Liu et al., 2021a; Yuan et al., 2021; Wang et al., 2021; Yue et al., 2021; Fan et al., 2021; Gu et al., 2021; Xia et al., 2022; Tu et al., 2022; Ma et al., 2023; Chang et al., 2023b). However, both of these two architectures require traversing every pixel or patch over an image to perform dense operations, either convolution or attention, in order to obtain the final representation, incurring unnecessary compute burden for backgrounds. This issue becomes more severe when handling data-intensive inputs like videos, as the computation cost increases due to the larger number of units that need to compute (Tran et al., 2015; Carreira & Zisserman, 2017; Tran et al., 2018; Qiu et al., 2017; Xie et al., 2018; Arnab et al., 2021), even when sampling strategies adopted (Wang et al., 2019; Feichtenhofer et al., 2019). To speed up vision transformers, researchers have proposed to gradually reduce vision tokens (Liang et al., 2022; Fayyaz et al., 2022; Bolya et al., 2022; Rao et al., 2021; Yin et al., 2022; Chang et al., ",
+        "bbox": [
+            173,
+            674,
+            825,
+            924
+        ],
+        "page_idx": 1
+    },
+    {
+        "type": "image",
+        "img_path": "images/737610546d3b9a6a41d483e66f5fc8da2fdc421adc1f01d54675c6ca9ace57d8.jpg",
+        "image_caption": [
+            "Figure 2: The SparseFormer overall architecture and details of the focusing transformer. Here we depict a set of 3 latent tokens for simplicity. $L _ { c } \\times$ standard vision transformer encoder block makes a cortex transformer. Compared with the vanilla transformer block, there are extra RoI adjusting, sampling points generation, and feature sampling & decoding process, repeating itself $L _ { f } \\times$ times in a focusing transformer block. All operations in the focusing and cortex transformer are performed over latent token set, except for feature sampling in the image space. "
+        ],
+        "image_footnote": [],
+        "bbox": [
+            178,
+            101,
+            821,
+            309
+        ],
+        "page_idx": 2
+    },
+    {
+        "type": "text",
+        "text": "2023a) or exploit sparse attention patterns (Zhang et al., 2021). Different from these methods, SparseFormer directly learns to represent an image via a limited number of tokens right from the beginning in the latent space. ",
+        "bbox": [
+            176,
+            428,
+            821,
+            469
+        ],
+        "page_idx": 2
+    },
+    {
+        "type": "text",
+        "text": "Perceiver architectures and detection transformers. Moving vision tokens into the latent space is not a new thing. Perceiver architectures (Jaegle et al., 2021; 2022) for vision learns a set of tokens in the latent space to represent an image via the standard latent transformer decoders with cross attentions. Our proposed SparseFormer is greatly inspired by this paradigm, where the “cross attention” between the image space and the latent space is replaced by the proposed sparse feature sampling. It is worth noting that the standard cross attention also requires traversing every unit over the image feature, while our sparse feature sampling directly extracts features by bilinear interpolation, whose computational complexity is independent of the input resolution. Moreover, Perceiver architectures (Jaegle et al., 2021; 2022) utilize 512 latent tokens, whereas our SparseFormer achieves superior results by using about $0 . 1 \\times$ latent tokens. Detection transformer (DETR) and its variants (Carion et al., 2020; Zhu et al., 2020; Sun et al., 2021) also use latent tokens (queries) to represent objects, which are decoded usually from features extracted by deep convolutional networks and multiple transformer encoder blocks. In contrast, SparseFormer, as a sparse architecture, do not require this heavy image feature design, and instead delievers promising results with a simple early convolution. ",
+        "bbox": [
+            173,
+            477,
+            825,
+            670
+        ],
+        "page_idx": 2
+    },
+    {
+        "type": "text",
+        "text": "Glimpse models, proposed in the early days of neural vision research (Mnih et al., 2014; Ranzato, 2014), aimed to imitate explicitly the human visual perception process by capturing selective regions of an image for recognition. While these models are efficient as they just involve limited parts of an image, they often lack differentiability in terms of selecting such regions, and require workarounds like the expectation-maximization algorithm (Dempster et al., 1977) or reinforcement learning to optimize. Our presented SparseFormer architecture can be seen as an multi-glimpse extension model, similiar to (Tan et al., 2021). The whole SparseFormer pipeline can be optimized in an end-to-end manner thanks to the bilinear interpolation. More importantly, SparseFormer proves to be effective on large benchmarks like ImageNet-1K (Deng et al., 2009). ",
+        "bbox": [
+            174,
+            676,
+            825,
+            803
+        ],
+        "page_idx": 2
+    },
+    {
+        "type": "text",
+        "text": "3 SPARSEFORMER ",
+        "text_level": 1,
+        "bbox": [
+            176,
+            827,
+            341,
+            843
+        ],
+        "page_idx": 2
+    },
+    {
+        "type": "text",
+        "text": "In this section, we describe the SparseFormer architecture in detail. Since SparseFormer performs transformer operations over tokens in the latent space, we start with the definition of latent tokens. ",
+        "bbox": [
+            174,
+            859,
+            823,
+            888
+        ],
+        "page_idx": 2
+    },
+    {
+        "type": "text",
+        "text": "Latent tokens. Different from dense models, which involve per-pixel or per-patch modeling in the original image space, SparseFormer learns to understand an image via sparse tokens in the latent space. Similar to queries or latents in transformer decoder architectures (Vaswani et al., 2017; Carion et al., 2020; Jaegle et al., 2021), a latent token in SparseFormer has a corresponding embedding $\\mathbf { t } \\in \\mathbb { R } ^ { d }$ in the latent space. To explicitly model spatial focal regions, we associate every latent token t in SparseFormer with an RoI descriptor $\\mathbf { b } = ( x , y , w , h )$ , where $x , y , w , h$ are center coordinates, width, and height, normalized in the range $[ 0 , 1 ]$ . Therefore, a latent token is made up of an embedding t representing its content, and an RoI descriptor $\\mathbf { b }$ representing its geometric property. Then the whole latent token set of SparseFormer is then described as ",
+        "bbox": [
+            173,
+            895,
+            821,
+            924
+        ],
+        "page_idx": 2
+    },
+    {
+        "type": "text",
+        "text": "",
+        "bbox": [
+            173,
+            103,
+            825,
+            202
+        ],
+        "page_idx": 3
+    },
+    {
+        "type": "equation",
+        "img_path": "images/ea90d1f8f7ef6c6deb41186a3393e8cbaf34a1f8ac102f0ab7a68bb7204ea45a.jpg",
+        "text": "$$\n\\mathbf { T } = \\{ ( \\mathbf { t } _ { 1 } , \\mathbf { b } _ { 1 } ) , ( \\mathbf { t } _ { 2 } , \\mathbf { b } _ { 2 } ) , \\cdot \\cdot \\cdot , ( \\mathbf { t } _ { N } , \\mathbf { b } _ { N } ) \\} ,\n$$",
+        "text_format": "latex",
+        "bbox": [
+            362,
+            208,
+            633,
+            226
+        ],
+        "page_idx": 3
+    },
+    {
+        "type": "text",
+        "text": "where $N$ is the number of latent tokens, both embedding t and b can be refined by latent transformers. The initial $\\mathbf { t }$ and $\\mathbf { b }$ are learnable parameters of SparseFormer, and their initialization will be described in the experiment section and the appendix. ",
+        "bbox": [
+            173,
+            232,
+            825,
+            275
+        ],
+        "page_idx": 3
+    },
+    {
+        "type": "text",
+        "text": "3.1 BUILDING LATENT TOKENS ",
+        "text_level": 1,
+        "bbox": [
+            176,
+            291,
+            408,
+            306
+        ],
+        "page_idx": 3
+    },
+    {
+        "type": "text",
+        "text": "SparseFormer uses two types of transformers in the latent space: the focusing transformer and the cortex transformer, as depicted in Figure 2. The focusing transformer extracts regional image features into token embeddings and adjusts token RoIs iteratively. The subsequent cortex transformer, which is of the standard transformer encoder architecture, takes only latent tokens embeddings as inputs. We first introduce operations that makes a focusing transformer. ",
+        "bbox": [
+            174,
+            316,
+            825,
+            387
+        ],
+        "page_idx": 3
+    },
+    {
+        "type": "text",
+        "text": "Sparse feature sampling. In the feature sampling procedure, a latent token first generates $P$ sampling points in the image space based on its geometric property, i.e., its RoI. These sampling points are represented as image coordinates (i.e., $x$ and $y$ ). Then, the focusing transformer uses bilinear interpolation on these sampling points to extract corresponding regional image features. We refer this procedure as sparse feature sampling since the bilinear interpolation takes only $\\mathcal { O } ( 1 )$ time for every sampling point. To obtain sampling points, a learnable linear layer is used to generate a set of relative sampling offsets for a token, conditioned on its embedding $\\mathbf { t }$ : ",
+        "bbox": [
+            173,
+            393,
+            825,
+            492
+        ],
+        "page_idx": 3
+    },
+    {
+        "type": "equation",
+        "img_path": "images/9c24c3733f895b097797f94bf5e1abc1d1a5df4be35fb700e4e310c35074ae0b.jpg",
+        "text": "$$\n\\{ ( \\triangle x _ { i } , \\triangle y _ { i } ) \\} _ { P } = \\mathrm { L i n e a r } ( \\mathbf { t } ) ,\n$$",
+        "text_format": "latex",
+        "bbox": [
+            398,
+            498,
+            598,
+            516
+        ],
+        "page_idx": 3
+    },
+    {
+        "type": "text",
+        "text": "where the $i$ -th sampling offset $( \\Delta x _ { i } , \\Delta y _ { i } )$ represents the relative position of sampling point $i$ with respect to a token RoI, and there are a total of $P$ sampling points for each token. The layer normalization (Ba et al., 2016) over $\\mathbf { t }$ before the linear layer here, as well as linear layers below, is omitted for clarity. Then, these offsets are translated to absolute sampling locations $( \\tilde { x } , \\tilde { y } )$ in an image with the RoI $\\mathbf { b } = ( x , y , w , h )$ : ",
+        "bbox": [
+            173,
+            522,
+            825,
+            593
+        ],
+        "page_idx": 3
+    },
+    {
+        "type": "equation",
+        "img_path": "images/be012f020e9b9b3b04a9876ac930abc43ae2f3f981e57f9350a4b8a739daf8f6.jpg",
+        "text": "$$\n\\left\\{ \\begin{array} { l l } { \\tilde { x } _ { i } = x + 0 . 5 \\cdot \\triangle x _ { i } \\cdot w , } \\\\ { \\tilde { y } _ { i } = y + 0 . 5 \\cdot \\triangle y _ { i } \\cdot h , } \\end{array} \\right.\n$$",
+        "text_format": "latex",
+        "bbox": [
+            403,
+            601,
+            575,
+            636
+        ],
+        "page_idx": 3
+    },
+    {
+        "type": "text",
+        "text": "for every $i$ . To ensure stable training, a standard normalization is applied to $\\{ ( \\triangle x _ { i } , \\triangle y _ { i } ) \\} _ { P }$ using three standard deviations, which keeps a majority of sampling points within the RoI. ",
+        "bbox": [
+            174,
+            643,
+            823,
+            672
+        ],
+        "page_idx": 3
+    },
+    {
+        "type": "text",
+        "text": "With sparse feature sampling, SparseFormer extracts image features by direct bilinear interpolation based on these explicit sampling points, eliminating the need for dense grid traversal. Given an input image $\\mathbf { I } \\in \\mathbb { R } ^ { \\overset { \\cdot } { C } \\times H \\times W }$ with $C$ channels, the shape of the sampled feature matrix $\\mathbf { x }$ for a token is $\\mathbb { R } ^ { P \\times C }$ . The computational complexity of this sparse feature sampling procedure is $\\mathcal { O } ( N P C )$ with the number of latent tokens $N$ given, independent of the input image size $H \\times W$ . ",
+        "bbox": [
+            173,
+            678,
+            825,
+            750
+        ],
+        "page_idx": 3
+    },
+    {
+        "type": "text",
+        "text": "Adaptive feature decoding. With image features $\\mathbf { x }$ sampled for a token, how to effectively decode them to build a token representation is another key question. A linear layer of $\\mathbb { R } ^ { P \\times C } \\to \\mathbb { R } ^ { d }$ can be the simplest method to embed features into a token embedding, but we find it rather ineffective. We use the adaptive mixing method (Gao et al., 2022) to decode sampled features to leverage spatial and channel semantics in an adaptive way. Specifically, we use a lightweight network $\\check { \\mathcal { F } } : \\check { \\mathbb { R } ^ { d } } $ $\\mathbb { R } ^ { C \\times C + P \\times P }$ whose input is the token embedding $\\mathbf { t }$ to produce conditional channel decoding weight and spatial decoding weights $\\mathbf { M } _ { c }$ and $\\mathbf { M } _ { s }$ and decode sampled features $\\mathbf { x }$ with these weights: ",
+        "bbox": [
+            173,
+            755,
+            825,
+            854
+        ],
+        "page_idx": 3
+    },
+    {
+        "type": "equation",
+        "img_path": "images/c370dd8cf6a8731187af09345345eb83214487975236ab46fce53672d898fc00.jpg",
+        "text": "$$\n\\begin{array} { r l } & { [ \\mathbf { M } _ { c } | \\mathbf { M } _ { s } ] = \\mathcal { F } ( \\mathbf { t } ) , \\mathbf { M } _ { c } \\in \\mathbb { R } ^ { C \\times C } , \\mathbf { M } _ { s } \\in \\mathbb { R } ^ { P \\times P } , } \\\\ & { \\qquad \\mathbf { x } ^ { ( 1 ) } = \\mathrm { G E L U } ( \\mathbf { x } ^ { ( 0 ) } \\mathbf { M } _ { c } ) \\in \\mathbb { R } ^ { P \\times C } , } \\\\ & { \\qquad \\mathbf { x } ^ { ( 2 ) } = \\mathrm { G E L U } ( \\mathbf { M } _ { s } \\mathbf { x } ^ { ( 1 ) } ) \\in \\mathbb { R } ^ { P \\times C } , } \\end{array}\n$$",
+        "text_format": "latex",
+        "bbox": [
+            339,
+            859,
+            656,
+            922
+        ],
+        "page_idx": 3
+    },
+    {
+        "type": "text",
+        "text": "where $\\mathbf { x } ^ { ( 0 ) }$ is the sampled feature x, $\\mathbf { x } ^ { ( 2 ) }$ is the output of adaptive feature decoding, and GELU serves as activation function (Hendrycks & Gimpel, 2016). Our $\\mathcal { F }$ choice is composed of two linear layers without activation functions, with the hidden dimension $d / 4$ for efficiency. The final output is added back to the token embedding t by a linear layer. Adaptive feature decoding can be seen as a token-wise spatial-channel factorization of dynamic convolution (Jia et al., 2016), and it adds moderate convolutional inductive bias to SparseFormer. The adaptive feature decoding design allows SparseFormer to reason about what a token expects to see based on what the token has seen in stages before. Therefore, a token can also reason about where to look with RoI adjusting mechanism, which is described below. ",
+        "bbox": [
+            174,
+            102,
+            825,
+            229
+        ],
+        "page_idx": 4
+    },
+    {
+        "type": "text",
+        "text": "RoI adjusting mechanism. A first quick glance at an image with human eyes is usually insufficient to fully understand what is in it. This is also the case for the focusing transformer. In the focusing transformer, a latent token RoI can be refined iteratively together with updating its embedding, where a token RoI $\\mathbf { b } = ( x , y , w , h )$ is adjusted to $( x ^ { \\prime } , y ^ { \\prime } , w ^ { \\prime } , \\dot { h } ^ { \\prime } )$ in a detection-like way (Ren et al., 2015): ",
+        "bbox": [
+            174,
+            236,
+            823,
+            292
+        ],
+        "page_idx": 4
+    },
+    {
+        "type": "equation",
+        "img_path": "images/6abfa84b571d20c8ea4fabb6b6e4934661f861e3bf45d5c95e90310dc903e9e9.jpg",
+        "text": "$$\n\\begin{array} { l } { { \\boldsymbol { x } ^ { \\prime } = x + \\Delta t _ { x } \\cdot w , ~ y ^ { \\prime } = y + \\Delta t _ { y } \\cdot h , } } \\\\ { { \\boldsymbol { w } ^ { \\prime } = w \\cdot \\exp ( \\Delta t _ { w } ) , ~ h ^ { \\prime } = h \\cdot \\exp ( \\Delta t _ { h } ) , } } \\end{array}\n$$",
+        "text_format": "latex",
+        "bbox": [
+            359,
+            296,
+            633,
+            337
+        ],
+        "page_idx": 4
+    },
+    {
+        "type": "text",
+        "text": "where $( \\Delta t _ { x } , \\Delta t _ { y } , \\Delta t _ { w } , \\Delta t _ { h } )$ are normalized adjusting deltas, generated by a linear layer whose input is the embedding in a token-wise way: ",
+        "bbox": [
+            174,
+            340,
+            823,
+            369
+        ],
+        "page_idx": 4
+    },
+    {
+        "type": "equation",
+        "img_path": "images/067db52beebf8c88d8e296b184a6f2695cf022a7bc5acdf5076b28cc701b3130.jpg",
+        "text": "$$\n\\left\\{ \\Delta t _ { x } , \\Delta t _ { y } , \\Delta t _ { w } , \\Delta t _ { h } \\right\\} = \\mathrm { L i n e a r } ( \\mathbf t ) .\n$$",
+        "text_format": "latex",
+        "bbox": [
+            375,
+            376,
+            622,
+            393
+        ],
+        "page_idx": 4
+    },
+    {
+        "type": "text",
+        "text": "With the RoI adjusting mechanism and sufficient training, token RoIs can gradually focus on foregrounds after several iterations. It is worth noting that unlike object detectors, we do not rely on any localizing signals for supervision. The optimization for the RoI adjusting mechanism is end-to-end and accomplished by back-propagating gradients from sampling points in the bilinear interpolation. Although there may be noisy gradients due to local and limited sampling points in bilinear interpolation, the optimization direction for RoI adjusting is still non-trivial as shown in experiments. ",
+        "bbox": [
+            174,
+            405,
+            823,
+            491
+        ],
+        "page_idx": 4
+    },
+    {
+        "type": "text",
+        "text": "Focusing transformer can be generally considered a transformer “decoder” architecture, where its cross attention to image features is modified to sparse feature sampling. Instead of directly traversing grid features in standard transformer decoders, the focusing transformer extracts image features sparsely, whose computation complexity is therefore independent of input resolution. We make the focusing transformer as lightweight as possible and make it one-block but repeating in several times with same parameters. Also, the token dimension in the focusing transformer is set the half of the cortex transformer. After the focusing transformer, only latent token embeddings are fed into the following transformer since token RoIs are not further used in the cortex transformer. ",
+        "bbox": [
+            174,
+            497,
+            825,
+            608
+        ],
+        "page_idx": 4
+    },
+    {
+        "type": "text",
+        "text": "Cortex transformer. The cortex transformer follows a standard transformer encoder architecture except for the first block with the “cross attention” in the focusing transformer to decode features of large token dimension. The cortex transformer consists up of multiple independent blocks and take the most of parameters and computation in SparseFormer. This heavy cortex transformer processes visual signals from the focusing transformer, similar to how the brain cerebral cortex processes visual input from the eyes. ",
+        "bbox": [
+            174,
+            616,
+            825,
+            699
+        ],
+        "page_idx": 4
+    },
+    {
+        "type": "text",
+        "text": "3.2 OVERALL SPARSEFORMER ARCHITECTURE ",
+        "text_level": 1,
+        "bbox": [
+            178,
+            715,
+            514,
+            729
+        ],
+        "page_idx": 4
+    },
+    {
+        "type": "text",
+        "text": "The overall architecture in SparseFormer is depicted in Figure 2. The image features are computed only once by lightweight convolution and shared across sampling stages. The final classification is done by averaging embeddings $\\{ \\mathbf { t } _ { i } \\} _ { N }$ over latent tokens and applying a linear classifier to it. ",
+        "bbox": [
+            176,
+            741,
+            823,
+            785
+        ],
+        "page_idx": 4
+    },
+    {
+        "type": "text",
+        "text": "Early convolution. As discussed earlier, gradients with respect to sampling points by bilinear interpolation might be very noisy. The case can be particularly severe when handling raw RGB inputs, as the nearest four RGB values on grid are usually too noisy for accurate estimation of local gradients. To improve training stability, we incorporate early convolution, similar to vision transformers (Xiao et al., 2021), but make it as lightweight as possible. ",
+        "bbox": [
+            174,
+            791,
+            823,
+            861
+        ],
+        "page_idx": 4
+    },
+    {
+        "type": "text",
+        "text": "Sparsity of the architecture. It is important to note that the number of latent tokens in SparseFormer is fixed and does not necessarily depend on the input resolution. The sparse feature sampling procedure extracts features from image feature maps also in a sparse and non-traversing way. The computational complexity and memory footprints in the latent space is therefore irrelevant to the input size. Hence, it is reasonable to refer our method as a sparse visual architecture. Moreover, the latent space capacity of SparseFormer also exhibits sparsity. The maximum capacity of the latent space, $N \\cdot d _ { c }$ , is $8 1 \\cdot 7 6 8$ described below in Table 1, which is still smaller than the input image $( 3 \\cdot 2 2 4 ^ { 2 } )$ . This also distinguishes SparseFormer from Perceivers (Jaegle et al., 2021; 2022), whose typical latent capacity $( 5 1 2 \\cdot 1 0 2 4 )$ exceeds the input image size. Note that our presented approach differs a lot from post-training token reduction techniques (Rao et al., 2021; Liang et al., 2022; Fayyaz et al., 2022; Bolya et al., 2022; Yin et al., 2022). SparseFormer learns to represent an image using sparse tokens right from the start. In contrast, token reduction techniques are typically applied to pre-trained vision transformers. It is appealing to further reduce latent tokens in SparseFormer with these methods, but this is beyond the scope of this paper. ",
+        "bbox": [
+            174,
+            867,
+            823,
+            924
+        ],
+        "page_idx": 4
+    },
+    {
+        "type": "table",
+        "img_path": "images/fda7a36192e453e70380df7fe41b0f1ee3d607699f63c64cd759304330473eba.jpg",
+        "table_caption": [
+            "Table 1: Configurations of SparseFormer variants. FLOPs is with the input image size $2 2 4 ^ { 2 }$ . "
+        ],
+        "table_footnote": [],
+        "table_body": "<table><tr><td rowspan=\"2\">variant</td><td colspan=\"6\">#tokens foc. dim cort. dim cort. stage</td></tr><tr><td>N</td><td>df</td><td>dc</td><td>Lc</td><td></td><td>FLOPs #params</td></tr><tr><td>tiny (T)</td><td>49</td><td>256</td><td>512</td><td>8</td><td>2.0G</td><td>32M</td></tr><tr><td>small (S)</td><td>64</td><td>320</td><td>640</td><td>8</td><td>3.8G</td><td>48M</td></tr><tr><td>base (B)</td><td>81</td><td>384</td><td>768</td><td>10</td><td>7.8G</td><td>81M</td></tr></table>",
+        "bbox": [
+            295,
+            116,
+            699,
+            184
+        ],
+        "page_idx": 5
+    },
+    {
+        "type": "text",
+        "text": "",
+        "bbox": [
+            173,
+            210,
+            825,
+            351
+        ],
+        "page_idx": 5
+    },
+    {
+        "type": "text",
+        "text": "Extension to video classification. Video classification requires more intensive computing due to multiple frames. Fortunately, SparseFormer can be easily extended to video classification with minor extra efforts. Given a video feature $\\mathbf { V } \\in \\mathbb { R } ^ { C \\times T \\times H \\times W }$ , the only problem is to deal with the extra temporal axis compared to the image feature $\\mathbf { I } \\in \\mathbb { R } ^ { C \\times H \\times W }$ . To address this, we associate the token RoI with an extension $( t , l )$ , the center temporal coordinate $t$ and $l$ represents the temporal length to make RoI a tube. In the sparse feature sampling procedure, an extra linear layer is introduced to produce temporal offsets, and we transform them to 3D sampling points $\\{ ( \\tilde { x } _ { i } , \\bar { \\tilde { y } } _ { i } , \\tilde { z } _ { i } ) \\} _ { P }$ . Here, the bilinear interpolation is replaced by the trilinear one for 4D input data. Similarly, the RoI adjusting is extended to the temporal dimension. Other operators such as early convolution, adaptive feature decoding, self-attention, and FFN remain untouched. For larger latent capacities, we inflate tokens along the temporal axis by a factor of $n _ { t }$ and initialize their $( t , l )$ to cover all frames, where $n _ { t }$ is typically smaller than the frame count $T$ (e.g., 8 versus 32). ",
+        "bbox": [
+            173,
+            356,
+            825,
+            523
+        ],
+        "page_idx": 5
+    },
+    {
+        "type": "text",
+        "text": "4 EXPERIMENTS ",
+        "text_level": 1,
+        "bbox": [
+            176,
+            546,
+            326,
+            561
+        ],
+        "page_idx": 5
+    },
+    {
+        "type": "text",
+        "text": "We benchmark our presented SparseFormers on the ImageNet-1K classification (Deng et al., 2009) and Kinetics-400 (Carreira & Zisserman, 2017) video classification. We also report our preliminary trials on down-streaming tasks, semantic segmentation and object detection, in the appendix. ",
+        "bbox": [
+            176,
+            579,
+            823,
+            621
+        ],
+        "page_idx": 5
+    },
+    {
+        "type": "text",
+        "text": "Model configurations. We use ResNet-like early convolutional layer (a $7 \\times 7$ stride-2 convolution, a ReLU, and a $3 \\times 3$ stride-2 max pooling) to extract initial 96-d image features. We design SparseFormer variants from 2G to ${ \\sim } 8 0$ FLOPs in Table 1. We mainly scale up the number of latent tokens $N$ , the dimension of the focusing and cortex transformer $d _ { f }$ and $d _ { c }$ , and blocks of the cortex transformer $L _ { c }$ . The number of the recurrence of the one-block focusing transformer, $L _ { f }$ , for all variants is set to 4. The number of latent tokens is scaled up as modestly as possible so that it is smaller than dense vision transformers. The center of latent token RoIs is initialized to a grid, and sampling points for a token are also initialized to a grid. For the sake of consistency in building blocks, the first cortex transformer block also performs RoI adjusting, feature sampling, and decoding. We do not inject any positional information into latent tokens. Training recipes. For ImageNet-1K classification (Deng et al., 2009), we train the proposed SparseFormer according to the recipe in (Liu et al., 2021a), which includes the training budget of 300 epochs, the AdamW optimizer (Loshchilov & Hutter, 2017) with an initial learning rate 0.001, the weight decay 0.05 and sorts of augmentation and regularization strategies. The input resolution is fixed to $2 2 4 ^ { 2 }$ . We add EMA (Polyak & Juditsky, 1992) to stabilize the training. The stochastic depth (i.e., drop path) (Huang et al., 2016) rate is set to 0.2, 0.3, and 0.4 for SparseFormer-T, -S, and -B. ",
+        "bbox": [
+            174,
+            627,
+            825,
+            712
+        ],
+        "page_idx": 5
+    },
+    {
+        "type": "table",
+        "img_path": "images/d7d8634abc1dbc4a0c1ef57e5a4142dd9a8302759a90271de92f3223cca9ab39.jpg",
+        "table_caption": [
+            "Table 2: Comparison of different architectures on ImageNet-1K classification. The input resolution is $2 2 4 ^ { 2 }$ . The throughput is measured with FP32 on a single V100 GPU following (Liu et al., 2021a). "
+        ],
+        "table_footnote": [],
+        "table_body": "<table><tr><td>method</td><td>top-1</td><td colspan=\"3\"> FLOPs #params throughput (img/s)</td></tr><tr><td>ResNet-50 (Wightman et al., 2021) ResNet-101 (Wightman et al., 2021)</td><td>80.4 81.5</td><td>4.1G 7.9G</td><td>26M 45M</td><td>1179 691</td></tr><tr><td>DeiT-S (Touvron et al., 2021)</td><td>79.8 81.8</td><td>4.6G 17.5G</td><td>22M 86M</td><td>983 306</td></tr><tr><td>DeiT-B (Touvron et al., 2021) Swin-T (Liu et al., 2021a)</td><td>81.3</td><td>4.5G</td><td>29M</td><td>726</td></tr><tr><td>Swin-S (Liu et al., 2021a)</td><td>83.0</td><td>8.7G</td><td>50M</td><td>437</td></tr><tr><td>Perceiver (Jaegle et al., 2021)</td><td>78.0</td><td>707G</td><td>45M</td><td>17</td></tr><tr><td>Perceiver IO (Jaegle et al., 2022)</td><td>82.1</td><td>369G</td><td>49M</td><td>30</td></tr><tr><td>SparseFormer-T</td><td>81.0</td><td>2.0G</td><td>32M</td><td>1270</td></tr><tr><td>SparseFormer-S</td><td>82.0</td><td>3.8G</td><td>48M</td><td>898</td></tr><tr><td>SparseFormer-B</td><td>82.6</td><td>7.8G</td><td>81M</td><td>520</td></tr></table>",
+        "bbox": [
+            254,
+            765,
+            740,
+            922
+        ],
+        "page_idx": 5
+    },
+    {
+        "type": "table",
+        "img_path": "images/b1eed4037dded85c946d4146b5eb420aa845b60e3e5f79c560c0f5b2a7b9d272.jpg",
+        "table_caption": [
+            "Table 3: Comparison with video classification methods on Kinetics-400. The GFLOPs is in the format of a single view $\\times$ the number of views. “N/A” indicates the numbers are not available. "
+        ],
+        "table_footnote": [],
+        "table_body": "<table><tr><td>method</td><td>|top-1</td><td>pre-train</td><td>#frames</td><td>GFLOPs</td><td>#params</td></tr><tr><td>NL I3D (Wang et al., 2018)</td><td>77.3</td><td>ImageNet-1K</td><td>128</td><td>359×10×3</td><td>62M</td></tr><tr><td>SlowFast (Feichtenhofer et al., 2019)</td><td>77.9</td><td></td><td>8+32</td><td>106×10×3</td><td>54M</td></tr><tr><td>TimeSFormer (Bertasius et al., 2021)</td><td>75.8</td><td>ImageNet-1K</td><td>8</td><td>196×1×3</td><td>121M</td></tr><tr><td>Video Swin-T (Liu et al., 2021b)</td><td>78.8</td><td>ImageNet-1K</td><td>32</td><td>88×4×3</td><td>28M</td></tr><tr><td>ViViT-B FE (Arnab et al., 2021)</td><td>78.8</td><td>ImageNet-21K</td><td>32</td><td>284×4×3</td><td>115M</td></tr><tr><td>MViT-B (Fan et al., 2021)</td><td>78.4</td><td>-</td><td>16</td><td>71×5×1</td><td>37M</td></tr><tr><td>VideoSparseFormer-T</td><td>77.9</td><td>ImageNet-1K</td><td>32</td><td>22×4×3</td><td>31M</td></tr><tr><td>VideoSparseFormer-S</td><td>79.1</td><td>ImageNet-1K</td><td>32</td><td>38×4×3</td><td>48M</td></tr><tr><td>VideoSparseFormer-B</td><td>79.8</td><td>ImageNet-21K</td><td>32</td><td>74×4×3</td><td>81M</td></tr></table>",
+        "bbox": [
+            228,
+            125,
+            766,
+            261
+        ],
+        "page_idx": 6
+    },
+    {
+        "type": "text",
+        "text": "",
+        "bbox": [
+            173,
+            287,
+            825,
+            428
+        ],
+        "page_idx": 6
+    },
+    {
+        "type": "text",
+        "text": "For ImageNet-21K pre-training (Deng et al., 2009), we use the subset, winter 2021 release, as suggested by (Ridnik et al., 2021). We follow the pre-training recipe in (Liu et al., 2021a) with 60 epochs, an initial learning rate $2 \\times 1 0 ^ { - 3 }$ , weight decay 0.05, and drop path 0.1. After pre-training, we fine-tune models with a recipe of 30 epochs, an initial learning rate $\\bar { 2 } \\times 1 0 ^ { - 4 }$ with cosine decay and weight decay $1 0 ^ { - 8 }$ . ",
+        "bbox": [
+            174,
+            434,
+            825,
+            505
+        ],
+        "page_idx": 6
+    },
+    {
+        "type": "text",
+        "text": "For training on Kinetics-400 Carreira & Zisserman (2017), we use ImageNet pre-trained weights to initialize SparseFormers. Since our architecture is endurable to large input sizes, the number of input frames is set to $T = 3 2$ . To be specific, 32 frames are sampled from the 128 consecutive frames with a stride of 4. We mildly inflate initial latent tokens by $n _ { t } = 8$ times in the temporal axis to cover all input frames. Our model is optimized by AdamW (Loshchilov & Hutter, 2017) on 32 GPUs following the training recipe in (Fan et al., 2021). We train the model for 50 epochs with 5 linear warm-up epochs. The mini-batch size is 8 videos per GPU. The learning rate is set to $5 \\times 1 0 ^ { - 4 }$ , and we adopt a cosine learning rate schedule (Loshchilov & Hutter, 2016). For evaluation, we apply a 12-view testing scheme (three 3 spatial crops and 4 temporal clips) as previous work (Liu et al., 2021b). ",
+        "bbox": [
+            173,
+            511,
+            825,
+            650
+        ],
+        "page_idx": 6
+    },
+    {
+        "type": "text",
+        "text": "4.1 MAIN RESULTS ",
+        "text_level": 1,
+        "bbox": [
+            174,
+            670,
+            323,
+            685
+        ],
+        "page_idx": 6
+    },
+    {
+        "type": "text",
+        "text": "ImageNet-1K classification. We first benchmark SparseFormer on the ImageNet-1K classification and compare them to other well-established methods in Table 2. SparseFormer-T reaches 81.0 top-1 accuracy on par with the well-curated dense transformer Swin-T (Liu et al., 2021a), with less than half FLOPs of it (2.0G versus 4.5G) and $74 \\%$ higher throughput (1270 versus 726). The small and base variants of SparseFormer, SparseFormer-S, and $\\mathbf { \\delta } _ { - \\mathbf { B } }$ also maintain a good tradeoff between the performance and actual throughput over highly-optimized CNNs or transformers. We can find that Perceiver architectures (Jaegle et al., 2021; 2022), which also adopt the latent transformer, incur extremely large FLOPs and have impractical inference speed due to a large number of tokens (i.e., 512) and dense traversing cross attention. ",
+        "bbox": [
+            174,
+            698,
+            825,
+            768
+        ],
+        "page_idx": 6
+    },
+    {
+        "type": "table",
+        "img_path": "images/e683476a532e3ce0be3a3a9674514ebbafdbb00f08279d0815e1bf7c45f22df6.jpg",
+        "table_caption": [
+            "Table 4: Scaling up of SparseFormer-B. Except for the 1K entry, all follow first the same pretraining on ImageNet-21K $2 2 4 ^ { 2 }$ input, 81 tokens) and then individual fine-tuning on ImageNet-1K. "
+        ],
+        "table_footnote": [],
+        "table_body": "<table><tr><td colspan=\"5\">variant pre-training data resolution top-1 FLOPs throughput (img/s)</td></tr><tr><td>B</td><td>IN-1K</td><td>2242</td><td>82.6 7.8G</td><td>520</td></tr><tr><td>B</td><td>IN-21K</td><td>2242</td><td>83.6 7.8G</td><td>520</td></tr><tr><td>B</td><td>IN-21K</td><td>3842</td><td>84.1 8.2G</td><td>444</td></tr><tr><td>B</td><td>IN-21K</td><td>5122</td><td>84.0 8.6G</td><td>419</td></tr><tr><td>B, N = 144 ↑</td><td>IN-21K</td><td>3842</td><td>84.6 14.2G</td><td>292</td></tr><tr><td>B, N = 196 ↑</td><td>IN-21K</td><td>3842</td><td>84.8 19.4G</td><td>221</td></tr></table>",
+        "bbox": [
+            263,
+            828,
+            730,
+            928
+        ],
+        "page_idx": 6
+    },
+    {
+        "type": "table",
+        "img_path": "images/87f37df301dde52ae2cc952a076235a4b56d200f70daf0b5a6fc67bb82e7d666.jpg",
+        "table_caption": [],
+        "table_footnote": [],
+        "table_body": "<table><tr><td>N</td><td>9</td><td>16</td><td>25</td><td></td><td>36</td><td>49</td><td>64 81</td><td></td><td>method</td><td>SF</td><td>ViT/32 ViT/32*</td><td></td><td>conv×4</td><td>swin</td></tr><tr><td>top-1</td><td></td><td>74.5</td><td>77.4</td><td>79.3</td><td>80.1</td><td>81.0</td><td>81.4</td><td>81.9</td><td>top-1</td><td>81.0</td><td>72.8</td><td>74.3</td><td>79.4</td><td>79.7</td></tr><tr><td>GFLOPs</td><td></td><td>0.5</td><td>0.8</td><td>1.1</td><td>1.6</td><td>2.0</td><td>2.7</td><td>3.3</td><td>GFLOPs</td><td>2.0</td><td>1.4</td><td>1.7</td><td>2.2</td><td>2.0</td></tr><tr><td></td><td></td><td></td><td></td><td>(a)</td><td></td><td></td><td></td><td></td><td></td><td></td><td>(b)</td><td></td><td></td><td></td></tr><tr><td>Lf</td><td>top-1 GFLOPs</td><td></td><td></td><td>P</td><td>top-1 GFLOPs</td><td></td><td></td><td>img feat.</td><td></td><td>top-1 GFLOPs</td><td></td><td>decode</td><td>top-1</td><td>GFLOPs</td></tr><tr><td>nil</td><td>77.8</td><td>1.6</td><td></td><td>16</td><td>80.3</td><td>1.9</td><td></td><td>RGB</td><td>fail</td><td>1.5</td><td></td><td>linear</td><td>78.5</td><td>1.9</td></tr><tr><td>1</td><td>79.7</td><td>1.7</td><td></td><td>36</td><td>81.0</td><td>2.0</td><td></td><td>ViT/8-embed</td><td>78.4</td><td>1.9</td><td></td><td>static, mix</td><td>80.1</td><td>1.9</td></tr><tr><td>4</td><td>81.0</td><td>2.0</td><td></td><td>64</td><td>81.3</td><td>2.3</td><td></td><td>early conv</td><td>81.0</td><td>2.0</td><td></td><td>adaptive, mix 81.0</td><td></td><td>2.0</td></tr><tr><td>8</td><td>81.0</td><td>2.5</td><td></td><td></td><td></td><td></td><td></td><td>ResNet C1+C2</td><td>82.2</td><td>3.1</td><td></td><td></td><td></td><td></td></tr><tr><td></td><td>(c)</td><td></td><td></td><td></td><td>(d)</td><td></td><td></td><td>(e)</td><td></td><td></td><td></td><td>(f)</td><td></td><td></td></tr></table>",
+        "bbox": [
+            179,
+            99,
+            838,
+            261
+        ],
+        "page_idx": 7
+    },
+    {
+        "type": "text",
+        "text": "",
+        "bbox": [
+            174,
+            347,
+            825,
+            402
+        ],
+        "page_idx": 7
+    },
+    {
+        "type": "text",
+        "text": "Scaling up SparseFormer. We scale up the base SparseFormer variant in Table 4. We first adopt ImageNet-21K pretraining, and it brings 1.0 top-1 accuracy improvement. Then we investigate SparseFormer with large input resolution fine-tuning. Large resolution inputs benefit SparseFormer $( 0 . 5 \\uparrow$ for $3 8 4 ^ { 2 }$ ) only extra $5 \\%$ FLOPs. Moreover, we try a more aggressive way to scale up the model by reinitializing tokens (i.e., embeddings and RoIs) with a more number in fine-tuning, and find it with better results. We leave further scaling up to future work. ",
+        "bbox": [
+            174,
+            410,
+            825,
+            493
+        ],
+        "page_idx": 7
+    },
+    {
+        "type": "text",
+        "text": "Kinetics-400 classification. We investigate the extension of SparseFormer to the video classification task. Results on the Kinetics-400 dataset are reported in Table 3. Our VideoSparseFormer-T achieves the performance of well-established video CNNs (I3D or SlowFast) with a much lower computational burden. Surprisingly, our VideoSparseFormer-S pre-trained on ImageNet-1K even surpasses the ViT-based architectures pre-trained on ImageNet-21K, like TimeSFormer (Bertasius et al., 2021) and ViViT (Arnab et al., 2021). Furthermore, our VideoSparseFormer-S pre-trained on ImageNet-21K can improve the performance to 79.8 with only 74 GFLOPs. ",
+        "bbox": [
+            174,
+            500,
+            825,
+            598
+        ],
+        "page_idx": 7
+    },
+    {
+        "type": "text",
+        "text": "4.2 ABLATION STUDY ",
+        "text_level": 1,
+        "bbox": [
+            176,
+            622,
+            339,
+            636
+        ],
+        "page_idx": 7
+    },
+    {
+        "type": "text",
+        "text": "We ablate key designs in SparseFormer-T on ImageNet-1K due to limited computational resources. ",
+        "bbox": [
+            173,
+            651,
+            820,
+            666
+        ],
+        "page_idx": 7
+    },
+    {
+        "type": "text",
+        "text": "The number of latent tokens, $N$ , is a crucial hyper-parameter in SparseFormer that controls the capacity of the latent space. The impact of different numbers of latent tokens on the performance is shown in Table 5a. The performance of SparseFormer is heavily influenced by $N$ , and increasing $N$ to 81 enables SparseFormer-T to achieve similar performance as SparseFormer-S. Nevertheless, we are still in favor of fewer tokens for efficiency and sparsity. ",
+        "bbox": [
+            174,
+            672,
+            825,
+            742
+        ],
+        "page_idx": 7
+    },
+    {
+        "type": "text",
+        "text": "The focusing transformer. We ablate the focusing transformer and the early convolution with direct token extraction methods, while keeping the cortex transformer unchanged, in Table 5b. The ‘ViT/32’ indicates using $3 2 \\times 3 2$ patch as a token (Dosovitskiy et al., 2021) (49 in all) and the transformer configurations follow SparseFormer-T in Table 1. The ${ } ^ { \\cdot } \\mathrm { V i T } / 3 2 ^ { \\ast } { } ^ { \\cdot }$ adds two more transformer blocks. The ‘conv $\\times 4 ^ { \\bullet }$ approach uses four strided convolution, each doubling the channel, to produce $7 \\times 7$ feature map as 49 tokens. The ‘swin’ method exploits 4 successive local shifted attention and patch merge (Liu et al., 2021a) to obtain 49 tokens. Note that in contrast to SparseFormer, all methods in Table 5b extract 49 tokens in a dense manner from the original image space. We also investigate the impact of iterations of the focusing transformer in Table 5c. ",
+        "bbox": [
+            174,
+            750,
+            825,
+            875
+        ],
+        "page_idx": 7
+    },
+    {
+        "type": "text",
+        "text": "Sparsity of sampling points. The other important factor for the sparsity of the proposed method is the number of sampling points in the feature sampling. Table 5d shows the ablation on this. Compared to increasing the number of latent tokens (e.g., $4 9 \\to 6 4$ , $30 \\%$ up, 81.4 accuracy), more sampling points are not economical for better performance, and 81.3 accuracy needs $7 7 \\%$ more $3 6 \\to 6 4$ ) sampling points. We choose 36 sampling points as our default for efficiency. ",
+        "bbox": [
+            176,
+            882,
+            823,
+            924
+        ],
+        "page_idx": 7
+    },
+    {
+        "type": "image",
+        "img_path": "images/4a510f941d4a3ed463344727c5d69096ec6c1c243e91d863bacfcfd94cd94411.jpg",
+        "image_caption": [
+            "Figure 3: Visualizations of sampling points and their sampling density maps across sampling stages in SparseFormer-S. Stage 1-4 refer to the feature sampling in the focusing Transformer, and Stage 5 refers to the cortex Transformer. Better view with zoom-in. "
+        ],
+        "image_footnote": [],
+        "bbox": [
+            174,
+            101,
+            821,
+            214
+        ],
+        "page_idx": 8
+    },
+    {
+        "type": "text",
+        "text": "",
+        "bbox": [
+            174,
+            289,
+            821,
+            318
+        ],
+        "page_idx": 8
+    },
+    {
+        "type": "text",
+        "text": "Image features and how to decode sampled features. Table 5e investigates input image features to be sampled into the latent space in SparseFormer. As discussed before, input image features can be in the raw RGB format, but we find it rather hard to train1. We ablate the early convolution with ViT-like embedding layer (Dosovitskiy et al., 2021) and ResNet $\\mathrm { C } 1 { + } \\mathrm { C } 2$ blocks (He et al., 2016) (the early convolution and the first three bottleneck blocks before downsampling). Table 5f ablates how to decode sampled features for a token. The static mixing uses the static weights, which are not conditional on token embedding, and performs worser than adaptive mixing weights. ",
+        "bbox": [
+            173,
+            324,
+            823,
+            421
+        ],
+        "page_idx": 8
+    },
+    {
+        "type": "text",
+        "text": "Inflation of latent tokens on video classification. We also investigate the inflation rate of tokens on videos. Intuitively, video data with multiple frames need more latent tokens than a static image to model. Results in Table 6 show this. Note that the input video has 32 frames, but the token inflation rate 8 is already sufficient for the favorable performance of VideoSparseFormer. As a contrast, dense CNNs or Transformers usually require at least exactly $\\#$ frames times the computational cost if no temporal reduction is adopted. This also validates the sparsity of the proposed SparseFormer method on videos. ",
+        "bbox": [
+            174,
+            429,
+            599,
+            568
+        ],
+        "page_idx": 8
+    },
+    {
+        "type": "table",
+        "img_path": "images/3a9e6665f04124b6e086b8005f1dc77e5b615bc833b1e20294fab567b3183493.jpg",
+        "table_caption": [
+            "Table 6: Different inflation rates of VideoSparseFormer-T on Kinetics-400. "
+        ],
+        "table_footnote": [],
+        "table_body": "<table><tr><td>inflation</td><td>top-1</td><td>GFLOPs</td></tr><tr><td>1 4</td><td>69.5 74.7</td><td>7×4×3 13×4×3</td></tr><tr><td>8</td><td>77.9</td><td>22×4×3</td></tr><tr><td>16</td><td>78.2</td><td>32×4×3</td></tr></table>",
+        "bbox": [
+            629,
+            482,
+            805,
+            553
+        ],
+        "page_idx": 8
+    },
+    {
+        "type": "text",
+        "text": "4.3 VISUALIZATIONS ",
+        "text_level": 1,
+        "bbox": [
+            176,
+            590,
+            334,
+            604
+        ],
+        "page_idx": 8
+    },
+    {
+        "type": "text",
+        "text": "As discussed in Section 3, we argue that SparseFormer with the RoI adjusting mechanism and sparse feature sampling, can reason about where to look and focus on foregrounds. To show this, we perform visualizations of token sampling points across different sampling stages in Figure 3. We apply kernel density estimation (KDE (Rosenblatt, 1956)) spatially about sampling points with tophat kernels to obtain the sampling density map. We can find that SparseFormer initially looks at the image in a relatively uniform way and gradually focuses on discriminative details of foregrounds. With minimal classification supervision (i.e., no localizing signals), SparseFormer can roughly learn where discriminative foregrounds are. ",
+        "bbox": [
+            174,
+            618,
+            825,
+            729
+        ],
+        "page_idx": 8
+    },
+    {
+        "type": "text",
+        "text": "5 CONCLUSION ",
+        "text_level": 1,
+        "bbox": [
+            176,
+            756,
+            318,
+            772
+        ],
+        "page_idx": 8
+    },
+    {
+        "type": "text",
+        "text": "In this paper, we have presented a new vision architecture, SparseFormer, to perform visual recognition with a limited number of tokens along with the transformer in the latent space. To imitate human perception behavior, we design SparseFormer to focus these sparse latent tokens on discriminative foregrounds and make a recognition sparsely. As a very initial step to the sparse visual archi tecture, SparseFormer consistently yields promising results on challenging image classification and video classification benchmarks with a good performance-throughput tradeoff. We hope our work can provide an alternative way and inspire further research about sparse visual understanding. ",
+        "bbox": [
+            174,
+            791,
+            823,
+            890
+        ],
+        "page_idx": 8
+    },
+    {
+        "type": "text",
+        "text": "Acknowledgement. This project is supported by the National Research Foundation, Singapore under its NRFF Award NRF-NRFF13-2021-0008. ",
+        "bbox": [
+            173,
+            103,
+            823,
+            132
+        ],
+        "page_idx": 9
+    },
+    {
+        "type": "text",
+        "text": "REFERENCES ",
+        "text_level": 1,
+        "bbox": [
+            174,
+            154,
+            287,
+            169
+        ],
+        "page_idx": 9
+    },
+    {
+        "type": "text",
+        "text": "Anurag Arnab, Mostafa Dehghani, Georg Heigold, Chen Sun, Mario Luciˇ c, and Cordelia Schmid. ´ Vivit: A video vision transformer. In ICCV, 2021. ",
+        "bbox": [
+            173,
+            178,
+            821,
+            205
+        ],
+        "page_idx": 9
+    },
+    {
+        "type": "text",
+        "text": "Lei Jimmy Ba, Jamie Ryan Kiros, and Geoffrey E. Hinton. Layer normalization. ArXiv, 2016. ",
+        "bbox": [
+            174,
+            215,
+            790,
+            231
+        ],
+        "page_idx": 9
+    },
+    {
+        "type": "text",
+        "text": "Gedas Bertasius, Heng Wang, and Lorenzo Torresani. Is space-time attention all you need for video understanding? In ICML, 2021. ",
+        "bbox": [
+            171,
+            241,
+            823,
+            270
+        ],
+        "page_idx": 9
+    },
+    {
+        "type": "text",
+        "text": "Daniel Bolya, Cheng-Yang Fu, Xiaoliang Dai, Peizhao Zhang, Christoph Feichtenhofer, and Judy Hoffman. Token merging: Your vit but faster. ArXiv, 2022. ",
+        "bbox": [
+            171,
+            279,
+            823,
+            309
+        ],
+        "page_idx": 9
+    },
+    {
+        "type": "text",
+        "text": "Nicolas Carion, Francisco Massa, Gabriel Synnaeve, Nicolas Usunier, Alexander Kirillov, and Sergey Zagoruyko. End-to-end object detection with transformers. In European Conference on Computer Vision, 2020. ",
+        "bbox": [
+            173,
+            318,
+            825,
+            361
+        ],
+        "page_idx": 9
+    },
+    {
+        "type": "text",
+        "text": "Joao Carreira and Andrew Zisserman. Quo vadis, action recognition? A new model and the kinetics ˜ dataset. In CVPR, pp. 4724–4733. IEEE Computer Society, 2017. ",
+        "bbox": [
+            171,
+            371,
+            823,
+            400
+        ],
+        "page_idx": 9
+    },
+    {
+        "type": "text",
+        "text": "Shuning Chang, Pichao Wang, Ming Lin, Fan Wang, David Junhao Zhang, Rong Jin, and Mike Zheng Shou. Making vision transformers efficient from A token sparsification view. In CVPR, pp. 6195–6205. IEEE, 2023a. ",
+        "bbox": [
+            173,
+            410,
+            826,
+            452
+        ],
+        "page_idx": 9
+    },
+    {
+        "type": "text",
+        "text": "Shuning Chang, Pichao Wang, Hao Luo, Fan Wang, and Mike Zheng Shou. Revisiting vision transformer from the view of path ensemble. In ICCV, pp. 19832–19842. IEEE, 2023b. ",
+        "bbox": [
+            173,
+            462,
+            825,
+            492
+        ],
+        "page_idx": 9
+    },
+    {
+        "type": "text",
+        "text": "Arthur P. Dempster, Nan M. Laird, and Donald B. Rubin. In Maximum likelihood from incomplete data via the EM - algorithm plus discussions on the paper, 1977. ",
+        "bbox": [
+            169,
+            501,
+            823,
+            531
+        ],
+        "page_idx": 9
+    },
+    {
+        "type": "text",
+        "text": "Jia Deng, Wei Dong, Richard Socher, Li-Jia Li, Kai Li, and Fei-Fei Li. Imagenet: A large-scale hierarchical image database. In CVPR, 2009. doi: 10.1109/CVPRW.2009.5206848. ",
+        "bbox": [
+            169,
+            540,
+            823,
+            569
+        ],
+        "page_idx": 9
+    },
+    {
+        "type": "text",
+        "text": "Robert Desimone and John Duncan. Neural mechanisms of selective visual attention. Annual Review of Neuroscience, 18(1):193–222, 1995. doi: 10.1146/annurev.ne.18.030195.001205. URL https://doi.org/10.1146/annurev.ne.18.030195.001205. PMID: 7605061. ",
+        "bbox": [
+            176,
+            579,
+            821,
+            622
+        ],
+        "page_idx": 9
+    },
+    {
+        "type": "text",
+        "text": "Alexey Dosovitskiy, Lucas Beyer, Alexander Kolesnikov, Dirk Weissenborn, Xiaohua Zhai, Thomas Unterthiner, Mostafa Dehghani, Matthias Minderer, Georg Heigold, Sylvain Gelly, Jakob Uszkoreit, and Neil Houlsby. An image is worth 16x16 words: Transformers for image recognition at scale. In ICLR. OpenReview.net, 2021. ",
+        "bbox": [
+            174,
+            632,
+            825,
+            688
+        ],
+        "page_idx": 9
+    },
+    {
+        "type": "text",
+        "text": "Haoqi Fan, Bo Xiong, Karttikeya Mangalam, Yanghao Li, Zhicheng Yan, Jitendra Malik, and Christoph Feichtenhofer. Multiscale vision transformers. In ICCV, 2021. ",
+        "bbox": [
+            173,
+            698,
+            823,
+            727
+        ],
+        "page_idx": 9
+    },
+    {
+        "type": "text",
+        "text": "Mohsen Fayyaz, Soroush Abbasi Koohpayegani, Farnoush Rezaei Jafari, Sunando Sengupta, Hamid Reza Vaezi Joze, Eric Sommerlade, Hamed Pirsiavash, and Jurgen Gall. Adaptive token sampling ¨ for efficient vision transformers. In ECCV (11), volume 13671 of Lecture Notes in Computer Science, pp. 396–414. Springer, 2022. ",
+        "bbox": [
+            173,
+            737,
+            825,
+            794
+        ],
+        "page_idx": 9
+    },
+    {
+        "type": "text",
+        "text": "Christoph Feichtenhofer, Haoqi Fan, Jitendra Malik, and Kaiming He. Slowfast networks for video recognition. In ICCV, 2019. ",
+        "bbox": [
+            169,
+            803,
+            823,
+            832
+        ],
+        "page_idx": 9
+    },
+    {
+        "type": "text",
+        "text": "Ziteng Gao, Limin Wang, Bing Han, and Sheng Guo. Adamixer: A fast-converging query-based object detector. In Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition, pp. 5364–5373, 2022. ",
+        "bbox": [
+            173,
+            842,
+            823,
+            885
+        ],
+        "page_idx": 9
+    },
+    {
+        "type": "text",
+        "text": "Xavier Glorot and Yoshua Bengio. Understanding the difficulty of training deep feedforward neural networks. In AISTATS, volume 9 of JMLR Proceedings, pp. 249–256. JMLR.org, 2010. ",
+        "bbox": [
+            173,
+            895,
+            821,
+            924
+        ],
+        "page_idx": 9
+    },
+    {
+        "type": "text",
+        "text": "Qiqi Gu, Qianyu Zhou, Minghao Xu, Zhengyang Feng, Guangliang Cheng, Xuequan Lu, Jianping Shi, and Lizhuang Ma. Pit: Position-invariant transform for cross-fov domain adaptation. In IEEE/CVF International Conference on Computer Vision, 2021. ",
+        "bbox": [
+            176,
+            103,
+            821,
+            146
+        ],
+        "page_idx": 10
+    },
+    {
+        "type": "text",
+        "text": "Kaiming He, Xiangyu Zhang, Shaoqing Ren, and Jian Sun. Deep residual learning for image recognition. In CVPR, 2016. doi: 10.1109/CVPR.2016.90. ",
+        "bbox": [
+            174,
+            154,
+            821,
+            183
+        ],
+        "page_idx": 10
+    },
+    {
+        "type": "text",
+        "text": "Dan Hendrycks and Kevin Gimpel. Gaussian error linear units (gelus). arXiv preprint arXiv:1606.08415, 2016. ",
+        "bbox": [
+            173,
+            190,
+            825,
+            220
+        ],
+        "page_idx": 10
+    },
+    {
+        "type": "text",
+        "text": "Gao Huang, Yu Sun, Zhuang Liu, Daniel Sedra, and Kilian Q. Weinberger. Deep networks with stochastic depth. In ECCV (4), volume 9908 of Lecture Notes in Computer Science, pp. 646–661. Springer, 2016. ",
+        "bbox": [
+            173,
+            228,
+            823,
+            271
+        ],
+        "page_idx": 10
+    },
+    {
+        "type": "text",
+        "text": "Gao Huang, Zhuang Liu, and Kilian Q. Weinberger. Densely connected convolutional networks. In CVPR, 2017. ",
+        "bbox": [
+            173,
+            279,
+            823,
+            308
+        ],
+        "page_idx": 10
+    },
+    {
+        "type": "text",
+        "text": "Sergey Ioffe and Christian Szegedy. Batch normalization: Accelerating deep network training by reducing internal covariate shift. In ICML, 2015. ",
+        "bbox": [
+            171,
+            316,
+            823,
+            345
+        ],
+        "page_idx": 10
+    },
+    {
+        "type": "text",
+        "text": "Laurent Itti and Christof Koch. Computational modelling of visual attention. Nature Reviews Neuroscience, 2(3):194–203, 2001. doi: 10.1038/35058500. URL https://doi.org/10.1038/ 35058500. ",
+        "bbox": [
+            174,
+            353,
+            823,
+            396
+        ],
+        "page_idx": 10
+    },
+    {
+        "type": "text",
+        "text": "Andrew Jaegle, Felix Gimeno, Andy Brock, Oriol Vinyals, Andrew Zisserman, and Joao Carreira. ˜ Perceiver: General perception with iterative attention. In ICML, volume 139 of Proceedings of Machine Learning Research, pp. 4651–4664. PMLR, 2021. ",
+        "bbox": [
+            178,
+            404,
+            823,
+            446
+        ],
+        "page_idx": 10
+    },
+    {
+        "type": "text",
+        "text": "Andrew Jaegle, Sebastian Borgeaud, Jean-Baptiste Alayrac, Carl Doersch, Catalin Ionescu, David Ding, Skanda Koppula, Daniel Zoran, Andrew Brock, Evan Shelhamer, Olivier J. Henaff, ´ Matthew M. Botvinick, Andrew Zisserman, Oriol Vinyals, and Joao Carreira. Perceiver IO: A ˜ general architecture for structured inputs & outputs. In ICLR. OpenReview.net, 2022. ",
+        "bbox": [
+            174,
+            454,
+            825,
+            512
+        ],
+        "page_idx": 10
+    },
+    {
+        "type": "text",
+        "text": "Xu Jia, Bert De Brabandere, Tinne Tuytelaars, and Luc Van Gool. Dynamic filter networks. In NIPS, 2016. ",
+        "bbox": [
+            173,
+            520,
+            823,
+            549
+        ],
+        "page_idx": 10
+    },
+    {
+        "type": "text",
+        "text": "Alex Krizhevsky, Ilya Sutskever, and Geoffrey E. Hinton. Imagenet classification with deep convolutional neural networks. In Peter L. Bartlett, Fernando C. N. Pereira, Christopher J. C. Burges, Leon Bottou, and Kilian Q. Weinberger (eds.), ´ NIPS, pp. 1106–1114, 2012. ",
+        "bbox": [
+            176,
+            556,
+            823,
+            601
+        ],
+        "page_idx": 10
+    },
+    {
+        "type": "text",
+        "text": "Youwei Liang, Chongjian Ge, Zhan Tong, Yibing Song, Jue Wang, and Pengtao Xie. Not all patches are what you need: Expediting vision transformers via token reorganizations. In International Conference on Learning Representations, 2022. ",
+        "bbox": [
+            176,
+            608,
+            823,
+            651
+        ],
+        "page_idx": 10
+    },
+    {
+        "type": "text",
+        "text": "Tsung-Yi Lin, Michael Maire, Serge J. Belongie, James Hays, Pietro Perona, Deva Ramanan, Piotr Dollar, and C. Lawrence Zitnick. Microsoft COCO: common objects in context. In ´ ECCV, 2014. doi: 10.1007/978-3-319-10602-1\\ 48. ",
+        "bbox": [
+            176,
+            659,
+            825,
+            702
+        ],
+        "page_idx": 10
+    },
+    {
+        "type": "text",
+        "text": "Ze Liu, Yutong Lin, Yue Cao, Han Hu, Yixuan Wei, Zheng Zhang, Stephen Lin, and Baining Guo. Swin transformer: Hierarchical vision transformer using shifted windows. CVPR, 2021a. ",
+        "bbox": [
+            173,
+            709,
+            823,
+            739
+        ],
+        "page_idx": 10
+    },
+    {
+        "type": "text",
+        "text": "Ze Liu, Jia Ning, Yue Cao, Yixuan Wei, Zheng Zhang, Stephen Lin, and Han Hu. Video swin transformer. arXiv preprint arXiv:2106.13230, 2021b. ",
+        "bbox": [
+            173,
+            746,
+            823,
+            776
+        ],
+        "page_idx": 10
+    },
+    {
+        "type": "text",
+        "text": "Zhuang Liu, Hanzi Mao, Chao-Yuan Wu, Christoph Feichtenhofer, Trevor Darrell, and Saining Xie. A convnet for the 2020s. In CVPR, pp. 11966–11976. IEEE, 2022. ",
+        "bbox": [
+            174,
+            784,
+            823,
+            813
+        ],
+        "page_idx": 10
+    },
+    {
+        "type": "text",
+        "text": "Ilya Loshchilov and Frank Hutter. Sgdr: Stochastic gradient descent with warm restarts. arXiv preprint arXiv:1608.03983, 2016. ",
+        "bbox": [
+            174,
+            820,
+            823,
+            849
+        ],
+        "page_idx": 10
+    },
+    {
+        "type": "text",
+        "text": "Ilya Loshchilov and Frank Hutter. Decoupled weight decay regularization. arXiv preprint arXiv:1711.05101, 2017. ",
+        "bbox": [
+            173,
+            858,
+            823,
+            887
+        ],
+        "page_idx": 10
+    },
+    {
+        "type": "text",
+        "text": "Xu Ma, Yuqian Zhou, Huan Wang, Can Qin, Bin Sun, Chang Liu, and Yun Fu. Image as set of points. In ICLR. OpenReview.net, 2023. ",
+        "bbox": [
+            173,
+            895,
+            821,
+            924
+        ],
+        "page_idx": 10
+    },
+    {
+        "type": "text",
+        "text": "David Marr. Vision: A Computational Investigation into the Human Representation and Processing of Visual Information. The MIT Press, 07 2010. ISBN 9780262514620. doi: 10.7551/mitpress/9780262514620.001.0001. URL https://doi.org/10.7551/ mitpress/9780262514620.001.0001. ",
+        "bbox": [
+            173,
+            103,
+            825,
+            160
+        ],
+        "page_idx": 11
+    },
+    {
+        "type": "text",
+        "text": "Volodymyr Mnih, Nicolas Heess, Alex Graves, and Koray Kavukcuoglu. Recurrent models of visual attention. In NIPS, pp. 2204–2212, 2014. ",
+        "bbox": [
+            176,
+            170,
+            821,
+            199
+        ],
+        "page_idx": 11
+    },
+    {
+        "type": "text",
+        "text": "Timo Ojala, Matti Pietikainen, and David Harwood. A comparative study of texture measures with ¨ classification based on featured distributions. Pattern Recognit., 29(1):51–59, 1996. ",
+        "bbox": [
+            174,
+            208,
+            821,
+            237
+        ],
+        "page_idx": 11
+    },
+    {
+        "type": "text",
+        "text": "B. T. Polyak and A. B. Juditsky. Acceleration of stochastic approximation by averaging. SIAM Journal on Control and Optimization, 30(4):838–855, 1992. doi: 10.1137/0330046. URL https://doi.org/10.1137/0330046. ",
+        "bbox": [
+            174,
+            246,
+            823,
+            289
+        ],
+        "page_idx": 11
+    },
+    {
+        "type": "text",
+        "text": "Zhaofan Qiu, Ting Yao, and Tao Mei. Learning spatio-temporal representation with pseudo-3d residual networks. In ICCV, pp. 5534–5542. IEEE Computer Society, 2017. ",
+        "bbox": [
+            173,
+            299,
+            823,
+            328
+        ],
+        "page_idx": 11
+    },
+    {
+        "type": "text",
+        "text": "Ilija Radosavovic, Raj Prateek Kosaraju, Ross B. Girshick, Kaiming He, and Piotr Dollar. Designing ´ network design spaces. In CVPR, 2020. ",
+        "bbox": [
+            174,
+            337,
+            825,
+            366
+        ],
+        "page_idx": 11
+    },
+    {
+        "type": "text",
+        "text": "Marc’Aurelio Ranzato. On learning where to look. ArXiv, 2014. ",
+        "bbox": [
+            173,
+            376,
+            596,
+            390
+        ],
+        "page_idx": 11
+    },
+    {
+        "type": "text",
+        "text": "Yongming Rao, Wenliang Zhao, Benlin Liu, Jiwen Lu, Jie Zhou, and Cho-Jui Hsieh. Dynamicvit: Efficient vision transformers with dynamic token sparsification. In Advances in Neural Information Processing Systems, 2021. ",
+        "bbox": [
+            176,
+            400,
+            823,
+            443
+        ],
+        "page_idx": 11
+    },
+    {
+        "type": "text",
+        "text": "Shaoqing Ren, Kaiming He, Ross B. Girshick, and Jian Sun. Faster R-CNN: towards real-time object detection with region proposal networks. In NIPS, 2015. ",
+        "bbox": [
+            173,
+            452,
+            823,
+            481
+        ],
+        "page_idx": 11
+    },
+    {
+        "type": "text",
+        "text": "Ronald A. Rensink. The dynamic representation of scenes. Visual Cognition, 7:17 – 42, 2000. ",
+        "bbox": [
+            173,
+            489,
+            794,
+            506
+        ],
+        "page_idx": 11
+    },
+    {
+        "type": "text",
+        "text": "Tal Ridnik, Emanuel Ben-Baruch, Asaf Noy, and Lihi Zelnik-Manor. Imagenet-21k pretraining for the masses. In Thirty-fifth Conference on Neural Information Processing Systems Datasets and Benchmarks Track, 2021. ",
+        "bbox": [
+            173,
+            515,
+            825,
+            558
+        ],
+        "page_idx": 11
+    },
+    {
+        "type": "text",
+        "text": "Murray Rosenblatt. Remarks on some nonparametric estimates of a density function. Annals of Mathematical Statistics, 27:832–837, 1956. ",
+        "bbox": [
+            169,
+            568,
+            825,
+            597
+        ],
+        "page_idx": 11
+    },
+    {
+        "type": "text",
+        "text": "Peize Sun, Rufeng Zhang, Yi Jiang, Tao Kong, Chenfeng Xu, Wei Zhan, Masayoshi Tomizuka, Lei Li, Zehuan Yuan, Changhu Wang, et al. Sparse r-cnn: End-to-end object detection with learnable proposals. In IEEE/CVF Conference on Computer Vision and Pattern Recognition, 2021. ",
+        "bbox": [
+            176,
+            606,
+            825,
+            648
+        ],
+        "page_idx": 11
+    },
+    {
+        "type": "text",
+        "text": "Christian Szegedy, Wei Liu, Yangqing Jia, Pierre Sermanet, Scott E. Reed, Dragomir Anguelov, Dumitru Erhan, Vincent Vanhoucke, and Andrew Rabinovich. Going deeper with convolutions. In CVPR, 2015. doi: 10.1109/CVPR.2015.7298594. ",
+        "bbox": [
+            178,
+            659,
+            823,
+            700
+        ],
+        "page_idx": 11
+    },
+    {
+        "type": "text",
+        "text": "Christian Szegedy, Vincent Vanhoucke, Sergey Ioffe, Jonathon Shlens, and Zbigniew Wojna. Rethinking the inception architecture for computer vision. In CVPR, 2016. doi: 10.1109/CVPR. 2016.308. ",
+        "bbox": [
+            173,
+            710,
+            825,
+            752
+        ],
+        "page_idx": 11
+    },
+    {
+        "type": "text",
+        "text": "Mingxing Tan and Quoc V. Le. Efficientnet: Rethinking model scaling for convolutional neural networks. In ICML, volume 97 of Proceedings of Machine Learning Research, pp. 6105–6114. PMLR, 2019. ",
+        "bbox": [
+            171,
+            762,
+            823,
+            805
+        ],
+        "page_idx": 11
+    },
+    {
+        "type": "text",
+        "text": "Sia Huat Tan, Runpei Dong, and Kaisheng Ma. Multi-glimpse network: A robust and efficient classification architecture based on recurrent downsampled attention. In BMVC, pp. 142. BMVA Press, 2021. ",
+        "bbox": [
+            171,
+            815,
+            825,
+            858
+        ],
+        "page_idx": 11
+    },
+    {
+        "type": "text",
+        "text": "Hugo Touvron, Matthieu Cord, Matthijs Douze, Francisco Massa, Alexandre Sablayrolles, and Herve J ´ egou. Training data-efficient image transformers & distillation through attention. In ´ ICML, volume 139 of Proceedings of Machine Learning Research, pp. 10347–10357. PMLR, 2021. ",
+        "bbox": [
+            174,
+            867,
+            825,
+            922
+        ],
+        "page_idx": 11
+    },
+    {
+        "type": "text",
+        "text": "Du Tran, Lubomir Bourdev, Rob Fergus, Lorenzo Torresani, and Manohar Paluri. Learning spatiotemporal features with 3d convolutional networks. In IEEE/CVF International Conference on Computer Vision, 2015. ",
+        "bbox": [
+            173,
+            103,
+            821,
+            145
+        ],
+        "page_idx": 12
+    },
+    {
+        "type": "text",
+        "text": "Du Tran, Heng Wang, Lorenzo Torresani, Jamie Ray, Yann LeCun, and Manohar Paluri. A closer look at spatiotemporal convolutions for action recognition. In CVPR, pp. 6450–6459. Computer Vision Foundation / IEEE Computer Society, 2018. ",
+        "bbox": [
+            176,
+            152,
+            821,
+            196
+        ],
+        "page_idx": 12
+    },
+    {
+        "type": "text",
+        "text": "Zhengzhong Tu, Hossein Talebi, Han Zhang, Feng Yang, Peyman Milanfar, Alan C. Bovik, and Yinxiao Li. Maxvit: Multi-axis vision transformer. In ECCV (24), volume 13684 of Lecture Notes in Computer Science, pp. 459–479. Springer, 2022. ",
+        "bbox": [
+            176,
+            203,
+            821,
+            247
+        ],
+        "page_idx": 12
+    },
+    {
+        "type": "text",
+        "text": "Ashish Vaswani, Noam Shazeer, Niki Parmar, Jakob Uszkoreit, Llion Jones, Aidan N. Gomez, Lukasz Kaiser, and Illia Polosukhin. Attention is all you need. In NIPS, pp. 5998–6008, 2017. ",
+        "bbox": [
+            171,
+            253,
+            823,
+            284
+        ],
+        "page_idx": 12
+    },
+    {
+        "type": "text",
+        "text": "Limin Wang, Yuanjun Xiong, Zhe Wang, Yu Qiao, Dahua Lin, Xiaoou Tang, and Luc Van Gool. Temporal segment networks for action recognition in videos. IEEE Transactions on Pattern Analysis and Machine Intelligence, 2019. ",
+        "bbox": [
+            174,
+            290,
+            823,
+            333
+        ],
+        "page_idx": 12
+    },
+    {
+        "type": "text",
+        "text": "Wenhai Wang, Enze Xie, Xiang Li, Deng-Ping Fan, Kaitao Song, Ding Liang, Tong Lu, Ping Luo, and Ling Shao. Pyramid vision transformer: A versatile backbone for dense prediction without convolutions. ICCV, 2021. ",
+        "bbox": [
+            174,
+            339,
+            823,
+            382
+        ],
+        "page_idx": 12
+    },
+    {
+        "type": "text",
+        "text": "Xiaolong Wang, Ross Girshick, Abhinav Gupta, and Kaiming He. Non-local neural networks. In CVPR, 2018. ",
+        "bbox": [
+            173,
+            390,
+            823,
+            420
+        ],
+        "page_idx": 12
+    },
+    {
+        "type": "text",
+        "text": "Ross Wightman, Hugo Touvron, and Herve J ´ egou. Resnet strikes back: An improved training ´ procedure in timm. arXiv preprint arXiv:2110.00476, 2021. ",
+        "bbox": [
+            173,
+            426,
+            823,
+            455
+        ],
+        "page_idx": 12
+    },
+    {
+        "type": "text",
+        "text": "Yuxin Wu and Kaiming He. Group normalization. Int. J. Comput. Vis., 128(3):742–755, 2020. ",
+        "bbox": [
+            174,
+            462,
+            794,
+            478
+        ],
+        "page_idx": 12
+    },
+    {
+        "type": "text",
+        "text": "Zhuofan Xia, Xuran Pan, Shiji Song, Li Erran Li, and Gao Huang. Vision transformer with deformable attention. In IEEE/CVF Conference on Computer Vision and Pattern Recognition, 2022. ",
+        "bbox": [
+            174,
+            484,
+            821,
+            515
+        ],
+        "page_idx": 12
+    },
+    {
+        "type": "text",
+        "text": "Tete Xiao, Yingcheng Liu, Bolei Zhou, Yuning Jiang, and Jian Sun. Unified perceptual parsing for scene understanding. In ECCV (5), volume 11209 of Lecture Notes in Computer Science, pp. 432–448. Springer, 2018. ",
+        "bbox": [
+            174,
+            521,
+            823,
+            564
+        ],
+        "page_idx": 12
+    },
+    {
+        "type": "text",
+        "text": "Tete Xiao, Mannat Singh, Eric Mintun, Trevor Darrell, Piotr Dollar, and Ross B. Girshick. Early ´ convolutions help transformers see better. In NeurIPS, pp. 30392–30400, 2021. ",
+        "bbox": [
+            173,
+            571,
+            820,
+            601
+        ],
+        "page_idx": 12
+    },
+    {
+        "type": "text",
+        "text": "Saining Xie, Chen Sun, Jonathan Huang, Zhuowen Tu, and Kevin Murphy. Rethinking spatiotemporal feature learning: Speed-accuracy trade-offs in video classification. In ECCV (15), volume 11219 of Lecture Notes in Computer Science, pp. 318–335. Springer, 2018. ",
+        "bbox": [
+            176,
+            608,
+            820,
+            651
+        ],
+        "page_idx": 12
+    },
+    {
+        "type": "text",
+        "text": "Hongxu Yin, Arash Vahdat, Jose M. Alvarez, Arun Mallya, Jan Kautz, and Pavlo Molchanov. A-vit: Adaptive tokens for efficient vision transformer. In CVPR, pp. 10799–10808. IEEE, 2022. ",
+        "bbox": [
+            174,
+            659,
+            820,
+            688
+        ],
+        "page_idx": 12
+    },
+    {
+        "type": "text",
+        "text": "Li Yuan, Yunpeng Chen, Tao Wang, Weihao Yu, Yujun Shi, Francis E. H. Tay, Jiashi Feng, and Shuicheng Yan. Tokens-to-token vit: Training vision transformers from scratch on imagenet. ICCV, 2021. ",
+        "bbox": [
+            174,
+            694,
+            823,
+            737
+        ],
+        "page_idx": 12
+    },
+    {
+        "type": "text",
+        "text": "Xiaoyu Yue, Shuyang Sun, Zhanghui Kuang, Meng Wei, Philip H. S. Torr, Wayne Zhang, and Dahua Lin. Vision transformer with progressive sampling. In ICCV, pp. 377–386. IEEE, 2021. ",
+        "bbox": [
+            173,
+            744,
+            823,
+            773
+        ],
+        "page_idx": 12
+    },
+    {
+        "type": "text",
+        "text": "Pengchuan Zhang, Xiyang Dai, Jianwei Yang, Bin Xiao, Lu Yuan, Lei Zhang, and Jianfeng Gao. Multi-scale vision longformer: A new vision transformer for high-resolution image encoding. In IEEE/CVF International Conference on Computer Vision, 2021. ",
+        "bbox": [
+            174,
+            780,
+            821,
+            824
+        ],
+        "page_idx": 12
+    },
+    {
+        "type": "text",
+        "text": "Bolei Zhou, Hang Zhao, Xavier Puig, Tete Xiao, Sanja Fidler, Adela Barriuso, and Antonio Torralba. Semantic understanding of scenes through the ade20k dataset. International Journal of Computer Vision, 127(3):302–321, 2019. ",
+        "bbox": [
+            176,
+            830,
+            823,
+            873
+        ],
+        "page_idx": 12
+    },
+    {
+        "type": "text",
+        "text": "Xizhou Zhu, Weijie Su, Lewei Lu, Bin Li, Xiaogang Wang, and Jifeng Dai. Deformable detr: Deformable transformers for end-to-end object detection. In International Conference on Learning Representations, 2020. ",
+        "bbox": [
+            173,
+            881,
+            823,
+            924
+        ],
+        "page_idx": 12
+    },
+    {
+        "type": "text",
+        "text": "6 APPENDIX ",
+        "text_level": 1,
+        "bbox": [
+            174,
+            102,
+            294,
+            117
+        ],
+        "page_idx": 13
+    },
+    {
+        "type": "text",
+        "text": "A.1. SPARSEFORMER ITSELF AS OBJECT DETECTOR ",
+        "text_level": 1,
+        "bbox": [
+            176,
+            135,
+            539,
+            150
+        ],
+        "page_idx": 13
+    },
+    {
+        "type": "text",
+        "text": "Since the SparseFormer architecture produces embedding and RoI together for a token given an image, it is natural to ask whether SparseFormer per se can perform object detection task? The answer is yes. In other words, we can train a SparseFormer model to detect objects without making any architectural changes by simply adding a final classifier and a RoI refining layer upon it. ",
+        "bbox": [
+            174,
+            161,
+            825,
+            218
+        ],
+        "page_idx": 13
+    },
+    {
+        "type": "text",
+        "text": "Specifically, we follow the training strategy of DETR (Carion et al., 2020) to train a SparseFormer-S for object detection. We adopt the ImageNet-1K pre-trained SparseFormer-S in the main paper. We first inflate the number of latent tokens to 400 by re-initializing token embeddings to the normalization distribution and the center of token RoIs to the uniform distribution on $[ 0 , 1 ]$ . The RoI height and width is $0 . 5 \\times 0 . 5$ still. We use a fixed set of 100 latent tokens to detect objects. The other tokens, which are not used for detection, aim to enrich the semantics in the latent space. We do not change the matching criterion together with the loss function of DETR and we train for 300 epochs. The final classifier is simply one-layer FC layer and the RoI refining layer is 2-layer FC layer, also following DETR. The final refining of RoIs is performed in the same way as RoI adjustment in the main paper. The result is shown in Table 7. ",
+        "bbox": [
+            174,
+            223,
+            825,
+            363
+        ],
+        "page_idx": 13
+    },
+    {
+        "type": "table",
+        "img_path": "images/ecb6eb194247fee8fdb072bafcaa68afc11208c374a4d7f63daf4617dd79de77.jpg",
+        "table_caption": [],
+        "table_footnote": [],
+        "table_body": "<table><tr><td>detector</td><td>| GFLOPs</td><td>AP AP50 AP75 APs APm APl</td></tr><tr><td>DETR</td><td>86</td><td>42.0 62.4 44.2 20.5 45.8 61.1</td></tr><tr><td>DETR-DC5</td><td>187</td><td>43.3 63.1 45.9 22.5 47.3 61.1</td></tr><tr><td>SparseFormer-S</td><td>27 26.4</td><td>43.8 26.6 8.3 26.0 45.0</td></tr></table>",
+        "bbox": [
+            308,
+            377,
+            684,
+            439
+        ],
+        "page_idx": 13
+    },
+    {
+        "type": "text",
+        "text": "Table 7: Detection performance of SparseFormer-S on MS COCO (Lin et al., 2014) val set. ",
+        "bbox": [
+            191,
+            448,
+            800,
+            463
+        ],
+        "page_idx": 13
+    },
+    {
+        "type": "text",
+        "text": "Although the performance of SparseFormer is currently inferior to DETR, it is important to note that this is very preliminary result and we do not add any additional attention encoders or decoders to SparseFormer for object detection. Actually, SparseFormer can be considered a decoder-only architecture for object detection if we treat the early convolution part as the embedding layer. ",
+        "bbox": [
+            176,
+            488,
+            823,
+            545
+        ],
+        "page_idx": 13
+    },
+    {
+        "type": "text",
+        "text": "A.2. SPARSEFORMER PERFORMING PER-PIXEL TASK ",
+        "text_level": 1,
+        "bbox": [
+            174,
+            563,
+            547,
+            578
+        ],
+        "page_idx": 13
+    },
+    {
+        "type": "text",
+        "text": "SparseFormer learns to represent an image by limited tokens in the latent space and outputs token embeddings with their corresponding RoIs. It is appealing to investigate whether SparseFormer can perform per-pixel tasks, like semantic segmentation. Yet, SparseFormer itself cannot perform dense tasks since it outputs discrete token set. However, we can restore a dense structured feature map from these discrete tokens by the vanilla cross-attention operator and build a final classifier upon the dense feature map. ",
+        "bbox": [
+            174,
+            590,
+            825,
+            674
+        ],
+        "page_idx": 13
+    },
+    {
+        "type": "text",
+        "text": "Specifically, to perform semantic segmentation, we use a location-aware cross-attention operator to map latent token embeddings back to the structured feature map, whose height and width are one fourth of the input image (namely, stride 4, $H / 4$ and $W / 4$ ). The location-aware cross-attention is the vanilla cross-attention with geometric prior as biases in attention matrix: ",
+        "bbox": [
+            174,
+            681,
+            825,
+            737
+        ],
+        "page_idx": 13
+    },
+    {
+        "type": "equation",
+        "img_path": "images/437fa15b35b722d599fc329380b77116d44d47819d24bcd111684b269a2a8e94.jpg",
+        "text": "$$\n\\mathrm { A t t n } ( Q _ { d s } , K _ { l t } , V _ { l t } ) = \\mathrm { S o f t m a x } ( Q _ { d s } K _ { l t } ^ { T } / \\sqrt { d } + B ) V _ { l t } ,\n$$",
+        "text_format": "latex",
+        "bbox": [
+            315,
+            744,
+            679,
+            766
+        ],
+        "page_idx": 13
+    },
+    {
+        "type": "text",
+        "text": "where $Q _ { d s } \\in \\mathbb { R } ^ { N _ { d s } \\times d }$ is the query matrix for the dense map $( N _ { d s } = H / 4 * W / 4 )$ , $K _ { l t } , V _ { l t } \\in \\mathbb { R } ^ { N \\times d }$ are the key and value matrix for the latent tokens, respectively. ",
+        "bbox": [
+            174,
+            775,
+            826,
+            805
+        ],
+        "page_idx": 13
+    },
+    {
+        "type": "equation",
+        "img_path": "images/012737a8c90d0fd1de1f2decbb91f7e364f2042f2f63316d66c75c11579c6742.jpg",
+        "text": "$$\nB _ { i , j } = - ( \\frac { x _ { d s , i } - x _ { l t , j } } { w _ { l t , j } } ) ^ { 2 } - ( \\frac { y _ { d s , i } - y _ { l t , j } } { h _ { l t , j } } ) ^ { 2 }\n$$",
+        "text_format": "latex",
+        "bbox": [
+            352,
+            813,
+            643,
+            845
+        ],
+        "page_idx": 13
+    },
+    {
+        "type": "text",
+        "text": ", where $( x _ { l t } , y _ { l t } , w _ { l t } , h _ { l t } )$ is the RoI descriptor for a latent RoI and $\\left( x _ { d s } , y _ { d s } \\right)$ are $x$ and $y$ coordinates for a unit on the dense feature map. In our current design, the input dense map to cross attend latent tokens is the early convolved feature map, which has the same height and width $H / 4$ and $W / 4$ . We put two $3 \\times 3$ convolution layers and a following classifier on the restored feature map following common pratice. The results are shown in Table 8. ",
+        "bbox": [
+            174,
+            853,
+            825,
+            924
+        ],
+        "page_idx": 13
+    },
+    {
+        "type": "table",
+        "img_path": "images/322451c97cbf9c14fc4a0fec84f367606d295e89ca8559db2a66248e4d2d00e3.jpg",
+        "table_caption": [
+            "Table 8: Semantic segmentation performance of SparseFormer-T on Ade20K (Zhou et al., 2019) validation set. The GFLOPs are computed with $5 1 2 \\times 5 1 2$ input resolution. "
+        ],
+        "table_footnote": [],
+        "table_body": "<table><tr><td>segmentor</td><td>GFLOPs mIoU</td><td>mAcc</td></tr><tr><td>Swin-T (Liu et al., 2021a) + UperNet (Xiao et al., 2018)</td><td>236 44.4</td><td>56.0</td></tr><tr><td>SF-T w/ 49 tokens</td><td>33 36.1</td><td>46.0</td></tr><tr><td>SF-T w/ 256 tokens</td><td>39 42.9</td><td>53.7</td></tr><tr><td>SF-T w/ 400 tokens</td><td>43 43.5</td><td>54.7</td></tr></table>",
+        "bbox": [
+            256,
+            101,
+            736,
+            174
+        ],
+        "page_idx": 14
+    },
+    {
+        "type": "text",
+        "text": "We also inflate the number of latent tokens in the semantic segmentation as we do in object detector for better performance. The performance of SparseFormer-T with 400 latent tokens is near the wellestablished Swin (Liu et al., 2021a) and UperNet (Xiao et al., 2018) but with merely $1 / 8$ Swin-T’s GFLOPs. This validates that our proposed SparseFormer can perform per-pixel task and is suitable to handle high resolution input data with limited latent tokens. ",
+        "bbox": [
+            174,
+            239,
+            825,
+            310
+        ],
+        "page_idx": 14
+    },
+    {
+        "type": "text",
+        "text": "A.3. MORE INFERENCE DETAILS ",
+        "text_level": 1,
+        "bbox": [
+            176,
+            328,
+            401,
+            342
+        ],
+        "page_idx": 14
+    },
+    {
+        "type": "text",
+        "text": "We benchmark more throughput comparisons here on a more recent A5000 GPU in Table 9 with both FP32 and FP16. The proposed SparseFormer architectures deliver high throughput and takes lower memory footprints at inference with both FP32 and FP16 data type. The advantage is more evident with FP16 data type. ",
+        "bbox": [
+            174,
+            353,
+            823,
+            410
+        ],
+        "page_idx": 14
+    },
+    {
+        "type": "table",
+        "img_path": "images/639efad5958aac23f9e55c791c8d84bfbe7278fad55feb58356d90ad137d5af5.jpg",
+        "table_caption": [
+            "Table 9: Benchmarking SparseFormers with other architectures on A5000 with batch size 32. "
+        ],
+        "table_footnote": [],
+        "table_body": "<table><tr><td>method</td><td>top-1</td><td>FLOPs</td><td>FP32 throughput</td><td>FP32 mem</td><td>FP16 throughput</td><td>FP16 mem</td></tr><tr><td>ResNet-50 (Wightman et al., 2021)</td><td>80.4</td><td>4.1G</td><td>1269</td><td>3010MB</td><td>2119</td><td>2906MB</td></tr><tr><td>ResNet-101 (Wightman et al., 2021)</td><td>81.5</td><td>7.9G</td><td>797</td><td>3228MB</td><td>1318</td><td>3121MB</td></tr><tr><td>DeiT-S (Touvron et al., 2021)</td><td>79.8</td><td>4.6G</td><td>977</td><td>536MB</td><td>2732</td><td>430MB</td></tr><tr><td>DeiT-B (Touvron et al., 2021)</td><td>81.8</td><td>17.5G</td><td>305</td><td>1516MB</td><td>1112</td><td>1470MB</td></tr><tr><td>Swin-T (Liu et al., 2021a)</td><td>81.3</td><td>4.5G</td><td>688</td><td>1471MB</td><td>1748</td><td>1076MB</td></tr><tr><td>Swin-S (Liu et al., 2021a)</td><td>83.0</td><td>8.7G</td><td>396</td><td>1715MB</td><td>1073</td><td>1285MB</td></tr><tr><td>SparseFormer-T</td><td>81.0</td><td>2.0G</td><td>1207</td><td>1146MB</td><td>2925</td><td>699MB</td></tr><tr><td>SparseFormer-S</td><td>82.0</td><td>3.8G</td><td>824</td><td>1328MB</td><td>2182</td><td>849MB</td></tr><tr><td>SparseFormer-B</td><td>82.6</td><td>7.8G</td><td>475</td><td>1711MB</td><td>1285</td><td>1395MB</td></tr></table>",
+        "bbox": [
+            214,
+            416,
+            784,
+            561
+        ],
+        "page_idx": 14
+    },
+    {
+        "type": "text",
+        "text": "A.4. MODEL INITIALIZATIONS IN DETAILS ",
+        "text_level": 1,
+        "bbox": [
+            176,
+            618,
+            473,
+            633
+        ],
+        "page_idx": 14
+    },
+    {
+        "type": "text",
+        "text": "We initialize all weights of linear layers in SparseFormer unless otherwise specified below to follow a truncated normalization distribution with a mean of 0, a standard deviation of 0.02, and a truncated threshold of 2. Biases of these linear layers are initialized to zeros if existing. ",
+        "bbox": [
+            176,
+            645,
+            825,
+            686
+        ],
+        "page_idx": 14
+    },
+    {
+        "type": "text",
+        "text": "Sampling points for every token are initialized in a grid-like shape ( $6 \\times 6$ for 36 sampling points by default) by zeroing weights of the linear layer to generate offsets and setting its bias using meshgrid. Alike, we initialize the center of initial token RoIs (as parameters of the model) to the grid-like (e.g., $7 \\times 7$ for 49 SF-Tiny variant) shape in the same way. The token’s height and width are set to half of the image’s height and width, which is expressed as $0 . 5 \\times 0 . 5$ . We also try other initializations for tokens’ height and width in Table 10. For training stability, we also initialize adaptive decoding in SparseFormer following (Gao et al., 2022) with an initial Xavier decoding weight (Glorot & Bengio, 2010). This initialization makes the adaptive decoding behaves like unconditional convolution (weights not dependent on token embeddings) at the beginning of the training procedure. ",
+        "bbox": [
+            174,
+            694,
+            825,
+            833
+        ],
+        "page_idx": 14
+    },
+    {
+        "type": "text",
+        "text": "For alternative ways for token height and width initializations, we can find that there is no significant difference between the ‘half’ and ‘cell’ initializations. We prefer the ‘half’ initialization as tokens can see more initially. However, setting all token RoIs to the whole image, the ‘whole’ initialization, is lagging before other initializations. We suspect that the model is unable to differentiate between different tokens and is causing training instability due to identical RoIs and sampling points for all tokens. ",
+        "bbox": [
+            174,
+            840,
+            825,
+            922
+        ],
+        "page_idx": 14
+    },
+    {
+        "type": "table",
+        "img_path": "images/3b857ad105a03560f59554a4fbefe65ac7e56aa207221763837c7cd0de17b19a.jpg",
+        "table_caption": [],
+        "table_footnote": [],
+        "table_body": "<table><tr><td>width and height initialization</td><td>top-1</td></tr><tr><td>half, 0.5 × 0.5</td><td>81.0</td></tr><tr><td>cell, 1/√N × 1/√N</td><td>81.0</td></tr><tr><td>whole, 1.0 × 1.0</td><td>80.2</td></tr></table>",
+        "bbox": [
+            352,
+            101,
+            642,
+            156
+        ],
+        "page_idx": 15
+    },
+    {
+        "type": "text",
+        "text": "Table 10: Alternative ways to initialize the token height and width for SparseFormer-T. $N$ is the number of latent tokens for the ‘cell’ initialization. The ‘cell’ initialization tiles RoIs without overlapping over the image. The ‘whole’ initialization is with all token RoIs centered at the image center. ",
+        "bbox": [
+            173,
+            166,
+            826,
+            209
+        ],
+        "page_idx": 15
+    },
+    {
+        "type": "image",
+        "img_path": "images/f12285dba31c5143259dd6e307d0497ebaa3466303b80c8bb02e96c1603b330e.jpg",
+        "image_caption": [
+            "Figure 4: More visualizations of token RoIs, their sampling points, and density across sampling stages in SparseFormer-S (64 tokens). RoIs and sampling points of different tokens are colored with different colors. Better view with zoom-in. "
+        ],
+        "image_footnote": [],
+        "bbox": [
+            245,
+            223,
+            761,
+            409
+        ],
+        "page_idx": 15
+    },
+    {
+        "type": "text",
+        "text": "A.4. VISUALIZATIONS ",
+        "text_level": 1,
+        "bbox": [
+            176,
+            496,
+            331,
+            510
+        ],
+        "page_idx": 15
+    },
+    {
+        "type": "text",
+        "text": "More visualizations on RoIs and sampling points. In order to confirm the general ability of SparseFormer to focus on foregrounds, we present additional visualizations in Figure 4 and 5 with ImageNet-1K (Deng et al., 2009) validation set inputs. Note that these samples are not cherrypicked. We observe that SparseFormer progressively directs its attention towards the foreground, beginning from the roughly high contrasting areas and eventually towards more discriminative areas. The focal areas of SparseFormer adapt to variations in the image and mainly concentrate on discriminative foregrounds when the input changes. This also validate the semantic adaptability of SparseFormer to different images. ",
+        "bbox": [
+            173,
+            521,
+            825,
+            633
+        ],
+        "page_idx": 15
+    },
+    {
+        "type": "text",
+        "text": "Visualizations on specific latent tokens. We also provide visualizations of specific latent tokens across stages to take a closer look at how the token RoI behaves at the token level. We choose 5 tokens per image that respond with the highest values to the ground truth category. To achieve this, we remove token embedding average pooling and place the classifier layer on individual tokens. The visualizations are shown in Figure 6. We can observe that the token RoIs progressively move towards the foreground and adjust their aspect ratios at a mild pace by stage. ",
+        "bbox": [
+            173,
+            640,
+            825,
+            723
+        ],
+        "page_idx": 15
+    },
+    {
+        "type": "text",
+        "text": "Visualizations on disturbed input images. We also show visualizations on disturbed input images in Figure 7, where images are either random erased or heavily padding with zero values or reflection. We can see that although SparseFormer initially views the image in a almost uniform way, it learns to avoid sampling in uninformative areas in subsequent stages. This illustrates the robustness and adaptability of SparseFormer when dealing with perturbed input images. ",
+        "bbox": [
+            173,
+            731,
+            825,
+            801
+        ],
+        "page_idx": 15
+    },
+    {
+        "type": "image",
+        "img_path": "images/46ba9fff03826e7890407fb2d869223ffacb7d3f3f00fe5c1ae071a07cc201b7.jpg",
+        "image_caption": [
+            "Figure 5: More visualizations (cont’d). "
+        ],
+        "image_footnote": [],
+        "bbox": [
+            305,
+            176,
+            792,
+            813
+        ],
+        "page_idx": 16
+    },
+    {
+        "type": "image",
+        "img_path": "images/811a76fdac818f051f9d0bb727dd030683801e903d591a9a5d52ca3104e7c2bb.jpg",
+        "image_caption": [
+            "Figure 6: Visualizations on top-5 tokens responding to the ground-truth category across stages. "
+        ],
+        "image_footnote": [],
+        "bbox": [
+            214,
+            253,
+            779,
+            746
+        ],
+        "page_idx": 17
+    },
+    {
+        "type": "image",
+        "img_path": "images/9724a5907a67b201bb169e5a1a33ecf36abeaedefae52dcb6c78b4eb28eca817.jpg",
+        "image_caption": [
+            "Figure 7: Visualizations on sampling density maps when disturbing input images. "
+        ],
+        "image_footnote": [],
+        "bbox": [
+            210,
+            203,
+            789,
+            789
+        ],
+        "page_idx": 18
+    }
+]

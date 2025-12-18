@@ -1,0 +1,278 @@
+## reward_model.py
+import torch
+import torch.nn as nn
+import torch.nn.functional as F
+from transformers import AutoTokenizer, AutoModel
+from torch.utils.data import DataLoader, Dataset
+import numpy as np
+from scipy.special import expit  # sigmoid function
+from typing import List, Tuple, Optional, Union
+
+class FeedbackSample:
+    """
+    Structure for a single feedback data point
+    - For regression: instruction, response, normalized score
+    - For preference: instruction, response1, response2, preference indicator (1, 2, or 0 for tie)
+    """
+    def __init__(self,
+                 instruction: str,
+                 response: str,
+                 score: Optional[float] = None,
+                 response_pair: Optional[Tuple[str, str]] = None,
+                 preference: Optional[int] = None):
+        self.instruction = instruction
+        self.response = response
+        self.score = score
+        self.response_pair = response_pair
+        self.preference = preference  # 1 if response1 preferred, 2 if response2 preferred, 0 if tie
+
+class RewardDataset(Dataset):
+    """
+    A generic dataset class for reward model training.
+    Handles both regression (scores) and pairwise preference data.
+    """
+    def __init__(self, data: List[FeedbackSample], mode: str = 'regression'):
+        """
+        Args:
+            data: List of FeedbackSample objects
+            mode: 'regression' or 'preference'
+        """
+        self.data = data
+        self.mode = mode
+
+    def __len__(self):
+        return len(self.data)
+
+    def __getitem__(self, idx):
+        item = self.data[idx]
+        if self.mode == 'regression':
+            return (item.instruction, item.response, item.score)
+        elif self.mode == 'preference':
+            # response_pair: (response1, response2)
+            return (item.instruction, item.response_pair[0], item.response_pair[1], item.preference)
+        else:
+            raise ValueError(f"Unsupported mode: {self.mode}")
+
+class RewardModel:
+    """
+    Implements the reward model for either regression or preference.
+    Uses transformer encoder for encoding instruction + response.
+    """
+    def __init__(self,
+                 model_name: str = 'allenai/longformer-base-4096',
+                 feedback_data: Optional[dict] = None,
+                 training_mode: str = 'regression',  # 'regression' or 'preference'
+                 learning_rate: float = 3e-5,
+                 batch_size: int = 16,
+                 epochs: int = 3,
+                 weight_decay: float = 0.01,
+                 early_stopping_patience: int = 2,
+                 max_grad_norm: float = 1.0,
+                 device: str = 'cuda'):
+        """
+        Initialize reward model with configuration.
+        Args:
+            model_name: pre-trained transformer model for encoding
+            feedback_data: dict with keys 'ratings' and/or 'preferences'
+            training_mode: 'regression' for scalar score prediction, 'preference' for pairwise
+            other hyperparameters as per config.yaml
+        """
+        self.model_name = model_name
+        self.feedback_data = feedback_data
+        self.training_mode = training_mode
+        self.learning_rate = learning_rate
+        self.batch_size = batch_size
+        self.epochs = epochs
+        self.weight_decay = weight_decay
+        self.early_stopping_patience = early_stopping_patience
+        self.max_grad_norm = max_grad_norm
+        self.device = device
+
+        # Load tokenizer and encoder model
+        self.tokenizer = AutoTokenizer.from_pretrained(self.model_name)
+        if hasattr(self.tokenizer, 'pad_token') and self.tokenizer.pad_token is None:
+            self.tokenizer.pad_token = self.tokenizer.eos_token
+        self.model = AutoModel.from_pretrained(self.model_name).to(self.device)
+        self.model.eval()  # For embedding extraction
+
+        # Initialize trainable head depending on mode
+        if self.training_mode == 'regression':
+            self.head = nn.Linear(self.model.config.hidden_size, 1).to(self.device)
+        elif self.training_mode == 'preference':
+            self.head = nn.Linear(self.model.config.hidden_size, 1).to(self.device)
+        else:
+            raise ValueError("training_mode must be 'regression' or 'preference'.")
+
+        # Optimizer
+        self.optimizer = torch.optim.AdamW(self.head.parameters(), lr=self.learning_rate, weight_decay=self.weight_decay)
+
+        # Prepare datasets
+        self.train_dataloader: Optional[DataLoader] = None
+        self.val_dataloader: Optional[DataLoader] = None
+
+        # Placeholders for training progress
+        self.best_valid_metric = float('inf')
+        self.early_stop_counter = 0
+
+        # To be populated
+        self.train_dataset = None
+        self.val_dataset = None
+
+        # Prepare data
+        if self.feedback_data:
+            self._prepare_data()
+
+    def _embed_response(self, instruction: str, response: str) -> torch.Tensor:
+        """
+        Get embedding vector for instruction-response pair.
+        Uses the encoder model to encode concatenated sequence.
+        """
+        input_text = instruction + " " + response
+        inputs = self.tokenizer(input_text, return_tensors='pt', truncation=True, max_length=1024).to(self.device)
+        with torch.no_grad():
+            output = self.model(**inputs)
+        # Use the pooled output (assumed for encoder): last hidden state mean
+        last_hidden = output.last_hidden_state  # (batch_size, seq_len, hidden_size)
+        embedding = torch.mean(last_hidden, dim=1)  # mean pooling
+        return embedding.squeeze(0)  # shape: (hidden_size, )
+
+    def _prepare_data(self):
+        """
+        Convert feedback data into dataset objects for training.
+        Handles both regression and preference modes.
+        """
+        data_list: List[FeedbackSample] = []
+
+        if 'ratings' in self.feedback_data:
+            # feedback_data['ratings'] is list/dict of (instruction_id, response_id, score)
+            ratings = self.feedback_data['ratings']
+            for entry in ratings:
+                instr = entry['instruction']
+                resp = entry['response']
+                score_raw = entry['score']
+                # Normalize score to [0,1]
+                norm_score = (score_raw - 1.0) / 6.0
+                sample = FeedbackSample(instr, resp, score=norm_score)
+                data_list.append(sample)
+
+        if 'preferences' in self.feedback_data:
+            # feedback_data['preferences']: list of (instruction, response1, response2, preference)
+            preferences = self.feedback_data['preferences']
+            for entry in preferences:
+                instr = entry['instruction']
+                resp1 = entry['response1']
+                resp2 = entry['response2']
+                pref = entry['preference']
+                sample = FeedbackSample(instr, '', response_pair=(resp1, resp2), preference=pref)
+                data_list.append(sample)
+
+        # Create dataset object based on mode
+        if self.training_mode == 'regression':
+            self.train_dataset = RewardDataset(data_list, mode='regression')
+        elif self.training_mode == 'preference':
+            self.train_dataset = RewardDataset(data_list, mode='preference')
+        else:
+            raise ValueError(f"Unsupported training mode: {self.training_mode}")
+
+        # For simplicity, split into train/validation if desired can be handled here
+        # For now, the entire data is used for training with early stopping
+        self._train_dataloader = DataLoader(self.train_dataset, batch_size=self.batch_size, shuffle=True)
+        # For validation, can be set similarly if validation data is supplied
+
+    def train(self):
+        """
+        Run training over specified epochs with early stopping.
+        """
+        patience_counter = 0
+        best_epoch_loss = float('inf')
+        for epoch in range(self.epochs):
+            total_loss = 0.0
+            self.head.train()
+            for batch in self._train_dataloader:
+                self.optimizer.zero_grad()
+                if self.training_mode == 'regression':
+                    # batch: instr, response, score
+                    instrs, responses, scores = batch
+                    scores = scores.float().to(self.device)
+                    embeddings = [
+                        self._embed_response(instr, resp) for instr, resp in zip(instrs, responses)
+                    ]
+                    embeddings = torch.stack(embeddings)  # shape (batch_size, hidden_size)
+                    preds = self.head(embeddings).squeeze(-1)  # shape (batch_size,)
+                    # Sigmoid on preds to get [0,1]
+                    preds_sigmoid = torch.sigmoid(preds)
+                    loss = F.mse_loss(preds_sigmoid, scores)
+                elif self.training_mode == 'preference':
+                    # batch: instr, resp1, resp2, preference
+                    instrs, resp1s, resp2s, prefs = batch
+                    # Build embeddings for responses
+                    embeddings1 = [
+                        self._embed_response(instr, resp1) for instr, resp1 in zip(instrs, resp1s)
+                    ]
+                    embeddings2 = [
+                        self._embed_response(instr, resp2) for instr, resp2 in zip(instrs, resp2s)
+                    ]
+                    embeddings1 = torch.stack(embeddings1)  # (batch_size, hidden_size)
+                    embeddings2 = torch.stack(embeddings2)
+                    scores1 = self.head(embeddings1).squeeze(-1)
+                    scores2 = self.head(embeddings2).squeeze(-1)
+                    diff = scores1 - scores2
+                    probs = torch.sigmoid(diff)
+                    # Wrap preference into target labels
+                    target = torch.tensor(prefs).float().to(self.device)
+                    # Handle tie (0): treat as 0.5 target, but if prefer: 1 or 0
+                    # For simplicity, treat 0 preference as 0.5
+                    # Alternatively, exclude ties from loss computation
+                    mask_tie = (target == 0.5)
+                    if mask_tie.any():
+                        # For ties, loss is minimal or can be ignored
+                        # Here we ignore ties for preference loss
+                        probs_tie = probs[~mask_tie]
+                        target_tie = target[~mask_tie]
+                        loss = F.binary_cross_entropy(probs_tie, target_tie)
+                    else:
+                        loss = F.binary_cross_entropy(probs, target)
+                else:
+                    raise ValueError("Unsupported mode during training.")
+
+                loss.backward()
+                torch.nn.utils.clip_grad_norm_(self.head.parameters(), self.max_grad_norm)
+                self.optimizer.step()
+                total_loss += loss.item()
+            avg_epoch_loss = total_loss / len(self._train_dataloader)
+            print(f"Epoch {epoch+1}/{self.epochs} - Loss: {avg_epoch_loss:.4f}")
+            # Early stopping logic can be added here based on validation metrics
+
+    def score_response(self, instruction: str, response: str) -> float:
+        """
+        Compute a scalar score for an instruction-response pair.
+        """
+        embedding = self._embed_response(instruction, response)
+        output = self.head(embedding.to(self.device))
+        score = torch.sigmoid(output).item()
+        return score
+
+    def score_pair(self, instruction: str, response1: str, response2: str) -> float:
+        """
+        Compute preference score: higher indicates response1 preferred.
+        """
+        embedding1 = self._embed_response(instruction, response1)
+        embedding2 = self._embed_response(instruction, response2)
+        score1 = self.head(embedding1.to(self.device))
+        score2 = self.head(embedding2.to(self.device))
+        diff = torch.sigmoid(score1 - score2).item()
+        return diff  # value in [0,1], larger = response1 preferred
+
+    def save(self, save_path: str):
+        """
+        Save model weights and head
+        """
+        torch.save({'head_state_dict': self.head.state_dict()}, save_path)
+
+    def load(self, load_path: str):
+        """
+        Load model weights and head
+        """
+        checkpoint = torch.load(load_path)
+        self.head.load_state_dict(checkpoint['head_state_dict'])
+

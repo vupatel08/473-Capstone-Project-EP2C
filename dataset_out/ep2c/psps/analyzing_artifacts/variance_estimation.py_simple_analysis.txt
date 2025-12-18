@@ -1,0 +1,119 @@
+**Variance Estimation Module for PSPS Framework**
+
+---
+
+### Purpose:
+Implement a VarianceEstimator class that:
+
+- Accepts input data and summary statistics.
+- Provides bootstrap-based (or analytical, if applicable) estimates of variances and covariances necessary for the PSPS correction.
+- Supplies accurate estimation of \(\widehat{\mathrm{Var}}\) and \(\widehat{\mathrm{Cov}}\) matrices required for constructing the debiased estimator and its variance.
+
+---
+
+### Core Responsibilities:
+1. **Input Handling**:
+   - Raw data or precomputed summary statistics:
+     - Labeled data: features \( \mathbf{X}_\mathcal{L} \), outcomes \(Y_\mathcal{L}\), ML predictions \(\hat{f}_\mathcal{L}\).
+     - Unlabeled data: features \(\mathbf{X}_\mathcal{U}\), ML predictions \(\hat{f}_\mathcal{U}\).
+   - Corresponding point estimates: \(\hat{\theta}_\mathcal{L}\), \(\hat{\eta}_\mathcal{L}\), \(\hat{\eta}_\mathcal{U}\).
+   - Variance/covariance estimates from analysis routines.
+
+2. **Variance and Covariance Estimation**:
+   - Implement bootstrap resampling on labeled data \(\mathcal{L}\) to estimate:
+     - \(\mathrm{Var}(\hat{\theta}_\mathcal{L})\),
+     - \(\mathrm{Var}(\hat{\eta}_\mathcal{L})\),
+     - \(\mathrm{Cov}(\hat{\theta}_\mathcal{L}, \hat{\eta}_\mathcal{L})\).
+   - Estimate \(\mathrm{Var}(\hat{\eta}_\mathcal{U})\) using bootstrap on the unlabeled data predictions, or analytical formulas if possible.
+   - For simplicity and consistency with paper, bootstrap is recommended due to its flexibility across inference tasks.
+
+3. **Output**:
+   - Estimated variance matrices:
+     - \(\widehat{\mathrm{Var}}(\hat{\theta}_\mathcal{L})\),
+     - \(\widehat{\mathrm{Var}}(\hat{\eta}_\mathcal{L})\),
+     - \(\widehat{\mathrm{Cov}}(\hat{\theta}_\mathcal{L}, \hat{\eta}_\mathcal{L})\),
+     - \(\widehat{\mathrm{Var}}(\hat{\eta}_\mathcal{U})\).
+
+---
+
+### Step-by-step Logic:
+
+#### 1. Initialization:
+- Receive as input:
+  - Data required for variance computation, e.g., (or their bootstrap replications)
+  - Precomputed estimates if available.
+- Use constructor parameters:
+  - `bootstrap_samples` (from config): number of bootstrap replications (e.g., 200).
+  - Data dictionaries containing required data components.
+
+#### 2. Variance and Covariance via Bootstrap:
+- For the labeled data:
+  - For each bootstrap replication \(q\):
+    - Draw a bootstrap resample of size \(n\) with replacement from the labeled data.
+    - Compute the estimator of interest (e.g., regression coefficients, means) on the bootstrap sample using the same analysis routine.
+    - Store the bootstrap estimates to form a collection \(\{\hat{\theta}_\mathcal{L}^{(q)}\}\), \(\{\hat{\eta}_\mathcal{L}^{(q)}\}\).
+
+- For the unlabeled data:
+  - For each bootstrap replication \(q\):
+    - Draw a bootstrap sample of size \(N\) with replacement.
+    - Compute the ML predictions for the bootstrap sample.
+    - Apply the same analysis routine (or a simplified variance estimator based on prediction variance) to estimate \(\hat{\eta}_\mathcal{U}\).
+    - Store these estimates.
+
+- Variance estimation:
+  - Use the bootstrap estimates:
+    \[
+    \widehat{\mathrm{Var}}(\hat{\theta}_\mathcal{L}) \approx \operatorname{SampleVar}(\{\hat{\theta}_\mathcal{L}^{(q)}\}_{q=1}^{Q})
+    \]
+  - Similar for \(\hat{\eta}_\mathcal{L}\) and \(\hat{\eta}_\mathcal{U}\).
+
+- Covariance estimation:
+  \[
+  \widehat{\mathrm{Cov}}(\hat{\theta}_\mathcal{L}, \hat{\eta}_\mathcal{L}) \approx \operatorname{SampleCov}(\{\hat{\theta}_\mathcal{L}^{(q)}\}, \{\hat{\eta}_\mathcal{L}^{(q)}\})
+  \]
+
+- **Note:** For efficiency, bootstrap resampling should be parallelized if computational resources permit.
+
+#### 3. Analytical Variance Formula (Optional/Alternate):
+- When computational cost is high or data is large, approximate variances using analytical methods:
+  - Use influence functions or linear approximation.
+  - For regression coefficients, approximate via residuals and design matrices.
+  - For mean estimators, directly use sample variance.
+
+- But given the emphasis on flexibility across tasks, bootstrap is the primary method.
+
+#### 4. Storage & Return:
+- Organize estimates into matrices:
+  - \(\widehat{\mathrm{Var}}(\hat{\theta}_\mathcal{L})\): a scalar or matrix.
+  - \(\widehat{\mathrm{Var}}(\hat{\eta}_\mathcal{L})\): a matrix of size \(K \times K\).
+  - \(\widehat{\mathrm{Cov}}(\hat{\theta}_\mathcal{L}, \hat{\eta}_\mathcal{L})\): a vector of length \(K\).
+  - \(\widehat{\mathrm{Var}}(\hat{\eta}_\mathcal{U})\): a matrix of size \(K \times K\).
+
+---
+
+### 5. Integration with Main Pipeline:
+- The estimates are used to compute \(\hat{\omega}_0\) and the variance of the PSPS estimator.
+- These estimates allow valid confidence intervals and hypothesis tests.
+
+---
+
+### 6. Additional Considerations:
+- **Reproducibility:**
+  - Set random seeds explicitly for bootstrap reproducibility.
+- **Memory Management:**
+  - For large datasets, store bootstrap estimates efficiently or compute on-the-fly.
+- **Validation:**
+  - Optionally include checks for bootstrap convergence.
+  - Possible fallback to analytical formulas where feasible.
+
+---
+
+### 7. Summary:
+- Input: data, point estimates, bootstrap parameters.
+- Output: estimated variance-covariance matrices needed for debiasing.
+- Core logic: bootstrap resampling, compute estimates each time, aggregate to estimate variances/covariances.
+- Designed to be task-agnostic, flexible, and compatible with diverse analysis routines and inference tasks.
+
+---
+
+This detailed reasoning ensures that the `variance_estimation.py` module provides accurate, reproducible, and flexible variance estimates central to the PSPS inference methodology.

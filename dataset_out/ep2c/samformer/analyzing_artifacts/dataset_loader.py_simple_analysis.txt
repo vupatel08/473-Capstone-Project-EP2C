@@ -1,0 +1,132 @@
+# Logic Analysis for dataset_loader.py
+
+## Overview
+The DatasetLoader class serves as the primary data handling component, responsible for loading multiple datasets, preprocessing them, computing normalization statistics, generating input-target sequence pairs suitable for training, and preparing data loaders for batching. Its correct implementation ensures that the data fed into the model accurately reflects the experimental setup described in the paper, including normalization, sequence windows, and dataset-specific properties.
+
+---
+
+## Core Responsibilities
+
+### 1. Load Datasets
+- Support multiple dataset formats and paths, referring to dataset specifications from the YAML configuration.
+- Expected datasets come in CSV format with time series data arranged as features (columns) and time steps (rows).
+- Implement a flexible data loader that can handle:
+  - Different granularities (hourly, 15min, daily, etc.).
+  - Different feature dimensions and sequence lengths.
+  - Specific dataset properties as per the configuration.
+
+### 2. Preprocessing & Normalization
+- Compute per-feature statistics (mean, standard deviation) on the training set:
+  - For each feature `k`, calculate:
+    - \(\hat{\mu}_k = \frac{1}{L_{train}} \sum_{t=1}^{L_{train}} x_{k,t}\)
+    - \(\hat{\sigma}_k^2 = \frac{1}{L_{train}} \sum_{t=1}^{L_{train}} (x_{k,t} - \hat{\mu}_k)^2\)
+  - These statistics are essential for RevIN normalization both at train and inference.
+- Store the computed mean and std for each feature for later denormalization if needed.
+- Apply normalization:
+  - Use the formula from RevIN:
+    \[
+    \tilde{x}_{k,t}^{(i)} = \gamma_k \frac{x_{k,t}^{(i)} - \hat{\mu}_k}{\sqrt{\hat{\sigma}_k^2 + \varepsilon}} + \beta_k
+    \]
+  - For train set, \(\gamma_k\) and \(\beta_k\) are learnable parameters; for normalization purposes, during preprocessing, initial values can be set to 1 and 0; during inference, these are fixed based on training statistics.
+
+### 3. Sequence Generation
+- Given full dataset time series, generate overlapping sequences for training/validation/test:
+  - Input sequence: window of length `L`.
+  - Target sequence: immediately following window of length `H` (prediction horizon).
+  - Shift windows with stride 1 across the data to produce many samples.
+- For each dataset, split data into:
+  - Training set: initial \( \sim 60\% \) (e.g., 70% in total, split into 60/20/20 or as per description).
+  - Validation set: next 20%.
+  - Test set: remaining 20%.
+- Maintain dataset-specific splits, ensuring that sequences are generated properly over the data segments.
+
+### 4. Data Handling & Batching
+- Store sequences as numpy arrays or tensors:
+  - `X`: shape `(num_samples, D, L)` where:
+    - `num_samples` varies with dataset size and stride,
+    - `D` is feature dimension (number of variables),
+    - `L` is sequence length.
+  - `Y`: shape `(num_samples, D, H)` for future horizon.
+- Implement a data generator or use PyTorch's Dataset class to:
+  - Yield batches of size `batch_size`.
+  - Shuffle training data.
+  - Support multiple datasets through parameterization.
+
+### 5. Dataset Support & Flexibility
+- Support datasets specified with paths, feature counts, sequence lengths, and granularities.
+- Handle missing or variable sampling intervals if present (ideally datasets are already preprocessed into regular intervals).
+- Maintain consistent feature ordering across datasets.
+
+### 6. Dataset Statistics Storage
+- For each dataset:
+  - Save computed per-feature mean and std for normalization.
+  - These statistics are crucial for the normalization layers during training and inference.
+- Persist statistics if needed in a separate file or via class attributes for consistent normalization during subsequent runs.
+
+### 7. Additional Dataset-specific Handling
+- For datasets with unique properties:
+  - Different granularity units (hours, minutes, days).
+  - Special missing value handling (if any).
+  - Custom scaling if normalization isn't sufficient.
+- Implement dataset-specific preprocessing logic as needed but keep a uniform interface.
+
+---
+
+## Implementation Details & Workflow
+
+### Initialization:
+- Instantiate DatasetLoader with configuration dict containing dataset info:
+  ```python
+  dataset_config = {
+    'name': 'ETTh1',
+    'path': 'data/ETTh1.csv',
+    'features': 7,
+    'sequence_length': 17420,
+    'prediction_horizon': 96,
+    'granularity': 'hourly'
+  }
+  ```
+- Load dataset:
+  - Read CSV (using pandas).
+  - Convert to numpy array of shape `(total_time_steps, features)`.
+  - Transpose or organize as `(features, total_time_steps)` internally for ease.
+  
+### Computation of Statistics:
+- On training data only:
+  - For each feature:
+    - Calculate mean and std.
+  - Store these as class attributes for normalization.
+- Log or output these statistics for reproducibility.
+
+### Data Segmentation:
+- Segment full time series into:
+  - Training sequences: first `L + H` + overlapping windows.
+  - Validation sequences: next continuous block.
+  - Test sequences: last part.
+- For each segment, generate sequences with moving window:
+  ```python
+  for i in range(start_idx, end_idx - L - H + 1):
+      x = data[:, i:i+L]
+      y = data[:, i+L:i+L+H]
+  ```
+- Store these as lists or arrays.
+
+### Data Loader Construction:
+- Convert sequences into torch datasets:
+  - Use `torch.utils.data.Dataset` subclass.
+  - Implement `__getitem__` returning input tensor `(D, L)` and target `(D, H)`.
+- Use DataLoader for batching and shuffling:
+  ```python
+  DataLoader(dataset, batch_size=batch_size, shuffle=True)
+  ```
+
+### Final Remarks:
+- The loader should be flexible to handle different datasets with configuration provided.
+- Carefully ensure reproducibility of normalization:
+  - Fix normalization parameters during inference.
+  - Use train stats for validation/test normalization.
+- The entire dataset handling pipeline must align with the experimental setup detailed in the paper.
+
+---
+
+This detailed analysis of dataset_loader.py ensures a comprehensive and correct implementation aligned with the experimental methodology, datasets, and hyperparameters described in the SAMformer paper and configuration file.

@@ -1,0 +1,158 @@
+{
+  "title": "Smoothed Energy Guidance: Guiding Diffusion Models with Reduced Energy Curvature of Attention",
+  "abstract": "Susung Hong∗ University of Washington",
+  "authors": [],
+  "body_text": [
+    {
+      "text": "# Smoothed Energy Guidance: Guiding Diffusion Models with Reduced Energy Curvature of Attention"
+    },
+    {
+      "text": "Susung Hong∗ University of Washington"
+    },
+    {
+      "text": "# Abstract"
+    },
+    {
+      "text": "Conditional diffusion models have shown remarkable success in visual content generation, producing high-quality samples across various domains, largely due to classifier-free guidance (CFG). Recent attempts to extend guidance to unconditional models have relied on heuristic techniques, resulting in suboptimal generation quality and unintended effects. In this work, we propose Smoothed Energy Guidance (SEG), a novel training- and condition-free approach that leverages the energybased perspective of the self-attention mechanism to enhance image generation. By defining the energy of self-attention, we introduce a method to reduce the curvature of the energy landscape of attention and use the output as the unconditional prediction. Practically, we control the curvature of the energy landscape by adjusting the Gaussian kernel parameter while keeping the guidance scale parameter fixed. Additionally, we present a query blurring method that is equivalent to blurring the entire attention weights without incurring quadratic complexity in the number of tokens. In our experiments, SEG achieves a Pareto improvement in both quality and the reduction of side effects. The code is available at https://github.com/SusungHong/SEG-SDXL."
+    },
+    {
+      "text": "# 1 Introduction"
+    },
+    {
+      "text": "Diffusion models [12, 45, 46] have emerged as a promising tool for visual content generation, producing high-quality and diverse samples across various domains, including image [38, 40, 42, 8, 13, 30, 2, 24, 9, 29, 34, 33, 4, 41, 5, 20, 22], video [11, 50, 23, 18, 15, 3, 19, 44], and 3D generation [36, 27, 6, 26, 49, 43, 48, 16]. The success of these models can be largely attributed to the use of classifier-free guidance (CFG) [14], which enables sampling from a sharper distribution, resulting in improved sample quality. However, CFG is not applicable to unconditional image generation, where no specific conditions are provided, creating a disparity between the capabilities of text-conditioned sampling and sampling without text. This disparity results in a restriction in application, e.g., synthesizing images with ControlNet[51] without a text prompt (see the last two columns of Fig. 1)."
+    },
+    {
+      "text": "Recent literature [17, 1] has attempted to decouple CFG and image quality by extending guidance to general diffusion models, leveraging their inherent representations [25, 32, 17]. Self-attention guidance (SAG) [17] proposes leveraging the intermediate self-attention map of diffusion models to blur the input pixels and provide guidance, while perturbed attention guidance (PAG) [1] perturbs the attention map itself by replacing it with an identity attention map. Despite these efforts, these methods rely on heuristics to make perturbed predictions, resulting in unintended effects such as smoothed-out details, saturation, color shifts, and significant changes in the image structure when given a large guidance scale. Notably, the mathematical underpinnings of these unconditional guidance approaches are not well elucidated."
+    },
+    {
+      "text": "![](images/e77352f3e0ee12cbc3a89a71f9215ef94d9ab2bb7cbada8b3d2266f4dac92733.jpg)  \nFigure 1: Teaser. (a) Images sampled from vanilla SDXL [35] without any guidance. (b) Images sampled with Smoothed Energy Guidance (Ours). $\\mathcal { D }$ denotes that there is no condition given. With various input conditions, and even without any, SEG supports the diffusion model in generating plausible and high-quality images without any training."
+    },
+    {
+      "text": "In this work, we approach the objective from an energy-based perspective of the self-attention mechanism, which has been previously explored based on its close connection to the Hopfield energy [39, 31, 7]. Specifically, we start from the definition of the energy of self-attention, where performing a self-attention operation is equivalent to taking a gradient step. In light of this, we propose a tuning- and condition-free method that reduces the curvature of the underlying energy function by directly blurring the attention weights, and then leverages the output as the negative prediction. We call this method Smoothed Energy Guidance (SEG)."
+    },
+    {
+      "text": "SEG does not merely rely on the guidance scale parameter that cause side effects when its value becomes large. Instead, we can continuously control the original and maximally attenuated curvature of the energy landscape behind the self-attention by simply adjusting the parameter of the Gaussian kernel, with the guidance scale parameter fixed. Additionally, we introduce a novel query blurring technique, which is equivalent to blurring the entire attention weights without incurring quadratic cost in the number of tokens."
+    },
+    {
+      "text": "We validate the effectiveness of SEG throughout the various experiments without and with text conditions, and ControlNet [51] trained on canny and depth maps. Based on the attention modulation, SEG results in less structural change from the original prediction compared to previous approaches [17, 1], while achieving better sample quality."
+    },
+    {
+      "text": "# 2 Preliminaries"
+    },
+    {
+      "text": "# 2.1 Diffusion models"
+    },
+    {
+      "text": "Diffusion models [12, 45, 46] are a class of generative models that generate data through an iterative denoising process. The process of adding noise to an image $\\mathbf { x }$ over time $t \\in [ 0 , T ]$ is governed by the forward stochastic differential equation (SDE):"
+    },
+    {
+      "text": "$$\n\\begin{array} { r } { d \\mathbf { x } = \\mathbf { f } ( \\mathbf { x } , t ) d t + g ( t ) d \\mathbf { w } , } \\end{array}\n$$"
+    },
+    {
+      "text": "where f and $g$ are predefined functions that determine the manner in which the noise is added, and dw denotes a standard Wiener process."
+    },
+    {
+      "text": "Correspondingly, the denoising process can be described by the reverse SDE:"
+    },
+    {
+      "text": "$$\nd \\mathbf { x } = [ \\mathbf { f } ( \\mathbf { x } , t ) - g ( t ) ^ { 2 } \\nabla _ { \\mathbf { x } } \\log p _ { t } ( \\mathbf { x } ) ] d t + g ( t ) d \\bar { \\mathbf { w } } ,\n$$"
+    },
+    {
+      "text": "where $\\nabla _ { \\mathbf { x } } \\log p _ { t } ( \\mathbf { x } )$ represents the score of the noisy data distribution and $d \\bar { \\bf w }$ denotes the standard Wiener process for the reversed time."
+    },
+    {
+      "text": "Diffusion models are trained to approximate the score function with $\\mathbf { s } _ { \\theta } ( \\mathbf { x } , t ) \\approx \\nabla _ { \\mathbf { x } } \\log p _ { t } ( \\mathbf { x } )$ . To generate an image based on a condition $c$ , e.g., a class label or text, one simply needs to train diffusion models to approximate the conditional score function with $\\mathbf { s } _ { \\theta } ( \\mathbf { x } , t , c ) \\approx \\bar { \\nabla } _ { \\mathbf { x } } \\log p _ { t } ( \\mathbf { x } | c )$ and replace $\\nabla _ { \\mathbf { x } } \\log p _ { t } ( \\mathbf { \\bar { x } } )$ with it in the denoising process. To enhance the quality and faithfulness of the generated samples, classifier-free guidance (CFG) [14] is widely adopted. Accordingly, the reverse process becomes:"
+    },
+    {
+      "text": "$$\nd \\mathbf { x } = [ \\mathbf { f } ( \\mathbf { x } , t ) - g ( t ) ^ { 2 } ( \\gamma _ { \\mathrm { c f g } } \\mathbf { s } _ { \\theta } ( \\mathbf { x } , t , c ) - ( \\gamma _ { \\mathrm { c f g } } - 1 ) \\mathbf { s } _ { \\theta } ( \\mathbf { x } , t ) ) ] d t + g ( t ) d \\bar { \\mathbf { w } } .\n$$"
+    },
+    {
+      "text": "Here, $\\mathbf { s } _ { \\theta } ( \\mathbf { x } , t )$ is learned by dropping the label by a certain proportion, and $\\gamma _ { \\mathrm { c f g } }$ is a hyperparameter that controls the strength of the guidance. Intuitively, CFG helps us to sample from sharper distribution by conditioning on a class label or text."
+    },
+    {
+      "text": "# 2.2 Energy-based view of attention mechanism"
+    },
+    {
+      "text": "The attention mechanism [47], which has been widely adopted in diffusion models [12], has been interpreted through the lens of energy-based models (EBMs) [31, 39, 7], especially through its close connection with the Hopfield energy [7, 39]. In the modern (continuous) Hopfield network, the attention operation can be derived based on the concave-convex procedure (CCCP) from the following energy function [39]:"
+    },
+    {
+      "text": "$$\nE ( \\pmb \\xi ) = - \\mathrm { l s e } ( \\mathbf X \\pmb \\xi ^ { \\top } ) + \\frac 1 2 \\pmb \\xi \\pmb \\xi ^ { \\top } ,\n$$"
+    },
+    {
+      "text": "where $\\pmb { \\xi } \\in \\mathbb { R } ^ { 1 \\times d }$ , $\\mathbf { X } \\in \\mathbb { R } ^ { N \\times d }$ , and lse stands for the log-sum-exp function, defined as $\\mathrm { l s e } ( \\mathbf { v } ) : =$ $\\begin{array} { r } { \\log \\left( \\sum _ { i = 1 } ^ { N } e ^ { v _ { i } } \\right) } \\end{array}$ . The quadratic term acts as a regularizer to prevent $\\boldsymbol { \\xi }$ from exploding [39], while $- \\mathrm { l s e } ( \\mathbf { X } \\xi ^ { \\top } )$ penalizes misalignment between $\\mathbf { X }$ and $\\boldsymbol { \\xi }$ ."
+    },
+    {
+      "text": "Mathematically, it turns out that the attention mechanism is equivalent to the update rule of the modern Hopfield network [7, 39]. Specifically, inspired by the Hopfield energy in (4), and noticing that the first term depends on the attention weights, we propose the following energy function for entire self-attention weights in diffusion models:"
+    },
+    {
+      "text": "Definition 2.1 (Energy Function for Self-Attention). Let $\\mathbf { Q } \\in \\mathbb { R } ^ { ( H W ) \\times d }$ be a matrix of query vectors and $\\mathbf { K } \\in \\mathbb { R } ^ { ( H W ) \\times d }$ be a matrix of key vectors, where $H , W$ , and $d$ represent the height, width, and dimension, respectively. Let $\\mathbf { A } \\in \\mathbb { R } ^ { ( H W ) \\times ( H W ) } : = \\mathbf { Q K } ^ { \\top }$ . The energy function with respect to entire self-attention weights in diffusion models is defined as:"
+    },
+    {
+      "text": "$$\nE ( \\mathbf { A } ) : = \\sum _ { i = 1 } ^ { H } \\sum _ { j = 1 } ^ { W } E ^ { \\prime } ( \\mathbf { a } _ { : ( i , j ) } ) , \\quad E ^ { \\prime } ( \\mathbf { a } ) : = - \\mathrm { l s e } \\left( \\mathbf { a } \\right) = - \\log \\left( \\sum _ { k = 1 } ^ { H } \\sum _ { l = 1 } ^ { W } e ^ { a _ { ( k , l ) } } \\right) .\n$$"
+    },
+    {
+      "text": "Note that to explicitly denote the spatial dimension, we use the subscript $( x , y )$ to represent the index of a row or column of the matrices. Despite using the definition in (5) for the rest of the paper for simplicity, we additionally discuss the dual case, where we use the swapped indexing, in Appendix B."
+    },
+    {
+      "text": "This view leads us to an important intuition: the attention operation can be seen as a minimization step on the energy landscape, considering that the first derivative represents the softmax operation which also appears in the attention operation. Building upon this intuition, we argue that Gaussian blurring on the attention weights modulates the underlying landscape to have less curvature, and we demonstrate this in the following sections by analyzing the second derivatives."
+    },
+    {
+      "text": "# 3 Method"
+    },
+    {
+      "text": "Our aim is to theoretically derive the effect of Gaussian blur applied on the attention weights, which in the end attenuates the curvature of the underlying energy function. Then, utilizing this fact, we develop attention-based drop-in diffusion guidance that enhances the quality of the generated samples, regardless of whether an explicit condition is given. In Section 3.1, we claim some useful properties of Gaussian blur: that it preserves mean, reduces variance, and thus decreases the lse value. In"
+    },
+    {
+      "text": "Section 3.2, we find that the curvature of the energy landscape is attenuated by the attention blur operation, leading naturally to a blunter prediction for guidance. And finally, in Section 3.3, built upon this fact, we define Smoothed Energy Guidance (SEG) and propose the equivalent query blurring method, which can perform attention blurring while avoiding quadratic complexity in the number of tokens."
+    },
+    {
+      "text": "# 3.1 Gaussian blur to attention weights"
+    },
+    {
+      "text": "In this section, we derive some important properties of the Gaussian blur with the aim of figuring out the variation of the energy landscape. To this end, we start from some mathematical underpinnings on applying Gaussian blur to attention weights."
+    },
+    {
+      "text": "A 2D Gaussian filter is a convolution kernel that uses a 2D Gaussian function to assign weights to neighboring pixels. The 2D Gaussian function is defined as:"
+    },
+    {
+      "text": "$$\nG ( x , y ) = \\frac { 1 } { 2 \\pi \\sigma ^ { 2 } } e ^ { - \\frac { ( x - \\mu _ { x } ) ^ { 2 } + ( y - \\mu _ { y } ) ^ { 2 } } { 2 \\sigma ^ { 2 } } }\n$$"
+    },
+    {
+      "text": "where $\\mu _ { x }$ and $\\mu _ { y }$ are the means in the $x$ and $y$ directions, and $\\sigma$ is the standard deviation. The 2D Gaussian filter possesses symmetry, i.e., $G ( x , y ) ~ = ~ G ( - x , - y )$ , and normalization, i.e., $\\begin{array} { r } { \\int \\int G ( x , y ) d x d y = \\bar { 1 } } \\end{array}$ . In practice, we use a discretized version of the Gaussian filter with a finite kernel size depending on $\\sigma$ , normalized to sum to 1."
+    },
+    {
+      "text": "Lemma 3.1. Spatially applying a $2 D$ Gaussian blur to the attention weights $\\mathbf { a } : = \\mathbf { Q } \\mathbf { k } ^ { \\top }$ preserves the average $\\mathbb { E } _ { i , j } [ a _ { ( i , j ) } ]$ . In addition, the variance monotonically decreases every time we apply the Gaussian blur."
+    },
+    {
+      "text": "Proof sketch. Applying a 2D Gaussian filter to the attention weights $a _ { ( i , j ) }$ yields the blurred values $\\tilde { a } _ { ( i , j ) }$ :"
+    },
+    {
+      "text": "$$\n\\tilde { a } _ { ( i , j ) } = \\sum _ { m = - k } ^ { k } \\sum _ { n = - k } ^ { k } G ( m , n ) \\cdot a _ { ( i + m , j + n ) }\n$$"
+    },
+    {
+      "text": "where $k$ is the filter size, $G ( m , n )$ is the Gaussian filter value at position $( m , n )$ , and $a _ { ( i + m , j + n ) }$ is the attention weight at position $( i + m , j + n )$ . Since the Gaussian filter is symmetric and normalized, it can be shown that the mean of the blurred attention weights is equal to the mean of the original attention weights. Similarly, we can show that the variance monotonically decreases when we apply a 2D Gaussian filter. See Appendix A.1 for the complete proof."
+    },
+    {
+      "text": "Note that this fact also implies that blurring with a Gaussian filter with a larger standard deviation causes a greater decrease in the variance of attention weights. This is because a Gaussian filter with a larger standard deviation can always be represented as a convolution of two filters with smaller standard deviations, due to the associativity of the convolution operation."
+    },
+    {
+      "text": "Finally, we show that applying a 2D Gaussian blur to attention weights increases the lse value in (5), i.e., increases the energy in (5). This provides a bit of intuition about the underlying energy landscape, yet it is more prominently utilized in the claims in the following sections."
+    },
+    {
+      "text": "Lemma 3.2. Applying a $2 D$ Gaussian blur to attention weights $\\mathbf { a } : = \\mathbf { Q } \\mathbf { k } ^ { \\top }$ increases the lse term when we consider the second-order Taylor series approximation of the exponential function around the mean $\\mu : = \\mathbb { E } _ { i , j } [ a _ { ( i , j ) } ]$ . Consequently, the maximum is achieved when the attention is uniform, i.e., $a _ { ( i , j ) } = a _ { ( k , l ) } \\ \\forall i , j , k , l$ . This corresponds to the case when we apply the Gaussian blur with $\\sigma \\to \\infty$ ."
+    },
+    {
+      "text": "Proof sketch. Applying the second-order Taylor series approximation around the mean $\\mu$ , and using Proposition 3.1, we show that the second-order approximation of $\\mathrm { l s e } ( \\mathbf { a } )$ is larger than or equal to that of lse(a˜). Subsequently, we introduce Lagrange multipliers to find the maximum, which gives us the result, $a _ { ( i , j ) } = a _ { ( k , l ) } \\forall i , j , k , l .$ We leave the full proof in Appendix A.2."
+    },
+    {
+      "text": "# 3.2 Analysis of the energy landscape"
+    },
+    {
+      "text": "In this section, we demonstrate that applying a 2D Gaussian blur to the attention weights before the softmax operation results in computing the updated value with reduced curvature of the underlying energy function. To this end, we analyze the Gaussian curvature before and after blurring the attention weights. This is closely related to the Hessian of the energy function."
+    },
+    {
+      "text": "Theorem 3.1. Let the attention weights be defined as $\\mathbf { a } : = \\mathbf { Q } \\mathbf { k } ^ { \\top }$ . Consider the energy function in (5). Then, applying a Gaussian blur to the attention weights a before the softmax operation results in the attenuation of the Gaussian curvature of the underlying energy function where gradient descent is performed."
+    }
+  ],
+  "url": ""
+}

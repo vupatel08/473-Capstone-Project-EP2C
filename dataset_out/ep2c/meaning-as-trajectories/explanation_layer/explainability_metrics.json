@@ -1,0 +1,8 @@
+{
+  "traceability_coverage": 8.0,
+  "comment_density": 0.2,
+  "paper_reference_accuracy": 0.125,
+  "missing_info_score": 0.8333333333333334,
+  "readability_score": 0.627963325058834,
+  "overall_explainability_score": 2.6590463325058833
+}

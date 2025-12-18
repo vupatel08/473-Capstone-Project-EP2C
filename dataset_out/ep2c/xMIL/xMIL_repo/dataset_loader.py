@@ -1,0 +1,266 @@
+## dataset_loader.py
+import os
+from typing import List, Dict, Tuple, Optional
+import numpy as np
+import openslide
+from sklearn.cluster import MiniBatchKMeans
+import torch
+from torch.utils.data import Dataset, DataLoader
+from torchvision import transforms
+from PIL import Image
+import logging
+
+from config import config
+
+# Set up logging for debugging and information
+logger = logging.getLogger(__name__)
+logging.basicConfig(level=logging.INFO)
+
+class SlideSample:
+    """
+    A class to hold data for a single slide:
+    - Path and metadata
+    - List of patches (images)
+    - Extracted features
+    - Labels and IDs
+    """
+    def __init__(self,
+                 slide_id: str,
+                 slide_path: str,
+                 label: int,
+                 patches: List[Image.Image],
+                 patch_coords: List[Tuple[int, int]],
+                 features: Optional[np.ndarray] = None):
+        self.slide_id = slide_id
+        self.slide_path = slide_path
+        self.label = label
+        self.patches = patches  # List of PIL Images
+        self.patch_coords = patch_coords  # (x, y) positions
+        self.features = features  # NumPy array (num_patches x feature_dim)
+
+class DatasetLoader:
+    """
+    Loads WSIs, extracts patches, filters background, and prepares bags for MIL.
+    """
+
+    def __init__(self,
+                 dataset_dir: str = config.dataset_paths['histopathology'],
+                 patch_size: int = 256,
+                 magnification_level: int = 20,
+                 tissue_threshold: float = 0.1,
+                 max_patches_per_slide: int = 10000,
+                 background_filtering: bool = True,
+                 device: str = config.hardware['device']):
+        self.dataset_dir = dataset_dir
+        self.patch_size = patch_size
+        self.magnification_level = magnification_level  # e.g., 20x
+        self.tissue_threshold = tissue_threshold  # proportion of tissue in patch
+        self.max_patches_per_slide = max_patches_per_slide
+        self.background_filtering = background_filtering
+        self.device = device
+
+        self.slide_files: List[str] = []
+        self.slide_labels: Dict[str, int] = {}  # slide_id -> label
+        self.slides_metadata: List[Dict] = []
+
+        self._discover_slides()
+
+    def _discover_slides(self):
+        """
+        Scan the dataset directory for slide files and load label info.
+        Assumes labels are encoded in filenames or an external label file.
+        """
+        # For simplicity, assume all .svs/.tiff files in directory
+        for fname in os.listdir(self.dataset_dir):
+            if fname.lower().endswith(('.svs', '.tiff', '.ndpi', '.tif')):
+                slide_path = os.path.join(self.dataset_dir, fname)
+                slide_id = os.path.splitext(fname)[0]
+                self.slide_files.append(slide_path)
+
+                # Placeholder: Assign label based on filename or external file
+                # Here, a dummy label: 0
+                label = self._get_label_from_filename(fname)
+                self.slide_labels[slide_id] = label
+
+                self.slides_metadata.append({
+                    'slide_id': slide_id,
+                    'slide_path': slide_path,
+                    'label': label
+                })
+        logger.info(f"Discovered {len(self.slide_files)} slide(s).")
+
+    def _get_label_from_filename(self, filename: str) -> int:
+        """
+        Placeholder for label assignment based on filename conventions.
+        Override or extend as needed.
+        """
+        # For example, parse filename for label info
+        # e.g., 'slide_HPVpos.svs' --> 1
+        # Simplified here: default label 0
+        return 0
+
+    def load_slide(self, slide_path: str) -> openslide.OpenSlide:
+        """
+        Open a slide using OpenSlide.
+        """
+        try:
+            slide = openslide.OpenSlide(slide_path)
+            return slide
+        except Exception as e:
+            logger.error(f"Failed to open slide {slide_path}: {e}")
+            raise
+
+    def extract_patches_from_slide(self,
+                                   slide: openslide.OpenSlide,
+                                   min_magnification: float = 20,
+                                   max_patches: int = None) -> Tuple[List[Image.Image], List[Tuple[int, int]]]:
+        """
+        Extract patches at specified magnification y level.
+        Returns list of PIL Images and their coordinates.
+        """
+        # Calculate magnification scale factor
+        # OpenSlide needs pixel size info or use reference levels
+        # For simplicity, assume level 0 is the highest resolution
+        # and level with desired magnification can be found via level downsampling ratio
+        level = self._select_level(slide, min_magnification)
+        level_downsample = slide.level_downsamples[level]
+        level_dim = slide.level_dimensions[level]
+        slide_width, slide_height = slide.dimensions
+
+        # Placeholder: estimate tissue region via thumbnail
+        thumbnail = slide.get_thumbnail(slide.dimensions)
+        tissue_mask = self._get_tissue_mask(thumbnail)
+
+        patches = []
+        patch_coords = []
+
+        stride = int(self.patch_size * level_downsample)
+        # Traverse slide grid
+        for y in range(0, slide_width - self.patch_size, stride):
+            if len(patches) >= max_patches:
+                break
+            for x in range(0, slide_height - self.patch_size, stride):
+                # Check tissue content
+                if self.background_filtering:
+                    tissue_fraction = self._patch_tissue_fraction(slide, (x, y))
+                    if tissue_fraction < self.tissue_threshold:
+                        continue  # Skip non-tissue patches
+                # Read region
+                patch_img = slide.read_region(
+                    (x, y),
+                    level,
+                    (self.patch_size, self.patch_size))
+                patch_img = patch_img.convert("RGB")
+                patches.append(patch_img)
+                patch_coords.append((x, y))
+        return patches, patch_coords
+
+    def _select_level(self, slide: openslide.OpenSlide, target_magnification: float) -> int:
+        """
+        Select the pyramid level closest to the target magnification.
+        Assumes level 0 is highest resolution.
+        """
+        # Placeholder: assuming level 0 is the highest
+        # with known mpp (microns per pixel), but OpenSlide often does not supply directly.
+        # For demo, assume level 0 is fine, or choose based on downsample ratios.
+        # For simplicity, return level 0.
+        return 0
+
+    def _get_tissue_mask(self, thumbnail: Image.Image) -> np.ndarray:
+        """
+        Generate tissue mask via Otsu's threshold on thumbnail.
+        """
+        gray = thumbnail.convert('L')
+        np_gray = np.array(gray)
+        threshold = self._otsu_threshold(np_gray)
+        tissue_mask = np_gray > threshold
+        return tissue_mask
+
+    def _otsu_threshold(self, image_array: np.ndarray) -> int:
+        """
+        Compute Otsu's threshold.
+        """
+        from skimage.filters import threshold_otsu
+        return threshold_otsu(image_array)
+
+    def _patch_tissue_fraction(self, slide: openslide.OpenSlide, coord: Tuple[int, int]) -> float:
+        """
+        Estimate tissue fraction in a patch center region.
+        """
+        # Read a smaller region (e.g., 50x50) within the patch
+        size = 50
+        x, y = coord
+        # Ensure region is within bounds
+        try:
+            region = slide.read_region((x, y), 0, (size, size))
+        except Exception:
+            return 0.0
+        region = region.convert("L")
+        np_region = np.array(region)
+        # Compute tissue fraction by Otsu threshold
+        thresh = self._otsu_threshold(np_region)
+        tissue_pixels = np.sum(np_region > thresh)
+        total_pixels = size * size
+        fraction = tissue_pixels / total_pixels
+        return fraction
+
+    def load_all_slides(self) -> List[SlideSample]:
+        """
+        Load all slides, extract patches, and prepare dataset.
+        Returns a list of SlideSample objects with patches.
+        """
+        dataset_samples: List[SlideSample] = []
+        for meta in self.slides_metadata:
+            slide_id = meta['slide_id']
+            slide_path = meta['slide_path']
+            label = meta['label']
+            # Load slide
+            slide = self.load_slide(slide_path)
+            # Extract patches
+            patches, coords = self.extract_patches_from_slide(slide)
+            # Store in SlideSample
+            sample = SlideSample(
+                slide_id=slide_id,
+                slide_path=slide_path,
+                label=label,
+                patches=patches,
+                patch_coords=coords
+            )
+            dataset_samples.append(sample)
+            slide.close()
+            logger.info(f"Loaded slide {slide_id}: {len(patches)} patches.")
+        return dataset_samples
+
+    def extract_features_for_dataset(self,
+                                     dataset_samples: List[SlideSample],
+                                     feature_extractor,
+                                     batch_size: int = 128):
+        """
+        Use the provided feature_extractor to process patches into features.
+        Update each SlideSample with a features array (num_patches x feature_dim).
+        """
+        device = self.device
+        feature_extractor.eval()
+        # Prepare list of all patches across dataset
+        all_patches: List[Tuple[SlideSample, int, Image.Image]] = []
+        for sample in dataset_samples:
+            for idx, patch in enumerate(sample.patches):
+                all_patches.append((sample, idx, patch))
+        # Process in batches
+        dataloader = DataLoader(all_patches, batch_size=batch_size, shuffle=False)
+        with torch.no_grad():
+            for batch in dataloader:
+                # batch is list of (SlideSample, idx, Image)
+                patches = [item[2] for item in batch]
+                # Convert to tensor batch
+                batch_tensor = torch.stack([transforms.ToTensor()(p) for p in patches], dim=0).to(device)
+                features = feature_extractor(batch_tensor)
+                features = features.cpu().numpy()
+                # Assign features back
+                for i, (sample_obj, idx, _) in enumerate(batch):
+                    if sample_obj.features is None:
+                        sample_obj.features = np.zeros(
+                            (len(sample_obj.patches), features.shape[1]),
+                            dtype=np.float32)
+                    sample_obj.features[idx] = features[i]
+        logger.info("Feature extraction completed for dataset.")

@@ -1,0 +1,158 @@
+{
+  "title": "SOCIAL REWARD: EVALUATING AND ENHANCING GENERATIVE AI THROUGH MILLION-USER FEEDBACK FROM AN ONLINE CREATIVE COMMUNITY",
+  "abstract": "Arman Isajanyan1∗, Artur Shatveryan1∗, David Kocharyan1, Zhangyang Wang $^ { 1 , 2 }$ , Humphrey $\\mathbf { S h } \\mathbf { i } ^ { 1 , 3 }$",
+  "authors": [],
+  "body_text": [
+    {
+      "text": "# SOCIAL REWARD: EVALUATING AND ENHANCING GENERATIVE AI THROUGH MILLION-USER FEEDBACK FROM AN ONLINE CREATIVE COMMUNITY"
+    },
+    {
+      "text": "Arman Isajanyan1∗, Artur Shatveryan1∗, David Kocharyan1, Zhangyang Wang $^ { 1 , 2 }$ , Humphrey $\\mathbf { S h } \\mathbf { i } ^ { 1 , 3 }$"
+    },
+    {
+      "text": "1Picsart AI Research (PAIR), 2UT Austin, 3Georgia Tech {arman.isajanyan, artur.shatveryan, david.kocharyan, atlas.wang, humphrey.shi}@picsart.com"
+    },
+    {
+      "text": "# ABSTRACT"
+    },
+    {
+      "text": "Social reward as a form of community recognition provides a strong source of motivation for users of online platforms to actively engage and contribute with content to accumulate peers approval. In the realm of text-conditioned image synthesis, the recent surge in progress has ushered in a collaborative era where users and AI systems coalesce to refine visual creations. This co-creative process in the landscape of online social networks empowers users to craft original visual artworks seeking for community validation. Nevertheless, assessing these models in the context of collective community preference introduces distinct challenges. Existing evaluation methods predominantly center on limited size user studies guided by image quality and alignment with prompts. This work pioneers a paradigm shift, unveiling Social Reward - an innovative reward modeling framework that leverages implicit feedback from social network users engaged in creative editing of generated images. We embark on an extensive journey of dataset curation and refinement, drawing from Picsart: an online visual creation and editing platform, yielding a first million-user-scale dataset of implicit human preferences for user-generated visual art named Picsart Image-Social. Our analysis exposes the shortcomings of current metrics in modeling community creative preference of text-to-image models’ outputs, compelling us to introduce a novel predictive model explicitly tailored to address these limitations. Rigorous quantitative experiments and user study show that our Social Reward model aligns better with social popularity than existing metrics. Furthermore, we utilize Social Reward to fine-tune text-to-image models, yielding images that are more favored by not only Social Reward, but also other established metrics. These findings highlight the relevance and effectiveness of Social Reward in assessing community appreciation for AI-generated artworks, establishing a closer alignment with users’ creative goals: creating popular visual art. Codes can be accessed at https://github.com/Picsart-AI-Research/Social-Reward"
+    },
+    {
+      "text": "# 1 INTRODUCTION"
+    },
+    {
+      "text": "Social reward mechanisms play a pivotal role in incentivizing and modulating human behavior. Grounded in neurobiology and psychology, positive social feedback, such as approval, validation, and recognition, are essential for maintaining social cohesion and individual well-being (Rudolph, 2021; Baumeister & Leary, 1995). This reward-driven behavior extends to online social platforms, where users seek satisfaction via the accumulation of their network’s peer engagement with shared content in forms such as likes or views (Deters & Mehl, 2013; Lemai Nguyen & Nallaperuma, 2023)."
+    },
+    {
+      "text": "Recently, the field of text-conditioned image synthesis has witnessed remarkable advancements, leading to the development of generative algorithms capable of producing high-fidelity images that closely adhere to textual descriptions. This technological breakthrough has significantly impacted the realm of online social networks, as it empowers users with a novel and creative means of content creation and sharing. As users leverage this technology to craft and post compelling visual content, they simultaneously tap into the well-established reward mechanisms of social validation and recognition. Given the pace with which the number of synthetic images grows filling the digital spaces of online creative communities (as of August 2023 more than 15 billion synthetic images had been generated globally (Valyaeva, 2023)) evaluating the performance of generative models within the context of social network popularity emerges as an important challenge."
+    },
+    {
+      "text": "![](images/5a1ce2e2ed72ff4856e0f11aac1b9558b91a80445ee459a37818ab467619974a.jpg)  \nFigure 1: Best image out of 20 generations as chosen by different scoring models, including ours."
+    },
+    {
+      "text": "While social network popularity can be defined in many ways, with likes, views, and other similar types of user interactions traditionally serving as popularity estimates (McParlane et al., 2014; Ding et al., 2019), the nature of text-to-image technology, adopted by industry largely as co-editing tool integrated into creative platforms (Weisz et al., 2023; Huang & Grady, 2022), introduces another dimension to social network content popularity measurement, namely the frequency of synthetic image reuses for editing purposes by community members. This metric resonates with the population of artists and creators receiving social rewards when their synthetic images are being leveraged in the editing process by network peers. The central question then can be summarized as, to what extent text-to-image models can produce visual content aligned with social popularity, which is defined as community preference for creative editing purposes?"
+    },
+    {
+      "text": "Recently, researchers have increasingly turned to human preferences as a guiding beacon, inspired by the transformative impact of human feedback in the realm of Large Language Models (LLM) (Ouyang et al., 2022; Nakano et al., 2022). In the domain of text-to-image generation, reward models have been harnessed to channel human feedback into the learning process Xu et al. (2023a); Wu et al. (2023a); Kirstain et al. (2023). These works, have sought to leverage human preferences to construct reward models that facilitate generative model evaluation and fine-tuning."
+    },
+    {
+      "text": "Despite the commendable efforts, the existing reward models have notable limitations in our domain of interest. Some of them rely on limited-size data annotation process, as presented in Table 1, which cannot be deemed the equivalent of the “community-scale” feedback. Moreover, prompts utilized for dataset creation (collected from COCO Captions dataset (Chen et al., 2015) and open source prompt dataset DiffusionDB (Wang et al., 2023)) along with the moderation process and guidelines that adhere mainly to image fidelity and textual alignment as annotation criteria, do not emphasize creative purpose and hence, potentially, are limiting in expressing collective community creative preference. On the other hand, some other approaches collect explicit organic user feedback, but as a downside, exhibit a relatively small scale of collected user preference and absence of ”collective feedback” (when more than one user engages with a given image) as an important indicator of social popularity. While these approaches do capture a broad spectrum of user preferences, they nevertheless showcase insufficiency to model social popularity in the context of community-level editing preference. These limitations are substantiated by our extensive quantitative and qualitative analysis."
+    },
+    {
+      "text": "To bridge this gap and address the unique demands of text-to-image in the framework of creative social popularity, we introduce a novel concept: Social Reward. This paradigm shift in reward modeling leverages collective implicit feedback from social network users who specifically employ generated images for creative purposes. This distinction underscores the relevance and applicability of Social Reward to the creative editing process, providing a more faithful estimation of alignment between AI-generated images and community-level creative preference. However, the collection of Social Reward data presents its own set of challenges, notably the inherent noise stemming from the implicit nature of user feedback, the absence of a formal annotation process with precise guidelines, and the unequal content exposure caused by social network-specific factors (such as some content being surfaced more frequently than the others, etc)."
+    },
+    {
+      "text": "In this work we embark on a comprehensive exploration, starting with data curation sourced from Picsart (https://picsart.com/): one of the world’s leading online visual creation and editing platforms. Due to the inherent noise and subjectivity in individual user choices, the collective feedback, which implies multiple users’ editing choices for the given content item, is leveraged as a cleaning mechanism of organic implicit user behavior. Several more data collection techniques have been utilized for addressing such biases as caption bias, content exposure time, and user follower base biases. Our analysis reveals the shortcomings of existing metrics in evaluating text-to-image models’ fitness for generating popular art, which motivates us to introduce a new model explicitly designed to address these limitations. Moreover, we demonstrate the potential of our model in fine-tuning text-to-image models to better align with community-level creative preference."
+    },
+    {
+      "text": "Our contributions are outlined as follows:"
+    },
+    {
+      "text": "• We identify an unexplored, but extremely relevant dimension in human preference reward modeling for text-to-image models: evaluating the performance within the context of social network popularity for creative editing. Our analysis provides compelling evidence that existing reward models are ill-suited to capture this dimension.   \n• We embark on a journey of dataset curation and leveraging Picsart’s creative community data. We build a large scale dataset of implicit human preferences motivated by creative editing intent over synthetic images, named Picsart Image-Social dataset. Contrary to existing methods, we utilize social network user feedback and curate dataset relying on editing community collective behavior.   \n• Building upon this curated dataset, we develop and validate our Social Reward Model, showcasing its superiority for the given task, as evidenced in Table 4 and Figure 5. Furthermore, our model captures distinct image attributes that go beyond mere aesthetics (see Figure 1), demonstrating its potential to enhance text-to-image model performance for community-level creative preference (see Table 5 and Figure 7)."
+    },
+    {
+      "text": "# 2 RELATED WORK"
+    },
+    {
+      "text": "# 2.1 TEXT-TO-IMAGE GENERATION"
+    },
+    {
+      "text": "Text-to-image generative models allow synthesizing images conditioned on the text input. GANs (Goodfellow et al., 2014) allowed for the first successful results in this realm (Zhang et al., 2017; Xu et al., 2017; Zhu et al., 2019; Liao et al., 2022). Transformer-based (Ramesh et al., 2021; Chang et al., 2023) models have also yielded great improvements. Recently diffusion-based architectures showed great ability of producing high fidelity images (Nichol et al., 2022; Ramesh et al., 2022; Xu et al., 2023b; Lu et al., 2023). LDM (Rombach et al., 2022) employs a diffusion process in the underlying latent space rather than directly in the pixel space. This approach delivers notable performance gains while also enhancing processing speed."
+    },
+    {
+      "text": "# 2.2 POPULARITY PREDICTION"
+    },
+    {
+      "text": "The domain of predicting content popularity within social networks has garnered substantial attention in recent years, primarily due to its relevance in comprehending content diffusion dynamics, modeling community preference patterns, and the optimization of marketing strategies. Most existing works focus on the following types of media content: text (Oza & Naik, 2016; Gao et al., 2019), video (Li et al., 2013; Rizoiu et al., 2017) and images (Khosla et al., 2014)]. In the realm of image popularity prediction most existing works use either Flickr (McParlane et al., 2014) or Instagram (Ding et al., 2019) for their dataset curation. While significant research has been done on social content popularity topic, little attention has been put on the emerging field of synthetic/generated images and their fitness for popularity in a creative community."
+    },
+    {
+      "text": "# 2.3 TEXT-TO-IMAGE EVALUATION"
+    },
+    {
+      "text": "Given that the focus of this study lies in the realm of evaluating the performance of text-conditioned image generation models, it is imperative to assess the latest advancements in related research. While widely accepted evaluation methods within the image synthesis community, commonly referred to as ”automated metrics” like FID (Heusel et al., 2018) and CLIP score (Radford et al., 2021), have demonstrated certain drawbacks (Otani et al., 2023; Parmar et al., 2022; Xu et al., 2023a; Kirstain et al., 2023), one notable concern is their limited alignment with human preferences."
+    },
+    {
+      "text": "To tackle this issue, recent endeavors (Kirstain et al., 2023; Xu et al., 2023a; Wu et al., 2023a) have proposed direct modeling of human preference by learning scoring functions from datasets consisting of human-annotated prompts paired with synthetic images. While these studies represent a significant stride towards enabling practitioners to approximate human preference for generative model outputs, they still exhibit several inherent limitations concerning the core objective of our research, which revolves around addressing the challenge of predicting social popularity."
+    },
+    {
+      "text": "• A subset of the prompts used in HPD v2 (Wu et al., 2023a) is sourced from the COCO Captions dataset, which comprises captions linked to real images. This incorporation raises concerns about a potential domain mismatch when evaluating the scoring of generated images. Furthermore, the gathered feedback stems from a relatively restricted number of annotators, rendering it insufficient to encapsulate the preferences of a large-scale user base. In contrast, our feedback is drawn from a user community numbering in the millions individuals who actively engage with these images for editing purposes."
+    },
+    {
+      "text": "• Likewise, ImageReward (Xu et al., 2023a) dataset faces limitations not only in terms of annotators number but also in terms of a relatively low number of unique prompts and images."
+    },
+    {
+      "text": "• One important shared concern by both ImageReward and HPD v2 is the absence of specific guidance to direct annotators toward emphasizing creative editing goals. Instead, their focus was primarily on ensuring image fidelity and aligning text with images."
+    },
+    {
+      "text": "• We performed a prompt analysis to compare prompts derived from the datasets used for training scoring models, which includes prompts from ImageReward and Pick-a-Pic (Kirstain et al., 2023)1, with prompts crafted by our platform’s creators, which by our popularity metric are reflective of creative image editing intent. It is evident that prompts in ImageReward and Pick-a-Pic datasets significantly deviate from those leveraged for creative editing."
+    },
+    {
+      "text": "• In Pick-a-Pic case prompts are generated by web app, created by paper authors for research purposes. Users had been invited to interact with applications via such channels as Twitter, Facebook, Discord, and Reddit. The relatively small scale of collected user preferences along with the absence of ”collective feedback” (understood as different users’ independent choice to interact with a given image) make Pick-a-Pic less optimal approach for community popularity modeling."
+    },
+    {
+      "text": "Table 1: Comparison of human preference datasets for text-to-image evaluation"
+    },
+    {
+      "text": "<table><tr><td rowspan=1 colspan=1>Name</td><td rowspan=1 colspan=1>Annotatortype</td><td rowspan=1 colspan=1>Annotatorfocus</td><td rowspan=1 colspan=1>Promptsource</td><td rowspan=1 colspan=1>Imagesource</td><td rowspan=1 colspan=1>Number ofImages</td><td rowspan=1 colspan=1>ImagePairs</td><td rowspan=1 colspan=1>DistinctPrompts</td><td rowspan=1 colspan=1>Users/Annotators</td></tr><tr><td rowspan=1 colspan=1>HPD v2</td><td rowspan=1 colspan=1>Professionalannotators</td><td rowspan=1 colspan=1>Image Quality +Text Alignment</td><td rowspan=1 colspan=1>COCO captions +DiffusionDB</td><td rowspan=1 colspan=1>9 T2I models +COCO Captions</td><td rowspan=1 colspan=1>430K</td><td rowspan=1 colspan=1>798K</td><td rowspan=1 colspan=1>104K</td><td rowspan=1 colspan=1>57*</td></tr><tr><td rowspan=1 colspan=1>ImageReward</td><td rowspan=1 colspan=1>Professionalannotators</td><td rowspan=1 colspan=1>Image Quality+Text Alignment</td><td rowspan=1 colspan=1>DiffusionDB</td><td rowspan=1 colspan=1>StableDiffusion</td><td rowspan=1 colspan=1>55K</td><td rowspan=1 colspan=1>137K</td><td rowspan=1 colspan=1>8.9K</td><td rowspan=1 colspan=1>24**</td></tr><tr><td rowspan=1 colspan=1>Pick-a-Pic</td><td rowspan=1 colspan=1>Real users</td><td rowspan=1 colspan=1>IndividualFeedback</td><td rowspan=1 colspan=1>Pick-a-PicWeb app</td><td rowspan=1 colspan=1>Differentmodels/configs</td><td rowspan=1 colspan=1>656K</td><td rowspan=1 colspan=1>615K</td><td rowspan=1 colspan=1>38.5K</td><td rowspan=1 colspan=1>6.4K</td></tr><tr><td rowspan=1 colspan=1>PicsartImage-Social</td><td rowspan=1 colspan=1>Real users</td><td rowspan=1 colspan=1>SocialFeedback</td><td rowspan=1 colspan=1>Social platformuser prompts</td><td rowspan=1 colspan=1>Several inhousemodels</td><td rowspan=1 colspan=1>1.7M</td><td rowspan=1 colspan=1>3M</td><td rowspan=1 colspan=1>104K</td><td rowspan=1 colspan=1>1.5M</td></tr></table>"
+    },
+    {
+      "text": "\\* 7 of them are quality checkers. \\*\\* After annotation quality inspectors double-checked each annotation, and those invalid ones were assigned to other annotators for relabeling."
+    },
+    {
+      "text": "# 3 SOCIAL PREFERENCE: NEW DATASET CURATION AND ANALYSIS"
+    },
+    {
+      "text": "3.1 PICSART AS EDITING-CENTRIC CREATIVE COMMUNITY"
+    },
+    {
+      "text": "Picsart stands as one of the world’s largest digital creation platforms, encompassing a wide spectrum of AI-driven editing tools, notably including text-to-image capabilities. This comprehensive suite empowers creators of varying proficiency levels to conceive, refine, and disseminate photographic and video content. Central to the platform’s appeal is its robust open-source content ecosystem, perpetually invigorated by a vibrant user community."
+    },
+    {
+      "text": "Picsart serves both personal and professional design needs, distinguished by a distinct social dimension. This social facet allows users to share their creative edits, which, in turn, can be harnessed by fellow members of the platform. Consequently, the popularity of a user escalates when they share images that find utility among their peers. Picsart also incorporates a sophisticated search component, enabling users to locate and utilize one another’s edits effectively."
+    },
+    {
+      "text": "# 3.2 DATA COLLECTION"
+    },
+    {
+      "text": "In the realm of popularity prediction, most studies commonly employ metrics such as comments, views, or likes as labels for prediction (McParlane et al., 2014; Khosla et al., 2014; Ding et al., 2019). However, Picsart’s distinct creative nature has prompted us to explore a rather unique metric, called remix: the number of times an image has been reused for editing purposes by other users. This intriguing metric represents one of the most prevalent editing behaviors within our community. What sets remixing apart from conventional popularity signals is its deeper level of user engagement. It is not merely a passive indicator, but rather a testament to active involvement, that allows discerning, which synthetic images hold greater appeal for transformative and artistic modifications. Essentially, our community implicitly conducts a form of collective voting, determining the fitness of promptimage pairs for creative editing."
+    },
+    {
+      "text": "We have established specific criteria for identifying positive (popular) and negative (unpopular) images associated with a given prompt, grounded in the following community-driven editing signals:"
+    },
+    {
+      "text": "• Content Signal: We consider the frequency with which a given image has been remixed by members of the community. • Creator Signal: When an image is remixed by top influencer artists within our community."
+    },
+    {
+      "text": "In addition to visual and textual attributes, there exists a multitude of factors influencing image popularity. Much like the approach followed by Ding et al. (2019), we have taken careful measures in collecting data to mitigate potential sources of biases:"
+    },
+    {
+      "text": "• Prompt Bias: To reduce the impact of the prompt that can cause non-even content distribution in the platform, we condition our model on the prompt, accompanied by a pair of popular and non-popular images.   \nContent Exposure Time Bias: Since some images receive higher viewership than others, for the given prompt we select unpopular images with relatively close exposure time to popular ones.   \n• User Follower Base Bias: Difference in the size and engagement of individual user follower bases does not affect the popularity of generated images, because all those images are posted under the same Picsart public profile."
+    },
+    {
+      "text": "Our meticulously collected dataset2, known as the Picsart Image-Social dataset is represented by triplets: prompt, positive image, and negative image. Additionally, mature images were filtered out by in-house NSFW detection algorithms. For a more detailed description of the data collection procedure, please refer to Appendix A.2. With careful consideration given to avoiding promptlevel intersections, the dataset is partitioned into training $( 7 0 \\% )$ , validation $( 1 0 \\% )$ , and test $( 2 0 \\% )$ sets. High level statistics of Picsart Image-Social dataset can be found in Table 1. For additional information please refer to Appendix A.3."
+    },
+    {
+      "text": "![](images/4697cafe563d0f1875f3ca57f346fbfea40aa600ba2b1313c0891a6701a90044.jpg)  \nFigure 2: Picsart Image-Social training set, showing popular (left) and non-popular images (right)"
+    },
+    {
+      "text": "Leveraging our social network community has allowed us to amass a larger dataset than parallel text-to-image human preference modeling efforts. Despite the implicit nature of human preferences in our dataset (users edit images organically for creative purposes) the substantial feedback volume minimizes the risk of noisy signals. Each instance in the Picsart Image-Social dataset represents collective, independent, implicit voting by our user community, rather than the preference of a single member. Examples of our collected data are illustrated in Figure 2."
+    },
+    {
+      "text": "# 3.3 EMPIRICAL ANALYSIS OF EXISTING EVALUATION FRAMEWORKS"
+    },
+    {
+      "text": "To demonstrate the distinctiveness of the Picsart Image-Social dataset in comparison to those employed by existing solutions and to highlight the limitations of these solutions, we undertook a comprehensive analysis. Our three-fold analysis (prompt analysis, comparative quantitative evaluation on collected test set and comparative label explainability analysis of score models datasets) reveals that current evaluation models are poorly suitable for estimating the social popularity of images."
+    },
+    {
+      "text": "# 3.3.1 PROMPT ANALYSIS"
+    },
+    {
+      "text": "Training datasets of Picsart Image-Social, ImageReward and Pick-a-Pic have different sources which also indicates distinct motives for image generation. To illustrate Picsart Image-Social’s uniqueness and that it reflects creative editing intent, we conducted a cluster analysis on the Sentence-BERT (Reimers & Gurevych, 2019) embedding of the prompts in the training datasets. For fair comparison we sampled an equal amount (6000 unique prompts) of data from each dataset, filtered non-english prompts and truncated prompts to only include the first 5 words. Clustering was done using Ward’s hierarchical clustering method (Ward, 1963), identifying 173 clusters."
+    },
+    {
+      "text": "Table 2: KL divergence of training prompts for different scoring models"
+    }
+  ],
+  "url": ""
+}

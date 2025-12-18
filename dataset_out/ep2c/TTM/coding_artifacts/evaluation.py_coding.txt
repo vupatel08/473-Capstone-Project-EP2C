@@ -1,0 +1,93 @@
+```python
+## evaluation.py
+import torch
+import numpy as np
+from datasets import load_data
+import yaml
+import os
+
+def evaluate_model(model, dataloader, device):
+    """
+    Evaluate the model on dataset, computing accuracy and average entropy of output distribution.
+
+    Args:
+        model (torch.nn.Module): Trained model to evaluate.
+        dataloader (torch.utils.data.DataLoader): DataLoader for dataset.
+        device (torch.device): Device to run inference on.
+
+    Returns:
+        accuracy (float): Top-1 accuracy percentage.
+        mean_entropy (float): Average Shannon entropy of output probabilities.
+    """
+    model.eval()
+    total_samples = 0
+    correct_preds = 0
+    entropy_list = []
+
+    with torch.no_grad():
+        for batch_idx, (inputs, labels) in enumerate(dataloader):
+            inputs = inputs.to(device)
+            labels = labels.to(device)
+
+            logits = model(inputs)  # [batch_size, num_classes]
+            probs = torch.softmax(logits, dim=1)  # Probabilities
+            
+            # Predictions
+            _, pred = torch.max(probs, dim=1)
+            correct_preds += torch.sum(pred == labels).item()
+            total_samples += labels.size(0)
+
+            # Compute per-sample Shannon entropy: H(p) = - sum p_i * log p_i
+            eps = 1e-10
+            probs_clamped = torch.clamp(probs, min=eps)
+            entropies = -torch.sum(probs_clamped * torch.log(probs_clamped), dim=1)
+            entropy_list.extend(entropies.cpu().numpy())
+
+    accuracy = 100.0 * correct_preds / total_samples
+    mean_entropy = np.mean(entropy_list)
+
+    print(f"Evaluation Results: Accuracy = {accuracy:.2f}%, Avg Entropy = {mean_entropy:.4f}")
+    return accuracy, mean_entropy
+
+def main():
+    # Load configuration
+    config_path = 'config.yaml'
+    with open(config_path, 'r') as f:
+        cfg = yaml.safe_load(f)
+        
+    dataset_cfg = cfg['dataset']
+    training_cfg = cfg['training']
+    model_cfg = cfg['model']
+    logging_cfg = cfg['logging']
+    
+    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+    
+    # Load dataset
+    val_loader = load_data(
+        dataset_name=dataset_cfg['name'],
+        data_dir=dataset_cfg['data_dir'],
+        batch_size=training_cfg['batch_size'],
+        is_train=False
+    )
+
+    # Load trained student model checkpoint
+    checkpoint_path = os.path.join(logging_cfg['save_checkpoint_dir'], 'best_model.pth')
+    if not os.path.isfile(checkpoint_path):
+        print(f"Checkpoint not found at {checkpoint_path}")
+        return
+    
+    from models import get_model
+    student_model = get_model(architecture=model_cfg['student_architecture']).to(device)
+    
+    checkpoint = torch.load(checkpoint_path, map_location=device)
+    student_model.load_state_dict(checkpoint['model_state_dict'])
+
+    # If needed, load teacher model similarly (not strictly necessary unless analyzing teacher)
+    # For this script, focus is on student model's evaluation
+
+    # Run evaluation
+    evaluate_model(student_model, val_loader, device)
+
+if __name__ == "__main__":
+    main()
+```

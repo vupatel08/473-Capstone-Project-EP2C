@@ -1,0 +1,158 @@
+{
+  "title": "You Only Look Around: Learning Illumination Invariant Feature for Low-light Object Detection",
+  "abstract": "Mingbo Hong∗ Megvii Technology, Beijing, China mingbohong97@gmail.com",
+  "authors": [],
+  "body_text": [
+    {
+      "text": "# You Only Look Around: Learning Illumination Invariant Feature for Low-light Object Detection"
+    },
+    {
+      "text": "Mingbo Hong∗ Megvii Technology, Beijing, China mingbohong97@gmail.com"
+    },
+    {
+      "text": "Shen Cheng∗ Megvii Technology, Beijing, China chengshen@megvii.com"
+    },
+    {
+      "text": "Haibin Huang Kuaishou Technology jackiehuanghaibin@gmail.com"
+    },
+    {
+      "text": "Haoqiang Fan Megvii Technology, Beijing, China fhq@megvii.com"
+    },
+    {
+      "text": "Shuaicheng Liu† University of Electronic Science and Technology of China liushuaicheng@uestc.edu.cn"
+    },
+    {
+      "text": "# Abstract"
+    },
+    {
+      "text": "In this paper, we introduce YOLA, a novel framework for object detection in low-light scenarios. Unlike previous works, we propose to tackle this challenging problem from the perspective of feature learning. Specifically, we propose to learn illumination-invariant features through the Lambertian image formation model. We observe that, under the Lambertian assumption, it is feasible to approximate illumination-invariant feature maps by exploiting the interrelationships between neighboring color channels and spatially adjacent pixels. By incorporating additional constraints, these relationships can be characterized in the form of convolutional kernels, which can be trained in a detection-driven manner within a network. Towards this end, we introduce a novel module dedicated to the extraction of illumination-invariant features from low-light images, which can be easily integrated into existing object detection frameworks. Our empirical findings reveal significant improvements in low-light object detection tasks, as well as promising results in both well-lit and over-lit scenarios. Code is available at https://github.com/MingboHong/YOLA."
+    },
+    {
+      "text": "# 1 Introduction"
+    },
+    {
+      "text": "In the field of computer vision, object detection stands as a cornerstone, driving advancements in numerous applications ranging from autonomous vehicles to security surveillance [26, 51, 20]. The ability to accurately identify and locate objects in digital imagery has seen remarkable progress, largely due to the advent of deep learning techniques [16, 15, 40]. However, despite these advancements, object detection in low-light conditions remains a significant challenge. Low-light environments lead to poor image quality, reduced visibility, and increased misdetections in night-time surveillance and twilight driving [48, 32]."
+    },
+    {
+      "text": "Traditional methods in tackling low-light object detection have predominantly leaned towards image enhancement techniques [17, 24, 53, 34]. While these methods have demonstrated effectiveness in improving visual aesthetics and perceptual quality, they often do not directly translate to improved object detection performance. This discrepancy arises because these enhancement techniques are typically optimized for human visual perception, which does not always correlate with the requirements for effective and accurate object detection by machine learning models."
+    },
+    {
+      "text": "![](images/c997f3529ac28f4648f98d2fed9fa4dfedf3357731caff9eee826731dd8993b4.jpg)  \nFigure 1: (a): The base detector failed to recognize objects. (b, c) However, when IIM is employed with a simple edge feature, the object is identified. (d, e) Furthermore, the full IIM utilizes a taskdriven learnable kernel to extract illumination-invariant features that are richer and more suitable for the detection task than simple edge features."
+    },
+    {
+      "text": "In addition to image enhancement strategies, another research direction involves fine-tuning pretrained models for low-light conditions. Typically, detectors are initially trained on extensive datasets of well-lit images, such as those from Pascal VOC [11] and Microsoft COCO [28], and subsequently fine-tuned on smaller, low-light datasets [48, 32]. To enhance the utilization of crossdomain information, the MAET framework [7] was developed to learn intrinsic visual structure features by separating object features from those caused by degradation in image quality. Similarly, methods [31, 25] aim to restore the normal appearances of corrupted images during detector training. However, these techniques often depend heavily on synthetic datasets, which could limit their real-world applicability."
+    },
+    {
+      "text": "Recent methods in low-light object detection, such as those in [36, 49], use Laplacian pyramids [2] for multi-scale edge extraction and image enhancement. FeatEnHancer [18] further leverages hierarchical features for improved low-light vision. However, these task-specific, loss-driven approaches often grapple with a larger solution space due to varying illumination effects."
+    },
+    {
+      "text": "In this study, we introduce a novel approach that explicitly leverages illumination-invariant features, utilizing the principles of the Lambertian image formation model [42]. Under the Lambertian assumption, we can express the pixel values in each channel as a discrete combination of three key components: the surface normal, the light direction (both of which are solely related to the pixel’s position), the spectral power distribution, and the intrinsic properties of the pixel itself. The illumination-invariant feature can be learned by eliminating the position-related term and spectral power-related term [14]. We introduce this concept of extracting illumination-invariant features into low-light detection tasks and demonstrate that incorporating this feature yields significant performance improvements in low-light detection tasks. We further improve this illumination-invariant feature using task-driven kernels. Our key observation is that by imposing a zero-mean constraint on these kernels, the feature can simultaneously discover richer downstream task-specific patterns and maintain illumination invariance, thereby improving performance."
+    },
+    {
+      "text": "Towards this end, we propose the Illumination-Invariant Module (IIM), a versatile and adaptive component designed to integrate the information gleaned from these specialized kernels with standard RGB images. The IIM can be seamlessly integrated with a variety of existing object detection frameworks, enhancing their capability to perform accurately in low-light environments, whether through naive edge features or diverse illumination-invariant characteristics, as shown in Fig 1. We further conduct experiments on the ExDark and $U G ^ { 2 } \\mathrm { + D A R K }$ FACE datasets to evaluate our method. Our experimental results demonstrate that the integration of the IIM significantly enhances the detection accuracy of existing methods, leading to substantial improvements in low-light object detection. To summarize, our contributions are as follows:"
+    },
+    {
+      "text": "• We introduce YOLA, a novel framework for object detection in low-light conditions by leveraging illumination-invariant features."
+    },
+    {
+      "text": "![](images/522f4614552bd8b4a268bab4d0ba2c00f3e8116c553c5e3d4aa9dbfb8d36812e.jpg)  \nFigure 2: The overall pipeline of YOLA.YOLA extracts illumination-invariant features via IIM and integrates them with original images by leveraging a fuse convolution block for the subsequent detector."
+    },
+    {
+      "text": "• We design a novel Illumination-Invariant Module to extract illumination-invariant features without requiring additional paired datasets, and can be seamlessly integrated into existing object detection methods.   \n• We provide an in-depth analysis of the extracted illumination-invariant paradigm and propose a learning illumination-invariant paradigm.   \n• Our experiments show YOLA can significantly improve the detection accuracy of existing methods when dealing with low-light images."
+    },
+    {
+      "text": "# 2 Related work"
+    },
+    {
+      "text": "# 2.1 General object detection"
+    },
+    {
+      "text": "Current modern object detection methods can be classified as anchor-based and anchor-free. The anchor-based detectors are derived from the sliding-window paradigm, where the dense anchor can be viewed as the sliding-window arranged in spatial space. Subsequently, the anchors are assigned as positive or negative samples based on the matching strategy (i.e., Intersection-over Union (IoU) [16], Top-K [52, 50]). Common anchor-based methods include R-CNN [16, 15, 40], SSD [30], YOLOv2 [38], and RetinaNet [27], among others. In contrast, the anchor-free detectors liberate the handcraft anchor hyper-parameter setting, enhancing their potential in terms of generalization capability. Prominent methods in anchor-free include YOLOv1 [37], FCOS [44], and DETR [3]. Despite the remarkable achievements of both anchor-based and anchor-free detectors in general object detection, they exhibit unsatisfactory performance under low-light conditions."
+    },
+    {
+      "text": "# 2.2 Low-light object detection"
+    },
+    {
+      "text": "Object detection in low-light conditions remains a significant challenge. One common line of research involves leveraging image enhancement techniques, such as KIND [53], SMG [46], NeRCo [47], and others [17, 24, 22, 23] to directly improve the quality of the low-light image. The enhanced images are then deployed in the subsequent training and testing stages of detection. However, the objective of image enhancement is inherently different from that of object detection, making this strategy suboptimal. To address this, some researchers [21, 6] explore integrating image enhancement with object detection during the training process. Nevertheless, the task of balancing hyperparameters to equilibrate visual quality and detection performance remains intricate. Recently, Sun et al. [43] proposed a targeted adversarial attack paradigm aimed at restoring degraded images to ones that are more favorable for object detection. MAET [7] trained on a low-light synthetic dataset, obtaining the pre-trained model endowed intrinsic structure decomposition ability for downstream lowlight object detection. Further, IA-YOLO [31] and GDIP [25] elaborately design the differentiable image processing module to enhance image adaptively for adverse weather object detection. Note that the aforementioned methods either require a dedicated low-light enhancement dataset or rely heavily on synthetic datasets in training. To mitigate the limitations, a set of methodologies [36, 49, 18] utilize multi-scale hierarchical features and are driven purely by task-specific loss to improve low-light vision. Unlike those methods, we introduce illumination-invariant features to alleviate the effect of illumination on low-light object detection, without requiring additional low-light enhancement datasets or synthetic datasets."
+    },
+    {
+      "text": "# 2.3 Illumination invariant representation"
+    },
+    {
+      "text": "Adverse illumination typically degrades the performance on downstream tasks, prompting researchers to explore illumination-invariant techniques to mitigate this impact. For high-level tasks, Wang et al. [45] proposed an illumination normalization method for Face Recognition. Alshammari et al. [1] use illumination-invariant image representation to improve automotive scene understanding and segmentation. Lu et al. [33] convert RGB images to illumination-invariant chromaticity space, preparing for the following feature extraction to achieve traffic object detection in various illumination conditions. For low-level tasks, several physics-based invariants, such as Colour Ratios [13] (CR) and Cross Colour Ratios [14] (CCR), are employed to decompose the illumination for intrinsic image decomposition [10, 9, 8]. However, these methods leverage illumination-invariant representations derived from the fixed formulations, which may not adequately capture the diverse and complex illumination scenarios that are specific to downstream applications. In contrast, our method enables the adaptive learning of illumination-invariant features in an end-to-end manner, thereby enhancing compatibility with downstream tasks."
+    },
+    {
+      "text": "# 3 Method"
+    },
+    {
+      "text": "In this section, we formally introduce YOLA, a novel method for low-light object detection. As illustrated in Fig.2, the key component of YOLA is the Illumination Invariant Module (IIM) focusing on feature learning to derive downstream task-specific illumination-invariant features. These features can be integrated with existing detection modules, enhancing their capability in low-light conditions. Next, we will introduce the derivation of illumination-invariant features and provide a detailed description of IIM’s specific implementation."
+    },
+    {
+      "text": "# 3.1 Illumination invariant feature"
+    },
+    {
+      "text": "Notation: Let $I$ represents an image in the standard RGB domain, and let $C \\in [ R , G , B ]$ represent the image in the red, green, or blue channel. We define the value in channel $C$ of a pixel $p _ { i }$ as $C _ { p _ { i } }$ , where $i \\in I$ is the pixel index."
+    },
+    {
+      "text": "Lambertian assumption: According to body reflection term of the dichromatic reflection model, the value of $C _ { p _ { i } }$ can be expressed in the discreet form as follows:"
+    },
+    {
+      "text": "$$\nC _ { p _ { i } } = m ( \\vec { n } _ { p _ { i } } , \\vec { l } _ { p _ { i } } ) e ^ { C _ { p _ { i } } } ( \\lambda ) \\rho ^ { C _ { p _ { i } } } ( \\lambda ) ,\n$$"
+    },
+    {
+      "text": "Here, $\\vec { n } _ { p _ { i } } , \\vec { l _ { p _ { i } } }$ represents surface normal and light direction respectively, and $m$ denotes the interaction function between them. The term $e ^ { C _ { p _ { i } } }$ represents the spectral power distribution of the illuminant at point $p _ { i }$ in color channel $C$ , and $\\rho ^ { C _ { p _ { i } } }$ represents the intrinsic property (reflectance) of the object at point $p _ { i }$ in color channel $C$ ."
+    },
+    {
+      "text": "It becomes apparent that the term $m$ is determined solely by the positional component, with no impact from the color channels. This observation leads to the strategy of calculating the difference between values of different color channels at the same spatial positions to effectively eliminate the influence of $m$ . To eliminate the term $e$ , we can utilize the assumption that illumination is approximately uniform across adjacent pixels. Consequently, by computing the difference between values of neighboring pixels, we can further further eliminate the influence of $m$ ."
+    },
+    {
+      "text": "Cross color ratio: Taking into consideration two adjacent pixels, denoted as $p _ { 1 }$ and $p _ { 2 }$ , along with the red $( R )$ and blue $( B )$ channels, we can determine the ratio $M _ { r b }$ between the red and blue channels through the following computational procedure:"
+    },
+    {
+      "text": "$$\nM _ { r b } = \\frac { R _ { p _ { 1 } } B _ { p _ { 2 } } } { R _ { p _ { 2 } } B _ { p _ { 1 } } } .\n$$"
+    },
+    {
+      "text": "Taking the logarithm of $M _ { r b }$ and substituting the pixel values with Eq. 1, we get:"
+    },
+    {
+      "text": "$$\n\\begin{array} { r } { l o g ( M _ { r b } ) = l o g ( m ( n _ { p _ { 1 } } ^ {  } , l _ { p _ { 1 } } ^ {  } ) ) - l o g ( m ( n _ { p _ { 1 } } ^ {  } , l _ { p _ { 1 } } ^ {  } ) ) } \\\\ { + l o g ( e ^ { R _ { p _ { 1 } } } ( \\lambda ) ) - l o g ( e ^ { R _ { p _ { 2 } } } ( \\lambda ) ) } \\\\ { + l o g ( \\rho ^ { R _ { p _ { 1 } } } ( \\lambda ) ) - l o g ( \\rho ^ { R _ { p _ { 2 } } } ( \\lambda ) ) } \\\\ { + l o g ( m ( n _ { p _ { 2 } } ^ {  } , l _ { p _ { 2 } } ^ {  } ) ) - l o g ( m ( n _ { p _ { 2 } } ^ {  } , l _ { p _ { 2 } } ^ {  } ) ) } \\\\ { + l o g ( e ^ { B _ { p _ { 2 } } } ( \\lambda ) ) - l o g ( e ^ { B _ { p _ { 1 } } } ( \\lambda ) ) } \\\\ { + l o g ( \\rho ^ { B _ { p _ { 2 } } } ( \\lambda ) ) - l o g ( \\rho ^ { B _ { p _ { 1 } } } ( \\lambda ) ) . } \\end{array}\n$$"
+    },
+    {
+      "text": "With the illumination assumption that $e ^ { C _ { p _ { 1 } } } \\approx e ^ { C _ { p _ { 2 } } }$ , the above equation can be further simplified into an illumination-invariant form:"
+    },
+    {
+      "text": "$$\n\\begin{array} { r } { l o g ( M _ { r b } ) = l o g ( \\rho ^ { R _ { p _ { 1 } } } ( \\lambda ) ) - l o g ( \\rho ^ { R _ { p _ { 2 } } } ( \\lambda ) ) } \\\\ { + l o g ( \\rho ^ { B _ { p _ { 2 } } } ( \\lambda ) ) - l o g ( \\rho ^ { B _ { p _ { 1 } } } ( \\lambda ) ) } \\end{array}\n$$"
+    },
+    {
+      "text": "By observing the elimination in Eq. 4, we can find that subtraction within the same channel eliminates the illumination term (implemented by zero-mean constraint), while cross-channel subtraction removes the surface normal and light direction terms, which motivates us to design the learning illumination-invariant paradigms."
+    },
+    {
+      "text": "In this case, we can use a convolution operation to extract features, as shown in Fig. 2. The extracted features are processed and fused by the IIM before being sent to the detector. When using fixed weights of adjacent pixels with a subtraction value of 1 or $- 1$ , we refer to it as IIM-Edge. Next, we will provide a detailed introduction to the IIM."
+    },
+    {
+      "text": "# 3.2 Illumination invariant module"
+    },
+    {
+      "text": "While Eq. 4 offers a straightforward and effective method for calculating Illumination Invariant features, its rigidity presents certain limitations. Specifically, the fixed nature of this equation may not adequately capture the diverse and complex variations in illumination that are specific to downstream tasks across different scenarios. To address this, we have evolved the equation into a more adaptable form using convolutional operations. Instead of relying on a single kernel, our approach involves learning a set of convolutional kernels. This strategy not only enhances the robustness of the Illumination Invariant feature extraction but also improves its efficiency. To this end, we propose Illumination Invariant Module comprising two main components, including learnable kernels and a zero-mean constraint. Note that Illumination Invariant Module yield features are inherently illumination invariant at initialization. Subsequent kernel learning is geared towards producing task-specific illumination invariant features for downstream tasks."
+    },
+    {
+      "text": "Learnable kernel. The goal is to transform the fixed illumination-invariant feature into a learnable form. Specifically, we aim to learn a set of convolutional kernels $\\mathcal { W } _ { 1 } , \\mathcal { W } _ { 2 } , \\cdot \\cdot \\cdot \\mathcal { W } _ { n } ^ { \\in k \\times k }$ , where $n$ represents the number of kernels and $k$ denotes the kernel size. Here, we extend the fixed feature into a more versatile and generalized form. Let $p _ { i }$ and $w _ { i }$ represent a group pixel position and its corresponding weight within a kernel $\\mathcal { W } _ { n }$ , where $i = 0 , 1 , \\overset { \\_ } { \\cdot } \\cdot \\cdot k ^ { 2 }$ . These parameters enable us to evolve the Cross Color Ratio (CCR) into an adaptable form, enhancing its capability to effectively handle varying illumination conditions. Note that $w _ { i }$ is trainable, rendering the positive or negative polarity inconsequential."
+    },
+    {
+      "text": "$$\nM _ { r b } = \\prod _ { i = 1 } ^ { k ^ { 2 } - 1 } \\left( \\frac { R _ { p _ { i } } } { B _ { p _ { i } } } \\right) ^ { w _ { i } } \\left( \\frac { B _ { p _ { i + 1 } } } { R _ { p _ { i + 1 } } } \\right) ^ { w _ { i + 1 } } = \\prod _ { i = 1 } ^ { k ^ { 2 } } \\left( \\frac { R _ { p _ { i } } } { B _ { p _ { i } } } \\right) ^ { w _ { i } }\n$$"
+    },
+    {
+      "text": "To make the extended form still satisfy Illumination Invariant, the logarithm of $M _ { r b }$ should satisfy the following constraints:"
+    },
+    {
+      "text": "$$\n\\left\\{ \\sum _ { i } ^ { k ^ { 2 } } w _ { i } l o g ( e ^ { R _ { p _ { i } } } ( \\lambda ) ) = 0 \\right.\n$$"
+    },
+    {
+      "text": "![](images/86740fd87e2889b6af8e1c443f4fa1bb81d3e2ed4d6637a66fc74d2fe6daf77c.jpg)  \nFigure 3: Qualitative comparisons of TOOD detector on both ExDark and $U G ^ { 2 }$ +DARK FACE dataset, where the top 2 rows visualize the detection results from ExDark, and the bottom 2 rows show the results from $U G ^ { 2 } \\mathrm { + D A R K }$ FACE. The images are being replaced with enhanced images generated by LLIE or low-light object methods. Red dash boxes highlight the inconspicuous cases. Zoom in red dash boxes for the best view."
+    },
+    {
+      "text": "If the above equation holds true, the $e$ term and the $m$ term are eliminated. The final feature can be expressed in a generalized form:"
+    }
+  ],
+  "url": ""
+}

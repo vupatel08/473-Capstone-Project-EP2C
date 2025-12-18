@@ -1,0 +1,160 @@
+# Logic Analysis for inference.py
+
+This document details the logical foundations, functional components, and implementation steps necessary to develop `inference.py`, which provides the `InferencePipeline` class. This class handles the generation of multiple weather forecast trajectories based on variable interval combinations, performs iterative model rollouts, and combines the individual forecasts into an ensembled prediction. It also relies on auxiliary functions from `utils.py` for interval generation and forecast aggregation, and on methods from `model.py` for inference.
+
+---
+
+# 1. Overall Purpose and Responsibilities
+
+- Facilitate efficient, flexible forecast generation for a specified lead time `T`.
+- Generate diverse sequences of forecast steps (`\delta t` intervals) that sum to `T`.
+- Execute iterative rollouts of the trained model, conditioned on these intervals.
+- Aggregate multiple forecast trajectories into a single ensemble forecast.
+- Support evaluation procedures comparing ensemble outputs against true validation/test data.
+
+---
+
+# 2. Key Inputs and Outputs
+
+## Inputs:
+- **Initial condition tensor** (`initial_condition`): The atmospheric state tensor with shape `(V, H, W)`, representing variables at initial time.
+- **Target lead time** (`lead_time`): The forecast horizon period, in days or hours.
+- **Mode** (`heterogeneous` or `homogeneous`): Defines whether to generate diverse interval sequences (heterogeneous) or same-interval sequences (homogeneous).
+- **Optional parameters**:
+  - Number of ensemble candidates (`n`): total number of interval combinations evaluated.
+  - Number of top combinations (`m`): number of selected sequences to produce forecast ensemble.
+  - Combining method (`'mean'` or `'ensemble'`): how to aggregate individual forecasts.
+
+## Outputs:
+- **Forecast tensor** (`forecast`): The predicted weather state after `T`, shape `(V, H, W)` (or batch if batching is supported).
+- **Optional**: also returns forecasts for each interval combination, for analysis of uncertainty or ensemble diversity.
+
+---
+
+# 3. Core Functional Components
+
+### 3.1. Interval Set Generation
+- **Functionality**:
+  - Generate multiple sequences of `\delta t` intervals summing approximately to the lead time `T`. 
+  - Support both:
+    - **Homogeneous combinations**: sequences with identical `\delta t` (e.g., all 6-hour steps).
+    - **Heterogeneous combinations**: diverse, mixed-interval sequences.
+  - Use utility functions from `utils.py` for combinatorics, e.g., `generate_intervals()`.
+
+- **Implementation details**:
+  - Given `T` (hours), generate all sequences of `\delta t` values where sum ≈ `T`.
+  - For `n` combinations, randomly generate or select top-sequences based on validation loss (if available).
+  - Incorporate validation if the interface supports it, to select the best sequences.
+
+### 3.2. Forecast Rollout for a Sequence
+- **Functionality**:
+  - Given an initial state and a sequence of intervals `[d1, d2, ..., dk]` that sum roughly to `T`, produce a forecast by:
+    - Iteratively feeding the model’s output as the input state.
+    - Conditioning each step on the corresponding `\delta t` via model inputs.
+  - The model's forward function takes in the current state and `\delta t`, outputs the predicted change (`\Delta \hat`) for that interval.
+  - Update state: add predicted change to current state or incorporate in other domain-appropriate manner.
+
+- **Implementation details**:
+  - Loop over sequence of intervals.
+  - For each interval:
+    - Input current state and interval `\delta t` into the model.
+    - Obtain predicted `\Delta \hat`.
+    - Update current state: `X_{new} = X_{old} + \Delta \hat`.
+  - After completing all steps in the sequence, output final forecast state.
+
+### 3.3. Forecast Aggregation and Ensembling
+- **Functionality**:
+  - Perform the above forecast for each sequence in the selected combination set (top `m`).
+  - Aggregate forecasts:
+    - If `combine_method` is `'mean'`, average the forecast tensors.
+    - If using more advanced ensemble methods, incorporate variability (e.g., variance, quantiles) if desired.
+
+- **Implementation details**:
+  - Use utility functions from `utils.py`, e.g., `ensemble_average(forecasts_list)`.
+  - Return the ensembled forecast for downstream evaluation or visualization.
+
+---
+
+# 4. Logical Flow via Class Methods
+
+### 4.1. Initialization (`__init__`)
+- Instantiate the trained model object.
+- Store configuration (e.g., `lead_time`, `n`, `m`, `mode`, combining method).
+- Load necessary utility functions.
+
+### 4.2. Interval Generation (`generate_intervals()`)
+- Call `utils.py.generate_interval_combinations()` with parameters:
+  - Target lead time `T` (in hours).
+  - Mode (`heterogeneous` or `homogeneous`).
+  - Number of combinations `n`.
+- Obtain a list of sequences `[d1, d2, ..., dk]`.
+
+### 4.3. Forecast Generation (`predict_one_sequence()`)
+- For each sequence:
+  - Initialize current state to initial_condition.
+  - Loop over delta t intervals:
+    - Normalize or prepare input tokens, including delta t embedding.
+    - Call model's inference method, e.g., `model.forward()` or `model.predict_delta()`.
+    - Convert model output into forecast update.
+    - Update current state.
+  - Save final forecast for this sequence.
+- Collect all forecasts in a list.
+
+### 4.4. Ensemble Forecasting (`ensemble_forecasts()`)
+- Aggregate all sequence forecasts via averaging.
+- Return final ensembled forecast tensor.
+
+### 4.5. Main Interface: `generate_forecast()`
+- Accept initial condition and target lead time.
+- Generate interval sequences.
+- For each, produce forecast via iterative rollout.
+- Combine forecasts into final output.
+- Return forecast tensor and optionally, individual forecasts.
+
+---
+
+# 5. Additional Considerations
+
+## 5.1. Handling Variable Normalization
+- Use stored normalization statistics from `dataset.py` or preprocessed data.
+- Ensure consistent scale between training and inference.
+
+## 5.2. Supporting Different Exercise Modes
+- Support only the primary mode (`heterogeneous`) as default.
+- Optionally support homogeneous combinations for efficiency.
+- Parameterize the number of combinations and ensemble size.
+
+## 5.3. Performance Optimization
+- Batch multiple sequences if parallelization is feasible.
+- Use mixed precision inference if supported.
+- Leverage model's `.eval()` mode for inference reliability.
+
+## 5.4. Error Handling
+- Check that the sum of intervals approximates `T`.
+- Handle edge cases where no valid sequences are generated.
+- Log and monitor forecast ensemble diversity and confidence estimates.
+
+---
+
+# 6. Summary of Key Functions / Methods
+
+| Function / Method | Purpose | Inputs | Outputs | Dependences |
+|---------------------|---------|---------|-----------|--------------|
+| `generate_intervals(T, mode, n)` | Create multiple interval sequences summing to `T` | `T`, mode (`hetero/homog`), `n` | List of sequences | `utils.py` |
+| `predict_for_sequence(initial_state, sequence)` | Rollout forecast along a sequence | `initial_state`, sequence of `δt` | Forecast tensor | `model.py` outputs |
+| `ensemble_predictions(forecast_list)` | Combine multiple forecasts | List of forecast tensors | Single ensembled forecast | `utils.py` |
+| `generate_forecast(initial_condition, T)` | Main method for full forecast | initial condition, lead time | Final forecast tensor | Combines above functions |
+
+---
+
+# 7. Clarifications Needed for Implementation
+- Exact normalization and variable preprocessing steps.
+- Specific delta_t embedding strategy in `model.py`.
+- Implementation details of `model.forward()` regarding conditioning.
+- Handling of extremely long lead times (e.g., beyond the max combination length).
+- Whether to support deterministic forecasts (single sequence) or stochastic samples (multiple sequences and added noise).
+
+---
+
+# Conclusion
+This logic analysis establishes a comprehensive foundation for implementing `inference.py`. It defines procedures for interval set generation, iterative forecast rollouts conditioned on variable-length intervals, ensemble aggregation, and flexibility for different inference modes, all aligned with the Stormer methodology depicted in the paper. Implementation should strictly follow this structure, utilizing the designated utility functions, model interfaces, and configuration parameters to ensure reproducibility and fidelity.

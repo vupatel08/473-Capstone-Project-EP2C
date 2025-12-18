@@ -1,0 +1,224 @@
+# Logic Analysis for main.py – Central Orchestrator for Data Loading, Model Initialization, Training, and Evaluation
+
+This module serves as the entry point for the entire experimental pipeline, aligning with the paper's methodology, the described architecture, and the configuration settings outlined in `config.yaml`. Its purpose is to initialize all components, coordinate their interactions, and execute training and evaluation workflows systematically.
+
+---
+
+# Step 1: Parse Configuration and Environment Setup
+
+- **Load Configuration:**
+  - Read and parse `config.yaml` into a dictionary `config`.
+  - Extract key parameters:
+    - `training`: learning rate, batch size, epochs, seed.
+    - `pretraining`: dataset, optimizer, weight decay, total epochs, base learning rate, scheduler.
+    - `model`: backbone type, projection/predictor dimension and layers.
+    - `loss`: alpha, temperature, pool size, sampling mode.
+    - `pool`: type, update method, size.
+    - `evaluation`: task types, metrics.
+- **Set Random Seed:**
+  - Set torch, numpy, and other libraries' random seeds to ensure reproducibility.
+
+---
+
+# Step 2: Initialize Dataset and DataLoader
+
+- **Dataset Loading:**
+  - Use torchvision datasets (e.g., ImageFolder or custom as needed).
+  - Apply the standard augmentation pipeline for training:
+    - Random crop, horizontal flip, color jitter, grayscale, Gaussian blur.
+  - For the toy dataset:
+    - Generate synthetic Gaussian data with class means orthogonal, as specified.
+    - Implement a custom `ToyDataset` class that creates data on-the-fly or loads precomputed features.
+- **DataLoader:**
+  - Instantiate DataLoader with the specified batch size.
+  - Shuffle training data.
+  - Set `seed` for reproducibility.
+  - Prepare validation/test loaders if needed for evaluation.
+
+---
+
+# Step 3: Instantiate Models
+
+- **Encoder Backbone:**
+  - Based on `backbone` parameter:
+    - For ResNet50:
+      - Use torchvision models, possibly removing final classification layer.
+    - For ViT:
+      - Use a suitable implementation, if required.
+  - For toy data:
+    - Build a simple 1-layer linear encoder (or an identity if focusing solely on features).
+- **Projection Head:**
+  - Implement an MLP with specified layers and output dim (128 or 256).
+  - For SUPSIAM/SUPBYOL:
+    - Use 2 or 3 layers in the projection head.
+    - Initialize parameters.
+- **Predictor:**
+  - For SIMSIAM/SUPSIAM:
+    - 2-layer MLP with hidden size as per config (4096), no batch norm.
+  - For BYOL/SUPBYOL:
+    - Same as above, or as specified.
+- **Target Network:**
+  - **For SUPSIAM:**
+    - Share parameters with online network or create an independent copy.
+  - **For SUPBYOL:**
+    - Create a target network that is an exponential moving average (EMA) of online network parameters.
+    - Initialize with online network parameters.
+    - Set EMA decay (`momentum`).
+- **Feature Normalization:**
+  - Ensure features are normalized (L2) after projection.
+- **Additional modules:**
+  - Implement energy regularizers or covariance regularizers if specified.
+
+---
+
+# Step 4: Instantiate Class-Specific Feature Pools
+
+- **Pool Management:**
+  - Instantiate a class `Pool` with:
+    - `pool_type`: class-specific queues.
+    - `size`: e.g., 8192.
+    - `number of classes`: as per dataset.
+  - Initialize per-class feature buffers.
+  - Set `update_with_ema` as per `config`.
+- **Pooling Strategy:**
+  - For each class:
+    - Maintain a queue (e.g., FIFO).
+    - Store features (projected, normalized).
+  - For sampling positives:
+    - Use `sample_positive(labels, M)` to select class positives (all or subset).
+
+---
+
+# Step 5: Instantiate Loss Function
+
+- **Combine Losses:**
+  - Create an object `Loss` configured with:
+    - `alpha` to weight supervised vs self-supervised components.
+    - `temperature` for distance scaling.
+    - Enable covariance regularization if specified.
+  - Inside:
+    - Define functions for:
+      - SSL loss (e.g., similar to BYOL, SimSiam).
+      - Supervised loss: sampling from pool, calculating squared distances.
+- **Sampling Logic for supervision:**
+  - For each batch, for each label:
+    - Retrieve features (z) from the pool – using `sample_positive`.
+    - Compute mean or subset as supervised target `z_sup`.
+
+---
+
+# Step 6: Instantiate Trainer Object
+
+- **Trainer Class:**
+  - Initialize with:
+    - Encoder, projection, predictor.
+    - Target network (EMA or shared).
+    - Pool object.
+    - Loss object.
+    - DataLoader for training.
+    - Hyperparameters: `alpha`, learning rate schedule, total epochs.
+- **Optimizer:**
+  - Use `torch.optim.SGD` with:
+    - Learning rate: `training.learning_rate`.
+    - Momentum: 0.9.
+    - Weight decay: 1e-4.
+  - Optionally, parameter groups: encoder, predictor, projection head.
+- **Learning Rate Scheduler:**
+  - Cosine scheduler over total epochs.
+  - For the predictor: fix learning rate or tune as per setup.
+
+---
+
+# Step 7: Prepare for EMA Updates
+
+- **For SUPBYOL:**
+  - Implement EMA update rule:
+    ```python
+    target_params = target_network.parameters()
+    online_params = online_network.parameters()
+    for t_param, o_param in zip(target_params, online_params):
+        t_param.data = decay * t_param.data + (1 - decay) * o_param.data
+    ```
+  - Update after each batch or epoch.
+
+---
+
+# Step 8: Main Training Loop
+
+- For each epoch in total epochs:
+  - Loop over data batches:
+    - For each batch:
+      - Generate two augmented views (`x1`, `x2`).
+      - Forward pass online branch:
+        - Compute features, projection, predictor.
+        - Normalize output (`p1`).
+      - Forward pass target branch:
+        - Using EMA network:
+          - Compute features from `x2` (or `x2_sup` for supervised target).
+          - Normalize features (`z2` or `z2_sup`).
+      - Sample supervised positives:
+        - From feature pool for the current labels.
+        - Average features if multiple positives are used (parameter `M`).
+        - Ensure features are normalized.
+      - Compute the combined loss:
+        - SSL loss: attraction between `p1` and `z2`.
+        - Supervised loss: attraction between `p1` and `z2_sup`.
+        - Weight by `alpha`.
+      - Backpropagate:
+        - Zero gradients.
+        - Compute loss.
+        - optimizer.step().
+      - Pool updates:
+        - Add current features (`z2`) and labels to the pool.
+        - For class-specific pools, enqueue features at the appropriate class slot.
+      - EMA update:
+        - Update target network parameters if SUPBYOL.
+  - (Optional) Log metrics:
+    - Losss, intra-class variance estimates, feature norms.
+  - (Optional) Save checkpoints periodically.
+
+---
+
+# Step 9: Post-Training Evaluation and Visualization
+
+- **Linear Probe Evaluation:**
+  - Freeze encoder.
+  - Train a linear classifier (e.g., logistic regression) on training subset.
+  - Measure top-1 accuracy on validation/test set.
+- **Few-Shot Evaluation:**
+  - Sample episodes.
+  - Use frozen encoder.
+  - Fit logistic classifier per episode, report accuracy.
+- **Feature Visualization:**
+  - Extract features from test set.
+  - Apply t-SNE visualization.
+  - Save plots for intra/inter class variance analysis.
+- **Compute metrics:**
+  - Intra-class variance \(\tilde{S}_W\), inter-class variance.
+  - Collapsing tendencies, class overlaps.
+
+---
+
+# Step 10: Finalize Results and Save Artifacts
+
+- Save the trained model weights, target pools, feature embeddings.
+- Save logs, metrics, and visualization figures.
+- Optionally, perform hyperparameter sweeping over alpha, pool size, M, learning rate, etc., for analysis.
+
+---
+
+# Additional Considerations and Assumptions:
+- **Modular Design:**
+  - Ensure each module (dataset, model, loss, pool, train, eval) is independently testable.
+- **Default Settings:**
+  - Default hyperparameters in `config.yaml` are used unless overridden.
+- **Reproducibility:**
+  - Fix random seed.
+  - Save the configuration and results consistently.
+- **Compute Environment:**
+  - Use GPU if available.
+  - Run multiple seeds for robustness.
+
+---
+
+This detailed logic analysis guides the construction of `main.py`, ensuring steps mirror the paper's methodology, fit the specified configuration, and facilitate accurate reproductions of the experiments.

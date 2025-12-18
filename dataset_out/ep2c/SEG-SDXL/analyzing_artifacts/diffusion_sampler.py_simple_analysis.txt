@@ -1,0 +1,84 @@
+{
+  "diffusion_sampler.py": [
+    {
+      "component": "DiffusionSampler class",
+      "role": "Orchestrates the reverse diffusion process, performing iterative sampling to generate images from noise, leveraging the trained diffusion model with smoothed attention guidance.",
+      "core functions": [
+        {
+          "name": "initialize()",
+          "purpose": "Set up the sampler with reference to the diffusion model, guidance parameters, sigma schedule, and sampling parameters. Configure guidance type (fixed or dynamic sigma) and initial noise tensor.",
+          "inputs": [
+            "model": instance of the DiffusionModel class,
+            "guidance_scale": float (e.g., 3.0),
+            "sigma_schedule": list of floats,
+            "steps": int,
+            "sampler_type": str ("ddim" or "ddpm"),
+            "guidance_type": str ("none", "segmented_attention"),
+            "initial_noise": Tensor (optional, or generated internally)"
+          ],
+          "outputs": "Configured sampler instance ready for sampling."
+        },
+        {
+          "name": "sample()",
+          "purpose": "Main method invoked to produce an image. Initializes with noise, then iteratively denoises over the specified steps, applying guidance at each step with sigma and guidance parameters, finally returning a generated image tensor.",
+          "inputs": [
+            "conditioning (optional)": for conditional prompts/inputs,
+            "sigma": float, default to an element in sigma_schedule, or via schedule function,
+            "guidance_scale": float (e.g., 3.0),
+            "num_steps": int (default as in config, e.g., 1000)"
+          ],
+          "outputs": "Final generated image tensor."
+        },
+        {
+          "name": "run_reverse_process()",
+          "purpose": "Supports the loop over diffusion steps, performing denoising conditioned on guidance. Implements the core denoising loop: at each timestep, updates the sample tensor by predicting the noise (or other parameterization) through the model, applying guidance, and scheduling the next state.",
+          "inputs": [
+            "initial_noise": Tensor,
+            "conditioning": optional tensor or prompt,
+            "sigma": float (current step's parameter),
+            "guidance_scale": float,
+            "total_steps": int,
+            "sigma_schedule": list of floats"
+          ],
+          "outputs": "Denoised sample at final step."
+        }
+      ],
+      "detailed considerations": [
+        "At each timestep, compute the current sigma (noise level) using the schedule.",
+        "Generate the noisy input: for the first iteration, this is either provided or initialized as pure noise tensor.",
+        "Model forward call: pass in the current state, guidance parameters, sigma, and guidance scope. During inference, guidance influences the model's predicted denoising directions.",
+        "Apply Gaussian-blurred attention guidance": 
+        "    - During the model's forward pass, ensure the model internally uses the *AttentionLayer* that performs Gaussian blurring of queries or keys as per the 'guidance_type' and current sigma.",
+        "Guidance application: combine the guidance outputs (conditional and unconditional predictions) using guidance scale, as per equation; with *segmented_attention*, the attention mechanism uses the Gaussian-blurred attention weights.",
+        "Update the sample tensor with the denoising step, following the chosen sampler's formulation (e.g., DDIM or DDPM):"
+      ],
+      "attention to the model": [
+        "The model's `forward()` method must be capable of accepting the guidance parameters, including guidance scale, guidance type, and the current sigma.",
+        "Within the model, the attention modules should adjust their internal attention computations: when guidance type is 'segmented_attention', the attention module should perform Gaussian blurring on queries or keys using `apply_gaussian_blur()` with current sigma.",
+        "The `attention.py` module's `AttentionLayer` class will contain the method `compute_attention()` which, before softmax, applies `apply_gaussian_blur()` to either query or key tensors based on configuration.",
+        "Ensure that during each denoising step, the correct sigma and guidance parameters are passed, and the attention uses the blurred attention weights."
+      ],
+      "sigma schedule considerations": [
+        "The `sigma_schedule` parameter (list of floats) directs the sigma value at each timestep. It can be linear or adaptive.",
+        "During sampling, the procedure should iterate over total steps, and at each step set sigma from `sigma_schedule` corresponding to that timestep.",
+        "Optionally, implement an increasing or scheduled \(\sigma(t)\) to progressively control the smoothing strength if desired."
+      ],
+      "guidance configurations": [
+        "For fixed guidance: use a constant guidance scale for all steps (e.g., 3.0).",
+        "For dynamic \(\sigma\): alter guidance accordingly if experimenting with schedule-based guidance control.",
+        "For 'none' guidance: skip the guidance combination step or set guidance scale to 1.0 to produce unguided samples."
+      ],
+      "final notes": [
+        "Ensure that all guidance hyperparameters (guidance_scale, sigma, guidance_type) are configurable, ideally set during initialization.",
+        "Logging each step's sigma and guidance parameters helps in reproducibility and analysis.",
+        "Save intermediate samples if needed for analysis or visualization."
+      ]
+    }
+  ],
+  "miscellaneous": [
+    "All tensors and operations should be placed on the device (GPU/CPU) as configured.",
+    "Ensure reproducibility by fixing random seeds during initialization.",
+    "Incorporate progress bars or logging for debugging/tracking (optional)."
+  ],
+  "summary": "The `DiffusionSampler` class will coordinate the reverse diffusion process. It initializes with model, guidance, and sigma schedule, iterates over timesteps, computes sigma at each step, invokes the model's `forward()` with guidance parameters—including Gaussian-blurred attention when `guidance_type` is 'segmented_attention'—and updates the sample tensor accordingly. It ensures the flexibility to vary sigma across steps, enhances visualization, and enables the experimental control of smoothing effects in the energy landscape, following the theoretical insights from the paper."
+}

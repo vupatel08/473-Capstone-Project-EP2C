@@ -1,0 +1,158 @@
+{
+  "title": "Navigating the Effect of Parametrization for Dimensionality Reduction",
+  "abstract": "Haiyang Huang∗ Yingfan Wang∗ Cynthia Rudin Duke University {hyhuang, yw416, cynthia}@cs.duke.edu",
+  "authors": [],
+  "body_text": [
+    {
+      "text": "# Navigating the Effect of Parametrization for Dimensionality Reduction"
+    },
+    {
+      "text": "Haiyang Huang∗ Yingfan Wang∗ Cynthia Rudin Duke University {hyhuang, yw416, cynthia}@cs.duke.edu"
+    },
+    {
+      "text": "# Abstract"
+    },
+    {
+      "text": "Parametric dimensionality reduction methods have gained prominence for their ability to generalize to unseen datasets, an advantage that traditional approaches typically lack. Despite their growing popularity, there remains a prevalent misconception among practitioners about the equivalence in performance between parametric and non-parametric methods. Here, we show that these methods are not equivalent – parametric methods retain global structure but lose significant local details. To explain this, we provide evidence that parameterized approaches lack the ability to repulse negative pairs, and the choice of loss function also has an impact. Addressing these issues, we developed a new parametric method, ParamRepulsor, that incorporates Hard Negative Mining and a loss function that applies a strong repulsive force. This new method achieves state-of-the-art performance on local structure preservation for parametric methods without sacrificing the fidelity of global structural representation. Our code is available at https://github.com/hyhuang00/ParamRepulsor."
+    },
+    {
+      "text": "# 1 Introduction"
+    },
+    {
+      "text": "Dimension reduction (DR) methods are incredibly useful for data analysis. They provide a bird’s eye view of a dataset that shows clusters and their relationships. These algorithms have been used for examining and processing images [1], text documents [2, 3], and biological datasets [4–8]. The successes of modern DR methods can mostly be attributed to neighborhood embedding (NE), which is the basis for modern DR methods [9] including $t$ -SNE, LargeVis, UMAP, and PaCMAP [10– 13]. These algorithms aim to optimize the low-dimensional layout of the data, such that the high dimensional local structure (i.e., neighborhoods) are preserved."
+    },
+    {
+      "text": "A major weakness of existing NE algorithms is that they struggle with adaptability to large, incrementally updated datasets. These algorithms depend on a $K$ -Nearest Neighbor graph, encompassing the entire dataset, to generate the embedding. Consequently, the introduction of new data necessitates a complete re-computation of the embedding, leading to significant time and computational resource demands for large datasets. Although recent adaptations have been developed to optimize only the additional data [14, 13], these modifications potentially alter the original algorithm’s objective function, thereby compromising the embedding’s quality."
+    },
+    {
+      "text": "Addressing these challenges, recent developments in combining neural networks with NE algorithms have shown promise. These algorithms maintain the same objectives as traditional NE methods but leverage neural networks to optimize the projection of high-dimensional data into lower-dimensional spaces [16–18]. The integration of neural networks allows these NE algorithms to be effectively trained on large datasets and generalize to unseen data. Throughout this paper, we refer to this class of algorithms as parametric algorithms. However, as shown in Fig. 1, despite the similarity in loss functions between the non-parametric and parametric versions, their outcomes are often completely different, and such difference has been largely overlooked by machine learning practitioners. This paper aims to illuminate and explain these differences, highlighting that parametrization often leads to worse local structure and visualization. Our investigation reveals that parameterized approaches lack the ability to identify cluster boundaries and separate negatives compared to nonparametric approaches. We further show that DR algorithms using Negative Sampling (NEG)-style loss functions exhibit greater adaptability to parametrization than others using Noise Contrastive Estimation (NCE) or InfoNCE loss. This observation is noteworthy as such discrepancies are not observed in nonparametric approaches."
+    },
+    {
+      "text": "![](images/c232d784e83035f473358ab9132abf122d5c6508a6fc3763b5666fe1ed556629.jpg)  \nFigure 1: Dimensionality reduction results on the MNIST digit dataset [15]. Parametric methods (bottom row) fail to preserve the local structure of the dataset compared to their non-parametric counterparts (top row). Our method, ParamRepulsor, effectively resolves this problem via Hard Negative Mining."
+    },
+    {
+      "text": "Building on these insights, we propose a novel parametric DR method that effectively mines hard negatives without relying on labels. Our approach incorporates additional repulsive forces, placing even greater emphasis on pairs we identify as hard negatives. This enhancement ensures better separation and structure preservation, significantly improving the performance of parametric DR. We select a loss function tailored for optimizing the parametric case, addressing local structure preservation. Our new DR algorithm, ParamRepulsor, approaches the performance of leading nonparametric methods while surpassing existing parametric approaches in preserving both local and global structure. It offers a functional mapping from high- to low-dimensional space, ensuring superior scalability, adaptability, and generalization to unseen data."
+    },
+    {
+      "text": "To summarize, our contributions in this study are:"
+    },
+    {
+      "text": "• We conduct a comprehensive analysis of the impact of parametrization on the performance of DR methods, demonstrating that it may compromise local structure. Our findings attribute this issue to insufficient repulsive forces on negative pairs in the parametric setting. Notably, algorithms employing NEG-style loss functions (e.g., UMAP, PaCMAP) exhibit greater adaptability to parametrization than those using NCE-style loss functions (e.g., InfoNC-t-SNE, NCVis). • Inspired by contrastive learning, we propose ParamRepulsor, a new method that uses hard negative sampling to improve the handling of negative pairs, combined with a contrastive loss tailored for the parametric setting. ParamRepulsor is a novel, fast algorithm that achieves excellent local structure preservation while maintaining global structure."
+    },
+    {
+      "text": "# 2 Fundamentals of Neighborhood Embedding Algorithms and Contrastive Learning"
+    },
+    {
+      "text": "We provide essential background on Neighborhood Embedding (NE) methods and notation. We notate the high dimensional data as $X = \\mathbf { x } _ { 1 } \\ldots \\mathbf { x } _ { n } \\in \\mathbb { R } ^ { D }$ , where $n$ is the number of data points, and $D$ is the dimension. NE algorithms aim to preserve predefined high-dimensional similarities within a low-dimensional embedding to reveal the local and global structure of $X$ . Specifically,"
+    },
+    {
+      "text": "NE methods identify a mapping function $f _ { \\theta }$ that constructs the corresponding low dimensional embedding $Y = \\mathbf { y } _ { 1 } \\ldots \\mathbf { y } _ { n } \\in \\mathbb { R } ^ { d }$ , where $\\mathbf { y } _ { i } = f _ { \\theta } ( \\mathbf { x } _ { i } )$ . We will use $\\mathbf { y } _ { i }$ and $f _ { \\theta } ( \\mathbf { x } _ { i } )$ interchangably. For nonparametric DR methods, the function $f _ { \\theta }$ is not defined outside of $\\mathbf { x } _ { 1 } , \\ldots , \\mathbf { x } _ { n }$ , though it is possible to interpolate. For visualization purposes, $d$ is usually set to 2 or 3. Since the introduction of t-SNE [10], these algorithms have become widely used due to their ability to identify clusters and manifolds within high-dimensional data. They typically have two stages:"
+    },
+    {
+      "text": "Similarity Construction Phase. For all pairs of points $( i , j )$ , their high-dimensional similarity, $s _ { i j }$ , is captured by a similarity function $\\Phi ( \\mathbf { x } _ { i } , \\mathbf { x } _ { j } )$ related to their distance. Due to the curse of dimensionality, the Euclidean distance metric fails to accurately represent distances along the data manifold in high-dimensional spaces [19]. A common solution to this issue is to only consider similarities between $K$ nearest neighbors: $s _ { i j }$ is set to be non-zero iff $\\mathbf { x } _ { i }$ or $\\mathbf { x } _ { j }$ are within the $K$ nearest neighbors of each other, where $K$ is a hyperparameter, usually 15-30."
+    },
+    {
+      "text": "Embedding Optimization Phase. After constructing the graph, NE algorithms try to optimize a function $f _ { \\theta }$ . The objective is encoded by a loss function $\\mathcal { L } ( \\boldsymbol { \\theta } )$ :"
+    },
+    {
+      "text": "$$\n\\mathcal { L } ( \\theta ) = \\mathbb { E } _ { i j \\in N N } \\mathcal { L } _ { N N } \\big ( \\| f _ { \\theta } ( \\mathbf { x } _ { i } ) - f _ { \\theta } ( \\mathbf { x } _ { j } ) \\| _ { 2 } \\big ) + \\mathbb { E } _ { i k \\notin N N } \\mathcal { L } _ { F P } \\big ( \\| f _ { \\theta } ( \\mathbf { x } _ { i } ) - f _ { \\theta } ( \\mathbf { x } _ { k } ) \\| _ { 2 } \\big ) ,\n$$"
+    },
+    {
+      "text": "where $\\mathcal { L } _ { N N }$ denotes the loss for $i , j$ that are similar (among the $K$ -nearest neighbors), and $\\mathcal { L } _ { F P }$ denotes the loss for pairs that are not nearest neighbors in the high-dimensional space. Typically, $\\mathcal { L } _ { N N }$ decreases when $\\| \\mathbf { y } _ { i } - \\mathbf { y } _ { j } \\| _ { 2 }$ decreases, and $\\mathcal { L } _ { F P }$ decreases when $\\| \\mathbf { y } _ { i } - \\mathbf { y } _ { k } \\| _ { 2 }$ increases. Their gradients therefore act like forces that attract or repulse the $N N$ or $F P$ pairs, respectively."
+    },
+    {
+      "text": "Relationship to Contrastive Learning. The similarity of the decomposition to self-supervised contrastive learning has recently been noted by [20, 18]. Specifically, loss functions of major NE algorithms can be considered as cases of Noise Contrastive Estimation (NCE) [21], Info-Noise Contrastive Estimation (InfoNCE) [22] or Negative Sampling (NEG) [23]."
+    },
+    {
+      "text": "Using the framework above, we dive into details of t-SNE [10], NCVis [24], UMAP [12] and PaCMAP [13], which are four major recent NE algorithms."
+    },
+    {
+      "text": "# 2.1 NCE/InfoNCE-based: t-SNE and NCVis"
+    },
+    {
+      "text": "Both NCE- and InfoNCE-based approaches assume the high-dimensional data similarities (the $s _ { i j }$ ’s) follow an underlying data similarity pattern, represented by an unknown distribution $p$ . These methods learn a function $f _ { \\theta }$ that generates a similar low-dimensional similarity pattern, described by a distribution $q$ , aiming to match $p$ . $q$ decreases as the pairwise distances in the low-dimensional space increase, though their exact relationship can vary. Since $q$ represents a probability distribution, it must be normalized to ensure all possibilities sum up to 1. The only difference is that NCE uses a logistic loss, whereas InfoNCE uses a cross-entropy loss for the data distribution match."
+    },
+    {
+      "text": "Approximating $p$ as a Bernoulli distribution [24] with value 1 for NN pairs and 0 for FP pairs. Assuming that for each step in the optimization, we optimize a batch that contains one NN pair and $m \\mathrm { F P }$ pairs, $q$ should minimize:"
+    },
+    {
+      "text": "$$\n^ { \\mathcal { N } C E } = - \\mathbb { E } _ { i j \\in N N , i k _ { c = 1 } , . . . , m } \\not \\in N N \\left( \\log \\frac { q _ { i j } } { q _ { i j } + \\sum _ { c = 1 . . . m } q _ { i k _ { c } } } - m \\log \\left( 1 - \\frac { q _ { i j } } { q _ { i j } + \\sum _ { c = 1 . . . m } q _ { i k _ { c } } } \\right) \\right)\n$$"
+    },
+    {
+      "text": "$$\n\\mathcal { L } ^ { I n f o N C E } = - \\mathbb { E } _ { i j \\in N N , i k _ { 1 . . . m } \\notin N N } \\left( \\log q _ { i j } - \\log \\left( q _ { i j } + \\sum _ { c = 1 . . . m } q _ { i k _ { c } } \\right) \\right) .\n$$"
+    },
+    {
+      "text": "t-SNE, the most popular NE algorithm, utilizes a loss defined over the full data set. The raw tSNE loss is usually written as the KL-divergence between high-dimensional and low-dimensional conditional probability distributions $p$ and $q$ . Here, we separate the loss following [25, 13]. [18] notes that the exact values of the $p _ { i j }$ ’s have limited impact and can be treated as binary weights without impacting outcomes. To simplify the calculation and allow for mini-batch stochastic gradient descent, [18] rewrote this loss as an InfoNCE loss [22]. Denoting $d _ { 2 } ( i , j ) = \\| f _ { \\theta } ( \\mathbf { x } _ { i } ) - \\check { f } _ { \\theta } ( \\mathbf { x } _ { j } ) \\| _ { 2 } ^ { 2 } + 1 =$ $\\| \\mathbf { y } _ { i } - \\mathbf { y } _ { j } \\| _ { 2 } ^ { 2 } + 1$ , the t-SNE loss function can be rewritten as an InfoNCE loss:"
+    },
+    {
+      "text": "$$\n\\mathcal { L } ^ { t - S N E } ( \\theta ) = - \\mathbb { E } _ { i j \\in N N , i k _ { 1 \\dots m } \\notin N N } \\left( \\log \\frac { 1 } { d _ { 2 } ( i , j ) } - \\log \\left( \\frac { 1 } { d _ { 2 } ( i , j ) } + \\sum _ { c = 1 \\dots m } \\frac { 1 } { d _ { 2 } ( i , k _ { c } ) } \\right) \\right) .\n$$"
+    },
+    {
+      "text": "Following [18], we call the mini-batch variant Info-NC-t-SNE. We will use it from now on since the vanilla t-SNE loss requires computing pairwise distances between all points in a dataset, and it is challenging to incorporate that into the mini-batch parametric DR framework."
+    },
+    {
+      "text": "NCVis [24] uses an NCE [21] loss. We denote the number of negative pairs in a batch as $m$ , and set qij = 1d (i,j) . The NCVis loss is:"
+    },
+    {
+      "text": "$$\n\\mathcal { N } C V i s  ( \\theta ) = - \\mathbb { E } _ { i j \\in N N , i k _ { 1 } \\dots m \\notin N N } \\left( \\log \\frac { 1 } { 1 + \\sum _ { c = 1 \\dots m } \\frac { d _ { 2 } ( i , j ) } { d _ { 2 } ( i , k _ { c } ) } } - m \\log \\left( 1 - \\frac { 1 } { 1 + \\sum _ { c = 1 \\dots m } \\frac { d _ { 2 } ( i , j ) } { d _ { 2 } ( i , k _ { c } ) } } \\right) \\right)\n$$"
+    },
+    {
+      "text": "[18] provides a modern implementation for both algorithms. It also provides parametric versions that adopt multilayer perceptrons (MLP) with [100, 100, 100] hidden neurons and ReLU activation."
+    },
+    {
+      "text": "# 2.2 NEG-based: UMAP"
+    },
+    {
+      "text": "Negative Sampling (NEG) [23] simplifies the modeling process. Define $q _ { \\theta }$ to be a similarity function in the low dimensional space:"
+    },
+    {
+      "text": "$$\n\\mathcal { L } ^ { N E G } ( \\theta ) = - \\mathbb { E } _ { i j \\in N N } \\log \\left( \\frac { q _ { i j } } { 1 + q _ { i j } } \\right) - m \\mathbb { E } _ { i j \\in \\mathcal { E } } \\log \\left( \\frac { 1 } { 1 + q _ { i j } } \\right) .\n$$"
+    },
+    {
+      "text": "UMAP [12] is a DR algorithm that utilizes the NEG loss [18]. Its loss function is"
+    },
+    {
+      "text": "$$\n\\mathcal { L } ^ { U M A P } ( \\theta ) = - \\mathbb { E } _ { i j \\in N N } \\log \\left( \\frac { q _ { \\theta } ^ { U M A P } ( i , j ) } { 1 + q _ { \\theta } ^ { U M A P } ( i , j ) } \\right) - m \\mathbb { E } _ { i j \\notin N N } \\log \\left( \\frac { 1 } { 1 + q _ { \\theta } ^ { U M A P } ( i , j ) } \\right) .\n$$"
+    },
+    {
+      "text": "which is NEG with the similarity kernel qUMAPθ (i, j) = 1d2(i,j)−1 ."
+    },
+    {
+      "text": "# 2.3 PaCMAP"
+    },
+    {
+      "text": "PaCMAP [13] is another recent DR algorithm that achieves high-quality data visualization. Compared to other NE algorithms, PaCMAP’s loss function is designed to follow several mathematical design principles, but does not have a probabilistic explanation. The loss function (omitting the mid-near pairs term, as it is only relevant during the initial epochs, see Appendix D) is defined as follows:"
+    },
+    {
+      "text": "$$\n\\mathcal { L } _ { i j \\in N N } = W _ { N N } \\frac { d _ { 2 } ( i , j ) } { d _ { 2 } ( i , j ) + C _ { 1 } } , \\mathcal { L } _ { i k \\in F P } = W _ { F P } \\frac { 1 } { d _ { 2 } ( i , j ) + C _ { 2 } }\n$$"
+    },
+    {
+      "text": "in which the $W$ weights change based on the epoch, and $C _ { 1 }$ and $C _ { 2 }$ are set to 10 and 1, respectively."
+    },
+    {
+      "text": "To study the effect of parametrization on DR algorithms, we extend the PaCMAP framework to incorporate an MLP to map the high-dimensional input to the low-dimensional embedding. We refer to the resulting parametric algorithm as ParamPaCMAP. Implementation details are in Appendix F.."
+    },
+    {
+      "text": "# 3 Effect of Parametrization on DR Results"
+    },
+    {
+      "text": "Machine learning practitioners have long believed that parametric NE algorithms behave similarly to their non-parametric counterparts [17, 18]. In this section, we investigate the performance of the aforementioned parametric and non-parametric versions of these algorithms. To understand the effect of parametrization more thoroughly, for each parametric DR method, we additionally implemented three new versions, using a neural network with 0 hidden layers (i.e., a linear model), 1 hidden layer, or 2 hidden layers as a projector. We fix the number of neurons for each layer to 100."
+    },
+    {
+      "text": "Observation 1: Parametric NE algorithms typically lead to worse visual effects as well as worse local structure preservation. Our results indicate that parametric NE algorithms often fail to produce embeddings of the same quality as their non-parametric counterparts, even on simple datasets such as MNIST [15]. The non-parametric methods in the rightmost column of Fig. 2 are able to separate the clusters fairly well, but from the first four columns of Fig. 2, we see that all four parametric algorithms generate clusters that are densely packed with indistinct boundaries, despite the fact that clusters in MNIST are actually separated. These blurred boundaries result in poorer preservation of local structure, with the possible exception of Parametric PaCMAP."
+    },
+    {
+      "text": "![](images/8c87038fb559991733820f521fd37e785054ffb65b0473842867a88a0cfa84c9.jpg)  \nFigure 2: Embeddings of the MNIST [15] dataset generated by various DR methods with different numbers of hidden layers: 0 (Linear), 1, 2, or 3, or non-parametric variant. See Section 5.1 for details of SVM Acc. It is helpful to envision these images in black and white (without labels) to see when clusters would be difficult to visually separate. More datasets/methods can be found in App. C."
+    },
+    {
+      "text": "The challenge of accurately preserving local structure is exacerbated in scenarios where ground truth labels are unknown, especially in large-scale biological and chemical data, where dimensionality reduction is widely used for data exploration. In these scenarios, users may struggle to identify potential clusters within the large, indistinct conglomerates produced by the NE algorithms."
+    },
+    {
+      "text": "Figure 2 quantitatively evaluates the quality of the embedding via the SVM accuracy, which measures local structure preservation (described in Section 5.1.) Fig. 3 further quantifies the observation. Here, we sample three kinds of pairs from the points with labels “3” and “8” from the embedding, and calculate the pairwise distance for each kind of pair. NN denotes the pairs of points that are 10-nearest neighbors, and FP denotes pairs of points that are uniformly sampled from the population. MN denotes “mid-near” pairs that are further than NNs but still relatively close (detailed in Sec. 4.) For each embedding, we scale the distance with respect to the scale of the embedding, and calculate the ratio of the mean FP distance to NN distance, as well as the mean MN distance to NN distance. Our analysis reveals that, in comparison to the non-parametric methods, all the parametric counterparts (App. H.1) have a smaller FP distance ratio, meaning further pairs are positioned closer together, which explains the blurred boundaries between clusters."
+    },
+    {
+      "text": "![](images/6fce7885323e97e1b54ed9d4708f9c6c383c665dfc237d561f65365d20d9c881.jpg)  \nFigure 3: The low-dimensional scaled distance distribution between various types of point pairs with labels “3” and “8” in the embedding of the MNIST digit dataset [15], generated by PaCMAP, ParamPaCMAP, and ParamRepulsor (other methods in App. H.1.) See definitions in Sec. 2 & 4."
+    }
+  ],
+  "url": ""
+}

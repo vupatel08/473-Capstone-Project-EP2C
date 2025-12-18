@@ -1,0 +1,135 @@
+### Logic Analysis for `model_wrapper.py`
+
+This module implements the `ModelWrapper` class, providing core functionalities for loading pre-trained models (LLAMA-7B, GPT-J-6B), access to individual attention scores, registration of hooks for attention score manipulation, and a `generate()` method that performs inference with optional attention reweighting during decoding.
+
+**Key Responsibilities:**
+- Load the specified pre-trained model and tokenizer.
+- Register hooks on attention modules to intercept and modify attention scores dynamically during inference.
+- Enable extract and modification of attention scores at specified layers and heads.
+- Perform text generation, incorporating attention reweighting if steering is enabled.
+- Interface with `attention_steering.py` for the reweighting logic.
+
+---
+
+### 1. **Model Initialization**
+
+- **Input:** `model_name`, `model_path` (from config).
+- **Process:**
+  - Load the model and tokenizer (from `transformers`) based on `model_name`.
+  - Identify attention modules within the model architecture. For LLAMA or GPT-J, this typically involves accessing internal `model.transformer.h` (for LLAMA) or `model.transformer.blocks` (for GPT-J).
+  - **Register hooks:** The hooks need to target attention modules at the layer level to allow score manipulation. 
+  - The hooks will enable access to raw attention scores before softmax during execution.
+- **Output:** A `ModelWrapper` object with attached hooks.
+
+---
+
+### 2. **Attention Score Hook Registration**
+
+- **Implementation Details:**
+  - Use `model.register_forward_hook()` or using custom attention implementation.
+  - For each layer and head, hooks will:
+    - Capture the attention scores `A^{(l,h)}` during forward passes.
+    - Store or modify these scores for reweighting.
+- **Approach:**
+  - When registering hooks, specify which layers/heads to target, based on the profile.
+  - The hook should expose a way to replace or modify the attention scores dynamically during inference.
+
+---
+
+### 3. **Accessing Attention Scores**
+
+- **Method:** `get_attention_scores(layer, head, inputs)`
+  - During inference, simulate or run forward pass with hooks active.
+  - At layer `l`, head `h`, extract the raw attention score matrix `A^{(l,h)}`.
+  - These scores are usually computed inside the attention module; hooks inject code to access these matrices.
+
+- **Important:**
+  - The stored attention matrices must be accessible for reweighting.
+  - Possibly store references or cache the scores during the forward pass for reweighting.
+
+---
+
+### 4. **Inference with Attention Reweighting**
+
+- **Method:** `generate(input_ids, emphasis_spans, alpha=0.01)`
+  - **Input:**
+    - `input_ids`: tokenized prompt with emphasis spans marked.
+    - `emphasis_spans`: list of token indices that the user highlighted.
+    - `alpha`: reweighting scalar (from config).
+
+  - **Process:**
+    - During each decoding step:
+      - For each targeted layer `l` and head `h \in \mathcal{H}`:
+        - Access the attention scores for current inputs.
+        - Apply the reweighting transformation as per equation (2):
+          \[
+          \tilde{A}^{(l,h)}_{i,j} = \begin{cases}
+          \alpha A_{i,j} / C_i, & j \notin \text{highlighted} \\
+          A_{i,j} / C_i, & j \in \text{highlighted}
+          \end{cases}
+          \]
+        - Recompute or override the attention scores with these reweighted scores.
+        - Ensure normalization so scores sum to 1 (via `C_i`).
+      - Proceed with the model's decoder step, now with modified attention scores.
+    - When the last token is generated or the sequence limit is reached, output the generated text.
+
+  - **Implementation Detail:**
+    - The actual attention scores are set before the softmax operation.
+    - Use hooks in the attention modules to intercept and modify scores on-the-fly.
+    - It requires the model to support such hooks, or a modified attention implementation.
+
+---
+
+### 5. **Dynamic Head and Layer Handling**
+
+- The list of heads to steer (`heads`) comes from the profiling step:
+  - A list of tuples `(layer_idx, head_idx)`.
+  - During generation, only those heads are reweighted, while others remain unaffected.
+  - The design should accommodate:
+    - Steering all heads in certain layers.
+    - Steering only selected heads.
+ 
+- **Optional:** Provide flexibility to steer entire layers or specific subgroupings, if needed.
+
+---
+
+### 6. **Handling Model Type Differences**
+
+- **LLAMA:**
+  - Internal architecture exposes attention modules typically accessed via attributes like `model.layers`.
+- **GPT-J:**
+  - Similar approach but may involve modules within `model.transformer.h`.
+- Take care to generalize hook registration:
+  - Detect the model architecture type.
+  - Obtain reference to the attention module(s) for hooking.
+
+---
+
+### 7. **Error Handling and Robustness**
+
+- Ensure hooks are registered only once.
+- Save references to original attention matrices and hooks so they can be unregistered or reset if needed.
+- Include fallback mechanisms if the attention scores are not accessible.
+
+---
+
+### 8. **Summary of Methods/Functions:**
+
+| Method | Purpose | Inputs | Outputs | Remarks |
+|---------|------------|--------|----------|---------|
+| `__init__(model_name, model_path)` | Load model, register hooks | Model identifiers | Initialized object | Setup attention hooks here |
+| `register_attention_hook(heads)` | Attach hooks to attention layers | List of `(layer, head)` | None | Hooks modify attention scores during inference |
+| `get_attention_scores(layer, head, inputs)` | Retrieve attention at runtime | layer/h, inputs | attention tensor | Used during steering |
+| `generate(input_ids, emphasis_spans, alpha)` | Perform inference with steering | Token ids, span indices, alpha | Generated text | Applies score reweighting during inference |
+
+---
+
+### 9. **Final Notes:**
+
+- The success depends on the model architecture supporting access/modification of attention scores.
+- Attention reweighting via hooks must be thread-safe and efficient.
+- The approach aligns with the paper's inference-time, parameter-free adjustment framework, leveraging model internals without retraining.
+
+---
+
+This comprehensive analysis provides the basis for implementing `model_wrapper.py` to enable precise, efficient, and flexible attention reweighting during inference, as required by PASTA.

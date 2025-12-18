@@ -1,0 +1,141 @@
+## dataset_loader.py
+import os
+from typing import Tuple, Optional
+import torch
+from PIL import Image
+import torchvision.transforms as transforms
+
+def create_impulse_image(size: Tuple[int, int], device: Optional[torch.device] = None) -> torch.Tensor:
+    """
+    Generate a 2D impulse (delta) image tensor with a single central pixel set to 1, others zero.
+    Shape: (H, W)
+    
+    Args:
+        size (Tuple[int, int]): (height, width) of the image.
+        device (torch.device, optional): Device to place tensor on. Defaults to CUDA if available, else CPU.
+        
+    Returns:
+        torch.Tensor: 2D tensor with impulse at center.
+    """
+    height, width = size
+    impulse_img = torch.zeros((height, width), dtype=torch.float32)
+    center_x = height // 2
+    center_y = width // 2
+    impulse_img[center_x, center_y] = 1.0
+    if device is not None:
+        impulse_img = impulse_img.to(device)
+    return impulse_img
+
+def load_image(path: str, normalize: bool = True, to_grayscale: bool = False) -> torch.Tensor:
+    """
+    Load an image from disk and convert to tensor [C, H, W], optionally normalize.
+    Supports grayscale or RGB.
+    
+    Args:
+        path (str): Path to the image file.
+        normalize (bool): If True, normalize pixel values to [0,1].
+        to_grayscale (bool): If True, convert image to grayscale.
+        
+    Returns:
+        torch.Tensor: image tensor [C, H, W]
+    """
+    # Open image using PIL
+    img = Image.open(path)
+    if to_grayscale:
+        img = img.convert('L')
+        transform = transforms.ToTensor()  # shape: [1, H, W]
+    else:
+        img = img.convert('RGB')
+        transform = transforms.ToTensor()  # shape: [3, H, W]
+    img_tensor = transform(img)  # [C, H, W]
+    if normalize:
+        # To [0,1], which torchvision does by default on ToTensor()
+        pass
+    return img_tensor
+
+class DatasetLoader:
+    """
+    Basic dataset loader utility.
+    Can load images from specified directory paths, possibly apply cropping/resizing.
+    For current experiments focusing on synthetic impulse images, utility is minimal.
+    """
+
+    def __init__(self,
+                 dataset_dir: str,
+                 image_size: Tuple[int, int],
+                 crop: bool = False,
+                 crop_size: Tuple[int, int] = (128, 128),
+                 to_grayscale: bool = False):
+        """
+        Initialize DatasetLoader with dataset directory and parameters.
+        
+        Args:
+            dataset_dir (str): Path to directory containing images.
+            image_size (Tuple[int, int]): Size for resizing images.
+            crop (bool): Whether to crop images for dataset sampling.
+            crop_size (Tuple[int, int]): Crop size if cropping enabled.
+            to_grayscale (bool): Whether to convert images to grayscale.
+        """
+        self.dataset_dir = dataset_dir
+        self.image_size = image_size
+        self.crop = crop
+        self.crop_size = crop_size
+        self.to_grayscale = to_grayscale
+        # Gather image file paths
+        self.image_paths = self._collect_image_paths()
+
+    def _collect_image_paths(self):
+        """
+        Collects image file paths from dataset directory.
+        Supports common image formats.
+        """
+        valid_exts = ['.png', '.jpg', '.jpeg', '.bmp']
+        paths = []
+        for fname in os.listdir(self.dataset_dir):
+            if any(fname.lower().endswith(ext) for ext in valid_exts):
+                full_path = os.path.join(self.dataset_dir, fname)
+                paths.append(full_path)
+        return paths
+
+    def load_image(self, path: str) -> torch.Tensor:
+        """
+        Load a single image, resize/crop as needed.
+        """
+        img = Image.open(path)
+        if self.to_grayscale:
+            img = img.convert('L')
+            transform = transforms.ToTensor()
+        else:
+            img = img.convert('RGB')
+            transform = transforms.ToTensor()
+
+        img_tensor = transform(img)  # [C, H, W]
+        # Resize to target size if necessary
+        if (img_tensor.shape[1], img_tensor.shape[2]) != self.image_size:
+            resize_transform = transforms.Resize(self.image_size)
+            img = resize_transform(img)
+            img_tensor = transforms.ToTensor()(img)
+        # Crop if enabled
+        if self.crop:
+            crop_transform = transforms.CenterCrop(self.crop_size)
+            img = crop_transform(img)
+            img_tensor = transforms.ToTensor()(img)
+        return img_tensor
+
+    def get_dataset(self):
+        """
+        Return list of image tensors loaded from dataset directory.
+        """
+        dataset = []
+        for path in self.image_paths:
+            img_tensor = self.load_image(path)
+            dataset.append(img_tensor)
+        return dataset
+
+    def get_random_sample(self):
+        """
+        Return a random image tensor from dataset.
+        """
+        import random
+        idx = random.randint(0, len(self.image_paths) - 1)
+        return self.load_image(self.image_paths[idx])

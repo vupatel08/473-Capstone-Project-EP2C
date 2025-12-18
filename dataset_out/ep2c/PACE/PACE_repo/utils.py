@@ -1,0 +1,141 @@
+## utils.py
+import torch
+import numpy as np
+import logging
+from typing import Tuple, Dict, Optional
+
+def generate_gaussian_noise(shape: Tuple[int, ...], sigma: float, device: Optional[str] = None) -> torch.Tensor:
+    """
+    Generate multiplicative Gaussian noise with mean 1 and standard deviation sigma.
+    Args:
+        shape: Shape of the tensor to generate.
+        sigma: Standard deviation of the Gaussian noise.
+        device: Destination device ('cpu' or 'cuda'). Defaults to 'cpu' if None.
+    Returns:
+        torch.Tensor of shape 'shape' with entries sampled from N(1, sigma^2).
+    """
+    if sigma <= 0:
+        return torch.ones(shape, device=device if device else 'cpu')
+    device = device if device else 'cpu'
+    noise = torch.normal(mean=1.0, std=sigma, size=shape, device=device)
+    return noise
+
+def compute_gradient_norm(model: torch.nn.Module) -> float:
+    """
+    Compute the total L2 norm of gradients for all parameters in the model.
+    Args:
+        model: The torch.nn.Module with gradients computed (after backward()).
+    Returns:
+        float: The L2 norm of all gradients.
+    """
+    total_norm_sq = 0.0
+    for p in model.parameters():
+        if p.grad is not None:
+            total_norm_sq += torch.sum(p.grad.data ** 2).item()
+    total_norm = np.sqrt(total_norm_sq)
+    return total_norm
+
+def get_lambda(epoch: int, schedule_type: str='fixed', base_lambda: float=0.01, max_lambda: float=1.0, total_epochs: int=300) -> float:
+    """
+    Get the regularization coefficient lambda based on schedule.
+    Args:
+        epoch: Current epoch number.
+        schedule_type: Type of schedule ('fixed', 'linear', 'exponential').
+        base_lambda: Base lambda value.
+        max_lambda: Maximum lambda for schedules if applicable.
+        total_epochs: Total number of epochs (used for schedule computations).
+    Returns:
+        float: Current lambda value.
+    """
+    if schedule_type == 'fixed':
+        return base_lambda
+    elif schedule_type == 'linear':
+        # Increase linearly from 0 to max_lambda
+        return min(base_lambda + (max_lambda - base_lambda) * epoch / total_epochs, max_lambda)
+    elif schedule_type == 'exponential':
+        # Exponential schedule
+        return base_lambda * (max_lambda / base_lambda) ** (epoch / total_epochs)
+    else:
+        # Default to fixed
+        return base_lambda
+
+def get_sigma(epoch: int, schedule_type: str='fixed', base_sigma: float=0.2, min_sigma: float=0.05, total_epochs: int=300) -> float:
+    """
+    Get the noise sigma for perturbation based on schedule.
+    Args:
+        epoch: Current epoch number.
+        schedule_type: ('fixed', 'linear', 'anneal')
+        base_sigma: The initial or max sigma.
+        min_sigma: Minimum sigma if decreasing.
+        total_epochs: For schedule computation.
+    Returns:
+        float: Sigma for current epoch.
+    """
+    if schedule_type == 'fixed':
+        return base_sigma
+    elif schedule_type == 'linear':
+        # Decrease sigma linearly from base_sigma to min_sigma
+        sigma_val = max(base_sigma - (base_sigma - min_sigma) * epoch / total_epochs, min_sigma)
+        return sigma_val
+    elif schedule_type == 'anneal':
+        # Alternatively, exponential decay
+        decay_rate = 0.95
+        sigma_val = max(base_sigma * (decay_rate ** epoch), min_sigma)
+        return sigma_val
+    else:
+        return base_sigma
+
+def save_checkpoint(model: torch.nn.Module, optimizer: torch.optim.Optimizer, epoch: int, path: str):
+    """
+    Save model and optimizer checkpoint.
+    Args:
+        model: model state to save.
+        optimizer: optimizer state.
+        epoch: current epoch.
+        path: file path for saving.
+    """
+    checkpoint = {
+        'model_state_dict': model.state_dict(),
+        'optimizer_state_dict': optimizer.state_dict(),
+        'epoch': epoch
+    }
+    torch.save(checkpoint, path)
+
+def load_checkpoint(path: str, model: torch.nn.Module, optimizer: Optional[torch.optim.Optimizer]=None):
+    """
+    Load model and optimizer state from checkpoint.
+    Args:
+        path: checkpoint file path.
+        model: model to load state into.
+        optimizer: optional optimizer to load state.
+    """
+    checkpoint = torch.load(path, map_location='cpu')
+    model.load_state_dict(checkpoint['model_state_dict'])
+    if optimizer and 'optimizer_state_dict' in checkpoint:
+        optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
+    return checkpoint.get('epoch', None)
+
+def log_metrics(metrics: Dict[str, float], step: int, log_file: Optional[str]=None):
+    """
+    Log metrics to console and optionally to file.
+    Args:
+        metrics: dictionary of metric name to value.
+        step: current training step or epoch.
+        log_file: optional path to save logs.
+    """
+    message = f"Step/Epoch {step}: " + ", ".join([f"{k}: {v:.4f}" for k, v in metrics.items()])
+    print(message)
+    if log_file:
+        with open(log_file, 'a') as f:
+            f.write(message + '\n')
+
+def set_random_seed(seed: int):
+    """
+    Set seed for reproducibility across torch, numpy, and cuda.
+    Args:
+        seed: seed integer.
+    """
+    torch.manual_seed(seed)
+    np.random.seed(seed)
+    if torch.cuda.is_available():
+        torch.cuda.manual_seed_all(seed)

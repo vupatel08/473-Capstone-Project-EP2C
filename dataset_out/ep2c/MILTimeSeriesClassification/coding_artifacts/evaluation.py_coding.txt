@@ -1,0 +1,237 @@
+```python
+## evaluation.py
+import torch
+import numpy as np
+from sklearn.metrics import accuracy_score, roc_auc_score, log_loss
+from interpretability import Interpretability
+
+class Evaluation:
+    def __init__(self, model, dataset, interpretability_module, config=None):
+        """
+        Initialize the Evaluation class with trained model, dataset, interpretability module, and configs.
+        Args:
+            model (torch.nn.Module): Trained classification model.
+            dataset (object): Dataset object with test data attributes.
+            interpretability_module (Interpretability): Initialized with model and pooling method.
+            config (dict): Configuration parameters; optional.
+        """
+        self.model = model
+        self.dataset = dataset
+        self.interpretability = interpretability_module
+        self.config = config if config is not None else {}
+        self.device = next(model.parameters()).device
+        # Configuration for interpretability evaluation repeats
+        self.n_repeats = self.config.get('interpretability', {}).get('evaluation_repeat', 3)
+        # Load test data
+        self.X_test, self.y_test = self._load_test_data()
+        # For datasets with known signature positions (synthetic), set accordingly
+        self.signature_indices = getattr(self.dataset, 'signature_indices', None)
+
+    def _load_test_data(self):
+        """Loads test data from dataset. Assumes dataset has test X and y attributes."""
+        X_test = getattr(self.dataset, 'X', None)
+        y_test = getattr(self.dataset, 'y', None)
+        if X_test is None or y_test is None:
+            raise ValueError("Dataset must have attributes 'X' and 'y' for test set.")
+        # Ensure shape: (samples, channels, timesteps)
+        if len(X_test.shape)==2:
+            X_test = X_test.reshape(X_test.shape[0], 1, -1)
+        elif len(X_test.shape)==3:
+            pass
+        else:
+            raise ValueError("Unexpected shape of test data.")
+        return X_test, y_test
+
+    def evaluate_performance(self):
+        """
+        Evaluate the model's predictive performance: accuracy, AUROC, loss.
+        Returns:
+            dict: {'accuracy': float, 'auroc': float, 'loss': float}
+        """
+        self.model.eval()
+        all_preds = []
+        all_probs = []
+        all_true = []
+        criterion = torch.nn.CrossEntropyLoss()
+        total_loss = 0.0
+        total_samples = 0
+
+        with torch.no_grad():
+            for X_batch, y_batch in self._get_dataloader():
+                X_batch = X_batch.to(self.device)
+                y_batch = y_batch.to(self.device)
+                outputs = self.model(X_batch)  # shape: (batch, c)
+                probs = torch.softmax(outputs, dim=1)
+                preds = torch.argmax(probs, dim=1)
+
+                # Accumulate predictions
+                all_preds.extend(preds.cpu().numpy())
+                all_probs.extend(probs.cpu().numpy())
+                all_true.extend(y_batch.cpu().numpy())
+
+                # Loss
+                loss = criterion(outputs, y_batch)
+                batch_size = y_batch.shape[0]
+                total_loss += loss.item() * batch_size
+                total_samples += batch_size
+
+        accuracy = accuracy_score(all_true, all_preds)
+        try:
+            auroc = roc_auc_score(all_true, np.array(all_probs), multi_class='ovr', average='macro')
+        except ValueError:
+            auroc = float('nan')  # Handle edge case of one class
+        avg_loss = total_loss / total_samples
+        return {'accuracy': accuracy, 'auroc': auroc, 'loss': avg_loss}
+
+    def _get_dataloader(self):
+        """
+        Create DataLoader for test data.
+        """
+        import torch
+        from torch.utils.data import DataLoader, TensorDataset
+        X = torch.tensor(self.X_test, dtype=torch.float32)
+        y = torch.tensor(self.y_test, dtype=torch.long)
+        dataset = TensorDataset(X, y)
+        batch_size = self.config.get('training', {}).get('batch_size', 16)
+        return DataLoader(dataset, batch_size=batch_size, shuffle=False)
+
+    def evaluate_interpretability(self):
+        """
+        Evaluate interpretability metrics: AOPCR, perturbation decay, ND CG (if applicable).
+        Returns:
+            dict: containing mean and std for each metric across samples and repeats.
+        """
+        importance_scores_list = []
+        decay_curves = []
+        ndcg_scores = []
+
+        # For datasets with true signature info
+        has_signature_info = hasattr(self.dataset, 'signature_indices') and self.signature_indices is not None
+
+        for _ in range(self.n_repeats):
+            importance_scores_samples = []  # list per sample
+            decay_curves_samples = []
+            ndcg_scores_samples = []
+
+            # Loop over test samples
+            for i in range(len(self.X_test)):
+                series = self.X_test[i, 0, :]  # shape: (timesteps,)
+                # 1. Compute importance scores
+                scores = self.interpretability.compute_scores(series)
+                importance_scores_samples.append(scores)
+                # 2. Compute perturbation decay curve
+                decay_curve, _ = self.interpretability.compute_perturbation(series)
+                decay_curves_samples.append(decay_curve)
+                # 3. Compute ND CG if ground-truth signature positions are available
+                if has_signature_info:
+                    true_indices = self.signature_indices[i]
+                    ndcg_score = self.interpretability.compute_ndcgc(series, true_indices)
+                    ndcg_scores_samples.append(ndcg_score)
+
+            importance_scores_list.append(importance_scores_samples)
+            decay_curves.append(decay_curves_samples)
+            if has_signature_info:
+                ndcg_scores.append(ndcg_scores_samples)
+
+        # Convert importance scores to numpy arrays for stats
+        importance_scores_array = np.array(importance_scores_list)  # shape: (repeats, samples, timesteps)
+        decay_curves_array = np.array(decay_curves)  # shape: (repeats, samples, steps)
+        # Compute average importance per sample
+        importance_mean = np.mean(importance_scores_array, axis=0)  # shape: (samples, timesteps)
+        decay_mean = np.mean(decay_curves_array, axis=0)  # shape: (samples, steps)
+        importance_std = np.std(importance_scores_array, axis=0)
+        decay_std = np.std(decay_curves_array, axis=0)
+
+        results = {}
+        # 4. Compute average interpretability scores across samples
+        # For datasets with true signatures: compute mean ND CG
+        if hasattr(self.dataset, 'signature_indices') and self.signature_indices is not None:
+            ndcg_all = np.array(ndcg_scores)  # shape: (repeats, samples)
+            results['ND_CG_mean'] = np.mean(ndcg_all)
+            results['ND_CG_std'] = np.std(ndcg_all)
+
+        # 5. AOPCR score: average over samples and repeats
+        aopcr_list = []
+        for _ in range(self.n_repeats):
+            for i in range(len(self.X_test)):
+                series = self.X_test[i, 0, :]
+                importance_score = importance_scores_array[0][i, :]
+                # Rank importance scores descending
+                order = importance_score.argsort()[::-1]
+                # Create an importance ordering
+                # Evaluate AOPCR based on importance ordering
+                score = self._compute_AOPCR(series, order)
+                aopcr_list.append(score)
+
+        results['AOPCR_mean'] = np.mean(aopcr_list)
+        results['AOPCR_std'] = np.std(aopcr_list)
+
+        # 6. Perturbation decay curves
+        results['decay_curve_mean'] = np.mean(decay_mean, axis=0)
+        results['decay_curve_std'] = np.std(decay_mean, axis=0)
+
+        return results
+
+    def _compute_AOPCR(self, series, importance_order):
+        """
+        Compute Area over Perturbation Curve (AOPCR) for a single series given importance order.
+        Args:
+            series (np.ndarray): shape (timesteps,)
+            importance_order (np.ndarray): indices ordered by importance (descending)
+        Returns:
+            float: AOPCR score
+        """
+        t = len(series)
+        # Remove points in order
+        model = self.model
+        model.eval()
+        decay_scores = []
+
+        # Initialize perturbed series
+        perturbed_series = series.copy()
+
+        # Remove top importance points sequentially, measure model confidence
+        for i in range(t // 2):  # Remove up to 50%
+            idx = importance_order[i]
+            # Set to median or zero; here use zero
+            perturbed_series[idx] = 0.0
+            # Predict
+            with torch.no_grad():
+                x_tensor = torch.tensor(perturbed_series, dtype=torch.float32).unsqueeze(0).unsqueeze(0).to(self.device)
+                output = model(x_tensor)
+                probs = torch.softmax(output, dim=1)
+                pred_confidence = probs.max(dim=1)[0].item()
+                decay_scores.append(pred_confidence)
+
+        # Generate random importance order for baseline
+        rand_order = np.random.permutation(t)
+        rand_decay_scores = []
+        for i in range(t // 2):
+            idx = rand_order[i]
+            series_copy = series.copy()
+            series_copy[idx] = 0.0
+            with torch.no_grad():
+                x_tensor = torch.tensor(series_copy, dtype=torch.float32).unsqueeze(0).unsqueeze(0).to(self.device)
+                output = model(x_tensor)
+                probs = torch.softmax(output, dim=1)
+                pred_confidence = probs.max(dim=1)[0].item()
+                rand_decay_scores.append(pred_confidence)
+
+        # Compute integral (area under curve) for decay
+        x_axis = np.arange(1, len(decay_scores) +1)
+        area_curve = np.trapz(decay_scores, x_axis)
+        area_rand = np.trapz(rand_decay_scores, x_axis)
+        # Normalize by maximum possible area
+        max_val = max(np.max(decay_scores), np.max(rand_decay_scores))
+        max_area = max_val * len(decay_scores)
+        aopcr_score = (area_rand - area_curve) / max_area if max_area != 0 else 0.0
+        return aopcr_score
+
+    def compute_overall_results(self):
+        """
+        Orchestrate performance and interpretability evaluations, return aggregated metrics.
+        """
+        performance_metrics = self.evaluate_performance()
+        interpretability_metrics = self.evaluate_interpretability()
+        return {'performance': performance_metrics, 'interpretability': interpretability_metrics}
+```

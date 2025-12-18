@@ -1,0 +1,199 @@
+# Main.py Logic Analysis for Reproducing Stormer Weather Forecasting Framework
+
+This analysis breaks down the necessary steps, logic, and flow to implement the `main.py` script, ensuring faithful reproduction of the Stormer methodology, as described in the paper and aligned with the provided configurations. The goal is to organize the experiment pipeline cohesively, from data loading to final evaluation, while referencing other modules and ensuring consistency with the detailed design and experimental protocol.
+
+---
+
+# 1. Imports & Dependencies
+
+- Parse configuration: Use `PyYAML` to load `config.yaml`.
+- Set up logging (e.g., `logging` module) for tracking experiment progress.
+- Initialize hardware/distributed environment:
+  - Use `torch.distributed` or `torch.nn.parallel` as per `cluster_strategy`.
+  - Set device count: `128 GPUs` with `mixed_precision`.
+- Import all modules:
+  - `dataset.py`: (`WeatherDataset`)
+  - `model.py`: (`TransformerModel`)
+  - `trainer.py`: (`TrainerLightning`)
+  - `inference.py`: (`InferencePipeline`)
+  - `evaluation.py`: (`EvaluationMetrics`)
+  - `utils.py`: (utility functions such as generating interval combinations)
+- Any additional helpers (`os`, `time`, `numpy`, etc.).
+
+---
+
+# 2. Load Config and Set Up Environment
+
+- Read `config.yaml` and store in a variable (e.g., `cfg`).
+- Set device configuration (e.g., `torch.device`) based on available hardware.
+- Initialize distributed training if specified:
+  - Use `torch.distributed.launch` or `torch.nn.parallel.DistributedDataParallel`.
+- Configure mixed precision:
+  - Enable `torch.cuda.amp` autocast if `use_mixed_precision` is True.
+- Set random seed for reproducibility if specified in config.
+
+---
+
+# 3. Data Preparation
+
+- Instantiate `WeatherDataset`:
+  - Pass parameters from `cfg['dataset']`:
+    - `data_path`
+    - Variables list (surface + atmospheric as specified)
+    - Pressure levels
+    - Downsampling hours
+    - Grid resolution
+    - Data splits (train, validation, test date ranges)
+- Obtain PyTorch DataLoaders for train, validation, test:
+  - Use standard batch size from `cfg['training']['batch_size']`.
+  - Enable sharding/shuffle for training loader.
+  - Apply any collate functions, normalization, or regridding as per design.
+- Log dataset sizes and normalization stats.
+
+---
+
+# 4. Model Instantiation
+
+- Create `TransformerModel`:
+  - Pass model parameters (`patch_size`, `hidden_dim`, `num_layers`, `num_heads`, `mlp_ratio`, dropout rates, positional encoding configs).
+- Include weather-specific embedding:
+  - Variable tokenization
+  - Variable aggregation (cross-attention)
+- Initialize positional encodings appropriately.
+- Define AdaLN modules conditioned on delta_t within transformer blocks:
+  - MLP sizes for AdaLN parameters, consistent with the paper (e.g., 2-layer MLP).
+- Load or initialize model weights.
+- Log model configuration and parameter count.
+
+---
+
+# 5. Trainer Setup
+
+- Instantiate `TrainerLightning`:
+  - Pass model instance.
+  - Pass optimizer configurations:
+    - AdamW optimizer
+    - Learning rates for phases
+    - Weight decay
+  - Scheduler:
+    - Cosine schedule
+    - Warmup epochs (10 for phase 1, 5 for finetuning)
+  - Enable gradient checkpointing, mixed precision.
+  - Set maximum epochs: 100 for phase 1; 20 for each finetuning phase.
+- Set early stopping criteria:
+  - Based on validation loss (aggregated over loss components and select lead times).
+- Save checkpoint directory and checkpoint interval from config.
+- Implement training loop or call `Trainer.fit()`.
+
+---
+
+# 6. Training Procedure
+
+- **Phase 1**:
+  - Train for 100 epochs on single-step forecasting objective.
+  - For each batch:
+    - Randomize $\delta t$ from `randomized_delta_t` list (`6,12,24` hr).
+    - Compute target $\Delta_{\delta t}$.
+    - Forward pass through model with input data and conditioning $\delta t$.
+    - Compute pressure-weighted MSE loss.
+    - Backpropagation and optimizer step.
+  - Use `early stopping`.
+  - Save best checkpoint.
+
+- **Phase 2 (finetune)**:
+  - Load phase 1 checkpoint.
+  - Finetune for 20 epochs with $K=4$ rollout steps.
+  - Same data processing, with fixed $\delta t$ sampling.
+  - Save checkpoint, monitor validation metrics.
+
+- **Phase 3 (finetune)**:
+  - Load phase 2 checkpoint.
+  - Finetune for 20 epochs with $K=8$ rollout steps.
+
+- Log training metrics and loss curves.
+
+---
+
+# 7. Inference & Forecast Generation
+
+- Instantiate `InferencePipeline` with trained model.
+- For each desired forecast (e.g., each lead time $T$ in evaluation set):
+  - Generate multiple interval combinations:
+    - Use utility functions from `utils.py`:
+      - For *homogeneous* mode: all $\delta t$ same
+      - For *heterogeneous* mode:
+        - Generate `n = 128` combinations of intervals summing to $T$
+        - Select top `m = 3` based on validation loss (if `best m in n`)
+  - For each interval sequence:
+    - Initialize with initial condition tensor $X_0$.
+    - Iteratively perform rollouts:
+      - Input current state and $\delta t$ to generate $\Delta_{\delta t}$.
+      - Add $\Delta_{\delta t}$ to previous state.
+      - Feed updated state for next interval.
+    - Collect forecast tensor.
+  - Average forecasts over ensemble of interval sequences.
+
+- Save forecasts for each lead time and combination.
+
+---
+
+# 8. Evaluation & Metrics
+
+- Load ground truth data at test times.
+- Regrid forecasts using `xarray` or `torch` utilities.
+- Compute metrics:
+  - Latitude-weighted RMSE for each variable at each lead time.
+  - Latitude-weighted ACC and SSR.
+  - Use `EvaluationMetrics` class, passing forecast and ground truth.
+- Summarize scores, plot error maps, and compare with baselines.
+
+---
+
+# 9. Ablations & Additional Analyses
+
+- Generate ablation results:
+  - Remove/alter components:
+    - Without randomized $\delta t$
+    - Without pressure weighting
+    - Absolute vs. dynamics forecasting
+  - Adjust model size/patch size.
+- Run scaling experiments:
+  - Larger models (e.g., ViT-B, ViT-L).
+- Perform ensemble vs non-ensemble comparisons.
+- Use validation loss for best combination selection.
+
+---
+
+# 10. Save & Log Results
+
+- Save best model checkpoints periodically.
+- Save evaluation metrics, figures, and forecasts.
+- Log all hyperparameters, training/validation curves.
+- Organize outputs for reproducibility: save configs, scripts, checkpoints, and evaluation scripts.
+
+---
+
+# 11. Final Steps & Cleanup
+
+- Gracefully terminate all processes.
+- Consolidate logs and results.
+- Generate summary reports (tables/figures).
+- Wrap up, ensuring reproducibility instructions are documented.
+
+---
+
+# Summary
+
+`main.py` serves as the experiment orchestrator that:
+- Loads data and configuration
+- Sets up hardware/distributed environment
+- Instantiates dataset, model, and trainer
+- Executes staged training with multi-phase finetuning
+- Executes inference with diverse interval combinations
+- Performs evaluation and logs comprehensive results
+
+All steps follow detailed methods and hyperparameters from the paper, with strict reference to the provided configuration and modular code structure.
+
+---
+
+This structured, detailed logic plan ensures a clear pathway to implementation that faithfully reproduces Stormer's methodology and experimental results.

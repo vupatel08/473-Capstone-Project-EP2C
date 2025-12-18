@@ -1,0 +1,496 @@
+{
+  "code_to_paper": {
+    "baseline_methods.py:RangeHeuristic": [
+      "The paper sections are not clearly defined in the provided information. Please provide the titles of the paper sections."
+    ],
+    "baseline_methods.py:NormAndThreshold": [
+      "The paper sections are not provided in the question. Please provide the paper sections to proceed."
+    ],
+    "baseline_methods.py:KNNDistanceDetector": [
+      "The provided information does not include any paper section names/titles. Please provide the correct details to proceed."
+    ],
+    "baseline_methods.py:PCAReconstructionError": [
+      "The provided information does not include any paper section names/titles. Please provide the correct details to proceed."
+    ],
+    "baseline_methods.py:SimpleMLP": [
+      "The provided information does not include any paper sections related to the code component. Please provide relevant paper sections."
+    ],
+    "baseline_methods.py:__init__": [
+      "The provided paper sections are not sufficient to link with the given code component. Please provide more detailed sections of the paper."
+    ],
+    "baseline_methods.py:detect_range": [
+      "The provided information is insufficient to determine the most relevant paper sections for the code component. Please provide more details about the function in the file \"baseline_methods.py\" and its purpose."
+    ],
+    "baseline_methods.py:detect_l2": [
+      "The provided information is insufficient to determine the most relevant paper sections for the code component. Please provide more details about the function and its purpose or the content of the paper sections."
+    ],
+    "baseline_methods.py:detect_knn": [
+      "The provided information is insufficient to determine the most relevant paper sections for the code component. Please provide more details about the function and its purpose or the content of the paper sections."
+    ],
+    "baseline_methods.py:detect_pca": [
+      "The provided information is insufficient to determine the most relevant paper sections for the code component. Please provide more details about the function in the file \"baseline_methods.py\" and the content of the paper sections."
+    ],
+    "dataset_loader.py:DatasetLoader": [
+      "The code component does not provide enough information to accurately link it to specific paper sections. However",
+      "based on the description",
+      "potential relevant sections could be \"Methodology\"",
+      "\"Data Collection\"",
+      "\"Experimental Setup\". Please provide more context or details."
+    ],
+    "dataset_loader.py:__init__": [
+      "The code component does not provide enough information to link it to the specific paper sections provided. Please provide more detailed paper sections."
+    ],
+    "evaluation.py:Evaluator": [
+      "The provided paper sections are not enough to accurately link the code component to them. Please provide more detailed sections of the paper."
+    ],
+    "evaluation.py:_determine_threshold": [
+      "The provided information does not include any paper sections. Please provide the relevant paper sections to proceed."
+    ],
+    "main.py:main": [
+      "The provided information is insufficient to determine the relevance of the paper sections to the code component. Please provide more details about the function in the file main.py and the content of the paper sections."
+    ],
+    "model.py:SimpleMLP": [
+      "Without the specific section names/titles",
+      "it's impossible to accurately identify the most relevant sections for the code component. However",
+      "based on the description of the code",
+      "sections that might be relevant could be titled something like \"Model Architecture\"",
+      "\"Methodology\"",
+      "\"Implementation Details\"",
+      "or \"Experimental Setup\". Please provide the actual section names/titles for a more accurate analysis."
+    ],
+    "model.py:__init__": [
+      "The paper sections are not properly provided in the question. Please provide the correct paper sections to proceed."
+    ],
+    "trainer.py:Trainer": [
+      "The provided paper sections are not properly formatted or relevant to the code component. Please provide the correct paper sections."
+    ],
+    "trainer.py:__init__": [
+      "The provided paper sections are not sufficient to link with the given code component. Please provide more relevant paper sections such as 'Methodology'",
+      "'Experiment Setup'",
+      "'Data Preparation'",
+      "'Model Training'",
+      "etc."
+    ],
+    "utils.py:load_dataset": [
+      "The paper sections are not clearly defined in the provided information. Please provide the titles of the paper sections."
+    ],
+    "utils.py:parse_labels": [
+      "Methodology",
+      "Data Preprocessing"
+    ],
+    "utils.py:normalize_data": [
+      "The paper sections are not clearly defined in the provided information. Please provide the titles of the paper sections."
+    ],
+    "utils.py:get_normalization_thresholds": [
+      "The provided paper sections are not sufficient to link with the given code component. Please provide more relevant paper sections."
+    ],
+    "utils.py:generate_windows": [
+      "The provided paper sections do not seem to contain any relevant information related to the code component. Please provide more relevant paper sections."
+    ],
+    "utils.py:reconstruct_from_windows": [
+      "The provided information does not include specific paper section names/titles. Please provide the titles of the paper sections to proceed."
+    ],
+    "utils.py:compute_point_error": [
+      "The provided paper sections are not sufficient to link with the given code component. Please provide more relevant paper sections such as \"Methodology\"",
+      "\"Data Analysis\"",
+      "\"Model Implementation\"",
+      "etc."
+    ],
+    "utils.py:compute_range_scores": [
+      "The provided information does not include any paper sections related to the code component. Please provide relevant paper sections."
+    ],
+    "utils.py:compute_pointwise_f1": [
+      "Methodology",
+      "Results and Discussion",
+      "Conclusion"
+    ],
+    "utils.py:iou": [
+      "The provided information is insufficient to determine the most relevant paper sections for the code component. Please provide more details about the function in the utils.py file or the content of the paper sections."
+    ],
+    "utils.py:compute_AUPRC": [
+      "Methodology",
+      "Results and Discussion",
+      "Conclusion"
+    ],
+    "utils.py:save_metrics": [
+      "The paper sections are not clearly defined in the provided information. Please provide the titles of the paper sections."
+    ],
+    "utils.py:log_report": [
+      "The paper sections are not clearly defined in the provided information. Please provide the titles of the paper sections."
+    ],
+    "utils.py:set_seed": [
+      "The paper sections are not properly provided. Please provide the correct sections to proceed."
+    ]
+  },
+  "paper_to_code": {
+    "The paper sections are not clearly defined in the provided information. Please provide the titles of the paper sections.": [
+      {
+        "component": "baseline_methods.py:RangeHeuristic",
+        "description": "Simple range-based detector using training min and max per feature.",
+        "file": "baseline_methods.py"
+      },
+      {
+        "component": "utils.py:load_dataset",
+        "description": "Loads dataset from the specified directory.\n    Expects dataset files for train/test data, labels, and optionally interval annotations.\n    Returns a dict with numpy arrays for data and labels.",
+        "file": "utils.py"
+      },
+      {
+        "component": "utils.py:normalize_data",
+        "description": "Normalize data with specified method.\n    If method='zscore', subtract mean and divide by std.\n    If 'median_iqr', scale by median and IQR.\n    If 'none', return data as is.\n    Returns normalized data, and parameters used for normalization.",
+        "file": "utils.py"
+      },
+      {
+        "component": "utils.py:save_metrics",
+        "description": "Save evaluation metrics to disk.",
+        "file": "utils.py"
+      },
+      {
+        "component": "utils.py:log_report",
+        "description": "Print or summarize evaluation results.",
+        "file": "utils.py"
+      }
+    ],
+    "The paper sections are not provided in the question. Please provide the paper sections to proceed.": [
+      {
+        "component": "baseline_methods.py:NormAndThreshold",
+        "description": "Detect anomalies based on L2-norm of data points.",
+        "file": "baseline_methods.py"
+      }
+    ],
+    "The provided information does not include any paper section names/titles. Please provide the correct details to proceed.": [
+      {
+        "component": "baseline_methods.py:KNNDistanceDetector",
+        "description": "k-NN based anomaly detection to find distances to train data.",
+        "file": "baseline_methods.py"
+      },
+      {
+        "component": "baseline_methods.py:PCAReconstructionError",
+        "description": "PCA-based anomaly score via reconstruction error.",
+        "file": "baseline_methods.py"
+      }
+    ],
+    "The provided information does not include any paper sections related to the code component. Please provide relevant paper sections.": [
+      {
+        "component": "baseline_methods.py:SimpleMLP",
+        "description": "A single hidden-layer linear autoencoder: no activation, for simplicity.",
+        "file": "baseline_methods.py"
+      },
+      {
+        "component": "utils.py:compute_range_scores",
+        "description": "Generate anomaly intervals from point scores based on threshold.",
+        "file": "utils.py"
+      }
+    ],
+    "The provided paper sections are not sufficient to link with the given code component. Please provide more detailed sections of the paper.": [
+      {
+        "component": "baseline_methods.py:__init__",
+        "description": "Args:\n            train_data: shape (N, F), training features only normal data.",
+        "file": "baseline_methods.py"
+      }
+    ],
+    "The provided information is insufficient to determine the most relevant paper sections for the code component. Please provide more details about the function in the file \"baseline_methods.py\" and its purpose.": [
+      {
+        "component": "baseline_methods.py:detect_range",
+        "description": "",
+        "file": "baseline_methods.py"
+      }
+    ],
+    "The provided information is insufficient to determine the most relevant paper sections for the code component. Please provide more details about the function and its purpose or the content of the paper sections.": [
+      {
+        "component": "baseline_methods.py:detect_l2",
+        "description": "",
+        "file": "baseline_methods.py"
+      },
+      {
+        "component": "baseline_methods.py:detect_knn",
+        "description": "",
+        "file": "baseline_methods.py"
+      }
+    ],
+    "The provided information is insufficient to determine the most relevant paper sections for the code component. Please provide more details about the function in the file \"baseline_methods.py\" and the content of the paper sections.": [
+      {
+        "component": "baseline_methods.py:detect_pca",
+        "description": "",
+        "file": "baseline_methods.py"
+      }
+    ],
+    "The code component does not provide enough information to accurately link it to specific paper sections. However": [
+      {
+        "component": "dataset_loader.py:DatasetLoader",
+        "description": "Initializes the DatasetLoader with dataset path and parameters.\n        :param dataset_path: Path to the dataset directory.\n        :param window_size: Size of sliding window for univariate data (default 4).\n        :param train_split_ratio: Ratio of data used for training (default 0.8).",
+        "file": "dataset_loader.py"
+      }
+    ],
+    "based on the description": [
+      {
+        "component": "dataset_loader.py:DatasetLoader",
+        "description": "Initializes the DatasetLoader with dataset path and parameters.\n        :param dataset_path: Path to the dataset directory.\n        :param window_size: Size of sliding window for univariate data (default 4).\n        :param train_split_ratio: Ratio of data used for training (default 0.8).",
+        "file": "dataset_loader.py"
+      }
+    ],
+    "potential relevant sections could be \"Methodology\"": [
+      {
+        "component": "dataset_loader.py:DatasetLoader",
+        "description": "Initializes the DatasetLoader with dataset path and parameters.\n        :param dataset_path: Path to the dataset directory.\n        :param window_size: Size of sliding window for univariate data (default 4).\n        :param train_split_ratio: Ratio of data used for training (default 0.8).",
+        "file": "dataset_loader.py"
+      }
+    ],
+    "\"Data Collection\"": [
+      {
+        "component": "dataset_loader.py:DatasetLoader",
+        "description": "Initializes the DatasetLoader with dataset path and parameters.\n        :param dataset_path: Path to the dataset directory.\n        :param window_size: Size of sliding window for univariate data (default 4).\n        :param train_split_ratio: Ratio of data used for training (default 0.8).",
+        "file": "dataset_loader.py"
+      }
+    ],
+    "\"Experimental Setup\". Please provide more context or details.": [
+      {
+        "component": "dataset_loader.py:DatasetLoader",
+        "description": "Initializes the DatasetLoader with dataset path and parameters.\n        :param dataset_path: Path to the dataset directory.\n        :param window_size: Size of sliding window for univariate data (default 4).\n        :param train_split_ratio: Ratio of data used for training (default 0.8).",
+        "file": "dataset_loader.py"
+      }
+    ],
+    "The code component does not provide enough information to link it to the specific paper sections provided. Please provide more detailed paper sections.": [
+      {
+        "component": "dataset_loader.py:__init__",
+        "description": "Initializes the DatasetLoader with dataset path and parameters.\n        :param dataset_path: Path to the dataset directory.\n        :param window_size: Size of sliding window for univariate data (default 4).\n        :param train_split_ratio: Ratio of data used for training (default 0.8).",
+        "file": "dataset_loader.py"
+      }
+    ],
+    "The provided paper sections are not enough to accurately link the code component to them. Please provide more detailed sections of the paper.": [
+      {
+        "component": "evaluation.py:Evaluator",
+        "description": "Handles the evaluation of anomaly detection scores against ground truth labels\n    with point-wise and range-wise metrics as specified in the paper.",
+        "file": "evaluation.py"
+      }
+    ],
+    "The provided information does not include any paper sections. Please provide the relevant paper sections to proceed.": [
+      {
+        "component": "evaluation.py:_determine_threshold",
+        "description": "Determine threshold based on method.",
+        "file": "evaluation.py"
+      }
+    ],
+    "The provided information is insufficient to determine the relevance of the paper sections to the code component. Please provide more details about the function in the file main.py and the content of the paper sections.": [
+      {
+        "component": "main.py:main",
+        "description": "",
+        "file": "main.py"
+      }
+    ],
+    "Without the specific section names/titles": [
+      {
+        "component": "model.py:SimpleMLP",
+        "description": "A simple one-layer linear autoencoder model for time series reconstruction and anomaly scoring.\n    This model consists of a single linear encoder and decoder, without activation functions,\n    matching the description in the paper.",
+        "file": "model.py"
+      }
+    ],
+    "it's impossible to accurately identify the most relevant sections for the code component. However": [
+      {
+        "component": "model.py:SimpleMLP",
+        "description": "A simple one-layer linear autoencoder model for time series reconstruction and anomaly scoring.\n    This model consists of a single linear encoder and decoder, without activation functions,\n    matching the description in the paper.",
+        "file": "model.py"
+      }
+    ],
+    "based on the description of the code": [
+      {
+        "component": "model.py:SimpleMLP",
+        "description": "A simple one-layer linear autoencoder model for time series reconstruction and anomaly scoring.\n    This model consists of a single linear encoder and decoder, without activation functions,\n    matching the description in the paper.",
+        "file": "model.py"
+      }
+    ],
+    "sections that might be relevant could be titled something like \"Model Architecture\"": [
+      {
+        "component": "model.py:SimpleMLP",
+        "description": "A simple one-layer linear autoencoder model for time series reconstruction and anomaly scoring.\n    This model consists of a single linear encoder and decoder, without activation functions,\n    matching the description in the paper.",
+        "file": "model.py"
+      }
+    ],
+    "\"Methodology\"": [
+      {
+        "component": "model.py:SimpleMLP",
+        "description": "A simple one-layer linear autoencoder model for time series reconstruction and anomaly scoring.\n    This model consists of a single linear encoder and decoder, without activation functions,\n    matching the description in the paper.",
+        "file": "model.py"
+      }
+    ],
+    "\"Implementation Details\"": [
+      {
+        "component": "model.py:SimpleMLP",
+        "description": "A simple one-layer linear autoencoder model for time series reconstruction and anomaly scoring.\n    This model consists of a single linear encoder and decoder, without activation functions,\n    matching the description in the paper.",
+        "file": "model.py"
+      }
+    ],
+    "or \"Experimental Setup\". Please provide the actual section names/titles for a more accurate analysis.": [
+      {
+        "component": "model.py:SimpleMLP",
+        "description": "A simple one-layer linear autoencoder model for time series reconstruction and anomaly scoring.\n    This model consists of a single linear encoder and decoder, without activation functions,\n    matching the description in the paper.",
+        "file": "model.py"
+      }
+    ],
+    "The paper sections are not properly provided in the question. Please provide the correct paper sections to proceed.": [
+      {
+        "component": "model.py:__init__",
+        "description": "Initializes the SimpleMLP model.\n        Args:\n            input_dim (int): Dimensionality of input feature vectors.\n            hidden_size (int): Size of the hidden layer. Default is 32.",
+        "file": "model.py"
+      }
+    ],
+    "The provided paper sections are not properly formatted or relevant to the code component. Please provide the correct paper sections.": [
+      {
+        "component": "trainer.py:Trainer",
+        "description": "This class manages the training process for a neural network model, including batching,\n    optimization, early stopping, and logging. It interacts with the provided model for forward\n    passes and parameter updates.",
+        "file": "trainer.py"
+      }
+    ],
+    "The provided paper sections are not sufficient to link with the given code component. Please provide more relevant paper sections such as 'Methodology'": [
+      {
+        "component": "trainer.py:__init__",
+        "description": "Initialize the trainer with model, datasets, and training configuration.\n        Args:\n            model (nn.Module): The neural network model to train.\n            train_data (np.ndarray): Training feature array of shape (N_train, input_dim).\n            val_data (np.ndarray): Validation feature array of shape (N_val, input_dim), optional.\n            train_labels (np.ndarray): Training labels, shape (N_train,).\n            val_labels (np.ndarray): Validation labels, shape (N_val,), optional.\n            config (dict): Configuration parameters from 'config.yaml'.\n            device (str): 'cpu' or 'cuda'. Defaults to 'cpu'.",
+        "file": "trainer.py"
+      }
+    ],
+    "'Experiment Setup'": [
+      {
+        "component": "trainer.py:__init__",
+        "description": "Initialize the trainer with model, datasets, and training configuration.\n        Args:\n            model (nn.Module): The neural network model to train.\n            train_data (np.ndarray): Training feature array of shape (N_train, input_dim).\n            val_data (np.ndarray): Validation feature array of shape (N_val, input_dim), optional.\n            train_labels (np.ndarray): Training labels, shape (N_train,).\n            val_labels (np.ndarray): Validation labels, shape (N_val,), optional.\n            config (dict): Configuration parameters from 'config.yaml'.\n            device (str): 'cpu' or 'cuda'. Defaults to 'cpu'.",
+        "file": "trainer.py"
+      }
+    ],
+    "'Data Preparation'": [
+      {
+        "component": "trainer.py:__init__",
+        "description": "Initialize the trainer with model, datasets, and training configuration.\n        Args:\n            model (nn.Module): The neural network model to train.\n            train_data (np.ndarray): Training feature array of shape (N_train, input_dim).\n            val_data (np.ndarray): Validation feature array of shape (N_val, input_dim), optional.\n            train_labels (np.ndarray): Training labels, shape (N_train,).\n            val_labels (np.ndarray): Validation labels, shape (N_val,), optional.\n            config (dict): Configuration parameters from 'config.yaml'.\n            device (str): 'cpu' or 'cuda'. Defaults to 'cpu'.",
+        "file": "trainer.py"
+      }
+    ],
+    "'Model Training'": [
+      {
+        "component": "trainer.py:__init__",
+        "description": "Initialize the trainer with model, datasets, and training configuration.\n        Args:\n            model (nn.Module): The neural network model to train.\n            train_data (np.ndarray): Training feature array of shape (N_train, input_dim).\n            val_data (np.ndarray): Validation feature array of shape (N_val, input_dim), optional.\n            train_labels (np.ndarray): Training labels, shape (N_train,).\n            val_labels (np.ndarray): Validation labels, shape (N_val,), optional.\n            config (dict): Configuration parameters from 'config.yaml'.\n            device (str): 'cpu' or 'cuda'. Defaults to 'cpu'.",
+        "file": "trainer.py"
+      }
+    ],
+    "etc.": [
+      {
+        "component": "trainer.py:__init__",
+        "description": "Initialize the trainer with model, datasets, and training configuration.\n        Args:\n            model (nn.Module): The neural network model to train.\n            train_data (np.ndarray): Training feature array of shape (N_train, input_dim).\n            val_data (np.ndarray): Validation feature array of shape (N_val, input_dim), optional.\n            train_labels (np.ndarray): Training labels, shape (N_train,).\n            val_labels (np.ndarray): Validation labels, shape (N_val,), optional.\n            config (dict): Configuration parameters from 'config.yaml'.\n            device (str): 'cpu' or 'cuda'. Defaults to 'cpu'.",
+        "file": "trainer.py"
+      },
+      {
+        "component": "utils.py:compute_point_error",
+        "description": "Pass data through model and compute point-wise error.\n    Assumes model has a method: predict(input) returning reconstruction or prediction.",
+        "file": "utils.py"
+      }
+    ],
+    "Methodology": [
+      {
+        "component": "utils.py:parse_labels",
+        "description": "Parse label file if separate labels file is provided.",
+        "file": "utils.py"
+      },
+      {
+        "component": "utils.py:compute_pointwise_f1",
+        "description": "Compute precision, recall, and F1 score for point-wise detection.",
+        "file": "utils.py"
+      },
+      {
+        "component": "utils.py:compute_AUPRC",
+        "description": "Compute the Area Under Precision-Recall Curve.",
+        "file": "utils.py"
+      }
+    ],
+    "Data Preprocessing": [
+      {
+        "component": "utils.py:parse_labels",
+        "description": "Parse label file if separate labels file is provided.",
+        "file": "utils.py"
+      }
+    ],
+    "The provided paper sections are not sufficient to link with the given code component. Please provide more relevant paper sections.": [
+      {
+        "component": "utils.py:get_normalization_thresholds",
+        "description": "Compute threshold for anomaly detection.\n    For 'percentile' method, returns the specified percentile of scores.",
+        "file": "utils.py"
+      }
+    ],
+    "The provided paper sections do not seem to contain any relevant information related to the code component. Please provide more relevant paper sections.": [
+      {
+        "component": "utils.py:generate_windows",
+        "description": "Generate overlapping windowed feature vectors from time series data.\n    For univariate data, each window is a vector of size window_size.\n    For multivariate data, each window is flattened into a vector of size window_size * features.",
+        "file": "utils.py"
+      }
+    ],
+    "The provided information does not include specific paper section names/titles. Please provide the titles of the paper sections to proceed.": [
+      {
+        "component": "utils.py:reconstruct_from_windows",
+        "description": "Reconstruct original series from overlapping windows.\n    Uses simple overlapping averaging.",
+        "file": "utils.py"
+      }
+    ],
+    "The provided paper sections are not sufficient to link with the given code component. Please provide more relevant paper sections such as \"Methodology\"": [
+      {
+        "component": "utils.py:compute_point_error",
+        "description": "Pass data through model and compute point-wise error.\n    Assumes model has a method: predict(input) returning reconstruction or prediction.",
+        "file": "utils.py"
+      }
+    ],
+    "\"Data Analysis\"": [
+      {
+        "component": "utils.py:compute_point_error",
+        "description": "Pass data through model and compute point-wise error.\n    Assumes model has a method: predict(input) returning reconstruction or prediction.",
+        "file": "utils.py"
+      }
+    ],
+    "\"Model Implementation\"": [
+      {
+        "component": "utils.py:compute_point_error",
+        "description": "Pass data through model and compute point-wise error.\n    Assumes model has a method: predict(input) returning reconstruction or prediction.",
+        "file": "utils.py"
+      }
+    ],
+    "Results and Discussion": [
+      {
+        "component": "utils.py:compute_pointwise_f1",
+        "description": "Compute precision, recall, and F1 score for point-wise detection.",
+        "file": "utils.py"
+      },
+      {
+        "component": "utils.py:compute_AUPRC",
+        "description": "Compute the Area Under Precision-Recall Curve.",
+        "file": "utils.py"
+      }
+    ],
+    "Conclusion": [
+      {
+        "component": "utils.py:compute_pointwise_f1",
+        "description": "Compute precision, recall, and F1 score for point-wise detection.",
+        "file": "utils.py"
+      },
+      {
+        "component": "utils.py:compute_AUPRC",
+        "description": "Compute the Area Under Precision-Recall Curve.",
+        "file": "utils.py"
+      }
+    ],
+    "The provided information is insufficient to determine the most relevant paper sections for the code component. Please provide more details about the function in the utils.py file or the content of the paper sections.": [
+      {
+        "component": "utils.py:iou",
+        "description": "",
+        "file": "utils.py"
+      }
+    ],
+    "The paper sections are not properly provided. Please provide the correct sections to proceed.": [
+      {
+        "component": "utils.py:set_seed",
+        "description": "Set random seeds for reproducibility.",
+        "file": "utils.py"
+      }
+    ]
+  },
+  "paper_sections": [
+    {
+      "section": "Abstract",
+      "text": "M. Saquib Sarfraz 1 2 Mei-Yen Chen 1 Lukas Layer 1 Kunyu Peng 2 Marios Koulakis 2",
+      "ontology": "abstract"
+    }
+  ],
+  "coverage_score": 43.0
+}

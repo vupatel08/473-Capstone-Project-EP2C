@@ -1,0 +1,239 @@
+## dataset_loader.py
+
+import os
+import glob
+import numpy as np
+import torch
+from PIL import Image
+import soundfile as sf
+import cv2
+from Bio.PDB import PDBParser
+
+class Dataset:
+    """Simple Dataset class holding dataset samples."""
+    def __init__(self, samples):
+        self.samples = samples
+
+    def __len__(self):
+        return len(self.samples)
+
+    def __getitem__(self, index):
+        return self.samples[index]
+
+class DatasetLoader:
+    def __init__(self, config):
+        """
+        Initialize DatasetLoader with configuration parameters.
+
+        Args:
+            config (dict): Dictionary with dataset configurations.
+        """
+        self.config = config
+        # Parse dataset config
+        dataset_cfg = self.config.get('datasets', {})
+        self.data_dir = dataset_cfg.get('data_dir', '')
+        self.dataset_type = dataset_cfg.get('type', 'image')  # 'image', 'audio', 'video', 'protein'
+        self.patch_size = dataset_cfg.get('patch_size', None)
+        self.patches_in_group = dataset_cfg.get('patches_in_group', None)
+        self.structure_format = dataset_cfg.get('structure_format', 'voxel')  # for proteins
+        self.voxel_resolution = dataset_cfg.get('voxel_resolution', 64)
+        self.sample_rate = dataset_cfg.get('sample_rate', 16000)
+        self.chunk_duration_sec = dataset_cfg.get('chunk_duration_sec', 1.0)  # for audio
+        # Additional attributes
+        self.samples = []
+
+    def load_data(self):
+        """
+        Load dataset according to modality and preprocess.
+
+        Returns:
+            list of dicts: Each dict contains 'coordinates', 'values', 'metadata'.
+        """
+        if self.dataset_type == 'image':
+            return self._load_image_dataset()
+        elif self.dataset_type == 'audio':
+            return self._load_audio_dataset()
+        elif self.dataset_type == 'video':
+            return self._load_video_dataset()
+        elif self.dataset_type == 'protein':
+            return self._load_protein_dataset()
+        else:
+            raise ValueError(f"Unsupported dataset type: {self.dataset_type}")
+
+    def _load_image_dataset(self):
+        # Determine if CIFAR-10 or Kodak based on image_size
+        # For simplicity, assume high-res: Kodak and CIFAR explicitly distinguished externally
+        images = []
+        # Load images: assume directory contains image files
+        image_files = glob.glob(os.path.join(self.data_dir, '*.png')) + \
+                      glob.glob(os.path.join(self.data_dir, '*.jpg')) + \
+                      glob.glob(os.path.join(self.data_dir, '*.jpeg')) + \
+                      glob.glob(os.path.join(self.data_dir, '*.bmp'))
+
+        # For CIFAR-10: 32x32 images
+        # For Kodak: 768x512 or 512x768 images
+        # Here, just load all images and process
+        for img_path in image_files:
+            img = Image.open(img_path).convert('RGB')
+            img_np = np.array(img)  # (H,W,C)
+            H, W, C = img_np.shape
+            # Normalize pixel values to [0,1]
+            pixel_vals = torch.from_numpy(img_np).float() / 255.0
+            # Generate coordinate grid: shape (H*W, 2)
+            coords = self._generate_grid(H, W)
+            # reshape pixel_vals to (H*W, 3)
+            vals = pixel_vals.view(-1, 3)
+            # Store data sample
+            sample = {
+                'coordinates': coords,
+                'values': vals,
+                'metadata': {'image_path': img_path}
+            }
+            images.append(sample)
+        return images
+
+    def _load_audio_dataset(self):
+        # Load raw audio clips from data_dir
+        audio_files = glob.glob(os.path.join(self.data_dir, '*.flac')) + \
+                      glob.glob(os.path.join(self.data_dir, '*.wav')) + \
+                      glob.glob(os.path.join(self.data_dir, '*.mp3'))  # if mp3 is acceptable
+
+        # For each audio file: load waveform, segment into patches
+        samples = []
+        for audio_path in audio_files:
+            data, sr = sf.read(audio_path)
+            # Resample if needed
+            if sr != self.sample_rate:
+                # For simplicity, assume same sr, or implement resampling here
+                pass
+            duration_samples = int(self.sample_rate * self.chunk_duration_sec)
+            total_samples = len(data)
+            # Trim or pad to 3 sec
+            if total_samples < duration_samples:
+                pad_width = duration_samples - total_samples
+                data = np.pad(data, (0, pad_width), mode='constant')
+            else:
+                data = data[:duration_samples]
+            # Segment into overlapping patches of size 800
+            patch_size = 800
+            num_patches = (duration_samples - patch_size) // patch_size + 1
+            for p in range(num_patches):
+                start_idx = p * patch_size
+                end_idx = start_idx + patch_size
+                patch_signal = data[start_idx:end_idx]
+                # Generate normalized time indices in [0,1]
+                t_coords = np.linspace(0,1,patch_size).astype(np.float32)
+                coords = torch.from_numpy(t_coords).unsqueeze(1)  # (patch_size,1)
+                vals = torch.from_numpy(patch_signal).unsqueeze(1)  # (patch_size,1)
+                sample = {
+                    'coordinates': coords,  # 1D time coordinate normalized
+                    'values': vals,
+                    'metadata': {'audio_path': audio_path, 'patch_idx': p}
+                }
+                samples.append(sample)
+        return samples
+
+    def _load_video_dataset(self):
+        # Load videos, sample frames, crop/resize, patchify
+        # For brevity, a placeholder: user should replace with actual video loading
+        # Here, assume directory contains video files
+        video_files = glob.glob(os.path.join(self.data_dir, '*.mp4')) + \
+                      glob.glob(os.path.join(self.data_dir, '*.avi'))
+        samples = []
+        for v_path in video_files:
+            cap = cv2.VideoCapture(v_path)
+            frames = []
+            while True:
+                ret, frame = cap.read()
+                if not ret:
+                    break
+                frames.append(frame)
+            cap.release()
+            # Convert frames to numpy array (T,H,W,3), resize to 128x128
+            frames_np = np.stack(frames)
+            resized_frames = [cv2.resize(f, (128, 128)) for f in frames_np]
+            # Optionally crop or resize to 128x128
+            # For each frame, convert to tensor
+            for idx, frame in enumerate(resized_frames):
+                frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+                val = torch.from_numpy(frame_rgb).float() / 255.0  # (H,W,3)
+                H, W, C = val.shape
+                # Generate 3D coordinate grid normalized [0,1]
+                coords = self._generate_3d_grid(H, W)
+                # For video, coordinate is (x,y,t)
+                # Here, t is frame index normalized
+                t_norm = np.array([[idx / len(resized_frames)]], dtype=np.float32)
+                t_coord = torch.from_numpy(t_norm).repeat(H*W,1)  # (H*W,1)
+                xy_coords = coords.view(-1, 2)
+                all_coords = torch.cat([xy_coords, t_coord], dim=1)
+                vals = val.view(-1, 3)
+                sample = {
+                    'coordinates': all_coords,
+                    'values': vals,
+                    'metadata': {'video_path': v_path, 'frame_idx': idx}
+                }
+                samples.append(sample)
+        return samples
+
+    def _load_protein_dataset(self):
+        # Load protein structures from data_dir, parse with BioPython
+        pdb_files = glob.glob(os.path.join(self.data_dir, '*.pdb'))
+        parser = PDBParser(QUIET=True)
+        samples = []
+        for pdb_path in pdb_files:
+            structure = parser.get_structure(os.path.basename(pdb_path), pdb_path)
+            # For simplicity, process first chain and first 96 residues
+            model = structure[0]
+            chain_ids = list(model.get_chains())
+            if len(chain_ids) == 0:
+                continue
+            chain = model[chain_ids[0]]
+            coords_list = []
+            for residue in chain:
+                if residue.get_id()[0] != ' ':  # skip hetero residues
+                    continue
+                if 'CA' in residue:
+                    ca_atom = residue['CA']
+                    coords_list.append(ca_atom.get_coord())
+            coords_np = np.array(coords_list[:96])  # first 96 residues
+            if coords_np.shape[0] < 96:
+                # Pad with zeros if less than 96 residues
+                pad = np.zeros((96 - coords_np.shape[0], 3))
+                coords_np = np.vstack([coords_np, pad])
+            # Normalize to [0,1] based on bounding box
+            min_coords = coords_np.min(axis=0)
+            max_coords = coords_np.max(axis=0)
+            coords_normalized = (coords_np - min_coords) / (max_coords - min_coords + 1e-8)
+            coords_tensor = torch.from_numpy(coords_normalized.astype(np.float32))
+            # Values: 3D coordinates, or as per desired encoding
+            values = coords_tensor.clone()  # store normalized coords as signal (for simplicity)
+            sample = {
+                'coordinates': coords_tensor,
+                'values': values,
+                'metadata': {'pdb_path': pdb_path}
+            }
+            samples.append(sample)
+        return samples
+
+    def _generate_grid(self, height, width):
+        """
+        Generate normalized 2D coordinate grid in [0,1]
+        shape: (height*width, 2)
+        """
+        y_coords = np.linspace(0, 1, height, endpoint=False)
+        x_coords = np.linspace(0, 1, width, endpoint=False)
+        yy, xx = np.meshgrid(y_coords, x_coords, indexing='ij')
+        coords = np.stack([xx, yy], axis=-1).reshape(-1,2)
+        return torch.from_numpy(coords).float()
+
+    def _generate_3d_grid(self, height, width):
+        """
+        Generate normalized 2D coordinate grid for video frames
+        shape: (height*width, 2)
+        """
+        y_coords = np.linspace(0, 1, height, endpoint=False)
+        x_coords = np.linspace(0, 1, width, endpoint=False)
+        yy, xx = np.meshgrid(y_coords, x_coords, indexing='ij')
+        coords = np.stack([xx, yy], axis=-1)
+        return torch.from_numpy(coords).float()
+

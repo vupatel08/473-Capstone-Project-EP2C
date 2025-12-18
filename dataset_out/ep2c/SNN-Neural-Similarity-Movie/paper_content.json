@@ -1,0 +1,158 @@
+{
+  "title": "Long-Range Feedback Spiking Network Captures Dynamic and Static Representations of the Visual Cortex under Movie Stimuli",
+  "abstract": "Liwei Huang1,2, Zhengyu $\\mathbf { M } \\mathbf { a } ^ { 2 * }$ , Liutao $\\mathbf { Y } \\mathbf { u } ^ { 2 }$ , Huihui Zhou2, Yonghong Tian1,2,3∗",
+  "authors": [],
+  "body_text": [
+    {
+      "text": "# Long-Range Feedback Spiking Network Captures Dynamic and Static Representations of the Visual Cortex under Movie Stimuli"
+    },
+    {
+      "text": "Liwei Huang1,2, Zhengyu $\\mathbf { M } \\mathbf { a } ^ { 2 * }$ , Liutao $\\mathbf { Y } \\mathbf { u } ^ { 2 }$ , Huihui Zhou2, Yonghong Tian1,2,3∗"
+    },
+    {
+      "text": "1School of Computer Science, Peking University, China 2Peng Cheng Laboratory, China 3School of Electronic and Computer Engineering, Shenzhen Graduate School, Peking University, China huanglw20@stu.pku.edu.cn, {mazhy, yult, zhouhh}@pcl.ac.cn, yhtian@pku.edu.cn"
+    },
+    {
+      "text": "# Abstract"
+    },
+    {
+      "text": "Deep neural networks (DNNs) are widely used models for investigating biological visual representations. However, existing DNNs are mostly designed to analyze neural responses to static images, relying on feedforward structures and lacking physiological neuronal mechanisms. There is limited insight into how the visual cortex represents natural movie stimuli that contain context-rich information. To address these problems, this work proposes the long-range feedback spiking network (LoRaFB-SNet), which mimics top-down connections between cortical regions and incorporates spike information processing mechanisms inherent to biological neurons. Taking into account the temporal dependence of representations under movie stimuli, we present Time-Series Representational Similarity Analysis (TSRSA) to measure the similarity between model representations and visual cortical representations of mice. LoRaFB-SNet exhibits the highest level of representational similarity, outperforming other well-known and leading alternatives across various experimental paradigms, especially when representing long movie stimuli. We further conduct experiments to quantify how temporal structures (dynamic information) and static textures (static information) of the movie stimuli influence representational similarity, suggesting that our model benefits from longrange feedback to encode context-dependent representations just like the brain. Altogether, LoRaFB-SNet is highly competent in capturing both dynamic and static representations of the mouse visual cortex and contributes to the understanding of movie processing mechanisms of the visual system. Our codes are available at https://github.com/Grasshlw/SNN-Neural-Similarity-Movie."
+    },
+    {
+      "text": "# 1 Introduction"
+    },
+    {
+      "text": "Understanding how the biological visual cortex processes information under natural stimuli with computational models is a critical scientific goal in visual neuroscience. In this realm, deep neural networks have emerged as the predominant tools [28, 32, 57], surpassing traditional models, due to their profound success in matching neural representations [58, 5, 4, 7, 6, 40], revealing functional hierarchies [19, 46, 8, 53, 47], and explaining functionally specialized processing mechanisms [1, 11] of the biological visual cortex. Despite these advancements, research has mainly focused on static image stimuli, leaving a gap in the understanding of neural responses to dynamic, contextrich movie stimuli. This oversight is particularly critical given that the visual system receives predominantly dynamic information and integrates the information in both spatial [23, 24] and temporal [20] dimensions. To address this challenge, there is a need for models with enhanced biological plausibility, capable of encoding the varied types of information inherent in movie stimuli, in order to deepen our comprehension of the processing mechanisms of the visual cortex."
+    },
+    {
+      "text": "While bottom-up (feedforward) connections dominate visual processing [15, 10], many studies have emphasized the crucial role of top-down (feedback) and lateral connections, which are widespread in the visual cortex [18, 27, 48], providing diverse coding mechanisms and augmenting temporal representation protocols [51, 16, 25, 52]. This has inspired significant strides in incorporating recurrent structures into computational models, effectively enhancing their ability to emulate brain-like neural representations and biological behavioral patterns [39, 35, 30, 43]. Meanwhile, spiking neural networks (SNNs) [37] with brain-like neuronal computational mechanisms have been developed as more biologically plausible models [21, 17, 26, 3]. Using deep SNNs to model the visual cortex has yielded preliminary success [22, 60]. Nonetheless, attempts to combine these biologically plausible structures and mechanisms are lacking."
+    },
+    {
+      "text": "In this work, we introduce the long-range feedback spiking network (LoRaFB-SNet) to capture both dynamic and static representations of the mouse visual cortex under movie stimuli. To demonstrate the effectiveness of the long-range feedback and the spike mechanism in explaining the information processing mechanisms of the visual system, we design a series of experiments for analyses based on representational similarity (Figure 1). The main contributions are as follows."
+    },
+    {
+      "text": "• To mimic top-down connections between cortical regions and to utilize the spike mechanism with dynamic properties, we construct a novel deep spiking network with long-range feedback connections, significantly improving the biological plausibility of the model.   \n• Considering time-dependent sequences of spikes, we propose Time-Series Representational Similarity Analysis (TSRSA) to measure representational similarity between models and the mouse visual cortex.   \n• For neural representations of the mouse visual cortex under movie stimuli, LoRaFB-SNet trained on the UCF101 dataset significantly outperforms other outstanding alternatives in all experiments, demonstrating the critical role of the structures and mechanisms of our model and the training task.   \n• By varying temporal structures or static textures of movie stimuli fed to models, we quantify the effects of dynamic and static information on representational similarity. The results show that LoRaFB-SNet processes movie stimuli to form context-dependent representations in a brain-like manner, providing a deeper insight into the movie processing mechanisms of the visual cortex."
+    },
+    {
+      "text": "Overall, our proposed novel model achieves the highest neural similarity under movie stimuli and better captures brain-like dynamic and static representations, shedding light on the movie coding strategy of the mouse visual cortex."
+    },
+    {
+      "text": "# 2 Related Work"
+    },
+    {
+      "text": "As deep neural networks have attracted widespread interest as computational models in visual neuroscience, incorporating more biologically plausible structures and mechanisms has become a major avenue to advance the study of neural representations. We summarize some prominent work."
+    },
+    {
+      "text": "The deep recurrent network models Efforts to construct reasonable recurrent structures [39, 35, 30] have yielded models good at fitting neural representations and revealing neural dynamics. Recurrent cells from an automated search have aided models in predicting the dynamics of neural activity [39]. Notably, CORnet with manually designed architectures has matched the hierarchy of the visual cortex, earning recognition as a leading model in this community [35]. However, most work has focused on studying neural representations under static stimuli, a limited aspect of stimuli. Besides, while some studies have explored neural responses to movie stimuli [49, 1, 29], they have only exploited localized lateral connections."
+    },
+    {
+      "text": "The deep spiking network models Early studies have applied shallow, even single-layer spiking networks to perform simple temporal tasks [31, 2, 59, 44] and to investigate biological properties [36, 50, 56]. Some recurrent spiking models have not only emphasized the criticality of homeostatic regulation in biological neurons [36], but also explained the dynamic regime in the brain associated with cognition and working memory [56]. Recently, deep spiking networks have begun to be used to analyze neural representations, demonstrating enhanced representational similarity [22] and more accurate prediction of the temporal-dynamic trajectories of cortical activity [60] on various neural datasets compared to traditional network counterparts. However, these spiking models are pure feedforward networks and are confined to the study of static stimuli."
+    },
+    {
+      "text": "![](images/f471c04f1dec288bec440e3e3fc39408d43a0ae2b084dd507168f85fca4ccd83.jpg)  \nFigure 1: The overview of our experiments. Six visual cortical regions of the mouse and the longrange feedback spiking network receive the same original movie stimuli to generate the representation matrices. TSRSA is applied to two representation matrices to measure representational similarity. In addition, the network receives two modified versions of the movie stimuli (one with broken temporal structures and the other with varied static textures), while the visual cortex still receives the original movie. These two additional experiments are used to quantify the effects of dynamic (temporal) and static (textural) information on representational similarity. See Section 3 for details."
+    },
+    {
+      "text": "# 3 Methods"
+    },
+    {
+      "text": "# 3.1 Long-Range Feedback Spiking Network"
+    },
+    {
+      "text": "# 3.1.1 Architecture"
+    },
+    {
+      "text": "We develop LoRaFB-SNet guided by two principles of biological plausibility. First, we use the LIF neuron (see Appendix A) as the basic unit of our network, which models the membrane potential dynamics of biological neurons [55] and encodes information through spike sequences like the visual cortex. Second, we design the long-range feedback structure to mimic cross-regional top-down connections that are widespread in the mouse visual cortex (Figure 2A). This long-range recurrence is complementary to spiking neurons with self-accumulation for representing temporal information."
+    },
+    {
+      "text": "As feedforward connections are dominant in the visual cortex, the backbone of LoRaFB-SNet is still feedforward, with the recurrent module embedded to introduce long-range feedback (Figure 2B). In particular, the construction of the recurrent module is described as follows."
+    },
+    {
+      "text": "The recurrent module consists of three components: a feedforward module, a long-range feedback module, and a fusion module. The feedforward module is a submodule of the backbone network, consisting of a stack of convolution, pooling, batch normalization, and spiking neurons, which plays a major role in abstracting spatial features from visual stimuli and encoding the visual content. This module receives the fused features of the outputs from the long-range feedback module and the previous stage. The long-range feedback module is composed of depthwise transposed convolution, batch normalization, and spiking neurons. On the one hand, depthwise transposed convolution effectively reduces the number of network parameters and upsamples the feature map to match the inputs. On the other hand, some work has shown that such a structure might mimic parallel information processing streams in mouse cortical regions and improve representational similarity [22]. The fusion module first concatenates the inputs of the current module (the outputs of the previous stage) and the outputs of the long-range feedback module in the channel dimension, and then integrates the feedforward and feedback information through pointwise convolution, batch normalization, and spiking neurons. The recurrent module can be formulated as:"
+    },
+    {
+      "text": "![](images/f0f797c684d252c6d599bb879cd5b22e102e9544ad15e172b747a812066d3a4a.jpg)  \nFigure 2: A. The schematic of six visual cortical regions in the mouse. For brevity, we show parts of the cross-regional feedforward and feedback connections reported from physiological research. B. The schematic of LoRaFB-SNet with the embedded recurrent module. See Section 3.1 for details."
+    },
+    {
+      "text": "$$\n\\begin{array} { r l } & { R _ { t } ^ { l } = \\mathrm { S N } ( \\mathrm { B N } ( \\mathrm { D W } ( O _ { t - 1 } ^ { l } ) ) ) , } \\\\ & { A _ { t } ^ { l } = \\mathrm { S N } ( \\mathrm { B N } ( \\mathrm { P W } ( \\mathrm { C O N C A T } ( O _ { t } ^ { l - 1 } , R _ { t } ^ { l } ) ) ) ) , } \\\\ & { O _ { t } ^ { l } = \\mathrm { F } ^ { l } ( A _ { t } ^ { l } ) , } \\end{array}\n$$"
+    },
+    {
+      "text": "where SN is spiking neurons, BN is batch normalization, DW is depthwise transposed convolution, PW is pointwise convolution, CONCAT is channel-wise concatenation. $O _ { t } ^ { l }$ denotes the outputs of stage $l$ at time step $t$ . Similarly, $R _ { t } ^ { l }$ and $A _ { t } ^ { l }$ denote the outputs of the long-range feedback and fusion modules respectively. $\\mathrm { F } ^ { l }$ denotes all operations in the feedforward module (Appendix B)."
+    },
+    {
+      "text": "# 3.1.2 Pre-Training and Representation Extraction"
+    },
+    {
+      "text": "We pre-train LoRaFB-SNet on the UCF101 dataset and the ImageNet dataset using SpikingJelly [12]. Specifically, for training the video action recognition task on UCF101, each sample (a video clip) contains 16 frames, and one frame is the input at each time step (the simulating time steps $T = 1 6$ ). For training the object recognition task on ImageNet, each sample (an image) is input to networks 4 times (the simulating time steps $T = 4$ ). See Appendix C for details."
+    },
+    {
+      "text": "After pre-training the networks, we feed them with the same movie stimuli used in the neural dataset and obtain features from all selected layers. For networks trained on UCF101, the entire movie is continuously and uninterruptedly fed into networks in the form of one frame per time step. For networks trained on ImageNet, all frames in the movie are considered as independent images and are fed into networks separately. Each movie frame is input 4 times, which is consistent with training."
+    },
+    {
+      "text": "# 3.2 Representational Similarity Metric"
+    },
+    {
+      "text": "To assess representational similarity between models and the mouse visual cortex at the population level under temporal sequential stimuli, two main problems need to be addressed. First, the metric can not only analyze static properties of representations, but also preserve temporal relationships of time-series representations to facilitate the analysis of dynamic properties. Second, neurons recorded from the visual cortex are far fewer than units in a network layer, making it difficult to directly compare representations between the two systems."
+    },
+    {
+      "text": "We present Time-Series Representational Similarity Analysis (TSRSA) based on Representational Similarity Analysis (RSA) [34, 33], which has been widely used for the comparison of neural representations [30, 38, 46, 1, 7]. The original RSA focuses on the similarity between neural representations corresponding to each pair of independent stimuli, whereas TSRSA quantifies the similarity between representations corresponding to sequential stimuli, taking into account temporal sequential relationships. We detail the implementation of TSRSA as follows. First, we acquire representation matrices $\\mathbf { R } = \\left( \\mathbf { r } _ { 1 } , \\mathbf { r } _ { 2 } , \\ldots , { \\dot { \\mathbf { r } } } _ { t } , \\ldots , \\mathbf { r } _ { T } \\right) \\in \\mathbb { R } ^ { N \\times T }$ from each layer of networks and each cortical region, where $N$ is the number of units/neurons and $T$ is the number of movie frames. The columns are arranged in chronological order, i.e. $\\mathbf { r } _ { t }$ represents population responses to the movie frame $t$ . Second, we use the Pearson correlation coefficient to compute the similarity between each given column $\\mathbf { r } _ { t }$ and all subsequent columns, yielding the representational similarity vector $\\mathbf { s } _ { t } = ( s _ { t 1 } , s _ { t 2 } , \\ldots , s _ { t p } , \\ldots )$ . The element $s _ { t p }$ is $\\mathrm { C o r r } \\left( \\mathbf { r } _ { t } , \\mathbf { r } _ { t + p } \\right)$ , where $0 < p < T - t$ . We then concatenate all vectors to obtain the complete representational similarity vectors $\\mathbf { S } _ { \\mathrm { m o d e l } }$ for a network layer and $\\mathbf { S } _ { \\mathrm { c o r t e x } }$ for a cortical region, which extract both static features and temporal relationships of neural representations. Finally, we compute the Spearman rank correlation coefficient between $\\mathbf { S } _ { \\mathrm { m o d e l } }$ and $\\mathbf { S } _ { \\mathrm { c o r t e x } }$ to quantify the similarity. Using this metric, we perform a layer-by-layer measurement for a network, evaluating all selected layers to visual cortical regions. Notably, when obtaining similarity vectors, we choose the Pearson correlation coefficient for computational efficiency, since both model features and neural data are very high-dimensional. On the other hand, the Spearman rank correlation coefficient is chosen to quantify the similarity between two visual systems due to its ability to better capture nonlinear relations."
+    },
+    {
+      "text": "# 3.3 Quantifying Effects of Dynamic and Static Information on Representational Similarity"
+    },
+    {
+      "text": "To analyze how visual models process diverse types of information in movie stimuli, we modify temporal structures (dynamic) and static textures (static) of the original movie and obtain variant dynamic or static representations of networks. Meanwhile, cortical representations are maintained since the movie presented to mice is unchanged. By measuring the similarity between the modified network outputs and the unaltered cortical representations, we quantify the effects of dynamic and static information on representational similarity and attempt to glimpse movie processing mechanisms of the visual cortex from the encoding properties of our model. The methods for modifying temporal structures and static textures are as follows."
+    },
+    {
+      "text": "Dynamic information We disrupt the frame order of the movie and feed the shuffled movie into networks, producing network representations that differ from the original due to distinct dynamic sequential information. To obtain frame order with different levels of alteration while avoiding extreme chaos (e.g., moving the first frame to the last), we divide the entire movie into multiple windows with the same number of frames and randomly shuffle the frames only within each window. We conduct 10 sets of experiments with different window sizes. Each set comprises 10 trials to provide enough statistical power. We calculate the level of chaos for every trial, which is defined as $1 - r$ , where $r$ is the Spearman rank correlation coefficient between the disrupted frame order and the original order. Since the movie presented to mice is invariant, we rearrange the network representation matrix to the original order to ensure that it matches the order of the mouse representation matrix when conducting TSRSA. In this way, we maintain the correspondence between static representations of two systems, while isolating changes in dynamic representations of networks. This allows us to focus on evaluating the effects of dynamic information."
+    },
+    {
+      "text": "Static information We randomly select a certain proportion of movie frames and replace them with Gaussian noise images whose static textures are completely different from both network training scenes and biological experiment stimuli. We then feed the new movie into networks to obtain variant static representations. To minimize dense local replacement and preserve as much dynamic information as possible, the movie is divided into equal-sized windows and only one frame in each window is replaced. We similarly run 10 experimental sets with different window sizes, each consisting of 10 trials. The ratio of replacement is the inverse of the number of frames per window. Replacing movie frames results in a change in static representations of networks, while the overall frame order remains the same as the original. Admittedly, changing static information will inevitably change temporal structures as well. We attenuate this influence by distributing noise images as sporadically as possible and emphasize how static information affects representational similarity."
+    },
+    {
+      "text": "# 4 Experiments"
+    },
+    {
+      "text": "# 4.1 Neural Dataset"
+    },
+    {
+      "text": "We conduct analyses using a subset of the Allen Brain Observatory Visual Coding dataset [9, 48]. This dataset, recorded by Neuropixel probes, consists of neural spikes with high temporal resolution from 6 mouse visual cortical regions (VISp, VISl, VISrl, VISal, VISpm, VISam, see Appendix D for details). Each region contains hundreds of recorded neurons to minimize the effects of neuronal variability, facilitating the analysis of neural population representations. The visual stimuli presented to the mice consist of two movies, one for 30s (Movie1), repeated for 20 trials, and the other for 120s (Movie2), repeated for 10 trials. The frame rate of both movies is $3 0 \\mathrm { H z }$ . To pre-process neural responses with the peristimulus time histogram (PSTH), we sum the number of spikes in each movie frame and take the average over all trials for each neuron. To focus on neurons that are more responsive to visual input, we excluded those firing less than an empirical threshold of 0.5 spikes/second [42, 54]."
+    },
+    {
+      "text": "![](images/02aae949fa929549b175447bad01064055279bc81243dc3af27a0a1b1b1e4146.jpg)  \nFigure 3: A. The TSRSA scores of three models pre-trained on UCF101. B. The TSRSA scores of feedback/feedforward spiking networks pre-trained on UCF101/ImageNet. C. The TSRSA score curves of three models pre-trained on UCF101 for different movie clip lengths. We randomly select continuous movie clips of different lengths and plot TSRSA scores between models’ and the visual cortex’s representations corresponding to these clips. The error bar is the standard error over 10 random seeds. D. The ratios of our model’s scores to those of the alternative models for different clip lengths. The ratio tends to increase for longer clips."
+    },
+    {
+      "text": "As discussed in the study [9] proposing this dataset, the class of neurons responsive to movie stimuli is found in all six cortical regions. Therefore, for a given model, we take the maximum scores across layers per region and report the average score over six regions as the model’s TSRSA score."
+    },
+    {
+      "text": "# 4.2 Models for Comparisons"
+    },
+    {
+      "text": "We select three models for comprehensive comparisons to demonstrate the effectiveness of each character in LoRaFB-SNet."
+    },
+    {
+      "text": "CORnet It is one of the most influential recurrent networks [35] for modeling the visual cortex and has been used as a benchmark in many studies [6, 7]. The prototype was trained on ImageNet and here we pre-train it on UCF101 with the same training procedure as LoRaFB-SNet. The comparison with CORnet, which has recurrent connections but lacks the spike mechanism, aims to show the critical role of spiking neurons in our model."
+    },
+    {
+      "text": "ResNet-2p-CPC This model emulates the ventral and dorsal pathways of the mouse visual cortex with parallel pathway architectures [1] pre-trained on UCF101. While our model incorporates spiking neurons and recurrent connections to handle sequential inputs of any length, ResNet-2p-CPC uses fixed-length filters to process temporal data, allowing comparison between different approaches to dynamic information processing."
+    },
+    {
+      "text": "Table 1: The neural ceilings and the scores of all models under two movie stimuli. In brackets are the percentages of model scores compared to the neural ceiling."
+    },
+    {
+      "text": "<table><tr><td></td><td>Neural Ceiling</td><td>CORnet</td><td>ResNet-2p-CPC</td><td>SEW-ResNet</td><td>LoRaFB-SNet</td></tr><tr><td>Movie1</td><td>0.821±0.006</td><td>0.506 (61.6%)</td><td>0.348 (42.4%)</td><td>0.452 (55.0%)</td><td>0.520 (63.3%)</td></tr><tr><td>Movie2</td><td>0.616±0.009</td><td>0.223 (36.2%)</td><td>0.172 (27.9%)</td><td>0.094 (15.2%)</td><td>0.283 (45.9%)</td></tr></table>"
+    },
+    {
+      "text": "SEW-ResNet It is a pure feedforward spiking network [13] that has shown the best performance in fitting neural representations of the visual cortex [22, 60]. We pre-train it on both UCF101 and ImageNet. Since the comparison with it focuses on the role of feedback connections, our model adopts identical feedforward structures to its."
+    },
+    {
+      "text": "# 4.3 Results"
+    },
+    {
+      "text": "# 4.3.1 Comparisons of Representational Similarity"
+    },
+    {
+      "text": "We perform representational similarity analyses on the neural dataset under two movie stimuli respectively, and refer to the two cases as Movie1 and Movie2."
+    }
+  ],
+  "url": ""
+}

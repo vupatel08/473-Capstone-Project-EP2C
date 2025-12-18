@@ -1,0 +1,32 @@
+model:
+  name: "LLaMA-7B"
+  model_path: "path/to/llama-7b"
+
+dataset:
+  name: "BiasBios"
+  data_dir: "datasets/BiasBios"
+  split: ["train", "validation", "test"]
+  train_size: 1000
+  val_size: 1000
+  test_size: 5000
+
+profiling:
+  top_heads_count: 50 # number of heads to select based on profiling
+  profile_samples: 1000 # number of samples for profiling
+
+attention_steering:
+  alpha: 0.01  # attention reweighting scale coefficient
+  heads_selection_strategy: "top-per-task"  # options: "top-per-task", "union", "intersection"
+
+evaluation:
+  metrics:
+    format_accuracy: true
+    prediction_accuracy: true
+    pronoun_accuracy: true
+    fluency: true
+    counterfact_effectiveness: true
+
+training:
+  batch_size: 16  # inference does not require training, but placeholder if needed later
+  learning_rate: 5e-6  # placeholder; no fine tuning in described method
+  epochs: 0  # no training; method is inference-time only

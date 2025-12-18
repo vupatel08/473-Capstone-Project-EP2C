@@ -1,0 +1,46 @@
+training:
+  learning_rate: 0.0002  # AdamW optimizer initial learning rate
+  batch_size: 16        # Batch size for training
+  total_iterations: 2000000  # Total training iterations (based on paper: 2M)
+  decay_strategy: cosine  # Learning rate decay schedule
+  optimizer_betas: [0.9, 0.999]
+  AdamW_weight_decay: 0.01  # Default weight decay
+
+model:
+  fft_size: 1024            # FFT window size
+  hop_length: 256           # Hop length between frames
+  mel_bins: 100             # Number of mel spectrogram bins
+  spectral_dim: 513         # Number of spectral coefficients (fft_size/2 + 1)
+  hidden_dim: 768           # Hidden dimension inside generator network
+  spectral_heads: 2         # Number of spectral output heads: magnitude logits and phase (or phase parameters)
+  phase_representation: 'phase_logits'  # Options: 'phase_logits', 'phase_params', 'sign_logmag'
+
+dataset:
+  sample_rate: 24000        # Sampling rate in Hz
+  segment_size: 16384       # Number of samples per training segment (~683 ms)
+  mel_params:
+    n_fft: 1024
+    hop_length: 256
+    n_mels: 100
+  data_augmentation:
+    random_gain_db: [-6, -1] # Random gain range in dBFS
+
+training:
+  total_iterations: 2000000
+  save_interval: 100000     # Save model checkpoints every 100k iterations
+  log_interval: 1000        # Log training metrics every 1k iterations
+
+evaluation:
+  metrics:
+    pesq: true
+   .visqol: true
+    mos: true
+  eval_batches: 16          # Number of batches for evaluation
+  eval_samples: 1000        # Number of samples for objective metrics
+
+loss:
+  adversarial:
+    type: hinge
+  spectral_l1: true
+  feature_matching: true
+  spectral_regularization: true  # Optional, if spectral smoothing or phase regularization is used

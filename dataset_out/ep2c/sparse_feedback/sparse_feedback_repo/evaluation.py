@@ -1,0 +1,325 @@
+## evaluation.py
+import json
+import os
+import torch
+import numpy as np
+from typing import List, Dict, Tuple, Optional
+from transformers import AutoTokenizer
+from collections import defaultdict
+import random
+
+# Import classes from other modules
+from dataset_loader import Instruction, ResponseSample
+from model import LanguageModel
+from reward_model import RewardModel
+from policy import PolicySampler
+
+# Load configuration
+import yaml
+with open("config.yaml", "r") as f:
+    CONFIG = yaml.safe_load(f)
+
+class Evaluation:
+    """
+    Class for evaluating the response quality, win rates, and consistency between feedback protocols.
+    """
+    def __init__(self,
+                 instruction_data_path: str = CONFIG["evaluation"]["test_instructions_path"],
+                 reference_responses_path: str = CONFIG["evaluation"]["reference_responses_path"],
+                 reward_model_paths: Dict[str, str] = None,
+                 test_instructions_path: str = None,
+                 reference_responses_path: str = None,
+                 feedback_protocol: str = "ranking",  # or "rating"
+                 n_responses: int = 64,
+                 eval_samples: int = 1000,
+                 seed: int = 42):
+        """
+        Initialize evaluation with models, datasets, and configurations.
+        """
+        self.seed = seed
+        random.seed(self.seed)
+        np.random.seed(self.seed)
+        torch.manual_seed(self.seed)
+
+        # Paths
+        self.instruction_data_path = instruction_data_path
+        self.reference_responses_path = reference_responses_path
+        self.feedback_protocol = feedback_protocol
+        self.n_responses = n_responses
+        self.eval_samples = eval_samples
+
+        # Load instruction set
+        self.instructions = self.load_instructions()
+
+        # Load reference responses
+        self.reference_responses = self.load_reference_responses()
+
+        # Load models
+        # Base language model (e.g., Alpaca-7B)
+        self.base_model = LanguageModel(model_name=CONFIG["training"].get("model_name", "alpaca"), device='cuda')
+
+        # Load reward models (for different feedback protocols)
+        # Expect paths in reward_model_paths dict, keys: "rating", "ranking"
+        self.reward_models = {}
+        if reward_model_paths:
+            for key, path in reward_model_paths.items():
+                mode = "regression" if key == "rating" else "preference"
+                self.reward_models[key] = RewardModel(
+                    model_name=CONFIG["reward_model"].get("model_name", "allenai/longformer-base-4096"),
+                    feedback_data=None,  # None, will be loaded from trained checkpoints
+                    training_mode=mode,
+                    device='cuda'
+                )
+                self.reward_models[key].load(path)
+        else:
+            # If no explicit paths, instantiate models (not trained here)
+            pass
+
+        # Initialize PolicySampler for sampling responses
+        # For simplicity, use the base model as sampler
+        self.policy_sampler = PolicySampler(
+            language_model=self.base_model,
+            reward_model=None,  # Will set later when sampling
+            n_responses=self.n_responses,
+            temperature=CONFIG["sampling"].get("temperature", 0.0)
+        )
+
+    def load_instructions(self) -> List[Instruction]:
+        """
+        Load test instructions from JSON file.
+        Expected format: list of dicts with at least 'id' and 'text' keys.
+        """
+        with open(self.instruction_data_path, 'r') as f:
+            data = json.load(f)
+        instructions = []
+        for item in data:
+            instr_id = item.get('id', '')
+            text = item.get('text', '') or item.get('instruction', '')
+            instructions.append(Instruction(instr_id, text))
+        return instructions
+
+    def load_reference_responses(self) -> Dict[str, str]:
+        """
+        Load reference responses for evaluation.
+        Format: { instruction_id: response }
+        """
+        with open(self.reference_responses_path, 'r') as f:
+            refs = json.load(f)
+        return refs
+
+    def generate_responses(self, instruction: Instruction) -> List[str]:
+        """
+        Generate multiple responses for the instruction using the base LM.
+        """
+        responses = self.base_model.generate(
+            prompt=instruction.text,
+            max_length=128,
+            temperature=CONFIG["sampling"].get("temperature", 0.0),
+            num_return_sequences=self.n_responses
+        )
+        return responses
+
+    def score_response(self, response: str, instruction: str, model: RewardModel) -> float:
+        """
+        Score a single response using the provided reward model.
+        """
+        return model.score_response(response, instruction)
+
+    def score_responses(self, responses: List[str], instruction: str, model: RewardModel) -> List[float]:
+        """
+        Score all responses for an instruction using the reward model.
+        """
+        scores = []
+        for resp in responses:
+            score = self.score_response(resp, instruction, model)
+            scores.append(score)
+        return scores
+
+    def compute_preferences(self, responses: List[str], instruction: str, model: RewardModel) -> List[Tuple[int, float]]:
+        """
+        For pairwise responses, compute preferences based on scores.
+        Return list of tuples: (preference, score_diff)
+        preference: 1 if response 1 preferred, 2 if response 2, 0.5 if tie
+        """
+        preferences = []
+        for i in range(len(responses)):
+            for j in range(i+1, len(responses)):
+                score_i = self.score_response(responses[i], instruction, model)
+                score_j = self.score_response(responses[j], instruction, model)
+                if abs(score_i - score_j) < 1e-4:
+                    pref = 0.5
+                elif score_i > score_j:
+                    pref = 1
+                else:
+                    pref = 2
+                preferences.append((pref, score_i - score_j))
+        return preferences
+
+    def evaluate_instruction(self, instruction: Instruction, reference_response: str,
+                             model: RewardModel, protocol: str = "ranking") -> dict:
+        """
+        Generate responses, score them, and compute preferences for one instruction.
+        """
+        responses = self.generate_responses(instruction)
+        scores = self.score_responses(responses, instruction.text, model)
+
+        # For ranking protocol: pairwise preferences
+        preferences = []
+        if protocol == "ranking":
+            preferences = self.compute_preferences(responses, instruction.text, model)
+        # For rating protocol: use individual scores
+        elif protocol == "rating":
+            preferences = list(zip(scores, responses))
+        else:
+            raise ValueError("Protocol must be 'ranking' or 'rating'.")
+
+        return {
+            "instruction_id": instruction.id,
+            "responses": responses,
+            "scores": scores,
+            "preferences": preferences
+        }
+
+    def run_evaluation(self, protocol: str = "ranking", eval_reference: bool = True,
+                       eval_iterations: int = None) -> List[dict]:
+        """
+        Run evaluation on all instructions, generate responses, compute scores, preferences.
+        """
+        results = []
+
+        # For each instruction, generate responses, score, evaluate
+        for instr in self.instructions:
+            # Use the first reward model based on protocol
+            model = self.reward_models.get(protocol)
+            if model is None:
+                # fallback to a default or skip
+                continue
+            result = self.evaluate_instruction(instr, self.reference_responses.get(instr.id, ""), model, protocol)
+            results.append(result)
+        return results
+
+    def compute_win_rate(self, responses_data: List[dict], protocol: str = "ranking") -> float:
+        """
+        Compute win rate of policy-generated responses vs reference responses.
+        """
+        wins = 0
+        total = 0
+        for item in responses_data:
+            instr_id = item['instruction_id']
+            responses = item['responses']
+            scores = item['scores']
+            # Generate response from reference
+            ref_response = self.reference_responses.get(instr_id, "")
+
+            # Score reference
+            ref_score = 0.
+            if self.reward_models.get(protocol):
+                ref_score = self.score_response(ref_response, instr_id, self.reward_models[protocol])
+
+            max_idx = scores.index(max(scores))
+            best_response = responses[max_idx]
+            best_score = scores[max_idx]
+
+            # Compare window: response vs reference
+            if self.reward_models.get(protocol):
+                ref_response_score = self.score_response(ref_response, instr_id, self.reward_models[protocol])
+            else:
+                ref_response_score = 0
+
+            # Preference: stepped by protocol type with tie handling
+            if protocol == "ranking":
+                # use scores directly
+                if best_score > ref_response_score + 1e-4:
+                    wins += 1
+                elif abs(best_score - ref_response_score) < 1e-4:
+                    wins += 0.5
+            elif protocol == "rating":
+                # compare scalar scores directly
+                if best_score > ref_response_score + 1e-4:
+                    wins += 1
+                elif abs(best_score - ref_response_score) < 1e-4:
+                    wins += 0.5
+            total += 1
+        return wins / total if total > 0 else 0.0
+
+    def assess_inconsistency(self, data_ai: List[dict], data_human: List[dict]) -> dict:
+        """
+        Compare feedback from AI and humans on the same set of responses.
+        Compute percentages of agreement/disagreement.
+        """
+        consistent_count = 0
+        total_count = 0
+        inconsistent_count = 0
+
+        # Convert ratings to preferred response (ranking form) for comparisons
+        # For each response pair, compare preferences from AI and human
+        for ai_entry in data_ai:
+            instr_id = ai_entry['instruction_id']
+            # Find matching human feedback for same responses
+            # Here, just a placeholder: in practice, align data properly
+            human_entry = next((h for h in data_human if h['instruction_id'] == instr_id), None)
+            if human_entry is None:
+                continue
+
+            # Convert rating to ranking preference
+            ai_pref = ai_entry.get('preference', None)
+            human_pref = human_entry.get('preference', None)
+            if ai_pref is None or human_pref is None:
+                continue
+
+            total_count += 1
+            if abs(ai_pref - human_pref) < 1e-4:
+                consistent_count += 1
+            else:
+                inconsistent_count += 1
+
+        inconsistency_percentage = 100 * (inconsistent_count / total_count) if total_count > 0 else 0
+
+        return {
+            "total_comparisons": total_count,
+            "consistent": 100 * (consistent_count / total_count) if total_count > 0 else 0,
+            "inconsistent": inconsistency_percentage
+        }
+
+    def run_full_evaluation(self):
+        """
+        Run the entire evaluation pipeline, including response generation,
+        scoring, win-rate, and inconsistency analysis.
+        """
+        # Generate responses and evaluate
+        responses_data = self.run_evaluation(protocol=self.feedback_protocol)
+
+        # Compute win-rate vs reference
+        win_rate = self.compute_win_rate(responses_data, protocol=self.feedback_protocol)
+
+        # Optional: inconsistency measures if data from AI and Human feedback available
+        # For illustration, assume data_ai and data_human are available
+        data_ai = []   # Load AI feedback data (placeholder)
+        data_human = []  # Load human feedback data (placeholder)
+        inconsistency = self.assess_inconsistency(data_ai, data_human)
+
+        # Response quality metrics (length, diversity) can be computed here
+        # Placeholder for auxiliary metrics
+        length_stats = self.compute_response_length_stats(responses_data)
+
+        return {
+            "win_rate": win_rate,
+            "inconsistency": inconsistency,
+            "length_stats": length_stats
+        }
+
+    def compute_response_length_stats(self, responses_data: List[dict]) -> dict:
+        """
+        Calculate statistics like average length, diversity for responses.
+        """
+        lengths = []
+        unique_token_counts = []
+        for item in responses_data:
+            for resp in item['responses']:
+                tokens = resp.split()
+                lengths.append(len(tokens))
+                unique_token_counts.append(len(set(tokens)))
+        return {
+            "avg_length": np.mean(lengths) if lengths else 0,
+            "avg_unique_tokens": np.mean(unique_token_counts) if unique_token_counts else 0
+        }

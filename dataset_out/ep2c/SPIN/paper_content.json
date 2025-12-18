@@ -1,0 +1,158 @@
+{
+  "title": "Self-Play Fine-Tuning Converts Weak Language Models to Strong Language Models",
+  "abstract": "Zixiang Chen \\* 1 Yihe Deng \\* 1 Huizhuo Yuan \\* 1 Kaixuan Ji 1 Quanquan Gu 1",
+  "authors": [],
+  "body_text": [
+    {
+      "text": "# Self-Play Fine-Tuning Converts Weak Language Models to Strong Language Models"
+    },
+    {
+      "text": "Zixiang Chen \\* 1 Yihe Deng \\* 1 Huizhuo Yuan \\* 1 Kaixuan Ji 1 Quanquan Gu 1"
+    },
+    {
+      "text": "# 1 Introduction"
+    },
+    {
+      "text": "Harnessing the power of human-annotated data through Supervised Fine-Tuning (SFT) is pivotal for advancing Large Language Models (LLMs). In this paper, we delve into the prospect of growing a strong LLM out of a weak one without the need for acquiring additional human-annotated data. We propose a new fine-tuning method called Self-Play fIne-tuNing (SPIN), which starts from a supervised fine-tuned model. At the heart of SPIN lies a self-play mechanism, where the LLM refines its capability by playing against instances of itself. More specifically, the LLM generates its own training data from its previous iterations, refining its policy by discerning these self-generated responses from those obtained from human-annotated data. Our method progressively elevates the LLM from a nascent model to a formidable one, unlocking the full potential of human-annotated demonstration data for SFT. Theoretically, we prove that the global optimum to the training objective function of our method is achieved only when the LLM policy aligns with the target data distribution. Empirically, we evaluate our method on several benchmark datasets including the HuggingFace Open LLM Leaderboard, MT-Bench, and datasets from Big-Bench. Our results show that SPIN can significantly improve the LLM’s performance across a variety of benchmarks and even outperform models trained through direct preference optimization (DPO) supplemented with extra GPT-4 preference data. This sheds light on the promise of self-play, enabling the achievement of humanlevel performance in LLMs without the need for expert opponents. Codes are available at https://github.com/uclaml/SPIN."
+    },
+    {
+      "text": "# Abstract"
+    },
+    {
+      "text": "Large Language Models (LLMs) have began a groundbreaking era in artificial general intelligence (AGI), demonstrating extraordinary capabilities across a wide range of domains that require intricate reasoning and specialized knowledge. These models excel in areas such as mathematical reasoning/problem solving (Cobbe et al., 2021; Wei et al., 2022; Lewkowycz et al., 2022), code generation/programming (Chen et al., 2021; Austin et al., 2021; Li et al., 2022), text generation (Bubeck et al., 2023; Anil et al., 2023; Touvron et al., 2023), summarization and creative writing, among others. A significant advancement in LLMs is the post-pre-training alignment with the more desirable behaviors (Mishra et al., 2021; Victor et al., 2022; Chung et al., 2022; Thoppilan et al., 2022), a process often reliant on the costly human-annotated data. Typical alignment methods include Supervised Fine-Tuning (SFT) (Ouyang et al., 2022; Tunstall et al., 2023a) based on human demonstrations, and Reinforcement Learning from Human Feedback (RLHF) (Christiano et al., 2017; Ziegler et al., 2019; Stiennon et al., 2020; Bai et al., 2022a) based on human preferences."
+    },
+    {
+      "text": "All the aforementioned alignment methods require a substantial volume of human annotated data. Therefore, there is increasing interest in developing fine-tuning methods that can effectively utilize human data, thereby streamlining the alignment process. This motivates us to study fine-tuning LLMs without the need for additional human-annotated data beyond the fine-tuning dataset. Our study is also related to the broader goal of converting weak models to strong models without the requirement for extra training data, which is of central interest in machine learning that can be traced back to the boosting algorithms (Kearns & Valiant, 1994; Schapire, 1990; Freund, 1995; Freund & Schapire, 1997). The self-training algorithm (Vapnik, 1999; Grandvalet & Bengio, 2004; Lee, 2013) has also been proved to be able to convert weak learners to strong learners in mixture models without the need for additional labeled data (Frei et al., 2022; Kou et al., 2022). However, the pursuit of autonomously enhancing a weak LLM without external guidance is both intriguing and understudied. This raises the following question:"
+    },
+    {
+      "text": "Can we empower a weak LLM to improve itself without acquiring additional human annotated data?"
+    },
+    {
+      "text": "In this paper, we answer this question affirmatively. Inspired by the success of self-play mechanisms (Samuel, 2000) in games, exemplified by AlphaGo Zero (Silver et al., 2017b), AlphaZero (Silver et al., 2017a), with historical roots traced back to TD-Gammon (Tesauro et al., 1995), we propose to convert a weak LLM to a strong one through the lens of self-play, where the model is enhanced by playing against itself without requiring any direct supervision. In particular, we propose a novel fine-tuning method called Self-Play fIne-tuNing (SPIN), which begins from a supervised finetuned model. SPIN allows the LLM to engage in self-play, eliminating the need for an expert annotator such as a human or more advanced LLMs like GPT-4. In detail, with the LLM from previous iteration $t$ denoted by $p _ { \\pmb { \\theta } _ { t } }$ , we employ it to generate responses $\\mathbf { y } ^ { \\prime }$ to the prompts $\\mathbf { x }$ in the human-annotated SFT dataset. The subsequent objective is to find a new LLM $p _ { \\theta _ { t + 1 } }$ , capable of distinguishing the responses $\\mathbf { y } ^ { \\prime }$ generated by $p _ { \\pmb { \\theta } _ { t } }$ from the responses y generated by humans. This process can be seen as a two-player game: the main player, or the new LLM $p _ { \\theta _ { t + 1 } }$ , seeks to discern between the responses of the opponent player $p _ { \\pmb { \\theta } _ { t } }$ and human-generated responses, while the opponent, or the old $\\mathrm { L L M } p _ { \\theta _ { t } }$ , generates responses as similar as possible to those in the human-annotated SFT dataset. The new LLM $p _ { \\theta _ { t + 1 } }$ is obtained by fine-tuning the old one $p _ { \\pmb { \\theta } _ { t } }$ to prefer responses from $p _ { \\mathrm { d a t a } }$ over $p _ { \\pmb { \\theta } _ { t } }$ , resulting in a distribution $p _ { \\theta _ { t + 1 } }$ that is more aligned with $p _ { \\mathrm { d a t a } }$ . In the next iteration, the newly obtained LLM $p _ { \\theta _ { t + 1 } }$ becomes the opponent for response generation, with the self-play process aiming for the LLM to eventually converge to $p _ { \\theta ^ { * } } = p _ { \\mathrm { d a t a } }$ , so that the strongest possible LLM can no longer differentiate the responses generated by its previous version and those generated by the human."
+    },
+    {
+      "text": "Interestingly, our method exhibits similarity with the recently introduced direct preference optimization (DPO) method (Rafailov et al., 2023), with the notable distinction being the self-play nature of our method. Consequently, our approach stands out by eliminating the need for extra human preference data, a requirement present in the DPO method. Additionally, the self-play mechanism in our method resembles the idea of generative adversarial networks (GAN) (Goodfellow et al., 2014; Arjovsky et al., 2017), albeit that both the discriminator (main player) and the generator (the opponent) in our method are instances of the same LLM from different iterations. Theoretically, we prove that our method converges when the distribution of the LLM is identical to the target data distribution, i.e., $p _ { \\pmb { \\theta } _ { t } } = p _ { \\mathrm { d a t a } }$ . Our experimental results on zephyr-7b-sft-full (Tunstall et al., 2023a), a finetuned LLM based on Mistral-7B (Jiang et al., 2023), show that while continued training using SFT on its own SFT dataset Ultrachat200k (Ding et al., 2023) reaches a performance plateau or even diminished evaluation scores, our method consistently improves zephyr-7b-sft-full across successive iterations while leveraging only a 50k subset of Ultrachat200k dataset. Ultimately, SPIN effectively improves the base model’s average score from 58.14 to 63.16 on the HuggingFace Open LLM Leaderboard (Beeching et al., 2023) with remarkable $1 0 \\% +$ improvement in scores on GSM8k and TruthfulQA, and from 5.94 to 6.78 on MT-Bench (Zheng et al., 2023). Notably, SPIN achieves results that are even comparable to models trained on additional 62k preference dataset (Tunstall et al., 2023a) on Open LLM leaderboard and MT-Bench."
+    },
+    {
+      "text": "Concurrent to our work, Singh et al. (2023) proposed the use of synthetic data with binary feedback in self-training, reducing the reliance on human data. In contrast, our approach eliminates the need for additional binary feedback from humans or an extra reward model thanks to the selfplay mechanism. Additionally, Burns et al. (2023) employed a weak LLM model as the guidance to train stronger LLMs in a fashion of weak-to-strong generation. Unlike Burns et al. (2023), which necessitates both a weak supervisor and a strong model, our SPIN operates effectively with a single LLM."
+    },
+    {
+      "text": "Notation. We use lowercase letters and lowercase boldface letters to denote scalars and vectors, respectively. We use $[ N ]$ to denote the index set $\\{ 1 , \\ldots , N \\}$ . In the function space, let $\\mathcal { F }$ be the function class. The symbol $q _ { \\mathrm { d a t a } }$ designates the target data distribution, while $p$ represents the conditional probability of LLM’s response (i.e., LLM policy)."
+    },
+    {
+      "text": "# 2 Related Work"
+    },
+    {
+      "text": "Self-Play. Self-play (Samuel, 1959; Tesauro et al., 1995), where the algorithm learns by playing against itself, has gained notable attention due to its effectiveness in multiagent reinforcement learning (MARL). This method involves agents engaging in interactions with copies of themselves, enabling an increasing level of challenge and complexity within the learning environment. A fundamental work in the field of self-play is AlphaGo Zero (Silver et al., 2017b), which demonstrated exceptional performance against human players using a self-play learning scheme. Subsequent research has expanded upon the concept of self-play, exploring various adaptations and implementations (Anthony et al., 2017; Lanctot et al., 2017; Bansal et al., 2018; Hernandez-Leal et al., 2018; Muller et al., 2019; Vinyals et al., 2019). Our method takes the self-play approach akin to AlphaGo Zero, which can convert a weak model to a strong one without additional human-annotated data. While the effectiveness of self-play in MARL is wellestablished, to our knowledge, our work is the first to apply this approach to the enhancement of LLMs."
+    },
+    {
+      "text": "Synthetic Data for LLMs. In the context of supervised fine-tuning (SFT) of LLMs, human-crafted data has proven to be a remarkably effective source that enhances the performance of LLMs on tasks such as code generation (Roziere et al., 2023; Yang et al., 2023) and mathematical reasoning (Yuan et al., 2023; Luo et al., 2023). While human data typically exhibits high quality, acquiring sufficient amount of such data poses a challenge in cost. In light of this consideration, the use of synthetic data has become increasingly popular and considered as a proxy for human data. This approach primarily leverages advanced LLMs such as the GPT series (Radford et al., 2019; Brown et al., 2020; OpenAI, 2023) as the guidance to generate high-quality data (Josifoski et al., 2023; Taori et al., 2023; Chiang et al., 2023; Li et al., 2023). Recent research has also highlighted the rephrasing capability of LLMs in prompting for better LLM response (Deng et al., 2023; Prasad et al., 2023) as well as augmenting synthetic data for more effective SFT (Yu et al., 2023; Liu et al., 2023). In contrast to prior studies that utilized more advanced models for synthetic data generation when pre-training or fine-tuning a target model, our approach directly generates synthetic data from the target model itself."
+    },
+    {
+      "text": "# 3 Problem Setting and Preliminaries"
+    },
+    {
+      "text": "We consider a Large Language Model (LLM) parameterized by $\\pmb \\theta$ and denoted by $p _ { \\theta }$ . The model takes as input a sequence $\\mathbf { x } = [ x _ { 1 } , \\ldots , x _ { n } ]$ , commonly referred to as the prompt, to generate the corresponding response $\\mathbf { y } = [ y _ { 1 } , \\dots , y _ { m } ]$ . The response $\\mathbf { y }$ is therefore considered as a sample from the conditional probability distribution $p _ { \\pmb { \\theta } } ( \\cdot | \\mathbf { x } )$ . In LLMs, $x _ { i }$ and $y _ { j }$ represent individual tokens from a predetermined vocabulary within the sequences $\\mathbf { x }$ and y, respectively. The auto-regressive model $p _ { \\pmb { \\theta } }$ generates tokens sequentially for a given position, leveraging only the sequence of previously generated tokens. This model therefore constitutes a Markov process, where the conditional probability distribution $p _ { \\pmb { \\theta } } ( \\mathbf { y } | \\mathbf { x } )$ can be expressed through a decomposition as follows:"
+    },
+    {
+      "text": "$$\np _ { \\pmb \\theta } ( \\mathbf y | \\mathbf x ) = \\prod _ { j = 1 } ^ { m } p _ { \\pmb \\theta } ( y _ { j } | \\mathbf x , \\mathbf y _ { < j } ) ,\n$$"
+    },
+    {
+      "text": "where $\\mathbf { y } _ { < 1 }$ is null and $\\mathbf { y } _ { < j } ~ = ~ \\left[ y _ { 1 } , \\ldots , y _ { j - 1 } \\right]$ for $j ~ =$ $2 , \\ldots , m$ . In the following, we review two major fine-tuning methods for LLMs: supervised fine-tuning and reinforcement learning (RL) fine-tuning."
+    },
+    {
+      "text": "# 3.1 Supervised Fine-Tuning"
+    },
+    {
+      "text": "Supervised fine-tuning (SFT) is employed to tailor a pretrained LLM to specific downstream tasks, leveraging relatively smaller dataset of labeled examples in comparison to the large-scale pre-training data (Ouyang et al., 2022; Yu et al., 2023). In this context, we consider a specific task where the prompts, denoted by $\\mathbf { x }$ , are derived from a specified distribution $q ( \\cdot )$ . The notation $p _ { \\mathrm { d a t a } } ( \\cdot | \\mathbf { x } )$ then represents the probability distribution of the associated highquality responses y from the training data. Consequently, SFT involves training the LLM to minimize the following negative log-likelihood loss associated with these distributions,"
+    },
+    {
+      "text": "$$\nL _ { \\mathrm { S F T } } ( \\pmb \\theta ) = - \\mathbb { E } _ { \\mathbf { x } \\sim q ( \\cdot ) , \\mathbf { y } \\sim p _ { \\mathrm { d a t a } } ( \\cdot | \\mathbf { x } ) } \\bigg [ \\log p _ { \\pmb \\theta } \\big ( \\mathbf { y } | \\mathbf { x } \\big ) \\bigg ] .\n$$"
+    },
+    {
+      "text": "It should be noted that excluding $\\mathbf { x } \\sim q ( \\cdot )$ from the expectation term yields the typical cross-entropy loss, expressed as $- \\mathbb { E } _ { { \\mathbf { y } } \\sim p _ { \\mathrm { d a t a } } ( \\cdot | \\mathbf { x } ) } [ \\log p _ { \\pmb { \\theta } } ( { \\mathbf { y } } | { \\mathbf { x } } ) ] . ~ L _ { \\mathrm { i } }$ $L _ { \\mathrm { S F T } } ( \\pmb { \\theta } )$ attains its minimum when the model’s predictive distribution $p _ { \\pmb { \\theta } } ( \\mathbf { y } | \\mathbf { x } )$ aligns perfectly with the distribution of the labeled high-quality responses $p _ { \\mathrm { d a t a } } ( \\mathbf { y } | \\mathbf { x } )$ ."
+    },
+    {
+      "text": "Consequently, the LLM after SFT is anticipated to generate responses that closely resemble those from $p _ { \\mathrm { d a t a } } ( \\mathbf { y } | \\mathbf { x } )$ . This procedure is therefore expected to significantly enhance the model’s performance in generating appropriate responses for a specific task."
+    },
+    {
+      "text": "# 3.2 RL Fine-Tuning"
+    },
+    {
+      "text": "RL fine-tuning (Christiano et al., 2017; Bai et al., 2022a; Gao et al., 2023a) offers another method for enhancing the specific capabilities of general-purpose pre-trained models. Typically, RL fine-tuning is employed subsequent to SFT to achieve improved alignment for LLMs (Tunstall et al., 2023a)."
+    },
+    {
+      "text": "For a given sequence pair $\\displaystyle ( \\mathbf { x } , \\mathbf { y } )$ , RL fine-tuning necessitates a deterministic reward function $r ( \\mathbf { x } , \\mathbf { y } )$ . The higher the reward $r ( \\mathbf { x } , \\mathbf { y } )$ , the better the response $\\mathbf { y }$ is to the given prompt $\\mathbf { x }$ . The objective of the RL fine-tuning process is then to maximize the following objective function:"
+    },
+    {
+      "text": "$$\n\\begin{array} { r l } & { L _ { \\mathrm { R L } } ( \\pmb \\theta ) = \\mathbb { E } _ { \\mathbf { x } \\sim \\ b q ( \\cdot ) , \\mathbf { y } \\sim p _ { \\pmb \\theta } ( \\cdot | \\mathbf { x } ) } [ r ( \\mathbf { x } , \\mathbf { y } ) ] } \\\\ & { \\qquad - \\lambda \\mathbb { E } _ { \\mathbf { x } \\sim \\ b q ( \\cdot ) } \\mathrm { K L } \\big ( p _ { \\pmb \\theta } ( \\cdot | \\mathbf { x } ) | | p _ { \\mathrm { r e f } } ( \\cdot | \\mathbf { x } ) \\big ) , } \\end{array}\n$$"
+    },
+    {
+      "text": "where the Kullback-Leibler (KL) regularization enforces the new model $p _ { \\pmb { \\theta } }$ to be close to the reference model $p _ { \\mathrm { r e f } }$ and $\\lambda > 0$ is the regularization parameter to control the deviation of the new model $p _ { \\theta }$ from the reference model $p _ { \\mathrm { r e f } }$ . In practice, the reference model $p _ { \\mathrm { r e f } }$ is often initialized as the supervised fine-tuned model. The inclusion of KL regularization is vital for preventing excessive deviation from the reference model, which in turn reduces the risk of mode collapse."
+    },
+    {
+      "text": "Meanwhile, the primary challenge in RL fine-tuning lies in finding a good reward function. Typically, this function requires training on a preference dataset. The compilation of such a dataset demands significant resources, often involving comprehensive evaluations either by human annotators, i.e., reinforcement learning from human feedback (RLHF) (Christiano et al., 2017; Bai et al., 2022a) or strong AI agents, i.e., reinforcement learning from AI feedback (RLAIF) (Bai et al., 2022b)."
+    },
+    {
+      "text": "# 4 Method"
+    },
+    {
+      "text": "In this section, we introduce a new fine-tuning method for enhancing the performance of LLMs without relying on additional human or AI feedback. Consider a high-quality supervised fine-tuning (SFT) dataset $S _ { \\mathrm { S F T } } = \\{ ( \\mathbf { x } , \\mathbf { y } ) \\} _ { i = 1 } ^ { n }$ which are sampled from the marginal distribution $q ( \\mathbf { x } )$ and $p _ { \\mathrm { d a t a } } ( \\mathbf { y } | \\mathbf { x } )$ . Given a supervised fine-tuned LLM $p _ { \\pmb { \\theta } _ { 0 } }$ , further application of the SFT approach in (3.1) with $S _ { \\mathrm { S F T } }$ will be ineffective and potentially lead to worse performance. In addition, without human and/or AI feedback, it becomes infeasible to acquire a preference dataset for RL fine-tuning (e.g., RLHF and RLAIF). This hinders the application of RL fine-tuning techniques."
+    },
+    {
+      "text": "We evaluate $p _ { \\pmb { \\theta } _ { 0 } }$ against $S _ { \\mathrm { S F T } }$ , where $p _ { \\pmb { \\theta } _ { 0 } }$ is the LLM achieved by SFT using (3.1). We notice a persistent quality gap between the groundtruth response $\\mathbf { y }$ from $S _ { \\mathrm { S F T } }$ and the LLM-generated response $\\mathbf { y } ^ { \\prime } \\sim p _ { \\pmb { \\theta } } ( \\cdot | \\mathbf { x } )$ (refer to Figure 1). This disparity indicates that there is still room for improvement over $p _ { \\pmb { \\theta } _ { 0 } }$ . Therefore, we propose to use the synthetic data generated by the LLM to enhance LLM’s performance starting from $p _ { \\pmb { \\theta } _ { 0 } }$ iteratively."
+    },
+    {
+      "text": "# 4.1 Self-Play Fine-Tuning (SPIN)"
+    },
+    {
+      "text": "Let us consider a two-player game, where the main player’s objective is to distinguish the responses generated by the LLM and those generated by the human. Meanwhile, the opponent’s role is to generate responses that are indistinguishable from the human’s responses. The core of our method is the self-play mechanism, where both the main player and the opponent are the same LLM, but from different iterations. More specifically, the opponent is the old LLM from the previous iteration, and the main player is the new LLM to be learned in the current iteration."
+    },
+    {
+      "text": "In iteration $t + 1$ , the opponent is the LLM from the previous iteration, denoted by $p _ { \\pmb { \\theta } _ { t } }$ , which generates responses $\\mathbf { y } ^ { \\prime }$ for those prompts $\\mathbf { x }$ in the SFT dataset according to $p _ { \\pmb { \\theta } _ { t } } ( \\cdot | \\mathbf { x } )$ Our method, therefore, consists of the following two steps at iteration $t { + } 1$ : (1) training the main player, and (2) updating the opponent player."
+    },
+    {
+      "text": "Training the Main Player. We begin with illustrating how we expect a main player is trained to distinguish LLM responses from human responses. Motivated by integral probability metric (IPM) (Müller, 1997), we formulate our objective function such that the main player $f _ { t + 1 }$ maximizes the expected value gap between the target data distribution $p _ { \\mathrm { d a t a } }$ and the opponent player’s distribution $p _ { \\pmb { \\theta } _ { t } }$"
+    },
+    {
+      "text": "$$\nf _ { t + 1 } = \\underset { f \\in \\mathcal { F } _ { t } } { \\mathrm { a r g m a x } } \\mathbb { E } \\big [ f ( \\mathbf { x } , \\mathbf { y } ) - f ( \\mathbf { x } , \\mathbf { y } ^ { \\prime } ) \\big ] ,\n$$"
+    },
+    {
+      "text": "where the expectation is computed over the distributions $\\mathbf { x } \\sim q ( \\cdot ) , \\mathbf { y } \\sim p _ { \\mathrm { d a t a } } ( \\cdot | \\mathbf { x } ) , \\mathbf { y } ^ { \\prime } \\sim p _ { \\pmb { \\theta } _ { t } } ( \\cdot | \\mathbf { x } )$ , and $\\mathcal { F } _ { t }$ is a sequence of highly expressive function classes that we will determine in later deduction. The subscript $t$ in $\\mathcal { F } _ { t }$ is due to that the function class is dependent on $p _ { \\pmb { \\theta } _ { t } }$ . Given such a $f _ { t + 1 }$ and a response sequence $\\mathbf { y }$ to the prompt $\\mathbf { x }$ , the value of $f _ { t + 1 } ( \\mathbf { x } , \\mathbf { y } )$ reflects the main player’s degree of belief that $\\mathbf { y }$ originates from $p _ { \\mathrm { d a t a } }$ rather than $p _ { \\pmb { \\theta } _ { t } }$ . Ideally, the main player $f _ { t + 1 }$ should yield a high value when $\\mathbf { y } \\sim p _ { \\mathrm { d a t a } } ( \\cdot | \\mathbf { x } )$ and a low value when $\\mathbf { y } ^ { \\prime } \\sim p _ { \\pmb { \\theta } _ { t } } ( \\cdot | \\mathbf { x } )$ , where $p _ { \\pmb { \\theta } _ { t } }$ is the opponent’s distribution. Instead of solving (4.1), we can also solve the following more general optimization problem,"
+    },
+    {
+      "text": "$$\nf _ { t + 1 } = \\underset { f \\in \\mathcal { F } _ { t } } { \\mathrm { a r g m i n } } \\mathbb { E } \\big [ \\ell \\big ( f ( \\mathbf { x } , \\mathbf { y } ) - f ( \\mathbf { x } , \\mathbf { y } ^ { \\prime } ) \\big ) \\big ] ,\n$$"
+    },
+    {
+      "text": "where the expectation is computed over the distribution $\\mathbf { x } \\sim q ( \\cdot ) , \\mathbf { y } \\sim p _ { \\mathrm { d a t a } } ( \\cdot | \\mathbf { x } ) , y ^ { \\prime } \\sim p _ { \\pmb { \\theta } _ { t } } ( \\cdot | \\mathbf { x } )$ , and $\\ell ( \\cdot )$ is a loss function that is both monotonically decreasing and convex. For example, a linear loss function $\\ell ( t ) = - t$ reduces (4.2) to the minimization version of (4.1). However, the use of a linear loss function results in an unbounded objective value, which, during continuous training, leads to a negative infinite value of $f ( \\mathbf { x } , \\mathbf { y } ^ { \\prime } )$ on the opponent player’s responses. Therefore, in our work, we choose the logistic loss function $\\ell ( t ) : = \\log ( 1 { + } \\exp ( - t ) )$ for its non-negativity, smoothness, and exponentially decaying tail as $t \\to \\infty$ . Such a choice of loss function aids in preventing the excessive growth in the absolute value of $f$ ."
+    },
+    {
+      "text": "Updating the Opponent Player. Previously we have discussed the training of $f _ { t + 1 }$ given the opponent player’s distribution $p _ { \\pmb { \\theta } _ { t } }$ . Now suppose we have optimized our main player $f _ { t + 1 }$ that can distinguish $p _ { \\mathrm { d a t a } }$ from $p _ { \\pmb { \\theta } _ { t } }$ , within a certain function class $\\mathcal { F } _ { t }$ , we elaborate how we get parameter $\\pmb { \\theta } _ { t + 1 }$ of the opponent player. Specifically, when presented with two responses $\\mathbf { y }$ and $\\mathbf { y } ^ { \\prime }$ to the same prompt $\\mathbf { x }$ , $f _ { t + 1 }$ assesses the values $f _ { t + 1 } ( \\mathbf x , \\mathbf y )$ and $f _ { t + 1 } ( \\mathbf x , \\mathbf y ^ { \\prime } )$ . It then infers that the response with the higher value is from the real data distribution $p _ { \\mathrm { d a t a } }$ and the response with lower value is attributed to the LLM $p _ { \\pmb { \\theta } _ { t } }$ . Subsequently, the objective of the opponent player is to find a better LLM that generates responses indistinguishable from $p _ { \\mathrm { d a t a } }$ for the main player. This is achieved by maximizing the expected value $\\mathbb { E } _ { \\mathbf { x } \\sim q ( \\cdot ) , \\mathbf { y } \\sim p ( \\cdot | \\mathbf { x } ) } [ f _ { t + 1 } ( \\mathbf { x } , \\mathbf { y } ) ]$ . In addition, to prevent excessive deviation of $p _ { \\theta _ { t + 1 } }$ from $p _ { \\pmb { \\theta } _ { t } }$ and stabilize the self-play, we incorporate a Kullback-Leibler (KL) regularization term. Putting these together gives rise to the following optimization problem:"
+    },
+    {
+      "text": "$$\n\\underset { p } { \\mathrm { a r g m a x } } \\mathbb { E } _ { \\mathbf { x } \\sim q ( \\cdot ) , \\mathbf { y } \\sim p ( \\cdot | \\mathbf { x } ) } [ f _ { t + 1 } ( \\mathbf { x } , \\mathbf { y } ) ]\n$$"
+    },
+    {
+      "text": "# Chosen: ground truth completion"
+    },
+    {
+      "text": "In Southampton, what is the most popular form of transportation for commuters?"
+    },
+    {
+      "text": "# Rejected: model generation @Iter 0"
+    },
+    {
+      "text": "In Southampton, what is the most popular form of transportation for commuters?"
+    },
+    {
+      "text": "![](images/794f8b5c5fe28133b54a97c36f5d0f21bf6ceccd38b4aad0d2f86799adf4dc3a.jpg)"
+    },
+    {
+      "text": "I don't have access to current data. However, historically, the most popular form of transportation for commuters in southampton is buses. The city also has a good network of trains and taxis."
+    },
+    {
+      "text": "$5 5 \\%$ of commuters in Southampton use cars as their primary mode of transportation, while $23 \\%$ use public transportation, $12 \\%$ use bikes, and $10 \\%$ walk."
+    }
+  ],
+  "url": ""
+}

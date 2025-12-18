@@ -1,0 +1,39 @@
+training:
+  learning_rate: 2e-5
+  batch_size: 32
+  epochs: 3
+  warmup_steps: 500
+  total_steps: 10000
+  update_ratio_frequency: 100
+  variance_thresholds:
+    activation: 0.025
+    weight: 0.025
+importance_sampling:
+  initial_ratio: 1.0
+  importance_method: gradient_norm
+sampling:
+  activation_ratio: 1.0
+  weight_ratio: 1.0
+hyperparameters:
+  variance_control_thresholds:
+    activation: 0.025
+    weight: 0.025
+  update_step_alpha: 0.01
+  ratio_scaling_beta: 0.95
+  variance_update_frequency: 100
+  monte_carlo_samples: 4
+model:
+  type: bert-base-uncased
+  pretrained: true
+  max_seq_length: 128
+dataset:
+  name: glue
+  task: SST-2
+  split: train
+  tokenizer_name: bert-base-uncased
+  max_tokens: 128
+evaluation:
+  step_interval: 100
+  metrics:
+    - accuracy
+    - loss

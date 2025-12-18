@@ -1,0 +1,174 @@
+# environment.py
+
+import requests
+from typing import List, Dict, Optional
+import logging
+import time
+
+class Environment:
+    """
+    Interface to a planning environment, supporting reset, action execution,
+    executability checking, and plan validation, via environment API calls.
+    """
+    def __init__(self, env_id: str, config: Dict):
+        """
+        Initializes the environment interface.
+        Args:
+            env_id (str): Identifier for the environment (e.g., environment name).
+            config (Dict): Configuration dictionary, expects 'api_base_url'.
+        """
+        self.env_id: str = env_id
+        self.api_base_url: str = config.get("environment", {}).get("api_base_url", "")
+        # Initialize environment state variables
+        self.object_list: List[str] = []
+        self.action_interface: Dict = {}
+        self.current_state: Optional[Dict] = None
+        # Setup logging
+        self.logger = logging.getLogger(__name__)
+        self.logger.setLevel(logging.INFO)
+        # Load environment info if available
+        # For demonstration, we assume object list and action interface are predefined or retrieved
+        # Alternatively, these can be loaded from environment-specific APIs or config
+        self.object_list: List[str] = self._load_object_list()
+        self.action_interface: Dict = self._load_action_interface()
+        # Reset environment to initial state
+        self.reset()
+
+    def _load_object_list(self) -> List[str]:
+        """
+        Placeholder for loading object list from environment API or configuration.
+        Here, assumes objects can be retrieved via an API endpoint or predefined.
+        """
+        # For demo, return empty list or predefined objects
+        # To implement: request API or parse initial environment info
+        return []
+
+    def _load_action_interface(self) -> Dict:
+        """
+        Placeholder for environment action API details.
+        Should be configured based on environment API specifications.
+        """
+        # For demo, return empty dict
+        return {}
+
+    def reset(self) -> None:
+        """
+        Resets the environment to an initial state via API.
+        """
+        reset_url = f"{self.api_base_url}/reset"
+        try:
+            response = requests.post(reset_url)
+            if response.status_code == 200:
+                json_response = response.json()
+                if json_response.get("status", "") == "success":
+                    self.current_state = json_response.get("state", None)
+                    self.logger.info(f"Environment {self.env_id} reset successfully.")
+                else:
+                    self.logger.warning(f"Reset failed for environment {self.env_id}. Response: {json_response}")
+            else:
+                self.logger.error(f"Reset request failed with status code {response.status_code}")
+        except requests.RequestException as e:
+            self.logger.exception(f"Exception during environment reset: {e}")
+        # Optionally, refresh object list or environment info after reset
+        self.object_list = self._load_object_list()
+
+    def execute_action(self, action_str: str) -> bool:
+        """
+        Executes a single action in the environment.
+        Args:
+            action_str (str): Action command (e.g., PDDL action string or API-compatible).
+        Returns:
+            bool: True if execution succeeded, False otherwise.
+        """
+        execute_url = f"{self.api_base_url}/execute"
+        payload = {
+            "action": action_str,
+            "env_id": self.env_id
+        }
+        try:
+            response = requests.post(execute_url, json=payload)
+            if response.status_code == 200:
+                json_response = response.json()
+                success = json_response.get("status", "") == "success"
+                if success:
+                    # Optionally, update internal state if environment provides new state
+                    self.current_state = json_response.get("state", self.current_state)
+                    self.logger.info(f"Action executed successfully in {self.env_id}: {action_str}")
+                else:
+                    self.logger.warning(f"Action execution failed in {self.env_id}: {action_str}")
+                return success
+            else:
+                self.logger.error(f"Execute request failed with status code {response.status_code}")
+        except requests.RequestException as e:
+            self.logger.exception(f"Exception during action execution: {e}")
+        return False
+
+    def check_executability(self, action_sequence: List[str]) -> bool:
+        """
+        Checks if a sequence of actions is executable in the environment.
+        Args:
+            action_sequence (List[str]): List of action strings.
+        Returns:
+            bool: True if sequence is executable, False otherwise.
+        """
+        check_url = f"{self.api_base_url}/check"
+        payload = {
+            "actions": action_sequence,
+            "env_id": self.env_id
+        }
+        try:
+            response = requests.post(check_url, json=payload)
+            if response.status_code == 200:
+                json_response = response.json()
+                executable = json_response.get("executable", False)
+                self.logger.info(f"Sequence executability check in {self.env_id}: {executable}")
+                return executable
+            else:
+                self.logger.error(f"Check executability failed with status code {response.status_code}")
+        except requests.RequestException as e:
+            self.logger.exception(f"Exception during executability check: {e}")
+        return False
+
+    def validate_plan(self, plan: List[str]) -> bool:
+        """
+        Validates whether a plan solves the environment's task.
+        Args:
+            plan (List[str]): List of action strings representing the plan.
+        Returns:
+            bool: True if plan is valid and achieves goal, False otherwise.
+        """
+        validate_url = f"{self.api_base_url}/validate"
+        payload = {
+            "plan": plan,
+            "env_id": self.env_id
+        }
+        try:
+            response = requests.post(validate_url, json=payload)
+            if response.status_code == 200:
+                json_response = response.json()
+                is_valid = json_response.get("valid", False)
+                self.logger.info(f"Plan validation in {self.env_id}: {is_valid}")
+                return is_valid
+            else:
+                self.logger.error(f"Validate plan request failed with status code {response.status_code}")
+        except requests.RequestException as e:
+            self.logger.exception(f"Exception during plan validation: {e}")
+        return False
+
+    def get_object_list(self) -> List[str]:
+        """
+        Returns the list of objects in the environment.
+        """
+        return self.object_list
+
+    def get_action_interface(self) -> Dict:
+        """
+        Returns the environment's action interface description.
+        """
+        return self.action_interface
+
+    def get_current_state(self) -> Optional[Dict]:
+        """
+        Returns current environment state if available.
+        """
+        return self.current_state

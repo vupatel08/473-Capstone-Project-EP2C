@@ -1,0 +1,412 @@
+{
+  "code_to_paper": {
+    "dataset_loader.py:ProteinTextDataset": [
+      "Dataset Preparation",
+      "Methodology",
+      "Experiment Setup"
+    ],
+    "dataset_loader.py:__init__": [
+      "Methods",
+      "Dataset",
+      "Experiment Setup"
+    ],
+    "evaluation.py:plot_fitness_trajectory": [
+      "Methods",
+      "Results",
+      "Discussion"
+    ],
+    "evaluation.py:plot_correlation_scatter": [
+      "Results and Discussion",
+      "Methodology"
+    ],
+    "evaluation.py:plot_proposal_distribution": [
+      "Methods",
+      "Results",
+      "Discussion"
+    ],
+    "main.py:main": [
+      "As an AI",
+      "I need more specific information about the code component and its functionality to accurately link it to the relevant paper sections. The provided information does not give any details about the function in the file main.py. Please provide more details."
+    ],
+    "model.py:ProteinPLM": [
+      "Methods",
+      "Results",
+      "Discussion"
+    ],
+    "model.py:TextEncoder": [
+      "Methods",
+      "Results",
+      "Discussion"
+    ],
+    "model.py:PromptEmbedding": [
+      "Methodology",
+      "Implementation Details",
+      "Experiment and Results"
+    ],
+    "model.py:Heads": [
+      "Methods",
+      "Results",
+      "Discussion"
+    ],
+    "model.py:ProteinDeltaEncoder": [
+      "Methods",
+      "Results",
+      "Discussion"
+    ],
+    "model.py:ProteinDeltaDecoder": [
+      "Methods",
+      "Results",
+      "Discussion"
+    ],
+    "model.py:ProteinHead": [
+      "Methods",
+      "Results",
+      "Discussion"
+    ],
+    "model.py:ProteinDeltaNetwork": [
+      "Methods",
+      "Results",
+      "Discussion"
+    ],
+    "model.py:get_device": [
+      "Methods",
+      "Results",
+      "Discussion"
+    ],
+    "trainer.py:evaluate": [
+      "As the code component and its description are not provided",
+      "it's impossible to determine the most relevant paper sections. Please provide more details."
+    ],
+    "utils.py:DummyDataset": [
+      "As an AI",
+      "I need more specific information about the code component and its functionality to accurately link it to the paper sections. The provided information is not sufficient to make a proper analysis."
+    ],
+    "utils.py:lr_lambda": [
+      "As an AI",
+      "I need more specific information about the function in the file utils.py to accurately determine which sections of the paper are most relevant. The provided information is not sufficient to make a precise judgement."
+    ],
+    "utils.py:__len__": [
+      "As the code component and its description are not provided",
+      "it's impossible to determine the most relevant paper sections. Please provide more details."
+    ],
+    "utils.py:validate_config": [
+      "Methodology",
+      "Implementation Details",
+      "System Configuration"
+    ]
+  },
+  "paper_to_code": {
+    "Dataset Preparation": [
+      {
+        "component": "dataset_loader.py:ProteinTextDataset",
+        "description": "Dataset class to handle loading, preprocessing, and serving data for different modes:\n    pretraining, finetuning, testing.",
+        "file": "dataset_loader.py"
+      }
+    ],
+    "Methodology": [
+      {
+        "component": "dataset_loader.py:ProteinTextDataset",
+        "description": "Dataset class to handle loading, preprocessing, and serving data for different modes:\n    pretraining, finetuning, testing.",
+        "file": "dataset_loader.py"
+      },
+      {
+        "component": "evaluation.py:plot_correlation_scatter",
+        "description": "Scatter plot for mutation scores against true effects.",
+        "file": "evaluation.py"
+      },
+      {
+        "component": "model.py:PromptEmbedding",
+        "description": "Maintains a set of trainable soft prompt tokens for cross-modal prompts.",
+        "file": "model.py"
+      },
+      {
+        "component": "utils.py:validate_config",
+        "description": "Validate essential configuration entries.",
+        "file": "utils.py"
+      }
+    ],
+    "Experiment Setup": [
+      {
+        "component": "dataset_loader.py:ProteinTextDataset",
+        "description": "Dataset class to handle loading, preprocessing, and serving data for different modes:\n    pretraining, finetuning, testing.",
+        "file": "dataset_loader.py"
+      },
+      {
+        "component": "dataset_loader.py:__init__",
+        "description": "Initialize dataset.\n        Args:\n            data_path (str): Path to the data file (JSONL or CSV).\n            mode (str): One of {'pretraining', 'finetuning', 'test'}.\n            config (dict): Configuration dictionary with dataset settings.",
+        "file": "dataset_loader.py"
+      }
+    ],
+    "Methods": [
+      {
+        "component": "dataset_loader.py:__init__",
+        "description": "Initialize dataset.\n        Args:\n            data_path (str): Path to the data file (JSONL or CSV).\n            mode (str): One of {'pretraining', 'finetuning', 'test'}.\n            config (dict): Configuration dictionary with dataset settings.",
+        "file": "dataset_loader.py"
+      },
+      {
+        "component": "evaluation.py:plot_fitness_trajectory",
+        "description": "Plot mean and std curve for the fitness scores across rounds.\n    Args:\n        fitness_scores: List of lists, each sublist corresponds to a round's scores for all proteins.\n        labels: Optional list of protein labels for x-axis.\n        title: plot title.\n        save_path: filepath to save figure, if None, just show.",
+        "file": "evaluation.py"
+      },
+      {
+        "component": "evaluation.py:plot_proposal_distribution",
+        "description": "Plot distribution of proposed mutations.",
+        "file": "evaluation.py"
+      },
+      {
+        "component": "model.py:ProteinPLM",
+        "description": "Wrapper for a pretrained protein language model (e.g., ESM-2).\n    Produces per-residue embeddings and optional pooled sequence embedding.",
+        "file": "model.py"
+      },
+      {
+        "component": "model.py:TextEncoder",
+        "description": "Encodes biomedical texts/prompts into dense feature vectors.",
+        "file": "model.py"
+      },
+      {
+        "component": "model.py:Heads",
+        "description": "Heads for mutation term prediction:\n    - Position head: predicts if position should mutate\n    - AA head: predicts mutated amino acid",
+        "file": "model.py"
+      },
+      {
+        "component": "model.py:ProteinDeltaEncoder",
+        "description": "Encodes mutation effects from `h_delta`.",
+        "file": "model.py"
+      },
+      {
+        "component": "model.py:ProteinDeltaDecoder",
+        "description": "Reconstructs mutation effects from z_delta and h_wt.",
+        "file": "model.py"
+      },
+      {
+        "component": "model.py:ProteinHead",
+        "description": "Overall mutation prediction heads combining position and amino acid heads.",
+        "file": "model.py"
+      },
+      {
+        "component": "model.py:ProteinDeltaNetwork",
+        "description": "The core encoder-decoder architecture modeling explicit mutations.",
+        "file": "model.py"
+      },
+      {
+        "component": "model.py:get_device",
+        "description": "Wrapper for a pretrained protein language model (e.g., ESM-2).\n    Produces per-residue embeddings and optional pooled sequence embedding.",
+        "file": "model.py"
+      }
+    ],
+    "Dataset": [
+      {
+        "component": "dataset_loader.py:__init__",
+        "description": "Initialize dataset.\n        Args:\n            data_path (str): Path to the data file (JSONL or CSV).\n            mode (str): One of {'pretraining', 'finetuning', 'test'}.\n            config (dict): Configuration dictionary with dataset settings.",
+        "file": "dataset_loader.py"
+      }
+    ],
+    "Results": [
+      {
+        "component": "evaluation.py:plot_fitness_trajectory",
+        "description": "Plot mean and std curve for the fitness scores across rounds.\n    Args:\n        fitness_scores: List of lists, each sublist corresponds to a round's scores for all proteins.\n        labels: Optional list of protein labels for x-axis.\n        title: plot title.\n        save_path: filepath to save figure, if None, just show.",
+        "file": "evaluation.py"
+      },
+      {
+        "component": "evaluation.py:plot_proposal_distribution",
+        "description": "Plot distribution of proposed mutations.",
+        "file": "evaluation.py"
+      },
+      {
+        "component": "model.py:ProteinPLM",
+        "description": "Wrapper for a pretrained protein language model (e.g., ESM-2).\n    Produces per-residue embeddings and optional pooled sequence embedding.",
+        "file": "model.py"
+      },
+      {
+        "component": "model.py:TextEncoder",
+        "description": "Encodes biomedical texts/prompts into dense feature vectors.",
+        "file": "model.py"
+      },
+      {
+        "component": "model.py:Heads",
+        "description": "Heads for mutation term prediction:\n    - Position head: predicts if position should mutate\n    - AA head: predicts mutated amino acid",
+        "file": "model.py"
+      },
+      {
+        "component": "model.py:ProteinDeltaEncoder",
+        "description": "Encodes mutation effects from `h_delta`.",
+        "file": "model.py"
+      },
+      {
+        "component": "model.py:ProteinDeltaDecoder",
+        "description": "Reconstructs mutation effects from z_delta and h_wt.",
+        "file": "model.py"
+      },
+      {
+        "component": "model.py:ProteinHead",
+        "description": "Overall mutation prediction heads combining position and amino acid heads.",
+        "file": "model.py"
+      },
+      {
+        "component": "model.py:ProteinDeltaNetwork",
+        "description": "The core encoder-decoder architecture modeling explicit mutations.",
+        "file": "model.py"
+      },
+      {
+        "component": "model.py:get_device",
+        "description": "Wrapper for a pretrained protein language model (e.g., ESM-2).\n    Produces per-residue embeddings and optional pooled sequence embedding.",
+        "file": "model.py"
+      }
+    ],
+    "Discussion": [
+      {
+        "component": "evaluation.py:plot_fitness_trajectory",
+        "description": "Plot mean and std curve for the fitness scores across rounds.\n    Args:\n        fitness_scores: List of lists, each sublist corresponds to a round's scores for all proteins.\n        labels: Optional list of protein labels for x-axis.\n        title: plot title.\n        save_path: filepath to save figure, if None, just show.",
+        "file": "evaluation.py"
+      },
+      {
+        "component": "evaluation.py:plot_proposal_distribution",
+        "description": "Plot distribution of proposed mutations.",
+        "file": "evaluation.py"
+      },
+      {
+        "component": "model.py:ProteinPLM",
+        "description": "Wrapper for a pretrained protein language model (e.g., ESM-2).\n    Produces per-residue embeddings and optional pooled sequence embedding.",
+        "file": "model.py"
+      },
+      {
+        "component": "model.py:TextEncoder",
+        "description": "Encodes biomedical texts/prompts into dense feature vectors.",
+        "file": "model.py"
+      },
+      {
+        "component": "model.py:Heads",
+        "description": "Heads for mutation term prediction:\n    - Position head: predicts if position should mutate\n    - AA head: predicts mutated amino acid",
+        "file": "model.py"
+      },
+      {
+        "component": "model.py:ProteinDeltaEncoder",
+        "description": "Encodes mutation effects from `h_delta`.",
+        "file": "model.py"
+      },
+      {
+        "component": "model.py:ProteinDeltaDecoder",
+        "description": "Reconstructs mutation effects from z_delta and h_wt.",
+        "file": "model.py"
+      },
+      {
+        "component": "model.py:ProteinHead",
+        "description": "Overall mutation prediction heads combining position and amino acid heads.",
+        "file": "model.py"
+      },
+      {
+        "component": "model.py:ProteinDeltaNetwork",
+        "description": "The core encoder-decoder architecture modeling explicit mutations.",
+        "file": "model.py"
+      },
+      {
+        "component": "model.py:get_device",
+        "description": "Wrapper for a pretrained protein language model (e.g., ESM-2).\n    Produces per-residue embeddings and optional pooled sequence embedding.",
+        "file": "model.py"
+      }
+    ],
+    "Results and Discussion": [
+      {
+        "component": "evaluation.py:plot_correlation_scatter",
+        "description": "Scatter plot for mutation scores against true effects.",
+        "file": "evaluation.py"
+      }
+    ],
+    "As an AI": [
+      {
+        "component": "main.py:main",
+        "description": "",
+        "file": "main.py"
+      },
+      {
+        "component": "utils.py:DummyDataset",
+        "description": "",
+        "file": "utils.py"
+      },
+      {
+        "component": "utils.py:lr_lambda",
+        "description": "",
+        "file": "utils.py"
+      }
+    ],
+    "I need more specific information about the code component and its functionality to accurately link it to the relevant paper sections. The provided information does not give any details about the function in the file main.py. Please provide more details.": [
+      {
+        "component": "main.py:main",
+        "description": "",
+        "file": "main.py"
+      }
+    ],
+    "Implementation Details": [
+      {
+        "component": "model.py:PromptEmbedding",
+        "description": "Maintains a set of trainable soft prompt tokens for cross-modal prompts.",
+        "file": "model.py"
+      },
+      {
+        "component": "utils.py:validate_config",
+        "description": "Validate essential configuration entries.",
+        "file": "utils.py"
+      }
+    ],
+    "Experiment and Results": [
+      {
+        "component": "model.py:PromptEmbedding",
+        "description": "Maintains a set of trainable soft prompt tokens for cross-modal prompts.",
+        "file": "model.py"
+      }
+    ],
+    "As the code component and its description are not provided": [
+      {
+        "component": "trainer.py:evaluate",
+        "description": "",
+        "file": "trainer.py"
+      },
+      {
+        "component": "utils.py:__len__",
+        "description": "",
+        "file": "utils.py"
+      }
+    ],
+    "it's impossible to determine the most relevant paper sections. Please provide more details.": [
+      {
+        "component": "trainer.py:evaluate",
+        "description": "",
+        "file": "trainer.py"
+      },
+      {
+        "component": "utils.py:__len__",
+        "description": "",
+        "file": "utils.py"
+      }
+    ],
+    "I need more specific information about the code component and its functionality to accurately link it to the paper sections. The provided information is not sufficient to make a proper analysis.": [
+      {
+        "component": "utils.py:DummyDataset",
+        "description": "",
+        "file": "utils.py"
+      }
+    ],
+    "I need more specific information about the function in the file utils.py to accurately determine which sections of the paper are most relevant. The provided information is not sufficient to make a precise judgement.": [
+      {
+        "component": "utils.py:lr_lambda",
+        "description": "",
+        "file": "utils.py"
+      }
+    ],
+    "System Configuration": [
+      {
+        "component": "utils.py:validate_config",
+        "description": "Validate essential configuration entries.",
+        "file": "utils.py"
+      }
+    ]
+  },
+  "paper_sections": [
+    {
+      "section": "Abstract",
+      "text": "Yizhen Luo1,2,\u2020, Zikun Nie1,2,\u2020, Massimo Hong1,2, Suyuan Zhao1,2, Hao Zhou1,\u2217, Zaiqing Nie1,3,\u2217 1Institute of AI Industry Research (AIR), Tsinghua University   \n2Department of Computer Science and Technology, Tsinghua University 3Pharmolix Inc.   \n{yz-luo22,nzk24,hongcd21,zhaosy23}@mails.tsinghua.edu.cn {zhouhao,zaiqing}@air.tsinghua.edu.cn",
+      "ontology": "abstract"
+    }
+  ],
+  "coverage_score": 17.0
+}

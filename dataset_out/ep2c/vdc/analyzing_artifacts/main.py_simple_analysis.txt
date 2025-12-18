@@ -1,0 +1,183 @@
+# Logic Analysis for `main.py` — High-Level Orchestrator
+
+This file functions as the central controller that manages the entire process flow for dataset loading, question generation, inference, detection, and model retraining, relying on the modular design previously outlined. The following analysis provides a step-by-step understanding of the required logic, flow, data dependencies, and control structures necessary to realize the script according to the paper’s methodology and design specifications.
+
+---
+
+## 1. Initialization and Configuration Loading
+
+- **Load configuration (`config.yaml`):** Use a configuration parser to load all hyperparameters, dataset paths, model parameters, API keys, thresholds, and flags controlling process steps (e.g., whether to retrain).
+- **Set up environment:**
+  - Verify required packages (`torch`, `transformers`, `requests`, etc.) are installed.
+  - Confirm API access tokens for OpenAI GPT are available if using GPT-4 via API.
+- **Instantiate core component classes:**
+  - `DatasetLoader`
+  - `PromptGenerator`
+  - `ModelInference`
+  - `Evaluator`
+
+*Purpose:* Centralize parameter-driven behavior and prepare modules for execution.
+
+---
+
+## 2. Dataset Loading and Preparation
+
+- **Select dataset(s) to process:** Based on configuration, e.g.,
+  - CIFAR-10
+  - ImageNet-100
+  - ImageNet-Dog
+- **Load datasets:**
+  - Call `DatasetLoader.load_data()` with dataset-specific parameters.
+  - Data includes images, true labels, training/test splits.
+  
+- **Apply poisoning/noise if specified:**
+  - For poisoned: invoke `DatasetLoader.apply_poisoning(poison_params)` with triggers and embedding info.
+  - For noisy labels: invoke `DatasetLoader.apply_noisy_labels(noise_params)` with noise type and ratio.
+- **Result:** A dataset (`dataset`) with mixed clean and dirty samples, annotated internally via labels.
+
+*Purpose:* Obtain the initial dataset, possibly contaminated, for further analysis.
+
+---
+
+## 3. Question Generation for Each Sample
+
+- **Iterate over dataset samples:**
+
+  For each sample `(image, label)`:
+  
+  - **Generate general questions:**
+    - Call `PromptGenerator.generate_general_questions(label, questions_per_sample)`
+  - **Generate label-specific questions:**
+    - Call `PromptGenerator.generate_label_specific_questions(label, questions_per_sample)`
+  - **Collect questions:**
+    - Maintain per-sample list: `questions_list` (e.g., concatenating both question types)
+
+*Design Consideration:*
+- Batch question prompts if API call overhead is a concern.
+- For large datasets, consider batching or sampling.
+
+*Purpose:* Create prompts that will elicit semantic responses about the visual content aligned with the label.
+
+---
+
+## 4. Answering Questions Using Multimodal LLM
+
+- **Per sample, per question:**
+
+  - Call `ModelInference.answer_questions(image, questions)`.
+  
+- **Aggregate answers:**
+  - Generate a list of answers `answers_list`.
+  
+- **Answer response:**
+  - Responses are strings, processed for correctness evaluation and similarity scoring.
+
+*Design Consideration:*
+- Use API calls for each sample or batch if supported.
+- Handle API rate limits and errors gracefully.
+
+*Purpose:* Obtain semantic responses from the MLLM for each visual question.
+
+---
+
+## 5. Evaluation of Answers and Semantic Consistency
+
+- **Per question:**
+
+  - Evaluate correctness: 
+    - For deterministic answers (label-specific), use string matching (“yes”/“no”) directly.
+    - For free-form (general questions), invoke `ModelInference.evaluate_response(question, answer, label)` which internally calls GPT to determine correctness.
+  - Obtain a boolean `is_correct` and optional similarity score `similarity`.
+  
+- **Per sample:**
+
+  - Calculate `sample_score = (Number of correct answers) / (Total questions)`
+  
+- **Comparison with threshold (`detection_threshold`):**
+
+  - Classify each sample:
+    - If `sample_score < threshold`, label as **dirty**
+    - Else, label as **clean**
+
+*Design considerations:*
+- Store classifications for dataset filtering.
+- Record per-sample scores and correctness details for further analysis.
+
+*Purpose:* Quantify the semantic inconsistency that indicates whether a sample is dirty or clean.
+
+---
+
+## 6. Aggregate Detection Results and Generate Final Sample Labels
+
+- **For each sample:**
+  - Confirm if dirty (threshold-based detection)
+  - Accumulate statistics: number/ratio of samples flagged as dirty.
+  
+- **Output:**
+  - Saved dataset with clean/dirty labels.
+  - Optional: generate reports or logs of the detection process, per-sample scores.
+
+*Purpose:* Identification of dirty samples for dataset purification.
+
+---
+
+## 7. Optional: Retrain Classifier on Purified Dataset
+
+- **Filtering:**
+  - Remove identified dirty samples from the dataset.
+- **Retraining:**
+  - Initialize a classifier (e.g., ResNet-18 as per experiment).
+  - Train for specified epochs (`training.epochs`)
+  - Use hyperparameters:
+    - Optimizer: `SGD` with `learning_rate`
+    - Batch size
+    - Decay schedule if applicable
+- **Evaluate:**
+  - On the test set, record:
+    - Clean accuracy (`ACC`)
+    - Attack Success Rate (`ASR`) if backdoor attack present
+  
+*Purpose:* Verify that dataset purification improves downstream model performance and robustness.
+
+---
+
+## 8. Final Reports and Output
+
+- **Write detection metrics:**
+  - TPR, FPR for detection performance.
+- **Results after retraining:**
+  - Comparison of accuracy, attack success rate.
+- **Optional Visualizations or logs:**
+  - Plot detection thresholds vs. TPR/FPR
+  - Log per-sample scores and detection states
+- **Save all relevant outputs:** detection results, models, logs.
+
+---
+
+## 9. Error Handling & Robustness Measures
+
+- Wrap API calls in try/except blocks.
+- Log and handle missing models, API failures.
+- Confirm dataset dimensions and labels match assumptions.
+
+---
+
+## 10. Summary of Dependencies & Sequence
+
+- **Sequence overview:**
+  1. Load config
+  2. Initialize modules
+  3. Load and prepare dataset
+  4. For each sample:
+     - Generate questions
+     - Answer questions
+     - Evaluate correctness and similarity
+     - Compute sample score
+     - Classify sample
+  5. Aggregate detection results
+  6. (Optional) Retrain classifier
+  7. Save results and logs
+
+---
+
+This detailed logical blueprint ensures that `main.py` will orchestrate all components correctly, following the methodology's intent and design constraints, regardless of the dataset or attack type. It emphasizes modularity, extensibility, and clarity, aligning perfectly with the experimental framework described in the paper.

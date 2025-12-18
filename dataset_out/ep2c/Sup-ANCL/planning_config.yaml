@@ -1,0 +1,44 @@
+training:
+  learning_rate: 0.05               # For toy dataset, SGD with cosine schedule
+  batch_size: 256                   # Toy dataset batch size
+  epochs: 200                       # Number of epochs for toy training and ImageNet-100 pretraining
+
+pretraining:
+  dataset: ImageNet-100            # Dataset for pretraining (ResNet-50 backbone)
+  optimizer: SGD                   # Optimization algorithm
+  weight_decay: 1e-4               # Weight decay regularization
+  momentum: 0.9                    # Momentum term
+  base_lr: 0.03                    # Learning rate for ResNet-50
+  scheduler: cosine                # Cosine learning rate schedule
+  total_epochs: 200                # Pretraining epochs
+
+model:
+  backbone: ResNet50               # Encoder architecture
+  projection_dim: 128              # Dimension of projection head output
+  predictor_dim: 4096              # Hidden dimension for predictor
+  predictor_layers: 2              # Number of layers in predictor
+
+loss:
+  alpha: 0.5                       # Balance between ssl and supervised loss
+  temperature: 0.1                 # For contrastive/distances in losses
+  pool_size: 8192                  # Size of class feature pools
+  sampling_pos: all                # Sample all positives or M positives per class
+  covariance_regularization: false # Optional covariance regularization (default false)
+
+pool:
+  pool_type: class_specific        # Use class-specific queues for positives
+  update_with_ema: true            # Use EMA update for target pool in SUPBYOL
+  pool_size: 8192                  # Pool vector size
+
+training_details:
+  dataset_loader: torchvision       # Load datasets via torchvision
+  augmentations: standard           # Standard augmentation pipeline
+  seed: 42                          # Random seed for reproducibility
+
+evaluation:
+  downstream_tasks: linear_probe    # Linear classifier on frozen features
+  few_shot_tasks: true               # Few-shot classification settings
+  metrics: accuracy                 # Metrics to evaluate
+
+dependencies:
+  requirements: ["torch==1.12.1", "torchvision==0.13.1", "numpy==1.21.0", "scipy==1.7.3", "matplotlib==3.5.1", "tqdm==4.64.1", "scikit-learn==0.24.2"]

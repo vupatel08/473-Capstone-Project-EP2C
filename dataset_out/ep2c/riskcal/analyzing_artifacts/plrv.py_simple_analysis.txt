@@ -1,0 +1,97 @@
+{
+  "file": "plrv.py",
+  "purpose": "Implement classes and functions to construct, handle, and analyze Privacy Loss Random Variables (PLRVs) from mechanisms’ distributions, supporting both exact formulations (Gaussian) and discretized approximations (privacy profiles or accountant outputs). This module facilitates the calculation of log ratios, support points, and probabilities needed for trade-off curve evaluation and operational risk calibration.",
+  "core components": [
+    {
+      "class": "PLRV",
+      "description": "Encapsulates a privacy loss random variable with support points and associated probabilities, supporting operations like computing log ratios, support support points, and probability mass functions.",
+      "attributes": {
+        "support_points": "Array of support values (e.g., log ratios).",
+        "probabilities": "Array of probabilities corresponding to support points.",
+        "support_support": "Optional; the actual support set, including discrete points and possibly infinities."
+      },
+      "methods": [
+        {
+          "name": "from_distributions",
+          "purpose": "Construct PLRV support from two distributions P and Q, either via analytical formulas (for Gaussian mechanisms) or discretization of privacy profile curves (for mechanisms with accountant access).",
+          "inputs": [
+            "distributions P and Q: support points and pmfs (for discrete case) or mechanisms to generate these supports.",
+            "mechanism type: e.g., 'Gaussian' or 'Profile' (discretized profile).",
+            "discretization parameters: granularity, support bounds, number of points (k).",
+            "error tolerance: optional, for controlling discretization accuracy."
+          ],
+          "outputs": "PLRV instance with support points and probabilities."
+        },
+        {
+          "name": "compute_log_ratios",
+          "purpose": "Calculate the log ratio log(Q(o)/P(o)) for each support point o, necessary for deriving privacy loss support support.",
+          "inputs": "None; operates on the support points provided.",
+          "outputs": "Array of log ratios, supports supports with possible infinities."
+        },
+        {
+          "name": "get_support",
+          "purpose": "Return support points, support probabilities, and support support set, essential for constructing dominance pairs and curve evaluation.",
+          "inputs": "None.",
+          "outputs": [
+            "support_points",
+            "probabilities",
+            "support_support"
+          ]
+        },
+        {
+          "name": "probability_mass",
+          "purpose": "Retrieve the probability mass function (pmf) over support points, either explicitly or via interpolation if discretized.",
+          "inputs": "None.",
+          "outputs": [
+            "a dictionary or array mapping support points to pmfs."
+          ]
+        },
+        {
+          "name": "edge_support",
+          "purpose": "Handle potential infinities in support, e.g., support at -∞ or +∞, or support supported at boundary points, as per referenced algorithms and theory.",
+          "inputs": "None.",
+          "outputs": "Support with infinities properly included."
+        },
+        {
+          "name": "get_cdf_support",
+          "purpose": "Return the cumulative distribution over support points, for threshold quantile calculations and Neyman–Pearson tests.",
+          "inputs": "None.",
+          "outputs": "CDF over support points, supports support as cumulative distribution array."
+        }
+      ],
+      "additional functions": [
+        {
+          "name": "discretize_privacy_profile",
+          "purpose": "Convert a mechanism’s privacy profile curve \(\varepsilon (\delta)\) or \(\delta (\varepsilon)\) into a discretized PMF of PRLV supports, using Algorithm 7 from Doroshenko et al. (2022).",
+          "inputs": [
+            "privacy profile curve data: arrays of \(\varepsilon\) and \(\delta\).",
+            "discretization parameters: bounds, granularity \(\Delta\), number of points k.",
+            "support bounds: min and max of support for X and Y.",
+            "mechanism type: e.g., Gaussian, or accountant-based"
+          ],
+          "outputs": "PMFs for \(X\) and \(Y\) support points with associated probabilities."
+        },
+        {
+          "name": "support_support_points",
+          "purpose": "Generate and return the support support set for the PLRV, properly handling finite supports, infinities, and possible support truncations.",
+          "inputs": "Support points array, optional thresholds.",
+          "outputs": "Support support array including notes on infinities."
+        }
+      ],
+      "design notes": [
+        "Construct PLRVs from mechanisms: for Gaussian mechanisms, directly compute the log ratio at the support-optimized \(\sigma\); for discretized profiles, generate support points and pmfs according to Algorithm 7.",
+        "Support points should be sorted, and probabilities normalized.",
+        "Infinities are supported and handled explicitly in support sets.",
+        "Methods should validate the support's consistency (non-negativity, sum to 1).",
+        "Maintain flexibility to support different mechanism classes depending on usage, enabling build-in analytical formulas or APIs calling privacy accountant modules.",
+        "This module's output is used downstream in Algorithm 1 for trade-off curve evaluation, and in mechanism calibration routines."
+      ]
+    }
+  ],
+  "additional considerations": [
+    "Ensure proper support for entropy and log ratio calculations, including handling \(\log 0\) (support at support support at infinities must be handled carefully).",
+    "Provide utility methods for discretization resolution control and support support augmentation if mechanism distributions have support at mixed finite/infinite points.",
+    "Design classes/functions to be compatible and easily integrable with the overarching Python package architecture, enabling composition and validation."
+  ],
+  "summary": "The plrv.py module is central for constructing and manipulating privacy loss random variables in both analytical (Gaussian) and approximate (discretized profile) forms. It provides support support extraction, log ratio calculations, and utilities for threshold-based trade-off curve evaluation, enriching the overall calibration framework with precise operational risk assessments."
+}
