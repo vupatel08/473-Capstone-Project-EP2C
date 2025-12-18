@@ -64,6 +64,7 @@ cd Backend
 ```bash
 OPENAI_API_KEY=your_key_here
 ```
+**Note:** We have a `.env.example` file you can just copy
 
 
 ### Either Run Web App Run or Run via CLI 
