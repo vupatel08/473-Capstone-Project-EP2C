@@ -348,6 +348,12 @@ if explanation_dir not in sys.path:
 try:
     from explainability_pipeline import ExplainabilityPipeline
     
+    # Display explanation phase header
+    print("\n" + "="*70)
+    print("[4/4] EXPLANATION PHASE")
+    print("="*70)
+    print("Generating explanation layer (traceability maps, documentation, metrics)...\n")
+    
     # Ensure output_repo_dir exists (it should, but ensure it does)
     os.makedirs(output_repo_dir, exist_ok=True)
     
@@ -457,6 +463,10 @@ try:
         print(f"   Traceability map: {explanation_output_dir}/traceability_map.json")
         print(f"   Missing info: {explanation_output_dir}/missing_information.json")
         print(f"   Metrics: {explanation_output_dir}/explainability_metrics.json")
+        
+        print("\n" + "="*70)
+        print("EXPLANATION PHASE COMPLETE")
+        print("="*70 + "\n")
         
 except ImportError as e:
     print(f"❌ Error: Could not import explanation pipeline: {e}")

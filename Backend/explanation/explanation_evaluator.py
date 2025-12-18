@@ -73,7 +73,12 @@ class ExplanationEvaluator:
     ) -> float:
         """Calculate how much of the paper is covered by code."""
         if "coverage_score" in traceability_map:
-            return traceability_map["coverage_score"]
+            coverage = traceability_map["coverage_score"]
+            # Normalize: if coverage > 1.0, it's likely a percentage, divide by 100
+            if coverage > 1.0:
+                coverage = coverage / 100.0
+            # Ensure it's between 0.0 and 1.0
+            return max(0.0, min(1.0, coverage))
         return 0.0
     
     def calculate_comment_density(self, generated_code: Dict[str, str]) -> float:

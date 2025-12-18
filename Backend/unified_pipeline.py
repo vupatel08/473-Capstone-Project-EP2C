@@ -451,7 +451,7 @@ def _run_planning_phase(
         True if successful, False otherwise
     """
     print("\n" + "="*70)
-    print("[1/3] PLANNING PHASE")
+    print("[1/4] PLANNING PHASE")
     print("="*70)
     print("Generating overall plan, architecture design, logic design, and config...\n")
     
@@ -508,7 +508,7 @@ def _run_analysis_phase(
         True if successful, False otherwise
     """
     print("\n" + "="*70)
-    print("[2/3] ANALYSIS PHASE")
+    print("[2/4] ANALYSIS PHASE")
     print("="*70)
     print("Performing detailed logic analysis for each file...\n")
     
@@ -563,9 +563,9 @@ def _run_coding_phase(
         True if successful, False otherwise
     """
     print("\n" + "="*70)
-    print("[3/3] CODING PHASE")
+    print("[3/4] CODING PHASE")
     print("="*70)
-    print("Generating code files and explanation layer...\n")
+    print("Generating code files...\n")
     
     # Build command for coding phase
     coding_cmd = [
