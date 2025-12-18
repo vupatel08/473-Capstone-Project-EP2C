@@ -515,7 +515,7 @@ def main():
             ))
 
     out = [asdict(s) for s in symbols]
-    Path(args.out).write_text(json.dumps(out, ensure_ascii=False, indent=2))
+    Path(args.out).write_text(json.dumps(out, ensure_ascii=False, indent=2), encoding="utf-8")
     print(f"Wrote {args.out} with {len(symbols)} symbols")
 
 if __name__ == "__main__":
