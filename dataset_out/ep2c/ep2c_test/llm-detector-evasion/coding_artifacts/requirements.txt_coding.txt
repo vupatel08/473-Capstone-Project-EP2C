@@ -1,8 +1,0 @@
-# requirements.txt
-
-transformers==4.29.1  
-torch==2.0.0  
-numpy==1.23.5  
-scipy==1.10.1  
-tqdm==4.65.0  
-requests==2.31.0
