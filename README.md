@@ -25,7 +25,7 @@ EP2C converts research papers into executable code repositories with an integrat
 
 
 ## Usage
-
+Note, Python 3.11.9 or LESS is required.
 
 ### Clone the Repoistory
 ```bash
